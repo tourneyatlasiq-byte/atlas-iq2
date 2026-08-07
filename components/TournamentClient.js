@@ -9,6 +9,9 @@ import {
 } from "../lib/actions/tournaments";
 
 const DECISIONS = ["Considering", "Committed", "Declined"];
+// Display order differs from the value list: Committed first, since that is
+// what a coach checks before anything else.
+const GROUP_ORDER = ["Committed", "Considering", "Declined"];
 const PAID_STATUSES = ["Not Registered", "Registered", "Deposit Paid", "Paid in Full"];
 const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay"];
 
@@ -37,7 +40,7 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
   const [pending, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState({ Declined: true });
 
-  const groups = DECISIONS.map((d) => ({
+  const groups = GROUP_ORDER.map((d) => ({
     decision: d,
     rows: tournaments.filter((t) => t.decision === d),
   }));
@@ -246,7 +249,7 @@ function Row({ label, value }) {
   return (
     <div className="detail-row">
       <span className="detail-row-label">{label}</span>
-      <span className="detail-row-value">{empty ? <span className="muted">\u2014</span> : value}</span>
+      <span className="detail-row-value">{empty ? <span className="muted">—</span> : value}</span>
     </div>
   );
 }
@@ -368,7 +371,7 @@ function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onS
                 <Row label="Final placement" value={t.placement} />
                 <Row
                   label="Rating"
-                  value={t.overall_rating ? `${"\u2605".repeat(t.overall_rating)}${"\u2606".repeat(5 - t.overall_rating)}` : null}
+                  value={t.overall_rating ? `${"★".repeat(t.overall_rating)}${"☆".repeat(5 - t.overall_rating)}` : null}
                 />
                 <Row
                   label="Play again?"
