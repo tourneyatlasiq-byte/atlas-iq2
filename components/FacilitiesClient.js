@@ -205,6 +205,16 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
         )}
       </div>
 
+      {ourCount === 0 && (
+        <div className="card facility-prompt">
+          <strong>Search for a venue you've played, open it, then add your notes.</strong>
+          <span>
+            Your notes stay private to your team — parking, gate entry, concessions, anything
+            you'll want to remember next time.
+          </span>
+        </div>
+      )}
+
       <div className="view-toggle-row">
       <div className="segmented view-toggle" role="group" aria-label="Which facilities to show">
         <button

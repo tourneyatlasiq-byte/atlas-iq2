@@ -33,6 +33,9 @@ export default async function WelcomePage() {
 
         <h1 className="welcome-title">Welcome to Atlas IQ</h1>
         <p className="welcome-lead">Set up your team and start running your season.</p>
+        <p className="welcome-value">
+          Run your team, tournaments, money, and season in one place.
+        </p>
 
         <div className="card">
           <p className="welcome-sub">This only takes a couple of minutes.</p>

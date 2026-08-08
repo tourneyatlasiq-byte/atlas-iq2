@@ -28,7 +28,21 @@ async function pickers(seasonId, organizationId) {
   };
 }
 
-export default async function FinancePage() {
+/**
+ * Maps a URL tab name to the internal key. Accepts the readable form used in
+ * links ("player-payments") as well as the internal one, so a link can say
+ * what it means without the component renaming its own state.
+ */
+const TAB_ALIASES = {
+  budget: "budget",
+  "funds-in": "funds",
+  funds: "funds",
+  transactions: "transactions",
+  "player-payments": "payments",
+  payments: "payments",
+};
+
+export default async function FinancePage({ searchParams }) {
   const { profile, organization, season } = await getContext();
 
   if (!season) {
@@ -52,6 +66,10 @@ export default async function FinancePage() {
 
   const budget = buildBudget(budgetItems, transactions);
 
+  // Awaited so this works whether searchParams is a plain object (Next 14) or
+  // a promise (Next 15). Awaiting a non-promise simply returns it.
+  const requestedTab = TAB_ALIASES[(await searchParams)?.tab] ?? "budget";
+
   return (
     <FinanceClient
       budget={budget}
@@ -67,6 +85,7 @@ export default async function FinancePage() {
       facilities={picks.facilities}
       canWrite={canWrite(profile)}
       seasonName={season.name}
+      initialTab={requestedTab}
     />
   );
 }

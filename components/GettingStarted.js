@@ -21,7 +21,7 @@ export function GettingStarted({ steps }) {
   const done = steps.filter((s) => s.done).length;
   if (hidden || done === steps.length) return null;
 
-  const next = steps.find((s) => !s.done);
+  const next = steps.find((s) => !s.done && s.href);
 
   return (
     <div className="card getting-started">
@@ -55,7 +55,7 @@ export function GettingStarted({ steps }) {
               <span className="gs-title">{s.title}</span>
               <span className="gs-detail">{s.detail}</span>
             </span>
-            {!s.done && (
+            {!s.done && s.href && (
               <Link
                 href={s.href}
                 className={`btn ${s.id === next?.id ? "btn-primary" : "btn-secondary"} gs-cta`}

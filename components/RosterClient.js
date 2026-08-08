@@ -5,7 +5,6 @@ import { NeedsAction, FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { DocumentSection } from "./DocumentSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
-import { HelpTip } from "./HelpTip";
 import {
   addRosterMember,
   assignExistingPlayer,
@@ -137,7 +136,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       <div className="page-head">
         <div>
           <h1>Team</h1>
-          <div className="page-sub">{seasonName} roster</div>
+          <div className="page-sub">{MODULE_DESCRIPTIONS.team}</div>
         </div>
         {canWrite && (
           <button className="btn btn-primary" onClick={() => setAdding(true)}>

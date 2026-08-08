@@ -38,7 +38,9 @@ export function WelcomeForm({ defaultSeason }) {
           autoComplete="organization"
           placeholder="Armor Elite"
         />
-        <p className="field-note">The club your team plays under.</p>
+        <p className="field-note">
+          If your team isn't part of a club or organization, use your team name here.
+        </p>
       </div>
 
       <div className="field">
@@ -55,7 +57,9 @@ export function WelcomeForm({ defaultSeason }) {
       <div className="field">
         <label htmlFor="season_name">Season</label>
         <input id="season_name" name="season_name" required defaultValue={defaultSeason} />
-        <p className="field-note">Change this if your season runs differently.</p>
+        <p className="field-note">
+          We've filled in the current season for you. Change it if yours runs differently.
+        </p>
       </div>
 
       <button type="submit" className="btn btn-primary welcome-submit" disabled={pending}>
