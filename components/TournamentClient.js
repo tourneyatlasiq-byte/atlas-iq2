@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   addTournament,
   updateTournament,
@@ -27,6 +27,15 @@ function dateRange(start, end) {
   return `${f(start)} – ${f(end)}, ${year}`;
 }
 
+/** "Facility — City, ST", falling back to the free-text location. */
+function placeLine(t) {
+  const cityState = t.facility
+    ? [t.facility.city, t.facility.state].filter(Boolean).join(", ")
+    : null;
+  if (t.facility?.name) return [t.facility.name, cityState].filter(Boolean).join(" \u2022 ");
+  return t.location ?? null;
+}
+
 const paidClass = (s) =>
   s === "Paid in Full" ? "pill-paid"
   : s === "Deposit Paid" ? "pill-deposit"
@@ -39,6 +48,27 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState({ Declined: true });
+
+  const overlayOpen = Boolean(detail || editing);
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+
+    function onKey(e) {
+      if (e.key !== "Escape") return;
+      if (editing) setEditing(null);
+      else setDetail(null);
+    }
+
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [overlayOpen, editing]);
 
   const groups = GROUP_ORDER.map((d) => ({
     decision: d,
@@ -129,7 +159,7 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
       {/* 2. Needs Action — only when non-empty */}
       {actions.length > 0 && (
         <div className="card action-band">
-          <h2>Needs action</h2>
+          <h2>Needs Action</h2>
           <ul className="action-list">
             {actions.map(({ t, reason, urgency }) => (
               <li key={t.id}>
@@ -149,7 +179,7 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
         <div className="card">
           <div className="empty">
             <h3>No tournaments yet</h3>
-            <p>Add the first option you're weighing for this season.</p>
+            <p>Add the first event you're weighing up for this season. Name and start date are enough to get it on the board.</p>
             {canWrite && (
               <button className="btn btn-primary" onClick={() => setEditing("new")}>
                 Add tournament
@@ -265,18 +295,26 @@ function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onS
         onClick={(e) => e.stopPropagation()}
       >
         <div className="drawer-head">
-          <div>
+          <div className="drawer-head-text">
             <h2 id="t-detail-title">{t.name}</h2>
-            <div className="page-sub">{dateRange(t.start_date, t.end_date)}</div>
+            <div className="drawer-head-meta">
+              <span className="drawer-head-dates">{dateRange(t.start_date, t.end_date)}</span>
+              {t.provider?.name && <span>{t.provider.name}</span>}
+              {placeLine(t) && <span>{placeLine(t)}</span>}
+            </div>
+            <div className="drawer-head-pills">
+              <span className={`pill decision-pill-${t.decision.toLowerCase()}`}>{t.decision}</span>
+              <span className={`pill ${paidClass(t.paid_status)}`}>{t.paid_status}</span>
+            </div>
           </div>
-          <button className="btn btn-ghost" onClick={onClose} aria-label="Close">✕</button>
+          <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div className="drawer-body">
           {canWrite && (
             <div className="status-controls">
               <div className="field">
-                <label htmlFor="d-decision">Decision</label>
+                <label htmlFor="d-decision">Decision status</label>
                 <select
                   id="d-decision"
                   value={t.decision}
@@ -287,7 +325,7 @@ function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onS
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="d-paid">Registration</label>
+                <label htmlFor="d-paid">Registration status</label>
                 <select
                   id="d-paid"
                   value={t.paid_status}
@@ -301,19 +339,19 @@ function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onS
           )}
 
           <Section title="Overview">
-            <Row label="Provider" value={t.provider?.name} />
+            <Row label="Tournament Provider" value={t.provider?.name} />
             <Row label="Age division" value={t.age_division} />
             <Row label="Type" value={t.tournament_type} />
             <Row label="Guaranteed games" value={t.guaranteed_games} />
             <Row label="Dates" value={dateRange(t.start_date, t.end_date)} />
             <Row label="City / State" value={t.location} />
-            <Row label="Decision" value={t.decision} />
+            {!canWrite && <Row label="Decision status" value={t.decision} />}
             <Row label="Travel" value={t.travel_type} />
           </Section>
 
           <Section title="Registration">
             <Row label="Deadline" value={t.registration_deadline ? dateRange(t.registration_deadline) : null} />
-            <Row label="Status" value={t.paid_status} />
+            {!canWrite && <Row label="Registration status" value={t.paid_status} />}
             <Row
               label="Event page"
               value={
@@ -365,23 +403,23 @@ function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onS
             </p>
           </Section>
 
-          <Section title="History">
+          <Section title="Post Tournament Review">
             {t.placement || t.overall_rating || t.would_play_again !== null || t.history_notes ? (
               <>
                 <Row label="Final placement" value={t.placement} />
                 <Row
-                  label="Rating"
+                  label="Overall rating"
                   value={t.overall_rating ? `${"★".repeat(t.overall_rating)}${"☆".repeat(5 - t.overall_rating)}` : null}
                 />
                 <Row
-                  label="Play again?"
+                  label="Would play again"
                   value={t.would_play_again === null ? null : t.would_play_again ? "Yes" : "No"}
                 />
-                <Row label="Notes" value={t.history_notes} />
+                <Row label="Review notes" value={t.history_notes} />
               </>
             ) : (
               <p className="section-body muted">
-                Not evaluated yet. Add a placement and rating after the event.
+                Not reviewed yet. Add a placement and rating once the tournament is played.
               </p>
             )}
           </Section>
@@ -406,8 +444,14 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
   const total = (Number(entry) || 0) + (Number(gate) || 0);
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="t-form-title">
-      <div className="modal modal-wide">
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="t-form-title"
+      onClick={onCancel}
+    >
+      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <form action={onSubmit}>
           {row && <input type="hidden" name="id" value={row.id} />}
 
@@ -439,7 +483,7 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
 
             <div className="field-row">
               <div className="field">
-                <label htmlFor="tournament_provider_id">Provider</label>
+                <label htmlFor="tournament_provider_id">Tournament Provider</label>
                 <select id="tournament_provider_id" name="tournament_provider_id"
                         defaultValue={row?.provider?.id ?? ""}>
                   <option value="">—</option>
@@ -511,13 +555,13 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
 
             <div className="field-row">
               <div className="field">
-                <label htmlFor="decision">Decision</label>
+                <label htmlFor="decision">Decision status</label>
                 <select id="decision" name="decision" defaultValue={row?.decision ?? "Considering"}>
                   {DECISIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="paid_status">Registration</label>
+                <label htmlFor="paid_status">Registration status</label>
                 <select id="paid_status" name="paid_status" defaultValue={row?.paid_status ?? "Not Registered"}>
                   {PAID_STATUSES.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -551,7 +595,7 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
                         defaultValue={row?.notes ?? ""} />
             </div>
 
-            <div className="form-divider">After the event</div>
+            <div className="form-divider">Post tournament review</div>
 
             <div className="field-row">
               <div className="field">
