@@ -1474,6 +1474,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 .home-band .briefing {
   background: var(--surface); border-radius: 12px; padding: 16px 14px;
 }
+.home-band .briefing-is-clear { align-self: start; }
 
 /* --- Next Up: an event briefing, not a navy card --- */
 .nextup {
@@ -1562,7 +1563,16 @@ a.help-task.featured:hover { background: #eef4fe; }
 .briefing-where { display: block; font-size: 12.5px; color: var(--blue); margin-top: 2px; font-weight: 600; }
 .briefing-more { font-size: 12.5px; color: var(--slate); margin: 10px 6px 0; }
 
-.briefing-clear { padding: 16px 6px; }
+.briefing-clear {
+  padding: 20px 6px 18px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.briefing-clear-good::before {
+  content: "✓"; font-size: 15px; font-weight: 800; color: var(--status-good);
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #e8f6ea; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px;
+}
 .briefing-clear-title { font-size: 15px; font-weight: 700; color: var(--status-good); margin: 0; }
 .briefing-clear-sub { font-size: 13px; color: var(--slate); margin: 3px 0 0; }
 

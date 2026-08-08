@@ -151,7 +151,7 @@ function NextUp({ nextUp }) {
 function Briefing({ actions, seasonPhase }) {
   if (seasonPhase !== "current") {
     return (
-      <section className="briefing">
+      <section className="briefing briefing-is-clear">
         <p className="briefing-title">Needs action</p>
         <div className="briefing-clear">
           <p className="briefing-clear-title">
@@ -169,9 +169,9 @@ function Briefing({ actions, seasonPhase }) {
 
   if (!actions?.visible?.length) {
     return (
-      <section className="briefing">
+      <section className="briefing briefing-is-clear">
         <p className="briefing-title">Needs action</p>
-        <div className="briefing-clear">
+        <div className="briefing-clear briefing-clear-good">
           <p className="briefing-clear-title">You&rsquo;re up to date</p>
           <p className="briefing-clear-sub">Nothing needs your attention right now.</p>
         </div>
