@@ -268,9 +268,11 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-display); font-weight: 700; font-size: 13px;
   letter-spacing: 0.06em; text-transform: uppercase;
 }
-.decision-committed { color: var(--green); }
-.decision-considering { color: var(--navy); }
-.decision-declined { color: var(--slate); }
+/* Decision status: one palette used everywhere it appears.
+   Committed green · Considering blue · Declined red. */
+.decision-committed { color: #1f7a33; }
+.decision-considering { color: #2a5fc4; }
+.decision-declined { color: #b3382c; }
 .group-count {
   background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
   padding: 1px 8px; font-size: 11.5px; color: var(--slate); font-weight: 600;
@@ -417,9 +419,34 @@ a { color: inherit; text-decoration: none; }
 .drawer-head-dates { font-weight: 600; color: var(--navy); }
 .drawer-head-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
 
-.decision-pill-committed { background: #eaf5eb; color: var(--green); border-color: #d3e9d5; }
-.decision-pill-considering { background: #f2f7fe; color: var(--blue-dark); border-color: #cfe0f7; }
-.decision-pill-declined { background: #f4f6f9; color: var(--slate); border-color: var(--border); }
+/* Decision pills carry a leading dot. Registration pills do not — that
+   structural difference keeps the two families apart regardless of hue, so a
+   blue "Considering" can never be mistaken for a blue "Registered". */
+.decision-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-weight: 700; letter-spacing: 0.01em;
+}
+.decision-pill::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+.decision-pill-committed { background: #e8f6ea; color: #1f7a33; border-color: #c3e6ca; }
+.decision-pill-considering { background: #eef4fe; color: #2a5fc4; border-color: #c9dcfa; }
+.decision-pill-declined { background: #fdecea; color: #b3382c; border-color: #f5cdc7; }
+
+/* Small dot for list rows: readable at a glance when an action filter mixes
+   decisions together and the group headings are no longer the only cue. */
+.decision-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block;
+}
+.decision-dot-committed { background: #1f7a33; }
+.decision-dot-considering { background: #2a5fc4; }
+.decision-dot-declined { background: #b3382c; }
+
+/* Group headings echo the same palette. */
+.group-title-dot {
+  width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 2px;
+}
 
 .drawer-close {
   background: none; border: none; cursor: pointer; color: var(--slate);
@@ -975,4 +1002,41 @@ input[type="file"] {
   flex-basis: 100%; font-size: 11.5px; color: var(--slate); margin-top: 2px;
 }
 
-.pill-waitlisted { background: #f3f0fd; color: #5b45b0; border-color: #ddd4f5; }
+/* Violet: distinct from the blue used for Considering, and from the gold used
+   by Deposit Paid — the two statuses it would otherwise be confused with.
+   Registration pills also carry no dot, so they never read as a decision. */
+.pill-waitlisted { background: #f4f2fe; color: #5b3fc4; border-color: #ded6fa; }
+
+/* Row name gains a decision dot; keep the text aligned with it. */
+.t-name { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Games section: a distinct block in the drawer rather than another plain list */
+.games-section {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 14px;
+}
+.games-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.games-heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.games-header .detail-section-title {
+  margin: 0; padding: 0; border-bottom: none; color: var(--navy);
+}
+.games-count { font-size: 11.5px; color: var(--slate); }
+.games-count strong { color: var(--navy); font-family: var(--font-display); }
+
+.btn-add-game {
+  flex-shrink: 0; padding: 7px 14px; font-size: 13px;
+  border-color: var(--blue); color: var(--blue);
+}
+.btn-add-game:hover:not(:disabled) { background: #eef4fe; border-color: var(--blue-dark); }
+
+.games-section .game-list li + li { border-top-color: var(--border); }
+.games-empty { margin: 0; }
+
+@media (max-width: 720px) {
+  .btn-add-game { width: 100%; }
+}

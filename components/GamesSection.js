@@ -70,20 +70,36 @@ export function GamesSection({ tournament, games, canWrite, onChanged }) {
   }
 
   return (
-    <section className="detail-section">
-      <div className="detail-section-head">
-        <h3 className="detail-section-title">
-          Games
-          {record.played > 0 && (
-            <span className="record-inline">
-              {record.w}–{record.l}
-              {record.t > 0 ? `–${record.t}` : ""} at this event
-            </span>
-          )}
-        </h3>
+    <section className="detail-section games-section">
+      <div className="games-header">
+        <div className="games-heading">
+          <h3 className="detail-section-title">Games</h3>
+          <span className="games-count">
+            {ordered.length === 0
+              ? "None yet"
+              : `${ordered.length} ${ordered.length === 1 ? "game" : "games"}`}
+            {record.played > 0 && (
+              <>
+                {" · "}
+                <strong>
+                  {record.w}–{record.l}
+                  {record.t > 0 ? `–${record.t}` : ""}
+                </strong>{" "}
+                at this event
+              </>
+            )}
+          </span>
+        </div>
+
+        {/* Stays visible whether or not games exist — adding a second game is
+            as common as adding the first. */}
         {canWrite && (
-          <button className="btn btn-ghost" onClick={() => setEditing("new")} disabled={pending}>
-            Add game
+          <button
+            className="btn btn-secondary btn-add-game"
+            onClick={() => setEditing("new")}
+            disabled={pending}
+          >
+            + Add game
           </button>
         )}
       </div>
@@ -91,7 +107,10 @@ export function GamesSection({ tournament, games, canWrite, onChanged }) {
       {error && <div className="alert alert-error">{error}</div>}
 
       {ordered.length === 0 ? (
-        <p className="section-body muted">No games recorded for this tournament yet.</p>
+        <p className="section-body muted games-empty">
+          No games recorded yet. Add them as the schedule is released, then enter scores once
+          they're played.
+        </p>
       ) : (
         <ul className="game-list">
           {ordered.map((g) => {

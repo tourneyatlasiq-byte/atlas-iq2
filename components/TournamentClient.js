@@ -230,6 +230,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                 aria-expanded={!isCollapsed}
               >
                 <span className={`group-caret${isCollapsed ? " collapsed" : ""}`} aria-hidden="true">▾</span>
+                <span className={`group-title-dot decision-dot-${decision.toLowerCase()}`} aria-hidden="true" />
                 <span className={`group-title decision-${decision.toLowerCase()}`}>{decision}</span>
                 <span className="group-count">{rows.length}</span>
               </button>
@@ -239,7 +240,14 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                   {rows.map((t) => (
                     <div key={t.id} className="t-row">
                       <button className="t-main" onClick={() => setDetail(t)}>
-                        <span className="t-name">{t.name}</span>
+                        <span className="t-name">
+                          <span
+                            className={`decision-dot decision-dot-${t.decision.toLowerCase()}`}
+                            title={t.decision}
+                            aria-hidden="true"
+                          />
+                          {t.name}
+                        </span>
                         <span className="t-meta">
                           {dateRange(t.start_date, t.end_date)}
                           {t.provider?.name && <> · {t.provider.name}</>}
@@ -349,7 +357,9 @@ function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, p
               {placeLine(t) && <span>{placeLine(t)}</span>}
             </div>
             <div className="drawer-head-pills">
-              <span className={`pill decision-pill-${t.decision.toLowerCase()}`}>{t.decision}</span>
+              <span className={`pill decision-pill decision-pill-${t.decision.toLowerCase()}`}>
+                {t.decision}
+              </span>
               <span className={`pill ${paidClass(t.paid_status)}`}>{t.paid_status}</span>
             </div>
           </div>
