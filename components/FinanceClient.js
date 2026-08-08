@@ -39,7 +39,7 @@ export function FinanceClient({
   tournaments, players, facilities, budgetItems, canWrite, seasonName,
   // Review surface only: lets /review render each tab. Defaults to the normal
   // starting tab, so nothing changes in the application itself.
-  initialTab = "budget",,
+  initialTab = "budget",
   seasonPhase = "current",
   autoOpen = false,
 }) {
