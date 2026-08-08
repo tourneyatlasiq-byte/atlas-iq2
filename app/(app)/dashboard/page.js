@@ -16,6 +16,9 @@ import {
 import { teamActions } from "../../../lib/readiness/team";
 import { dashboardActions, nextUpTournament } from "../../../lib/readiness/dashboard";
 import { DashboardClient } from "../../../components/DashboardClient";
+import { GettingStarted } from "../../../components/GettingStarted";
+import { gettingStartedSteps } from "../../../lib/onboarding";
+import { createClient } from "../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +34,7 @@ export const dynamic = "force-dynamic";
  * every query below already resolves through auth_season_ids().
  */
 export default async function DashboardPage() {
-  const { organization, team, season } = await getContext();
+  const { profile, organization, team, season } = await getContext();
 
   if (!season) {
     return (
@@ -54,10 +57,30 @@ export default async function DashboardPage() {
 
   const budget = buildBudget(budgetItems, transactions);
 
+  // Getting started steps derive entirely from data that already exists.
+  const supabase = createClient();
+  const { count: facilityNoteCount } = await supabase
+    .from("organization_facilities")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organization.id);
+
+  const steps = gettingStartedSteps({
+    teamNamed: Boolean(team) && team.is_placeholder_name !== true,
+    seasonNamed: Boolean(season) && season.is_placeholder !== true,
+    rosterCount: roster.length,
+    tournamentCount: tournaments.length,
+    duesCount: payments.length,
+    facilityNoteCount: facilityNoteCount ?? 0,
+    teamName: team?.name,
+    seasonName: season?.name,
+  });
+
   const team_ = teamSummary(roster);
 
   return (
-    <DashboardClient
+    <>
+      {!profile?.onboarding_hidden && <GettingStarted steps={steps} />}
+      <DashboardClient
       context={{
         organization: organization.name,
         team: team?.name ?? "No team",
@@ -70,6 +93,7 @@ export default async function DashboardPage() {
       dues={duesSummary(payments)}
       team={{ ...team_, actionCount: teamActions(roster).length }}
       seasonSummary={tournamentSummary(tournaments)}
-    />
+      />
+    </>
   );
 }

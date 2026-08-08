@@ -4,6 +4,8 @@ import { useState, useTransition, useEffect, useMemo } from "react";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import { isActual, CATEGORIES, TXN_STATUSES } from "../lib/finance-rules";
+import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { HelpTip } from "./HelpTip";
 import {
   saveBudgetItem,
   deleteBudgetItem,
@@ -104,7 +106,7 @@ export function FinanceClient({
       <div className="page-head">
         <div>
           <h1>Finance</h1>
-          <div className="page-sub">{seasonName} budget, spending and player payments</div>
+          <div className="page-sub">{MODULE_DESCRIPTIONS.finance}</div>
         </div>
       </div>
 
@@ -120,7 +122,7 @@ export function FinanceClient({
         </div>
 
         <div className="card">
-          <div className="stat-label">Funds in</div>
+          <div className="stat-label">Funds in <HelpTip term="Funds In" /></div>
           <div className="stat-value">{money(funds.total)}</div>
           <div className="stat-foot">
             {money(funds.playerDues)} dues · {money(funds.otherTotal)} other
@@ -136,7 +138,7 @@ export function FinanceClient({
         </div>
       </div>
 
-      <NeedsAction actions={actions} activeId={actionId} onSelect={selectAction} />
+      <NeedsAction actions={actions} activeId={actionId} onSelect={selectAction} showWhenClear />
 
       {activeAction && (
         <FilterChip
@@ -389,7 +391,7 @@ export function BudgetTab({ budget, summary, committedTournaments, openCats, set
         <div className="card">
           <div className="empty">
             <h3>No budget yet</h3>
-            <p>Add your first budget line to start planning the season.</p>
+            <p>Plan what you expect to spend this season: tournament fees, uniforms, equipment. Actual spending fills in from your transactions.</p>
             {canWrite && <button className="btn btn-primary" onClick={onAdd}>Add budget line</button>}
           </div>
         </div>
@@ -584,7 +586,7 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
             <h3>{transactions.length === 0 ? "No transactions yet" : "Nothing matches"}</h3>
             <p>
               {transactions.length === 0
-                ? "Record your first expense or income to start tracking actual spend."
+                ? "Every real payment goes here — entry fees, uniforms, field rental. Link one to a budget line to see it in your budget."
                 : "Try a different search."}
             </p>
             {transactions.length === 0 && canWrite && (
@@ -877,7 +879,7 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
         {payments.length === 0 ? (
           <div className="empty">
             <h3>No player payments yet</h3>
-            <p>Add what each player owes for the season to start tracking balances.</p>
+            <p>Set what each family owes for the season. Record payments as they arrive and Atlas keeps the balances for you.</p>
             {canWrite && <button className="btn btn-primary" onClick={onAdd}>Add player payment</button>}
           </div>
         ) : (

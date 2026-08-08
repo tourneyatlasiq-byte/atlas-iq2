@@ -6,6 +6,8 @@ import { NeedsAction, FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
 import { QuickAddFacility } from "./QuickAddFacility";
 import { GamesSection } from "./GamesSection";
+import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { HelpTip } from "./HelpTip";
 import { TOURNAMENT_FILTER_LABELS } from "../lib/readiness/tournaments";
 import {
   addTournament,
@@ -147,7 +149,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       <div className="page-head">
         <div>
           <h1>Tournament IQ</h1>
-          <div className="page-sub">Plan the season, weigh the options, track what's committed.</div>
+          <div className="page-sub">{MODULE_DESCRIPTIONS.tournaments}</div>
         </div>
         {canWrite && (
           <button className="btn btn-primary" onClick={() => setEditing("new")}>
@@ -185,7 +187,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           <div className="stat-foot">
             {record.played > 0
               ? `${record.played} game${record.played === 1 ? "" : "s"} played`
-              : "no games played yet"}
+              : "add games inside a tournament"}
           </div>
         </div>
         <div className={`card${actions.length ? " card-alert" : ""}`}>
@@ -196,7 +198,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       </div>
 
       {/* 2. Needs Action — shared Atlas pattern */}
-      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} />
+      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} showWhenClear />
 
       {activeAction && (
         <FilterChip
@@ -224,16 +226,21 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           const isCollapsed = collapsed[decision];
           return (
             <div key={decision} className="group">
-              <button
-                className="group-head"
-                onClick={() => setCollapsed({ ...collapsed, [decision]: !isCollapsed })}
-                aria-expanded={!isCollapsed}
-              >
-                <span className={`group-caret${isCollapsed ? " collapsed" : ""}`} aria-hidden="true">▾</span>
-                <span className={`group-title-dot decision-dot-${decision.toLowerCase()}`} aria-hidden="true" />
-                <span className={`group-title decision-${decision.toLowerCase()}`}>{decision}</span>
-                <span className="group-count">{rows.length}</span>
-              </button>
+              {/* The tip sits beside the toggle, not inside it — a button
+                  inside a button is invalid HTML and swallows the click. */}
+              <div className="group-head-row">
+                <button
+                  className="group-head"
+                  onClick={() => setCollapsed({ ...collapsed, [decision]: !isCollapsed })}
+                  aria-expanded={!isCollapsed}
+                >
+                  <span className={`group-caret${isCollapsed ? " collapsed" : ""}`} aria-hidden="true">▾</span>
+                  <span className={`group-title-dot decision-dot-${decision.toLowerCase()}`} aria-hidden="true" />
+                  <span className={`group-title decision-${decision.toLowerCase()}`}>{decision}</span>
+                  <span className="group-count">{rows.length}</span>
+                </button>
+                <HelpTip term={decision} />
+              </div>
 
               {!isCollapsed && (
                 <div className="card card-flush">

@@ -4,6 +4,8 @@ import { useState, useTransition, useEffect, useMemo } from "react";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { DocumentSection } from "./DocumentSection";
+import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { HelpTip } from "./HelpTip";
 import {
   addRosterMember,
   assignExistingPlayer,
@@ -162,7 +164,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         </div>
       </div>
 
-      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} />
+      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} showWhenClear />
 
       {activeAction && (
         <FilterChip
@@ -206,7 +208,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             <h3>{rows.length === 0 ? "No one on the roster yet" : "No one matches"}</h3>
             <p>
               {rows.length === 0
-                ? `Add your first player to start building the ${seasonName} season.`
+                ? `Add players, coaches and team staff for ${seasonName}. A name is enough to start.`
                 : "Try a different name or switch the status filter."}
             </p>
             {rows.length === 0 && canWrite && (

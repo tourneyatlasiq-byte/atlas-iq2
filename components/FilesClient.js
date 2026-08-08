@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { createClient } from "../lib/supabase/client";
+import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import {
   CATEGORIES,
   isRestricted,
@@ -102,9 +103,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
       <div className="page-head">
         <div>
           <h1>Files</h1>
-          <div className="page-sub">
-            Documents for {seasonName} and the organization. Private to your organization.
-          </div>
+          <div className="page-sub">{MODULE_DESCRIPTIONS.files}</div>
         </div>
         {canWrite && (
           <button className="btn btn-primary" onClick={() => setUploading(true)}>
@@ -172,7 +171,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
             <h3>{documents.length === 0 ? "No files yet" : "Nothing matches"}</h3>
             <p>
               {documents.length === 0
-                ? "Upload insurance paperwork, waivers, sanctioning forms or anything else you need to hand."
+                ? "Insurance, waivers, birth certificates, sanctioning forms. Attach one to a player or tournament and it shows up there too."
                 : "Try a different search or clear the filters."}
             </p>
             {documents.length === 0 && canWrite && (

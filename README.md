@@ -107,6 +107,20 @@ without a birth certificate. Requirements vary by organization, age group and
 sanctioning body, so a configurable model should come from real usage rather
 than being guessed at now.
 
+## Security fix log
+
+**Profile self-promotion (fixed).** The `profiles` update policy had
+`USING (id = auth.uid())` and no `WITH CHECK`. RLS cannot restrict columns, so
+any user could run `update profiles set role = 'owner' where id = auth.uid()`
+and unlock every admin-only capability: birth certificates, shared facility
+editing, correction approval, facility deletion. Migration
+`sec_01_prevent_profile_self_promotion` pins `role` and `organization_id` in
+the check expression. Verified by impersonation test: self-promotion blocked,
+organization change blocked, own-name edit still allowed.
+
+Worth remembering when adding any future user-editable column on `profiles`:
+the policy must keep pinning the fields a user must not choose for themselves.
+
 ## Security maintenance debt
 
 **Move RLS helper functions to a non-exposed private schema and recreate dependent

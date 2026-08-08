@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
 import { FacilityImport } from "./FacilityImport";
+import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { HelpTip } from "./HelpTip";
 import {
   createFacility,
   updateFacility,
@@ -59,7 +61,10 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   const [surfaceFilter, setSurfaceFilter] = useState("all");
   const [amenityFilter, setAmenityFilter] = useState("all");
   const [countyFilter, setCountyFilter] = useState("all");
-  const [view, setView] = useState("ours");
+  // Default to whichever view actually has something in it. A new organization
+  // has no venues yet, and an empty tab makes the directory look empty too.
+  const hasOwnVenues = facilities.some((f) => f.isOurs);
+  const [view, setView] = useState(hasOwnVenues ? "ours" : "all");
   const [openGroups, setOpenGroups] = useState({});
   const [detail, setDetail] = useState(null);
   const [historyTarget, setHistoryTarget] = useState(null);
@@ -186,9 +191,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
       <div className="page-head">
         <div>
           <h1>Facilities</h1>
-          <div className="page-sub">
-            Shared across Atlas. Your notes stay private to your organization.
-          </div>
+          <div className="page-sub">{MODULE_DESCRIPTIONS.facilities}</div>
         </div>
         {canWrite && (
           <div className="foot-actions">
@@ -202,6 +205,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
         )}
       </div>
 
+      <div className="view-toggle-row">
       <div className="segmented view-toggle" role="group" aria-label="Which facilities to show">
         <button
           className={`segment${view === "ours" ? " on" : ""}`}
@@ -217,6 +221,8 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
         >
           All facilities <span className="seg-count">{facilities.length}</span>
         </button>
+      </div>
+      <HelpTip term="Our Venues" />
       </div>
 
       <div className="toolbar">
@@ -281,7 +287,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
               {facilities.length === 0
                 ? "Add the first venue. Facilities are shared, so other organizations benefit too."
                 : view === "ours" && ourCount === 0
-                  ? "A facility appears here once you commit to a tournament there, or save your own notes about it."
+                  ? "Venues show up here once you play at one or save your own notes. Browse the full directory to find where you're playing."
                   : "Try a different search or clear the filters."}
             </p>
             {view === "ours" && ourCount === 0 && facilities.length > 0 && (

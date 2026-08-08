@@ -1,5 +1,7 @@
 "use client";
 
+import { HelpTip } from "./HelpTip";
+
 /**
  * Needs Action panel — shared across Atlas IQ modules.
  *
@@ -11,12 +13,23 @@
  * nothing currently requires attention — there is deliberately no "all clear"
  * message.
  */
-export function NeedsAction({ actions, activeId = null, onSelect }) {
-  if (!actions || actions.length === 0) return null;
+export function NeedsAction({ actions, activeId = null, onSelect, showWhenClear = false }) {
+  // A section that vanishes leaves a coach unable to tell whether everything is
+  // fine or the feature is broken. Where it matters, say so plainly.
+  if (!actions || actions.length === 0) {
+    if (!showWhenClear) return null;
+    return (
+      <div className="card action-band action-clear">
+        <h2>Needs Action <HelpTip term="Needs Action" /></h2>
+        <p className="action-clear-title">You're up to date</p>
+        <p className="action-clear-sub">Nothing needs your attention right now.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="card action-band">
-      <h2>Needs Action</h2>
+      <h2>Needs Action <HelpTip term="Needs Action" /></h2>
       <ul className="action-list">
         {actions.map((a) => {
           const on = activeId === a.id;

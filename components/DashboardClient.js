@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 
 /**
  * Dashboard — read-only operational summary.
@@ -34,9 +35,7 @@ export function DashboardClient({ context, nextUp, actions, finance, funds, dues
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
-          <div className="page-sub">
-            {context.organization} · {context.team} · {context.season}
-          </div>
+          <div className="page-sub">{MODULE_DESCRIPTIONS.dashboard}</div>
         </div>
       </div>
 
