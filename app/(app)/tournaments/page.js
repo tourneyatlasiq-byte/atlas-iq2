@@ -2,9 +2,9 @@ import { getContext, canWrite } from "../../../lib/context";
 import {
   listSeasonTournaments,
   listReferenceData,
-  deriveActions,
   deriveSummary,
 } from "../../../lib/queries/tournaments";
+import { tournamentActions } from "../../../lib/readiness/tournaments";
 import { TournamentClient } from "../../../components/TournamentClient";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function TournamentsPage() {
   return (
     <TournamentClient
       tournaments={tournaments}
-      actions={deriveActions(tournaments)}
+      actions={tournamentActions(tournaments)}
       summary={deriveSummary(tournaments)}
       providers={reference.providers}
       facilities={reference.facilities}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { NeedsAction, FilterChip } from "./NeedsAction";
+import { TOURNAMENT_FILTER_LABELS } from "../lib/readiness/tournaments";
 import {
   addTournament,
   updateTournament,
@@ -43,11 +45,18 @@ const paidClass = (s) =>
   : "pill-unregistered";
 
 export function TournamentClient({ tournaments, actions, summary, providers, facilities, canWrite }) {
+  const [actionId, setActionId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState({ Declined: true });
+
+  useEffect(() => {
+    if (actionId && !actions.some((a) => a.id === actionId)) setActionId(null);
+  }, [actions, actionId]);
+
+  const activeAction = actions.find((a) => a.id === actionId) ?? null;
 
   const overlayOpen = Boolean(detail || editing);
 
@@ -70,9 +79,13 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
     };
   }, [overlayOpen, editing]);
 
+  const shown = activeAction
+    ? tournaments.filter((t) => activeAction.affected.some((a) => a.id === t.id))
+    : tournaments;
+
   const groups = GROUP_ORDER.map((d) => ({
     decision: d,
-    rows: tournaments.filter((t) => t.decision === d),
+    rows: shown.filter((t) => t.decision === d),
   }));
 
   function submit(formData) {
@@ -156,22 +169,14 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
         </div>
       </div>
 
-      {/* 2. Needs Action — only when non-empty */}
-      {actions.length > 0 && (
-        <div className="card action-band">
-          <h2>Needs Action</h2>
-          <ul className="action-list">
-            {actions.map(({ t, reason, urgency }) => (
-              <li key={t.id}>
-                <button className="action-row" onClick={() => setDetail(t)}>
-                  <span className={`action-dot${urgency === "high" ? " high" : ""}`} aria-hidden="true" />
-                  <span className="action-name">{t.name}</span>
-                  <span className="action-reason">{reason}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* 2. Needs Action — shared Atlas pattern */}
+      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} />
+
+      {activeAction && (
+        <FilterChip
+          label={`Showing ${activeAction.affected.length} ${TOURNAMENT_FILTER_LABELS[activeAction.id] ?? "affected"}`}
+          onClear={() => setActionId(null)}
+        />
       )}
 
       {/* 3. Grouped list */}

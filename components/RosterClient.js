@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { NeedsAction, FilterChip } from "./NeedsAction";
+import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import {
   addRosterMember,
   assignExistingPlayer,
@@ -29,33 +31,13 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
-/** Mirrors missingInfo() in lib/queries/roster.js. */
-function gapsFor(row) {
-  const p = row.player ?? {};
-  const isPlayer = (p.person_type ?? "player") === "player";
-  const gaps = [];
-
-  if (isPlayer) {
-    if (row.jersey_number == null) gaps.push("jersey number");
-    if (!row.positions?.length) gaps.push("position");
-    if (!row.jersey_size) gaps.push("jersey size");
-    if (!row.pants_size) gaps.push("pants size");
-    if (!p.grad_year) gaps.push("grad year");
-    if (!p.parent_email && !p.parent_phone && !p.player_email) gaps.push("contact");
-  } else {
-    // Coaches and staff need a way to reach them. Nothing else is required.
-    if (!p.player_email && !p.player_phone) gaps.push("contact");
-  }
-
-  return gaps;
-}
-
 export function RosterClient({ rows, assignable, summary, canWrite, seasonName }) {
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
+  const [actionId, setActionId] = useState(null);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -78,10 +60,21 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
     };
   }, [overlayOpen, editing, adding]);
 
+  const actions = useMemo(() => teamActions(rows), [rows]);
+
+  // An action that resolves disappears; clear the filter with it.
+  useEffect(() => {
+    if (actionId && !actions.some((a) => a.id === actionId)) setActionId(null);
+  }, [actions, actionId]);
+
+  const activeAction = actions.find((a) => a.id === actionId) ?? null;
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const ids = activeAction ? new Set(activeAction.affected.map((r) => r.id)) : null;
     return rows
-      .filter((r) => (filter === "all" ? true : filter === "active" ? r.is_active : !r.is_active))
+      .filter((r) => (ids ? ids.has(r.id) : true))
+      .filter((r) => (ids ? true : filter === "all" ? true : filter === "active" ? r.is_active : !r.is_active))
       .filter((r) => !q || (r.player?.full_name ?? "").toLowerCase().includes(q))
       .sort((a, b) => {
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
@@ -89,7 +82,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
         if (b.jersey_number == null) return -1;
         return a.jersey_number - b.jersey_number;
       });
-  }, [rows, query, filter]);
+  }, [rows, query, filter, activeAction]);
 
   function run(action, fd, onDone) {
     setError(null);
@@ -166,12 +159,16 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
           <div className="stat-value">{summary.inactiveCount}</div>
           <div className="stat-foot">still on the roster</div>
         </div>
-        <div className={`card${summary.incompleteCount ? " card-alert" : ""}`}>
-          <div className="stat-label">Missing information</div>
-          <div className="stat-value">{summary.incompleteCount}</div>
-          <div className="stat-foot">{summary.incompleteCount ? "shown in the table" : "all complete"}</div>
-        </div>
       </div>
+
+      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} />
+
+      {activeAction && (
+        <FilterChip
+          label={`Showing ${activeAction.affected.length} ${TEAM_FILTER_LABELS[activeAction.id] ?? "affected"}`}
+          onClear={() => setActionId(null)}
+        />
+      )}
 
       <div className="toolbar">
         <input
@@ -182,6 +179,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search roster by name"
         />
+        {!activeAction && (
         <div className="segmented" role="group" aria-label="Filter by status">
           {[
             { key: "active", label: "Active" },
@@ -198,6 +196,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
             </button>
           ))}
         </div>
+        )}
       </div>
 
       <div className="card card-flush">
@@ -229,7 +228,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
             <tbody>
               {visible.map((row) => {
                 const p = row.player ?? {};
-                const gaps = gapsFor(row);
                 const isStaff = (p.person_type ?? "player") !== "player";
                 const roleName = p.person_type === "other"
                   ? p.other_role_label ?? "Staff"
@@ -252,11 +250,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
                     <td>
                       <span className="cell-name">{p.full_name ?? "—"}</span>
                       {isStaff && <span className="role-tag">{roleName}</span>}
-                      {gaps.length > 0 && row.is_active && (
-                        <span className="gap-flag" title={`Missing: ${gaps.join(", ")}`}>
-                          {gaps.length} missing
-                        </span>
-                      )}
                     </td>
                     <td>{isStaff ? <span className="muted">—</span> : p.grad_year ?? <span className="muted">—</span>}</td>
                     <td>
@@ -288,7 +281,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
           row={detail}
           canWrite={canWrite}
           pending={pending}
-          gaps={gapsFor(detail)}
           onClose={() => setDetail(null)}
           onEdit={() => setEditing(detail)}
           onRemove={() => remove(detail)}
@@ -347,7 +339,7 @@ function Row({ label, value }) {
   );
 }
 
-function PlayerDetail({ row, canWrite, pending, gaps, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
+function PlayerDetail({ row, canWrite, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
   const p = row.player ?? {};
 
   return (
@@ -381,12 +373,6 @@ function PlayerDetail({ row, canWrite, pending, gaps, onClose, onEdit, onRemove,
         </div>
 
         <div className="drawer-body">
-          {gaps.length > 0 && (
-            <div className="alert alert-info">
-              Still missing: {gaps.join(", ")}.
-            </div>
-          )}
-
           {canWrite && (
             <div className="status-controls">
               <div className="field">
