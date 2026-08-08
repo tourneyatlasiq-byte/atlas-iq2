@@ -836,3 +836,9 @@ input[type="file"] {
   background: #fdf6e3; color: #8a6100; border: 1px solid #f2e3bb;
   border-radius: 999px; padding: 2px 8px;
 }
+
+/* ===== Files ===== */
+
+.pill-restricted { background: #fdf0ee; color: var(--danger); border-color: #f3cfc9; }
+
+.btn-block { width: 100%; }

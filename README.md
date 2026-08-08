@@ -88,6 +88,25 @@ tournament, transaction, or another organization's notes cannot be deleted —
 only corrected in place. Suggestions are field-level, so there is no way to
 propose "these two records are the same venue".
 
+## Files — known items
+
+**Orphaned storage objects.** Two `storage.objects` rows remain from RLS testing
+with no backing file and no metadata row. Supabase blocks direct SQL deletion
+from storage tables, so they must be removed via the Storage API. They are
+invisible in the app (Files lists `documents` rows, not storage objects) and are
+treated as admin-only by `can_access_document_object`, which defaults an object
+with no metadata to restricted.
+
+**Signed URL expiry window.** Download links are signed for 60 seconds. A signed
+URL remains valid until it expires regardless of later permission changes, so a
+category change does not revoke a link already issued. The short TTL is the
+mitigation; this cannot be fully eliminated with signed URLs.
+
+**No document requirements model.** Files deliberately does not flag players
+without a birth certificate. Requirements vary by organization, age group and
+sanctioning body, so a configurable model should come from real usage rather
+than being guessed at now.
+
 ## Security maintenance debt
 
 **Move RLS helper functions to a non-exposed private schema and recreate dependent
