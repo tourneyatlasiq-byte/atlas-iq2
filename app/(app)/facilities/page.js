@@ -1,17 +1,19 @@
+import { getContext, canWrite } from "../../../lib/context";
+import { listFacilities } from "../../../lib/queries/facilities";
+import { FacilitiesClient } from "../../../components/FacilitiesClient";
+
 export const dynamic = "force-dynamic";
 
-export default function FacilitiesPage() {
+export default async function FacilitiesPage() {
+  const { profile, organization } = await getContext();
+
+  const facilities = await listFacilities(organization.id);
+
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>Facilities</h1>
-          <div className="page-sub">Venues shared across organizations.</div>
-        </div>
-      </div>
-      <div className="placeholder-note">
-        Not rebuilt yet. This module comes after the Team slice is validated.
-      </div>
-    </>
+    <FacilitiesClient
+      facilities={facilities}
+      organizationId={organization.id}
+      canWrite={canWrite(profile)}
+    />
   );
 }
