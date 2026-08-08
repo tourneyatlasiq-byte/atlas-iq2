@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { NeedsAction, FilterChip } from "./NeedsAction";
+import { DocumentSection } from "./DocumentSection";
 import { TOURNAMENT_FILTER_LABELS } from "../lib/readiness/tournaments";
 import {
   addTournament,
@@ -44,7 +45,7 @@ const paidClass = (s) =>
   : s === "Registered" ? "pill-registered"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, providers, facilities, canWrite }) {
+export function TournamentClient({ tournaments, actions, summary, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName }) {
   const [actionId, setActionId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
@@ -245,6 +246,9 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
         <TournamentDetail
           t={detail}
           canWrite={canWrite}
+          isAdmin={isAdmin}
+          documentTargets={documentTargets}
+          seasonName={seasonName}
           pending={pending}
           onClose={() => setDetail(null)}
           onEdit={() => setEditing(detail)}
@@ -289,7 +293,7 @@ function Row({ label, value }) {
   );
 }
 
-function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onStatus }) {
+function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus }) {
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside
@@ -407,6 +411,15 @@ function TournamentDetail({ t, canWrite, pending, onClose, onEdit, onDelete, onS
               {t.notes ?? <span className="muted">No notes yet.</span>}
             </p>
           </Section>
+
+          <DocumentSection
+            documents={t.documents ?? []}
+            lockTo={{ kind: "tournament", id: t.id, label: t.name }}
+            targets={documentTargets}
+            canWrite={canWrite}
+            isAdmin={isAdmin}
+            seasonName={seasonName}
+          />
 
           <Section title="Post Tournament Review">
             {t.placement || t.overall_rating || t.would_play_again !== null || t.history_notes ? (

@@ -5,12 +5,13 @@ import {
   deriveSummary,
 } from "../../../lib/queries/tournaments";
 import { tournamentActions } from "../../../lib/readiness/tournaments";
+import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
 import { TournamentClient } from "../../../components/TournamentClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function TournamentsPage() {
-  const { profile, season } = await getContext();
+  const { profile, organization, season } = await getContext();
 
   if (!season) {
     return (
@@ -23,19 +24,29 @@ export default async function TournamentsPage() {
     );
   }
 
-  const [tournaments, reference] = await Promise.all([
+  const [tournaments, reference, docsByTournament, docTargets] = await Promise.all([
     listSeasonTournaments(season.id),
     listReferenceData(),
+    documentsByEntity("tournament_id"),
+    documentTargets(season.id, organization.id),
   ]);
+
+  const withDocs = tournaments.map((t) => ({
+    ...t,
+    documents: docsByTournament.get(t.id) ?? [],
+  }));
 
   return (
     <TournamentClient
-      tournaments={tournaments}
-      actions={tournamentActions(tournaments)}
-      summary={deriveSummary(tournaments)}
+      tournaments={withDocs}
+      actions={tournamentActions(withDocs)}
+      summary={deriveSummary(withDocs)}
       providers={reference.providers}
       facilities={reference.facilities}
       canWrite={canWrite(profile)}
+      isAdmin={profile?.role === "owner" || profile?.role === "admin"}
+      documentTargets={docTargets}
+      seasonName={season.name}
     />
   );
 }

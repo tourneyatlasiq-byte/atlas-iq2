@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
+import { DocumentSection } from "./DocumentSection";
 import {
   addRosterMember,
   assignExistingPlayer,
@@ -31,7 +32,7 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, seasonName }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName }) {
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
   const [adding, setAdding] = useState(false);
@@ -280,6 +281,9 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
         <PlayerDetail
           row={detail}
           canWrite={canWrite}
+          isAdmin={isAdmin}
+          documentTargets={documentTargets}
+          seasonName={seasonName}
           pending={pending}
           onClose={() => setDetail(null)}
           onEdit={() => setEditing(detail)}
@@ -339,7 +343,7 @@ function Row({ label, value }) {
   );
 }
 
-function PlayerDetail({ row, canWrite, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
+function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
   const p = row.player ?? {};
 
   return (
@@ -417,6 +421,15 @@ function PlayerDetail({ row, canWrite, pending, onClose, onEdit, onRemove, onDel
           <Section title="Notes">
             <p className="section-body">{p.notes ?? <span className="muted">No notes yet.</span>}</p>
           </Section>
+
+          <DocumentSection
+            documents={row.documents ?? []}
+            lockTo={{ kind: "player", id: p.id, label: p.full_name }}
+            targets={documentTargets}
+            canWrite={canWrite}
+            isAdmin={isAdmin}
+            seasonName={seasonName}
+          />
         </div>
 
         {canWrite && (
