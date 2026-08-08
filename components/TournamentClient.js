@@ -568,19 +568,12 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
               </div>
             </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="travel_type">Travel</label>
-                <select id="travel_type" name="travel_type" defaultValue={row?.travel_type ?? ""}>
-                  <option value="">—</option>
-                  {TRAVEL_TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="placement">Final placement</label>
-                <input id="placement" name="placement" placeholder="e.g. 3rd"
-                       defaultValue={row?.placement ?? ""} />
-              </div>
+            <div className="field">
+              <label htmlFor="travel_type">Travel</label>
+              <select id="travel_type" name="travel_type" defaultValue={row?.travel_type ?? ""}>
+                <option value="">—</option>
+                {TRAVEL_TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
             </div>
 
             <div className="field">
@@ -596,6 +589,12 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
             </div>
 
             <div className="form-divider">Post tournament review</div>
+
+            <div className="field">
+              <label htmlFor="placement">Final placement</label>
+              <input id="placement" name="placement" placeholder="e.g. 3rd"
+                     defaultValue={row?.placement ?? ""} />
+            </div>
 
             <div className="field-row">
               <div className="field">
