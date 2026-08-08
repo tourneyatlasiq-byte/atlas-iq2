@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveGame, deleteGame, GAME_TYPES } from "../lib/actions/games";
+import { saveGame, deleteGame } from "../lib/actions/games";
+import { GAME_TYPES, isFutureGame, recordFrom } from "../lib/game-rules";
 
 /**
  * Games inside the Tournament IQ drawer.
@@ -13,8 +14,6 @@ import { saveGame, deleteGame, GAME_TYPES } from "../lib/actions/games";
  * derives it. The form collects scores; result is a fallback for a game
  * recorded without one.
  */
-
-const isFuture = (d) => Boolean(d) && d > new Date().toISOString().slice(0, 10);
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -34,23 +33,12 @@ function fmtTime(t) {
 const resultClass = (r) =>
   r === "W" ? "res-w" : r === "L" ? "res-l" : r === "T" ? "res-t" : "res-none";
 
-/** Only games that have been played with a valid result count. */
-export function tournamentRecord(games) {
-  const played = games.filter((g) => g.result && !isFuture(g.game_date));
-  return {
-    w: played.filter((g) => g.result === "W").length,
-    l: played.filter((g) => g.result === "L").length,
-    t: played.filter((g) => g.result === "T").length,
-    played: played.length,
-  };
-}
-
 export function GamesSection({ tournament, games, canWrite, onChanged }) {
   const [editing, setEditing] = useState(null); // game | "new" | null
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
-  const record = tournamentRecord(games);
+  const record = recordFrom(games);
 
   const ordered = [...games].sort(
     (a, b) =>
@@ -107,7 +95,7 @@ export function GamesSection({ tournament, games, canWrite, onChanged }) {
       ) : (
         <ul className="game-list">
           {ordered.map((g) => {
-            const scheduled = isFuture(g.game_date);
+            const scheduled = isFutureGame(g.game_date);
             return (
               <li key={g.id}>
                 <div className="game-row">
@@ -170,7 +158,7 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
 
   const hadResult =
     game && (game.result || game.runs_for != null || game.runs_against != null);
-  const movingToFuture = hadResult && isFuture(date) && date !== game.game_date;
+  const movingToFuture = hadResult && isFutureGame(date) && date !== game.game_date;
 
   /**
    * Option C: the database rejects a completed game moved to a future date.
@@ -196,7 +184,7 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
     onSubmit(formData);
   }
 
-  const scoresDisabled = isFuture(date);
+  const scoresDisabled = isFutureGame(date);
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
