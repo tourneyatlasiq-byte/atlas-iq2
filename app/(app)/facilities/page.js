@@ -15,6 +15,7 @@ export default async function FacilitiesPage() {
       facilities={facilities}
       organizationId={organization.id}
       canWrite={canWrite(profile)}
+      isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       externalEnabled={isExternalSearchEnabled()}
     />
   );

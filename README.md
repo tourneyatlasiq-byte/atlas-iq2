@@ -66,6 +66,28 @@ Blocking question per provider:
   distribution or sublicense" wording needs confirming against multi-tenant
   reads before we commit.
 
+## Technical debt — Facilities curation
+
+**Orphaned facility curator.** Only the creating organization's owner/admin may
+edit a shared facility. If that organization is deleted, abandoned, or loses all
+its admins, every facility it curated becomes permanently uneditable by anyone.
+
+This already happened once: the seven originally-seeded facilities were created
+under the legacy Georgia Power organization, which has zero profiles pointing at
+it. Migration `fac_11` reassigned their curation to the active organization.
+There is no mechanism to detect or repair this automatically.
+
+**Atlas-level moderation needed as the directory grows.** One organization
+currently curates all 178 facilities, so every correction from every future
+organization lands in a single queue with no delegation. Options when it becomes
+a problem: trusted-editor roles, Atlas staff moderation, or auto-approval of
+low-risk fields with a source reference.
+
+**No merge tooling.** A genuine duplicate that is already referenced by a
+tournament, transaction, or another organization's notes cannot be deleted —
+only corrected in place. Suggestions are field-level, so there is no way to
+propose "these two records are the same venue".
+
 ## Security maintenance debt
 
 **Move RLS helper functions to a non-exposed private schema and recreate dependent

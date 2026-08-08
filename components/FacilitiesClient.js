@@ -8,7 +8,17 @@ import {
   updateFacility,
   saveOrgFacilityNotes,
   deleteFacility,
+  suggestFacilityCorrection,
+  approveFacilityCorrection,
+  rejectFacilityCorrection,
 } from "../lib/actions/facilities";
+import {
+  EDITABLE_FIELDS,
+  FIELD_LABELS,
+  FIELD_TYPES,
+  SURFACE_OPTIONS,
+  displayValue,
+} from "../lib/facility-fields";
 
 const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
 
@@ -43,7 +53,7 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, organizationId, canWrite, externalEnabled = false }) {
+export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin = false, externalEnabled = false }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
@@ -56,16 +66,18 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
   const [editing, setEditing] = useState(null); // facility | "new" | null
   const [editingNotes, setEditingNotes] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [suggesting, setSuggesting] = useState(null);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
-  const overlayOpen = Boolean(detail || editing || editingNotes || importing);
+  const overlayOpen = Boolean(detail || editing || editingNotes || importing || suggesting);
   useEffect(() => {
     if (!overlayOpen) return;
     function onKey(e) {
       if (e.key !== "Escape") return;
       if (editing) setEditing(null);
       else if (editingNotes) setEditingNotes(null);
+      else if (suggesting) setSuggesting(null);
       else if (importing) setImporting(false);
       else setDetail(null);
     }
@@ -76,7 +88,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
       document.body.style.overflow = prev;
       document.removeEventListener("keydown", onKey);
     };
-  }, [overlayOpen, editing, editingNotes, importing]);
+  }, [overlayOpen, editing, editingNotes, importing, suggesting]);
 
   const ourCount = useMemo(() => facilities.filter((f) => f.isOurs).length, [facilities]);
 
@@ -320,7 +332,20 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
           f={detail}
           historyTarget={historyTarget}
           canWrite={canWrite}
-          canEditShared={canWrite && detail.created_by_organization_id === organizationId}
+          canEditShared={isAdmin && detail.isCurator}
+          canReview={isAdmin && detail.isCurator}
+          onSuggest={() => setSuggesting(detail)}
+          onApprove={(id) => {
+            const fd = new FormData();
+            fd.set("edit_id", id);
+            run(approveFacilityCorrection, fd, () => setDetail(null));
+          }}
+          onReject={(id, note) => {
+            const fd = new FormData();
+            fd.set("edit_id", id);
+            if (note) fd.set("review_note", note);
+            run(rejectFacilityCorrection, fd, () => setDetail(null));
+          }}
           pending={pending}
           onClose={() => {
             setDetail(null);
@@ -353,6 +378,20 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
       )}
 
       {importing && <FacilityImport onClose={() => setImporting(false)} />}
+
+      {suggesting && (
+        <SuggestCorrectionForm
+          f={suggesting}
+          pending={pending}
+          onSubmit={(fd) =>
+            run(suggestFacilityCorrection, fd, () => {
+              setSuggesting(null);
+              setDetail(null);
+            })
+          }
+          onCancel={() => setSuggesting(null)}
+        />
+      )}
 
       {editingNotes && (
         <NotesForm
@@ -423,6 +462,11 @@ function FacilityTable({ rows, onOpen }) {
                   Notes
                 </span>
               )}
+              {f.pendingEdits?.length > 0 && (
+                <span className="pending-badge" title="Corrections awaiting review">
+                  {f.pendingEdits.length} pending
+                </span>
+              )}
             </td>
             <td>{cityState(f) ?? <span className="muted">—</span>}</td>
             <td>{f.county ?? <span className="muted">—</span>}</td>
@@ -483,7 +527,7 @@ function Row({ label, value }) {
   );
 }
 
-function FacilityDetail({ f, historyTarget, canWrite, canEditShared, pending, onClose, onEdit, onEditNotes, onDelete }) {
+function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject }) {
   // Arriving from a count click, scroll straight to that block rather than
   // leaving the user to find it.
   useEffect(() => {
@@ -610,23 +654,210 @@ function FacilityDetail({ f, historyTarget, canWrite, canEditShared, pending, on
               {f.data_source && <p className="field-note">Source: {f.data_source}</p>}
             </Section>
           )}
+
+          {canReview && f.pendingEdits.length > 0 && (
+            <Section title={`Pending corrections (${f.pendingEdits.length})`}>
+              {f.pendingEdits.map((e) => (
+                <PendingRow key={e.id} e={e} pending={pending} onApprove={onApprove} onReject={onReject} />
+              ))}
+            </Section>
+          )}
+
+          {!canReview && f.pendingEdits.length > 0 && (
+            <Section title="Your pending corrections">
+              {f.pendingEdits.map((e) => (
+                <div key={e.id} className="detail-row">
+                  <span className="detail-row-label">{FIELD_LABELS[e.field_name] ?? e.field_name}</span>
+                  <span className="detail-row-value">
+                    {displayValue(e.current_value)} → <strong>{displayValue(e.proposed_value)}</strong>
+                    <span className="muted"> · awaiting review</span>
+                  </span>
+                </div>
+              ))}
+            </Section>
+          )}
+
+          {f.appliedEdits.length > 0 && (
+            <Section title="Change history">
+              <p className="field-note" style={{ marginTop: 0, marginBottom: 10 }}>
+                Corrections to shared facility facts, visible to every organization.
+              </p>
+              {f.appliedEdits.map((e) => (
+                <div key={e.id} className="change-row">
+                  <div className="change-field">{FIELD_LABELS[e.field_name] ?? e.field_name}</div>
+                  <div className="change-values">
+                    <span className="muted">{displayValue(e.current_value)}</span>
+                    <span aria-hidden="true"> → </span>
+                    <strong>{displayValue(e.proposed_value)}</strong>
+                  </div>
+                  <div className="change-meta">
+                    {e.org?.name ?? "Unknown organization"} · {fmtDate((e.reviewed_at ?? e.submitted_at)?.slice(0, 10))}
+                    {e.source_reference && <> · source: {e.source_reference}</>}
+                  </div>
+                </div>
+              ))}
+            </Section>
+          )}
         </div>
 
         {canWrite && (
           <div className="drawer-foot">
             {canEditShared ? (
-              <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+              <>
+                <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+                <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit facility</button>
+              </>
             ) : (
-              <span className="muted" style={{ fontSize: 12 }}>Shared record, added by another organization</span>
-            )}
-            {canEditShared && (
-              <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit facility</button>
+              <>
+                <span className="muted" style={{ fontSize: 12, maxWidth: 220 }}>
+                  Shared record. Corrections go to the organization that added it.
+                </span>
+                <button className="btn btn-primary" onClick={onSuggest} disabled={pending}>
+                  Suggest correction
+                </button>
+              </>
             )}
           </div>
         )}
       </aside>
     </div>
   );
+}
+
+/** One pending suggestion, with approve / reject. */
+function PendingRow({ e, pending, onApprove, onReject }) {
+  const [note, setNote] = useState("");
+  const [showNote, setShowNote] = useState(false);
+
+  return (
+    <div className="pending-row">
+      <div className="pending-head">
+        <span className="change-field">{FIELD_LABELS[e.field_name] ?? e.field_name}</span>
+        <span className="change-values">
+          <span className="muted">{displayValue(e.current_value)}</span>
+          <span aria-hidden="true"> → </span>
+          <strong>{displayValue(e.proposed_value)}</strong>
+        </span>
+      </div>
+
+      <div className="change-meta">
+        {e.org?.name ?? "Unknown organization"} · {fmtDate(e.submitted_at?.slice(0, 10))}
+        {e.source_reference && <> · source: {e.source_reference}</>}
+      </div>
+
+      {showNote && (
+        <div className="field" style={{ marginTop: 8 }}>
+          <label htmlFor={`note-${e.id}`}>Review note (optional)</label>
+          <input id={`note-${e.id}`} value={note} onChange={(ev) => setNote(ev.target.value)} />
+        </div>
+      )}
+
+      <div className="pending-actions">
+        <button className="btn btn-ghost" onClick={() => setShowNote(!showNote)} disabled={pending}>
+          {showNote ? "Hide note" : "Add note"}
+        </button>
+        <button className="btn btn-secondary" onClick={() => onReject(e.id, note)} disabled={pending}>
+          Reject
+        </button>
+        <button className="btn btn-primary" onClick={() => onApprove(e.id)} disabled={pending}>
+          Approve
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Suggest a correction to a shared facility fact.
+ *
+ * Shown to anyone who cannot edit the canonical record directly: coaches and
+ * managers, and admins of organizations that did not create the facility.
+ */
+function SuggestCorrectionForm({ f, pending, onSubmit, onCancel }) {
+  const [field, setField] = useState(EDITABLE_FIELDS[0].key);
+  const type = FIELD_TYPES[field];
+  const current = f[field];
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <form action={onSubmit}>
+          <input type="hidden" name="facility_id" value={f.id} />
+
+          <div className="modal-head">
+            <h2>Suggest a correction</h2>
+            <div className="page-sub">
+              {f.name} is a shared record. Your suggestion goes to the organization that
+              added it for review.
+            </div>
+          </div>
+
+          <div className="modal-body">
+            <div className="field">
+              <label htmlFor="sc-field">Field</label>
+              <select id="sc-field" name="field_name" value={field} onChange={(e) => setField(e.target.value)}>
+                {EDITABLE_FIELDS.map((o) => (
+                  <option key={o.key} value={o.key}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="current-value">
+              Current value <strong>{displayValue(toDisplay(current))}</strong>
+            </div>
+
+            <div className="field">
+              <label htmlFor="sc-value">Proposed value</label>
+              {type === "bool" ? (
+                <select id="sc-value" name="proposed_value" required defaultValue="">
+                  <option value="" disabled>Choose</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              ) : type === "surface" ? (
+                <select id="sc-value" name="proposed_value" required defaultValue="">
+                  <option value="" disabled>Choose</option>
+                  {SURFACE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input
+                  id="sc-value"
+                  name="proposed_value"
+                  type={type === "number" ? "number" : "text"}
+                  step={type === "number" ? "any" : undefined}
+                  required
+                />
+              )}
+            </div>
+
+            <div className="field">
+              <label htmlFor="sc-source">Source or reference</label>
+              <input id="sc-source" name="source_reference" placeholder="e.g. park website, called the office" />
+              <p className="field-note">
+                Optional, but it makes a correction much easier to approve.
+              </p>
+            </div>
+          </div>
+
+          <div className="modal-foot">
+            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={pending}>
+              {pending ? "Submitting…" : "Submit suggestion"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/** Booleans render as Yes/No rather than true/false. */
+function toDisplay(v) {
+  if (v === true) return "true";
+  if (v === false) return "false";
+  return v;
 }
 
 /* ---------------- Create / edit, search-first ---------------- */
