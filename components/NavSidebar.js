@@ -11,7 +11,7 @@ import { LogoLockup } from "./Logo";
  * Tournament IQ later.
  */
 const NAV = [
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard", label: "Home" },
   { href: "/tournaments", label: "Tournament IQ" },
   { href: "/team", label: "Team" },
   { href: "/facilities", label: "Facilities" },
