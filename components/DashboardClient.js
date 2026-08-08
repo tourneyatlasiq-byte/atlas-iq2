@@ -237,7 +237,7 @@ function SeasonSnapshot({ summary }) {
       <div className="snap-row-main">
         <div className="snap-hero">{summary.committedCount}</div>
         <div className="snap-hero-label">
-          committed {summary.committedCount === 1 ? "event" : "events"}
+          committed {summary.committedCount === 1 ? "tournament" : "tournaments"}
         </div>
         <div className="snap-support">
           {summary.next ? (
@@ -312,7 +312,7 @@ function FinanceSnapshot({ finance, funds, dues }) {
           {money(dues.outstanding)} dues outstanding
         </div>
         <div className="snap-support snap-support-quiet">
-          {money(funds.total)} received
+          {money(funds.total)} received in dues and fundraising
         </div>
       </div>
     </Snapshot>

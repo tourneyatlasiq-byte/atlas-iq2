@@ -1481,7 +1481,7 @@ a.help-task.featured:hover { background: #eef4fe; }
   background: var(--surface-brand);
   background-image: linear-gradient(160deg, #0b2341 0%, #123055 100%);
   border-radius: var(--radius-card); color: #fff;
-  padding: 26px 28px 24px; min-height: 232px;
+  padding: 20px 26px 18px; min-height: 0;
   display: flex; flex-direction: column;
 }
 .nextup-motif { position: absolute; inset: 0; pointer-events: none; }
@@ -1495,7 +1495,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 }
 
 .nextup-when {
-  display: flex; align-items: baseline; gap: 9px; margin-top: 14px;
+  display: flex; align-items: baseline; gap: 9px; margin-top: 10px;
 }
 .nextup-days {
   font-family: var(--font-display); font-size: var(--num-hero); font-weight: 800;
@@ -1508,16 +1508,17 @@ a.help-task.featured:hover { background: #eef4fe; }
 
 .nextup-name {
   font-family: var(--font-display); font-size: 29px; font-weight: 800;
-  line-height: 1.14; letter-spacing: -0.015em; margin: 14px 0 0; color: #fff;
+  line-height: 1.14; letter-spacing: -0.015em; margin: 10px 0 0; color: #fff;
+  overflow-wrap: anywhere;
 }
 
-.nextup-lines { margin-top: 9px; display: flex; flex-direction: column; gap: 3px; }
+.nextup-lines { margin-top: 7px; display: flex; flex-direction: column; gap: 2px; }
 /* 85% rather than 70% — contrast on navy needs the lift to stay readable
    outdoors on a phone. */
-.nextup-line { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.5; }
+.nextup-line { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.5; overflow-wrap: anywhere; }
 
 .nextup-foot {
-  margin-top: auto; padding-top: 20px;
+  margin-top: auto; padding-top: 16px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 14px; flex-wrap: wrap;
 }
@@ -1557,7 +1558,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 .dot-attention { background: var(--status-wait); }
 .dot-planning { background: var(--status-action); }
 .briefing-text { flex: 1; min-width: 0; }
-.briefing-what { display: block; font-size: 14px; font-weight: 600; color: var(--navy); line-height: 1.45; }
+.briefing-what { display: block; font-size: 14px; font-weight: 600; color: var(--navy); line-height: 1.45; overflow-wrap: anywhere; }
 .briefing-where { display: block; font-size: 12.5px; color: var(--blue); margin-top: 2px; font-weight: 600; }
 .briefing-more { font-size: 12.5px; color: var(--slate); margin: 10px 6px 0; }
 
@@ -1609,12 +1610,29 @@ a.help-task.featured:hover { background: #eef4fe; }
   .home-top { grid-template-columns: 1fr; }
 }
 
+/* Tablet: sidebar still 232px, so three columns leave too little room for the
+   largest figure. Use the compact rows from mobile rather than clipping. */
+@media (min-width: 721px) and (max-width: 900px) {
+  .snapshots { grid-template-columns: 1fr; border-top: none; }
+  .snapshot {
+    border-left: none; border-top: 1px solid var(--border);
+    padding: 15px 2px; flex-direction: row; align-items: center; gap: 14px;
+  }
+  .snapshot::before { left: 2px; right: 2px; }
+  .snap-head { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 96px; flex-shrink: 0; }
+  .snap-hero { font-size: 24px; margin-top: 0; }
+  .snap-hero-label, .snap-support { margin-top: 2px; }
+  .snap-link { margin: 0; padding: 0; flex-shrink: 0; }
+}
+
 @media (max-width: 720px) {
   .nextup { padding: 22px 20px; min-height: 0; }
   .nextup-name { font-size: 23px; }
   .nextup-days { font-size: 38px; }
   .nextup-foot { padding-top: 16px; }
-  .nextup-link { width: 100%; justify-content: center; }
+  .nextup-link { width: 100%; justify-content: center; min-height: 44px; padding: 11px 16px; }
+  /* Help is a primary control on a phone and was ~30px tall. */
+  .help-trigger { min-height: 44px; padding: 11px 16px; }
 
   /* Compact full-width rows rather than a swipe: nothing offscreen, nothing
      to discover, and each row is a large tap target. */
@@ -1633,23 +1651,14 @@ a.help-task.featured:hover { background: #eef4fe; }
   .snap-link { margin: 0; padding: 0; flex-shrink: 0; }
 }
 
-/* Contour language carried below the hero — one faint band edge, not wallpaper.
-   Delete this rule and .home-band keeps working as flat tint. */
-.home-band::after {
-  content: ""; position: absolute; right: -60px; bottom: -70px;
-  width: 320px; height: 200px; pointer-events: none;
-  background:
-    radial-gradient(closest-side, transparent 58%, rgba(11,35,65,0.05) 59%, transparent 60%),
-    radial-gradient(closest-side, transparent 46%, rgba(11,35,65,0.04) 47%, transparent 48%),
-    radial-gradient(closest-side, transparent 34%, rgba(11,35,65,0.035) 35%, transparent 36%);
-}
-
 @media (max-width: 720px) {
   .home-band { padding: 10px; border-radius: 12px; }
   .home-band .briefing { padding: 14px 12px; }
-  .home-band::after { display: none; }
-  .context-chips { gap: 6px; }
-  .crumb { font-size: 12.5px; }
+  .context-chips { gap: 6px; row-gap: 4px; }
+  /* Long organization names must wrap rather than push the season control
+     off the edge. */
+  .crumb { font-size: 12.5px; white-space: normal; overflow-wrap: anywhere; }
+  .crumb-picker .season-trigger { padding: 10px 12px; min-height: 44px; }
   .snap-head { min-width: 0; }
   .module-mark { width: 17px; height: 17px; }
 }
