@@ -169,7 +169,9 @@ export function FacilityImport({ onClose, onDone }) {
                 <span><strong>{report.created.length}</strong> created</span>
                 <span className="muted"><strong>{report.skipped.length}</strong> skipped</span>
                 {report.duplicates.length > 0 && (
-                  <span className="warn"><strong>{report.duplicates.length}</strong> potential duplicates</span>
+                  <span className="warn">
+                    <strong>{report.duplicates.length}</strong> held back for review
+                  </span>
                 )}
                 {report.errors.length > 0 && (
                   <span className="over"><strong>{report.errors.length}</strong> errors</span>
@@ -188,7 +190,7 @@ export function FacilityImport({ onClose, onDone }) {
                   )}
                 />
                 <ReportSection
-                  title="Potential duplicates"
+                  title="Potential duplicates — not created"
                   rows={report.duplicates}
                   tone="warn"
                   render={(r) => r.reason}
