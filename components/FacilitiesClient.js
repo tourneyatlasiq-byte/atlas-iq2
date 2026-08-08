@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
+import { FacilityImport } from "./FacilityImport";
 import {
   createFacility,
   updateFacility,
@@ -9,7 +10,23 @@ import {
   deleteFacility,
 } from "../lib/actions/facilities";
 
-const SURFACES = ["Dirt", "Turf", "Mixed", "Unknown"];
+const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
+
+const AMENITIES = [
+  { key: "lights", label: "Lights" },
+  { key: "batting_cages", label: "Batting cages" },
+  { key: "concessions", label: "Concessions" },
+  { key: "restrooms", label: "Restrooms" },
+  { key: "playground", label: "Playground" },
+  { key: "indoor", label: "Indoor" },
+];
+
+/** Null means unknown, which must never render as "no". */
+function amenityMark(v) {
+  if (v === true) return <span className="amenity yes">Yes</span>;
+  if (v === false) return <span className="amenity no">No</span>;
+  return <span className="amenity unknown">Unknown</span>;
+}
 
 const normalize = (s) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -24,25 +41,28 @@ function cityState(f) {
 }
 
 const surfaceClass = (s) =>
-  s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Dirt" ? "pill-deposit" : "pill-unregistered";
+  s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
 export function FacilitiesClient({ facilities, organizationId, canWrite, externalEnabled = false }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
+  const [amenityFilter, setAmenityFilter] = useState("all");
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // facility | "new" | null
   const [editingNotes, setEditingNotes] = useState(null);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
-  const overlayOpen = Boolean(detail || editing || editingNotes);
+  const overlayOpen = Boolean(detail || editing || editingNotes || importing);
   useEffect(() => {
     if (!overlayOpen) return;
     function onKey(e) {
       if (e.key !== "Escape") return;
       if (editing) setEditing(null);
       else if (editingNotes) setEditingNotes(null);
+      else if (importing) setImporting(false);
       else setDetail(null);
     }
     const prev = document.body.style.overflow;
@@ -52,7 +72,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
       document.body.style.overflow = prev;
       document.removeEventListener("keydown", onKey);
     };
-  }, [overlayOpen, editing, editingNotes]);
+  }, [overlayOpen, editing, editingNotes, importing]);
 
   const states = useMemo(
     () => [...new Set(facilities.map((f) => f.state).filter(Boolean))].sort(),
@@ -64,12 +84,13 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
     return facilities.filter((f) => {
       if (stateFilter !== "all" && f.state !== stateFilter) return false;
       if (surfaceFilter !== "all" && (f.surface_type ?? "Unknown") !== surfaceFilter) return false;
+      if (amenityFilter !== "all" && f[amenityFilter] !== true) return false;
       if (!q) return true;
-      return `${f.name} ${f.city ?? ""} ${f.state ?? ""} ${f.street_address ?? ""} ${f.zip ?? ""}`
+      return `${f.atlas_id ?? ""} ${f.name} ${f.city ?? ""} ${f.state ?? ""} ${f.street_address ?? ""} ${f.zip ?? ""} ${f.county ?? ""}`
         .toLowerCase()
         .includes(q);
     });
-  }, [facilities, query, stateFilter, surfaceFilter]);
+  }, [facilities, query, stateFilter, surfaceFilter, amenityFilter]);
 
   function run(action, fd, onDone) {
     setError(null);
@@ -99,9 +120,14 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
           </div>
         </div>
         {canWrite && (
-          <button className="btn btn-primary" onClick={() => setEditing("new")}>
-            Add facility
-          </button>
+          <div className="foot-actions">
+            <button className="btn btn-secondary" onClick={() => setImporting(true)}>
+              Import CSV
+            </button>
+            <button className="btn btn-primary" onClick={() => setEditing("new")}>
+              Add facility
+            </button>
+          </div>
         )}
       </div>
 
@@ -132,6 +158,15 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
           <option value="all">All surfaces</option>
           {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        <select
+          className="filter-select"
+          value={amenityFilter}
+          onChange={(e) => setAmenityFilter(e.target.value)}
+          aria-label="Filter by amenity"
+        >
+          <option value="all">Any amenity</option>
+          {AMENITIES.map((a) => <option key={a.key} value={a.key}>Has {a.label.toLowerCase()}</option>)}
+        </select>
       </div>
 
       <div className="card card-flush">
@@ -151,6 +186,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
           <table className="table">
             <thead>
               <tr>
+                <th>Atlas ID</th>
                 <th>Facility</th>
                 <th>City / State</th>
                 <th>Surface</th>
@@ -162,6 +198,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
             <tbody>
               {visible.map((f) => (
                 <tr key={f.id} className="row-click" onClick={() => setDetail(f)}>
+                  <td><span className="atlas-id">{f.atlas_id}</span></td>
                   <td>
                     <span className="cell-name">{f.name}</span>
                     {f.orgNotes && (
@@ -219,6 +256,8 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
         />
       )}
 
+      {importing && <FacilityImport onClose={() => setImporting(false)} />}
+
       {editingNotes && (
         <NotesForm
           f={editingNotes}
@@ -275,6 +314,7 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
           <div className="drawer-head-text">
             <h2>{f.name}</h2>
             <div className="drawer-head-meta">
+              <span className="atlas-id">{f.atlas_id}</span>
               {cityState(f) && <span className="drawer-head-dates">{cityState(f)}</span>}
               {f.field_count != null && <span>{f.field_count} fields</span>}
             </div>
@@ -288,6 +328,7 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
         <div className="drawer-body">
           <Section title="Overview">
             <Row label="Address" value={address || null} />
+            <Row label="County" value={f.county} />
             <Row
               label="Map"
               value={
@@ -313,6 +354,19 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
           <Section title="Fields & Surface">
             <Row label="Number of fields" value={f.field_count} />
             <Row label="Surface" value={f.surface_type ?? "Unknown"} />
+            <Row label="Indoor" value={amenityMark(f.indoor)} />
+          </Section>
+
+          <Section title="Amenities">
+            <div className="amenity-grid">
+              {AMENITIES.filter((a) => a.key !== "indoor").map((a) => (
+                <div key={a.key} className="amenity-row">
+                  <span>{a.label}</span>
+                  {amenityMark(f[a.key])}
+                </div>
+              ))}
+            </div>
+            <Row label="Parking" value={f.parking} />
           </Section>
 
           <Section
@@ -358,7 +412,16 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
             )}
           </Section>
 
-          <Section title="Notes">
+          {f.description && (
+            <Section title="About this venue">
+              <p className="section-body">{f.description}</p>
+              {f.data_source && (
+                <p className="field-note">Source: {f.data_source}</p>
+              )}
+            </Section>
+          )}
+
+          <Section title="Your notes">
             <p className="section-body">
               {n?.internal_notes ?? <span className="muted">No internal notes.</span>}
             </p>
@@ -491,7 +554,7 @@ function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onP
                   <li key={f.id}>
                     <div className="pick-row">
                       <span className="pick-name">
-                        {f.name}
+                        <span className="atlas-id">{f.atlas_id}</span> {f.name}
                         {cityState(f) && <span className="muted"> · {cityState(f)}</span>}
                       </span>
                       <button className="btn btn-secondary" onClick={() => onPickExisting(f)}>
@@ -730,12 +793,55 @@ function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onP
               </div>
             </div>
 
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="f-surface">Surface</label>
+                <select id="f-surface" name="surface_type" defaultValue={row?.surface_type ?? ""}>
+                  <option value="">Not specified</option>
+                  {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="f-county">County</label>
+                <input id="f-county" name="county" defaultValue={row?.county ?? ""} />
+              </div>
+            </div>
+
+            <div className="form-divider">Amenities</div>
+
+            <div className="amenity-fields">
+              {AMENITIES.map((a) => (
+                <div className="field" key={a.key}>
+                  <label htmlFor={`f-${a.key}`}>{a.label}</label>
+                  <select
+                    id={`f-${a.key}`}
+                    name={a.key}
+                    defaultValue={
+                      row?.[a.key] === true ? "true" : row?.[a.key] === false ? "false" : ""
+                    }
+                  >
+                    <option value="">Unknown</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+
             <div className="field">
-              <label htmlFor="f-surface">Surface</label>
-              <select id="f-surface" name="surface_type" defaultValue={row?.surface_type ?? ""}>
-                <option value="">Not specified</option>
-                {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <label htmlFor="f-parking">Parking</label>
+              <input id="f-parking" name="parking" placeholder="e.g. 200 spaces, free"
+                     defaultValue={row?.parking ?? ""} />
+              <p className="field-note">
+                Facts about the parking itself. Your own experience of it goes in your notes.
+              </p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="f-description">Description</label>
+              <textarea id="f-description" name="description" rows={2}
+                        placeholder="Publicly true facts about the venue"
+                        defaultValue={row?.description ?? ""} />
             </div>
 
             <div className="form-divider">Links</div>
