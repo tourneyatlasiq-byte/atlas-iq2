@@ -17,6 +17,26 @@
   --radius-control: 10px;
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
 
+  /* --- Atlas visual system -------------------------------------------
+     Depth: not everything is a bordered white card. Exactly ONE brand
+     surface per screen carries the primary element — Next Up on Home. If
+     everything is navy, nothing is emphasised. */
+  --surface-brand: #0b2341;
+  --surface-brand-soft: #16365d;
+  --surface-sunken: #f1f5f9;
+
+  /* Number scale. Previously every figure was 26px/800, so nothing was
+     scannable. One hero number, one per snapshot, supporting text beneath. */
+  --num-hero: 44px;
+  --num-major: 30px;
+  --num-minor: 17px;
+
+  /* Status colour carries meaning, so it is used sparingly. */
+  --status-urgent: #c0392b;
+  --status-wait: #b45309;
+  --status-good: #2e7d32;
+  --status-action: #2f80ed;
+
   --sidebar-w: 232px;
   --font-body: "Inter", system-ui, sans-serif;
   --font-display: "Poppins", system-ui, sans-serif;
@@ -1419,4 +1439,157 @@ a.help-task.featured:hover { background: #eef4fe; }
     border-radius: 0; border: none; max-height: none; top: 0;
   }
   .help-body { flex: 1; }
+}
+
+/* ===== Home =====
+   The one screen using the brand surface. Deliberately not propagated to the
+   other modules yet. */
+
+.home-top {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 16px; align-items: start; margin-bottom: 28px;
+}
+
+/* --- Next Up: an event briefing, not a navy card --- */
+.nextup {
+  position: relative; overflow: hidden;
+  background: var(--surface-brand);
+  background-image: linear-gradient(160deg, #0b2341 0%, #123055 100%);
+  border-radius: var(--radius-card); color: #fff;
+  padding: 26px 28px 24px; min-height: 232px;
+  display: flex; flex-direction: column;
+}
+.nextup-motif { position: absolute; inset: 0; pointer-events: none; }
+
+.nextup-inner { position: relative; display: flex; flex-direction: column; height: 100%; }
+
+.nextup-eyebrow {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.62);
+}
+
+.nextup-when {
+  display: flex; align-items: baseline; gap: 9px; margin-top: 14px;
+}
+.nextup-days {
+  font-family: var(--font-display); font-size: var(--num-hero); font-weight: 800;
+  line-height: 0.92; letter-spacing: -0.02em; color: var(--gold);
+}
+.nextup-days-unit {
+  font-family: var(--font-display); font-size: 12px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.72);
+}
+
+.nextup-name {
+  font-family: var(--font-display); font-size: 27px; font-weight: 800;
+  line-height: 1.14; letter-spacing: -0.015em; margin: 14px 0 0; color: #fff;
+}
+
+.nextup-lines { margin-top: 9px; display: flex; flex-direction: column; gap: 3px; }
+/* 85% rather than 70% — contrast on navy needs the lift to stay readable
+   outdoors on a phone. */
+.nextup-line { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.5; }
+
+.nextup-foot {
+  margin-top: auto; padding-top: 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.nextup-status { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; }
+.nextup-status-good { color: #7fd992; }
+.nextup-status-todo { color: var(--gold); }
+
+.nextup-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  color: #fff; font-size: 13.5px; font-weight: 600;
+  padding: 9px 16px; border-radius: 999px; white-space: nowrap;
+}
+.nextup-link:hover { background: rgba(255,255,255,0.2); }
+
+/* Empty variant stays on the brand surface so Home keeps its anchor. */
+.nextup-empty .nextup-name { font-size: 21px; color: rgba(255,255,255,0.92); }
+
+/* --- Needs Action: a briefing list --- */
+.briefing { padding: 4px 2px; }
+.briefing-title {
+  font-family: var(--font-display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate);
+  margin: 0 0 4px;
+}
+.briefing-list { list-style: none; margin: 0; padding: 0; }
+.briefing-item + .briefing-item { border-top: 1px solid var(--border); }
+.briefing-link {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 13px 6px; color: inherit; border-radius: 8px;
+}
+.briefing-link:hover { background: var(--surface-sunken); }
+.briefing-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px;
+}
+.dot-urgent { background: var(--status-urgent); }
+.dot-wait { background: var(--status-wait); }
+.dot-action { background: var(--status-action); }
+.briefing-text { flex: 1; min-width: 0; }
+.briefing-what { display: block; font-size: 14px; font-weight: 600; color: var(--navy); line-height: 1.45; }
+.briefing-where { display: block; font-size: 12.5px; color: var(--blue); margin-top: 2px; font-weight: 600; }
+.briefing-more { font-size: 12.5px; color: var(--slate); margin: 10px 6px 0; }
+
+.briefing-clear { padding: 16px 6px; }
+.briefing-clear-title { font-size: 15px; font-weight: 700; color: var(--status-good); margin: 0; }
+.briefing-clear-sub { font-size: 13px; color: var(--slate); margin: 3px 0 0; }
+
+/* --- Snapshots: three concepts, no boxes --- */
+.snapshots {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0; border-top: 1px solid var(--border);
+}
+.snapshot {
+  padding: 22px 26px 20px; display: flex; flex-direction: column;
+  border-left: 1px solid var(--border); color: inherit;
+}
+.snapshot:first-child { border-left: none; padding-left: 2px; }
+.snapshot:hover .snap-link { color: var(--blue-dark); text-decoration: underline; }
+
+.snap-label {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate);
+}
+.snap-hero {
+  font-family: var(--font-display); font-size: var(--num-major); font-weight: 800;
+  line-height: 1.05; letter-spacing: -0.02em; color: var(--navy); margin-top: 12px;
+}
+.snap-hero-label { font-size: 13px; color: var(--slate); margin-top: 3px; }
+.snap-support { margin-top: 14px; font-size: 13px; color: var(--navy); line-height: 1.6; }
+.snap-support .muted { color: var(--slate); }
+.snap-link { margin-top: auto; padding-top: 16px; font-size: 13px; font-weight: 600; color: var(--blue); }
+
+.snap-empty { margin-top: 12px; }
+.snap-empty p { font-size: 13.5px; color: var(--slate); margin: 0 0 10px; line-height: 1.5; }
+
+@media (max-width: 1080px) {
+  .home-top { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .nextup { padding: 22px 20px; min-height: 0; }
+  .nextup-name { font-size: 23px; }
+  .nextup-days { font-size: 38px; }
+  .nextup-foot { padding-top: 16px; }
+  .nextup-link { width: 100%; justify-content: center; }
+
+  /* Compact full-width rows rather than a swipe: nothing offscreen, nothing
+     to discover, and each row is a large tap target. */
+  .snapshots { grid-template-columns: 1fr; border-top: none; }
+  .snapshot {
+    border-left: none; border-top: 1px solid var(--border);
+    padding: 16px 2px; flex-direction: row; align-items: center; gap: 14px;
+  }
+  .snapshot:first-child { padding-left: 2px; }
+  .snap-label { min-width: 74px; flex-shrink: 0; }
+  .snap-hero { font-size: 22px; margin-top: 0; }
+  .snap-row-main { flex: 1; min-width: 0; }
+  .snap-hero-label, .snap-support { margin-top: 2px; font-size: 12.5px; }
+  .snap-link { margin: 0; padding: 0; flex-shrink: 0; }
 }
