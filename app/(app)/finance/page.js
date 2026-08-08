@@ -6,6 +6,8 @@ import {
   committedTournamentCost,
   buildBudget,
   financeSummary,
+  fundsIn,
+  duesSummary,
 } from "../../../lib/queries/finance";
 import { createClient } from "../../../lib/supabase/server";
 import { FinanceClient } from "../../../components/FinanceClient";
@@ -56,6 +58,8 @@ export default async function FinancePage() {
       transactions={transactions}
       payments={payments}
       summary={financeSummary(budget, transactions, payments)}
+      funds={fundsIn(transactions, payments)}
+      dues={duesSummary(payments)}
       committedTournaments={committed}
       budgetItems={items}
       tournaments={picks.tournaments}

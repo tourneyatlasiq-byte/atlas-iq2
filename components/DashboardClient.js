@@ -28,7 +28,7 @@ const paidClass = (s) =>
   : s === "Registered" ? "pill-registered"
   : "pill-unregistered";
 
-export function DashboardClient({ context, nextUp, actions, finance, team, seasonSummary }) {
+export function DashboardClient({ context, nextUp, actions, finance, funds, dues, team, seasonSummary }) {
   return (
     <>
       <div className="page-head">
@@ -124,20 +124,31 @@ export function DashboardClient({ context, nextUp, actions, finance, team, seaso
             <Link className="link-arrow" href="/finance">Finance →</Link>
           </div>
 
-          <dl className="dash-figures">
-            <div><dt>Budgeted expenses</dt><dd>{money(finance.budgetedExpenses)}</dd></div>
-            <div><dt>Actual expenses</dt><dd>{money(finance.actualExpenses)}</dd></div>
-            <div><dt>Remaining budget</dt><dd>{money(finance.remainingBudget)}</dd></div>
-            <div className={finance.outstanding > 0 ? "over" : undefined}>
-              <dt>Outstanding payments</dt><dd>{money(finance.outstanding)}</dd>
+          {/* Three concepts, one card. Matches the Finance page exactly so the
+              two pages never describe the same money differently. */}
+          <dl className="dash-figures dash-finance">
+            <div>
+              <dt>Remaining budget</dt>
+              <dd>{money(finance.remainingBudget)}</dd>
+              <span className="dash-sub">
+                {money(finance.actualExpenses)} spent of {money(finance.budgetedExpenses)}
+              </span>
+            </div>
+            <div>
+              <dt>Funds in</dt>
+              <dd>{money(funds.total)}</dd>
+              <span className="dash-sub">
+                {money(funds.playerDues)} dues + {money(funds.otherTotal)} other
+              </span>
+            </div>
+            <div className={dues.outstanding > 0 ? "over" : undefined}>
+              <dt>Outstanding dues</dt>
+              <dd>{money(dues.outstanding)}</dd>
+              <span className="dash-sub">
+                {money(dues.collected)} of {money(dues.expected)} collected
+              </span>
             </div>
           </dl>
-
-          {/* Income stays visually separate — never netted into remaining budget. */}
-          <div className="dash-income">
-            Income <strong>{money(finance.actualIncome)}</strong> received of{" "}
-            {money(finance.budgetedIncome)} budgeted
-          </div>
 
           {finance.committedUnpaid > 0 && (
             <p className="field-note">

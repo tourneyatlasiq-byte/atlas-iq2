@@ -17,9 +17,6 @@ import {
 const money = (n) =>
   n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
-const signed = (n) =>
-  n == null ? "—" : `${n > 0 ? "+" : n < 0 ? "−" : ""}$${Math.abs(Number(n)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-
 function fmtDate(d) {
   if (!d) return "—";
   const [y, m, day] = d.split("-");
@@ -36,7 +33,7 @@ const payClass = (s) =>
   s === "Paid in Full" ? "pill-paid" : s === "Partial" ? "pill-deposit" : "pill-unregistered";
 
 export function FinanceClient({
-  budget, transactions, payments, summary, committedTournaments,
+  budget, transactions, payments, summary, funds, dues, committedTournaments,
   tournaments, players, facilities, budgetItems, canWrite, seasonName,
 }) {
   const [tab, setTab] = useState("budget");
@@ -108,39 +105,32 @@ export function FinanceClient({
         </div>
       </div>
 
-      <div className="stat-grid">
-        <div className="card">
-          <div className="stat-label">Budgeted expenses</div>
-          <div className="stat-value">{money(summary.budgetedExpenses)}</div>
-          <div className="stat-foot">across {budget.expenses.length} categories</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Actual expenses</div>
-          <div className="stat-value">{money(summary.actualExpenses)}</div>
-          <div className="stat-foot">
-            {summary.committedUnpaid > 0
-              ? `${money(summary.committedUnpaid)} committed, unpaid`
-              : "paid transactions only"}
-          </div>
-        </div>
+      {/* One tile per question. Funds In is never netted against expenses —
+          they are two true figures side by side, not a net position. */}
+      <div className="stat-grid stat-grid-3">
         <div className="card">
           <div className="stat-label">Remaining budget</div>
           <div className="stat-value">{money(summary.remainingBudget)}</div>
-          <div className="stat-foot">expenses only, excludes income</div>
-        </div>
-        <div className={`card${summary.outstanding > 0 ? " card-alert" : ""}`}>
-          <div className="stat-label">Outstanding payments</div>
-          <div className="stat-value">{money(summary.outstanding)}</div>
           <div className="stat-foot">
-            {summary.outstandingCount > 0 ? `from ${summary.outstandingCount} players` : "all settled"}
+            {money(summary.actualExpenses)} spent of {money(summary.budgetedExpenses)}
           </div>
         </div>
-      </div>
 
-      <div className="income-strip">
-        <span>Income</span>
-        <strong>{money(summary.actualIncome)}</strong>
-        <span className="muted">received of {money(summary.budgetedIncome)} budgeted</span>
+        <div className="card">
+          <div className="stat-label">Funds in</div>
+          <div className="stat-value">{money(funds.total)}</div>
+          <div className="stat-foot">
+            {money(funds.playerDues)} dues · {money(funds.otherTotal)} other
+          </div>
+        </div>
+
+        <div className={`card${dues.outstanding > 0 ? " card-alert" : ""}`}>
+          <div className="stat-label">Outstanding dues</div>
+          <div className="stat-value">{money(dues.outstanding)}</div>
+          <div className="stat-foot">
+            {money(dues.collected)} of {money(dues.expected)} collected
+          </div>
+        </div>
       </div>
 
       <NeedsAction actions={actions} activeId={actionId} onSelect={selectAction} />
@@ -155,6 +145,7 @@ export function FinanceClient({
       <div className="tabs" role="tablist">
         {[
           { key: "budget", label: "Budget" },
+          { key: "funds", label: "Funds In" },
           { key: "transactions", label: "Transactions" },
           { key: "payments", label: "Player Payments" },
         ].map((t) => (
@@ -189,6 +180,8 @@ export function FinanceClient({
           pending={pending}
         />
       )}
+
+      {tab === "funds" && <FundsInTab funds={funds} dues={dues} />}
 
       {tab === "transactions" && (
         <TransactionsTab
@@ -277,6 +270,71 @@ export function FinanceClient({
   );
 }
 
+/* ---------------- Funds In ---------------- */
+
+/**
+ * Money coming in, kept separate from expenses.
+ *
+ * Player dues derive from Player Payments and are read-only here — recording
+ * them as transactions as well would double-count every payment.
+ */
+function FundsInTab({ funds, dues }) {
+  const rows = [
+    {
+      label: "Player dues",
+      value: funds.playerDues,
+      note: `${money(dues.collected)} collected of ${money(dues.expected)} expected`,
+      derived: true,
+    },
+    { label: "Fundraising", value: funds.fundraising, note: "From income transactions" },
+    { label: "Sponsorships / donations", value: funds.sponsors, note: "From income transactions" },
+  ];
+
+  if (funds.other !== 0) {
+    rows.push({ label: "Other funds in", value: funds.other, note: "Income transactions outside the categories above" });
+  }
+
+  return (
+    <>
+      <div className="tab-head">
+        <div className="page-sub">
+          Money received this season. Kept separate from expenses — never netted against the budget.
+        </div>
+      </div>
+
+      <div className="card card-flush">
+        <table className="table">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label}>
+                <td>
+                  <span className="cell-name">{r.label}</span>
+                  {r.derived && (
+                    <span className="role-tag" title="Derived from Player Payments">
+                      Derived
+                    </span>
+                  )}
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{r.note}</div>
+                </td>
+                <td className="t-cost">{money(r.value)}</td>
+              </tr>
+            ))}
+            <tr className="funds-total">
+              <td><span className="cell-name">Total funds in</span></td>
+              <td className="t-cost">{money(funds.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p className="field-note">
+        Player dues are recorded in Player Payments and appear here automatically. They cannot be
+        entered as transactions, which keeps the same payment from being counted twice.
+      </p>
+    </>
+  );
+}
+
 /* ---------------- Budget ---------------- */
 
 function BudgetTab({ budget, summary, committedTournaments, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending }) {
@@ -355,10 +413,14 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 <span className={`group-caret${open ? "" : " collapsed"}`} aria-hidden="true">▾</span>
                 <span className="budget-cat-name">{g.category}</span>
                 <span className="budget-figs">
-                  <span><em>Budgeted</em>{money(g.budgeted)}</span>
-                  <span><em>{income ? "Received" : "Actual"}</em>{money(g.actual)}</span>
-                  <span><em>Remaining</em>{money(g.remaining)}</span>
-                  <span className={over ? "over" : ""}><em>Variance</em>{signed(g.variance)}</span>
+                  <span><em>Budget</em>{money(g.budgeted)}</span>
+                  <span><em>Spent</em>{money(g.actual)}</span>
+                  {/* Over replaces Remaining rather than sitting beside a
+                      negative number — it says the same thing more plainly. */}
+                  <span className={over ? "over" : ""}>
+                    <em>{over ? "Over" : "Remaining"}</em>
+                    {money(over ? Math.abs(g.remaining) : g.remaining)}
+                  </span>
                 </span>
                 <span className="budget-bar" aria-hidden="true">
                   <span
@@ -374,10 +436,9 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   <thead>
                     <tr>
                       <th>Line item</th>
-                      <th>Budgeted</th>
-                      <th>{income ? "Received" : "Actual"}</th>
+                      <th>Budget</th>
+                      <th>{income ? "Received" : "Spent"}</th>
                       <th>Remaining</th>
-                      <th>Variance</th>
                       <th>% used</th>
                       {canWrite && <th aria-label="Actions" />}
                     </tr>
@@ -395,8 +456,11 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                         </td>
                         <td>{money(r.budgeted)}</td>
                         <td>{money(r.actual)}</td>
-                        <td>{money(r.remaining)}</td>
-                        <td className={r.variance > 0 && !income ? "over" : ""}>{signed(r.variance)}</td>
+                        <td className={r.remaining < 0 && !income ? "over" : ""}>
+                          {r.remaining < 0 && !income
+                            ? `Over ${money(Math.abs(r.remaining))}`
+                            : money(r.remaining)}
+                        </td>
                         <td>{r.percentUsed == null ? "—" : `${r.percentUsed}%`}</td>
                         {canWrite && (
                           <td className="td-actions">

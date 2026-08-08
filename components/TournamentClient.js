@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
+import { QuickAddFacility } from "./QuickAddFacility";
 import { GamesSection } from "./GamesSection";
 import { TOURNAMENT_FILTER_LABELS } from "../lib/readiness/tournaments";
 import {
@@ -16,7 +18,7 @@ const DECISIONS = ["Considering", "Committed", "Declined"];
 // Display order differs from the value list: Committed first, since that is
 // what a coach checks before anything else.
 const GROUP_ORDER = ["Committed", "Considering", "Declined"];
-const PAID_STATUSES = ["Not Registered", "Registered", "Deposit Paid", "Paid in Full"];
+const PAID_STATUSES = ["Not Registered", "Waitlisted", "Registered", "Deposit Paid", "Paid in Full"];
 const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay"];
 
 const money = (n) =>
@@ -31,12 +33,20 @@ function dateRange(start, end) {
   return `${f(start)} – ${f(end)}, ${year}`;
 }
 
-/** "Facility — City, ST", falling back to the free-text location. */
+/**
+ * Where the tournament is.
+ *
+ * A linked facility is canonical, so its city/state win. The free-text
+ * `location` is only a fallback for tournaments with no facility — several
+ * legacy rows have both, and they disagree ("Cobb" against a Marietta venue).
+ * Deriving from the facility makes that stale text invisible without deleting
+ * it.
+ */
 function placeLine(t) {
-  const cityState = t.facility
-    ? [t.facility.city, t.facility.state].filter(Boolean).join(", ")
-    : null;
-  if (t.facility?.name) return [t.facility.name, cityState].filter(Boolean).join(" \u2022 ");
+  if (t.facility?.name) {
+    const cityState = [t.facility.city, t.facility.state].filter(Boolean).join(", ");
+    return [t.facility.name, cityState].filter(Boolean).join(" \u2022 ");
+  }
   return t.location ?? null;
 }
 
@@ -44,10 +54,13 @@ const paidClass = (s) =>
   s === "Paid in Full" ? "pill-paid"
   : s === "Deposit Paid" ? "pill-deposit"
   : s === "Registered" ? "pill-registered"
+  : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
 export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName }) {
+  const router = useRouter();
   const [actionId, setActionId] = useState(null);
+  const [addingFacility, setAddingFacility] = useState(false);
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
   const [error, setError] = useState(null);
@@ -276,9 +289,21 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           facilities={facilities}
           pending={pending}
           onSubmit={submit}
+          onAddFacility={() => setAddingFacility(true)}
           onCancel={() => {
             setEditing(null);
             setError(null);
+          }}
+        />
+      )}
+
+      {addingFacility && (
+        <QuickAddFacility
+          onClose={() => setAddingFacility(false)}
+          onCreated={() => {
+            setAddingFacility(false);
+            // The facility list comes from the server, so refresh to pick it up.
+            router.refresh();
           }}
         />
       )}
@@ -472,12 +497,18 @@ function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, p
   );
 }
 
-function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel }) {
+function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
   const [gate, setGate] = useState(row?.gate_fee ?? "");
+  const [facilityId, setFacilityId] = useState(row?.facility?.id ?? "");
 
   const total = (Number(entry) || 0) + (Number(gate) || 0);
+
+  // A linked facility is canonical, so its city/state are used and the manual
+  // field is hidden entirely. That duplicate entry is what produced "Cobb"
+  // sitting against a Marietta venue in the legacy rows.
+  const selectedFacility = facilities.find((f) => f.id === facilityId) ?? null;
 
   return (
     <div
@@ -528,13 +559,22 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
               </div>
               <div className="field">
                 <label htmlFor="facility_id">Facility</label>
-                <select id="facility_id" name="facility_id" defaultValue={row?.facility?.id ?? ""}>
-                  <option value="">—</option>
+                <select
+                  id="facility_id"
+                  name="facility_id"
+                  value={facilityId}
+                  onChange={(e) => {
+                    if (e.target.value === "__add__") onAddFacility?.();
+                    else setFacilityId(e.target.value);
+                  }}
+                >
+                  <option value="">Not linked</option>
                   {facilities.map((f) => (
                     <option key={f.id} value={f.id}>
-                      {f.name}{f.city ? ` — ${f.city}` : ""}
+                      {f.name}{f.city ? ` — ${f.city}${f.state ? `, ${f.state}` : ""}` : ""}
                     </option>
                   ))}
+                  <option value="__add__">+ Add a new facility…</option>
                 </select>
               </div>
             </div>
@@ -565,11 +605,24 @@ function TournamentForm({ row, providers, facilities, pending, onSubmit, onCance
               </div>
             </div>
 
-            <div className="field">
-              <label htmlFor="location">City / State</label>
-              <input id="location" name="location" placeholder="City, State"
-                     defaultValue={row?.location ?? ""} />
-            </div>
+            {selectedFacility ? (
+              <div className="current-value">
+                Location{" "}
+                <strong>
+                  {[selectedFacility.city, selectedFacility.state].filter(Boolean).join(", ") || "—"}
+                </strong>
+                <span className="muted"> · from {selectedFacility.name}</span>
+              </div>
+            ) : (
+              <div className="field">
+                <label htmlFor="location">City / State</label>
+                <input id="location" name="location" placeholder="City, State"
+                       defaultValue={row?.location ?? ""} />
+                <p className="field-note">
+                  Only needed when no facility is linked. Linking one fills this in for you.
+                </p>
+              </div>
+            )}
 
             <div className="field-row">
               <div className="field">

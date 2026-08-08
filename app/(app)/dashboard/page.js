@@ -10,6 +10,8 @@ import {
   listPlayerPayments,
   buildBudget,
   financeSummary,
+  fundsIn,
+  duesSummary,
 } from "../../../lib/queries/finance";
 import { teamActions } from "../../../lib/readiness/team";
 import { dashboardActions, nextUpTournament } from "../../../lib/readiness/dashboard";
@@ -64,6 +66,8 @@ export default async function DashboardPage() {
       nextUp={nextUpTournament(tournaments)}
       actions={dashboardActions({ roster, tournaments, payments })}
       finance={financeSummary(budget, transactions, payments)}
+      funds={fundsIn(transactions, payments)}
+      dues={duesSummary(payments)}
       team={{ ...team_, actionCount: teamActions(roster).length }}
       seasonSummary={tournamentSummary(tournaments)}
     />
