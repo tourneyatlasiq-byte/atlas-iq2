@@ -236,7 +236,7 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
       )}
 
       {/* 4. Slide-over detail */}
-      {detail && (
+      {detail && !editing && (
         <TournamentDetail
           t={detail}
           canWrite={canWrite}

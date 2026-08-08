@@ -32,13 +32,21 @@ function fmtDate(d) {
 /** Mirrors missingInfo() in lib/queries/roster.js. */
 function gapsFor(row) {
   const p = row.player ?? {};
+  const isPlayer = (p.person_type ?? "player") === "player";
   const gaps = [];
-  if (row.jersey_number == null) gaps.push("jersey number");
-  if (!row.positions?.length) gaps.push("position");
-  if (!row.jersey_size) gaps.push("jersey size");
-  if (!row.pants_size) gaps.push("pants size");
-  if (p.person_type === "player" && !p.grad_year) gaps.push("grad year");
-  if (!p.parent_email && !p.parent_phone && !p.player_email) gaps.push("contact");
+
+  if (isPlayer) {
+    if (row.jersey_number == null) gaps.push("jersey number");
+    if (!row.positions?.length) gaps.push("position");
+    if (!row.jersey_size) gaps.push("jersey size");
+    if (!row.pants_size) gaps.push("pants size");
+    if (!p.grad_year) gaps.push("grad year");
+    if (!p.parent_email && !p.parent_phone && !p.player_email) gaps.push("contact");
+  } else {
+    // Coaches and staff need a way to reach them. Nothing else is required.
+    if (!p.player_email && !p.player_phone) gaps.push("contact");
+  }
+
   return gaps;
 }
 
@@ -222,33 +230,43 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
               {visible.map((row) => {
                 const p = row.player ?? {};
                 const gaps = gapsFor(row);
+                const isStaff = (p.person_type ?? "player") !== "player";
+                const roleName = p.person_type === "other"
+                  ? p.other_role_label ?? "Staff"
+                  : typeLabel(p.person_type);
                 return (
                   <tr
                     key={row.id}
-                    className={`row-click${row.is_active ? "" : " row-inactive"}`}
+                    className={`row-click${row.is_active ? "" : " row-inactive"}${isStaff ? " row-staff" : ""}`}
                     onClick={() => setDetail(row)}
                   >
                     <td>
-                      {row.jersey_number != null
-                        ? <span className="jersey">{row.jersey_number}</span>
-                        : <span className="muted">—</span>}
+                      {isStaff ? (
+                        <span className="role-badge">{roleName.slice(0, 1).toUpperCase()}</span>
+                      ) : row.jersey_number != null ? (
+                        <span className="jersey">{row.jersey_number}</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
                     </td>
                     <td>
                       <span className="cell-name">{p.full_name ?? "—"}</span>
-                      {p.person_type !== "player" && (
-                        <span className="pill pill-staff cell-tag">{typeLabel(p.person_type)}</span>
-                      )}
+                      {isStaff && <span className="role-tag">{roleName}</span>}
                       {gaps.length > 0 && row.is_active && (
                         <span className="gap-flag" title={`Missing: ${gaps.join(", ")}`}>
                           {gaps.length} missing
                         </span>
                       )}
                     </td>
-                    <td>{p.grad_year ?? <span className="muted">—</span>}</td>
+                    <td>{isStaff ? <span className="muted">—</span> : p.grad_year ?? <span className="muted">—</span>}</td>
                     <td>
-                      {row.positions?.length
-                        ? row.positions.join(" / ")
-                        : <span className="muted">—</span>}
+                      {isStaff ? (
+                        <span className="muted">Staff</span>
+                      ) : row.positions?.length ? (
+                        row.positions.join(" / ")
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
                     </td>
                     <td>{row.jersey_size ?? <span className="muted">—</span>}</td>
                     <td>{row.pants_size ?? <span className="muted">—</span>}</td>
@@ -265,7 +283,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, seasonName }
         )}
       </div>
 
-      {detail && (
+      {detail && !editing && (
         <PlayerDetail
           row={detail}
           canWrite={canWrite}
@@ -348,6 +366,9 @@ function PlayerDetail({ row, canWrite, pending, gaps, onClose, onEdit, onRemove,
               {row.jersey_number != null && <span className="drawer-head-dates">#{row.jersey_number}</span>}
               {row.positions?.length > 0 && <span>{row.positions.join(" / ")}</span>}
               {p.grad_year && <span>Class of {p.grad_year}</span>}
+              {(p.person_type ?? "player") !== "player" && (
+                <span>{p.person_type === "other" ? p.other_role_label ?? "Staff" : typeLabel(p.person_type)}</span>
+              )}
             </div>
             <div className="drawer-head-pills">
               <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
@@ -385,10 +406,10 @@ function PlayerDetail({ row, canWrite, pending, gaps, onClose, onEdit, onRemove,
 
           <Section title="Player Information">
             <Row label="Name" value={p.full_name} />
-            <Row label="Type" value={p.person_type === "other" ? p.other_role_label ?? "Other" : typeLabel(p.person_type)} />
-            <Row label="Grad year" value={p.grad_year} />
             <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />
             <Row label="Jersey number" value={row.jersey_number} />
+            <Row label="Type" value={p.person_type === "other" ? p.other_role_label ?? "Other" : typeLabel(p.person_type)} />
+            <Row label="Grad year" value={p.grad_year} />
             <Row label="Positions" value={row.positions?.length ? row.positions.join(" / ") : null} />
             <Row label="Throws" value={p.throws} />
             <Row label="Bats" value={p.bats} />
@@ -551,15 +572,32 @@ function PlayerForm({ row, pending, onSubmit, onCancel }) {
 
             <div className="field-row">
               <div className="field">
+                <label htmlFor="date_of_birth">Date of birth</label>
+                <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
+              </div>
+              <div className="field">
+                <label htmlFor="jersey_number">Jersey number</label>
+                <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
+                       defaultValue={row?.jersey_number ?? ""} />
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="parent_email">Parent email</label>
+              <input id="parent_email" name="parent_email" type="email" defaultValue={p.parent_email ?? ""} />
+            </div>
+
+            <div className="field-row">
+              <div className="field">
                 <label htmlFor="person_type">Type</label>
                 <select id="person_type" name="person_type" value={type} onChange={(e) => setType(e.target.value)}>
                   {PERSON_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="jersey_number">Jersey number</label>
-                <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
-                       defaultValue={row?.jersey_number ?? ""} />
+                <label htmlFor="grad_year">Grad year</label>
+                <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
+                       defaultValue={p.grad_year ?? ""} />
               </div>
             </div>
 
@@ -585,18 +623,6 @@ function PlayerForm({ row, pending, onSubmit, onCancel }) {
                     {pos}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="grad_year">Grad year</label>
-                <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
-                       defaultValue={p.grad_year ?? ""} />
-              </div>
-              <div className="field">
-                <label htmlFor="date_of_birth">Date of birth</label>
-                <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
               </div>
             </div>
 
@@ -649,15 +675,10 @@ function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
             </div>
 
-            <div className="field">
-              <label htmlFor="parent_name">Parent / guardian name</label>
-              <input id="parent_name" name="parent_name" defaultValue={p.parent_name ?? ""} />
-            </div>
-
             <div className="field-row">
               <div className="field">
-                <label htmlFor="parent_email">Parent email</label>
-                <input id="parent_email" name="parent_email" type="email" defaultValue={p.parent_email ?? ""} />
+                <label htmlFor="parent_name">Parent / guardian name</label>
+                <input id="parent_name" name="parent_name" defaultValue={p.parent_name ?? ""} />
               </div>
               <div className="field">
                 <label htmlFor="parent_phone">Parent phone</label>
