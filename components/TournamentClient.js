@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
+import { GamesSection } from "./GamesSection";
 import { TOURNAMENT_FILTER_LABELS } from "../lib/readiness/tournaments";
 import {
   addTournament,
@@ -45,7 +46,7 @@ const paidClass = (s) =>
   : s === "Registered" ? "pill-registered"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName }) {
+export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName }) {
   const [actionId, setActionId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
@@ -161,6 +162,17 @@ export function TournamentClient({ tournaments, actions, summary, providers, fac
             {summary.next
               ? `${dateRange(summary.next.start_date, summary.next.end_date)} · ${summary.daysToNext} days out`
               : "Nothing committed yet"}
+          </div>
+        </div>
+        <div className="card">
+          <div className="stat-label">Season record</div>
+          <div className="stat-value">
+            {record.played > 0 ? `${record.w}–${record.l}${record.t > 0 ? `–${record.t}` : ""}` : "—"}
+          </div>
+          <div className="stat-foot">
+            {record.played > 0
+              ? `${record.played} game${record.played === 1 ? "" : "s"} played`
+              : "no games played yet"}
           </div>
         </div>
         <div className={`card${actions.length ? " card-alert" : ""}`}>
@@ -405,6 +417,12 @@ function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, p
               }
             />
           </Section>
+
+          <GamesSection
+            tournament={t}
+            games={t.games ?? []}
+            canWrite={canWrite}
+          />
 
           <Section title="Notes">
             <p className="section-body">

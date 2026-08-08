@@ -3,6 +3,7 @@ import {
   listSeasonTournaments,
   listReferenceData,
   deriveSummary,
+  seasonRecord,
 } from "../../../lib/queries/tournaments";
 import { tournamentActions } from "../../../lib/readiness/tournaments";
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
@@ -41,6 +42,7 @@ export default async function TournamentsPage() {
       tournaments={withDocs}
       actions={tournamentActions(withDocs)}
       summary={deriveSummary(withDocs)}
+      record={seasonRecord(withDocs)}
       providers={reference.providers}
       facilities={reference.facilities}
       canWrite={canWrite(profile)}
