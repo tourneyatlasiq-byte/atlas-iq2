@@ -22,12 +22,10 @@ export default async function AppLayout({ children }) {
       <div className="main">
         <header className="topbar">
           <div className="context-chips">
-            <span className="chip">
-              Organization <strong>{organization?.name ?? "Not linked"}</strong>
-            </span>
-            <span className="chip">
-              Team <strong>{team?.name ?? "None"}</strong>
-            </span>
+            <span className="crumb">{organization?.name ?? "Not linked"}</span>
+            <span className="crumb-sep" aria-hidden="true">/</span>
+            <span className="crumb">{team?.name ?? "No team"}</span>
+            <span className="crumb-sep" aria-hidden="true">/</span>
             <SeasonPicker seasons={seasons} season={season} phase={seasonPhase} />
           </div>
 

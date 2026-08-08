@@ -33,11 +33,7 @@ export function SeasonPicker({ seasons, season, phase }) {
 
   // Nothing to choose between.
   if (!seasons || seasons.length <= 1) {
-    return (
-      <span className="chip chip-season">
-        Season <strong>{season?.name ?? "None"}</strong>
-      </span>
-    );
+    return <span className="crumb crumb-season">{season?.name ?? "None"}</span>;
   }
 
   const label = (s) =>
@@ -52,9 +48,9 @@ export function SeasonPicker({ seasons, season, phase }) {
   }
 
   return (
-    <span className="chip chip-season chip-season-picker" ref={ref}>
+    <span className="crumb-picker" ref={ref}>
       <button className="season-trigger" onClick={() => setOpen(!open)} aria-expanded={open}>
-        Season <strong>{season?.name ?? "None"}</strong>
+        <strong>{season?.name ?? "None"}</strong>
         {phase !== "current" && (
           <span className="season-chip-phase">{phase === "past" ? "Past" : "Planning"}</span>
         )}

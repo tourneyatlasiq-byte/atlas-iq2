@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { plainLanguage } from "../lib/readiness/dashboard";
 import { TopoMotif } from "./TopoMotif";
+import { ModuleMark } from "./ModuleMark";
 
 /**
  * Home — the coach's operational screen.
@@ -27,8 +28,16 @@ function fmtRange(start, end) {
   return `${f(start)} to ${f(end)}`;
 }
 
-/** Priority drives the dot. Nothing else on Home is coloured. */
-const dotClass = (p) => (p <= 10 ? "dot-urgent" : p <= 29 ? "dot-wait" : "dot-action");
+/**
+ * Three meanings, no more. Rule priority decides which.
+ *
+ *   red    urgent      a deadline or money already overdue   (<= 15)
+ *   amber  attention   needs doing, not yet critical         (16-30)
+ *   blue   planning    informational, decide when you can    (> 30)
+ *
+ * Four near-identical warm dots communicated nothing; this restores meaning.
+ */
+const dotClass = (p) => (p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "dot-planning");
 
 export function DashboardClient({
   context, nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current",
@@ -38,13 +47,15 @@ export function DashboardClient({
       <div className="page-head">
         <div>
           <h1>Home</h1>
-          <div className="page-sub">{MODULE_DESCRIPTIONS.dashboard}</div>
+          <div className="page-sub">Here&rsquo;s what&rsquo;s coming up and what needs your attention.</div>
         </div>
       </div>
 
+      <div className="home-band">
       <div className="home-top">
         <NextUp nextUp={nextUp} />
         <Briefing actions={actions} seasonPhase={seasonPhase} />
+      </div>
       </div>
 
       <div className="snapshots">
@@ -197,10 +208,13 @@ function Briefing({ actions, seasonPhase }) {
 
 /* ---------------- Snapshots ---------------- */
 
-function Snapshot({ label, children, href, cta }) {
+function Snapshot({ label, mark, children, href, cta }) {
   return (
     <Link href={href} className="snapshot">
-      <span className="snap-label">{label}</span>
+      <span className="snap-head">
+        <ModuleMark kind={mark} />
+        <span className="snap-label">{label}</span>
+      </span>
       {children}
       <span className="snap-link">{cta} →</span>
     </Link>
@@ -210,7 +224,7 @@ function Snapshot({ label, children, href, cta }) {
 function SeasonSnapshot({ summary }) {
   if (summary.committedCount === 0) {
     return (
-      <Snapshot label="Season" href="/tournaments" cta="Plan your season">
+      <Snapshot label="Season" mark="season" href="/tournaments" cta="Plan your season">
         <div className="snap-empty">
           <p>No tournaments committed yet. Commit to an event and its cost and dates appear here.</p>
         </div>
@@ -219,7 +233,7 @@ function SeasonSnapshot({ summary }) {
   }
 
   return (
-    <Snapshot label="Season" href="/tournaments" cta="Tournament IQ">
+    <Snapshot label="Season" mark="season" href="/tournaments" cta="Tournament IQ">
       <div className="snap-row-main">
         <div className="snap-hero">{summary.committedCount}</div>
         <div className="snap-hero-label">
@@ -227,11 +241,12 @@ function SeasonSnapshot({ summary }) {
         </div>
         <div className="snap-support">
           {summary.next ? (
-            <>Next {fmtRange(summary.next.start_date, summary.next.end_date)}</>
+            <><span className="muted">Next:</span> {fmtRange(summary.next.start_date, summary.next.end_date)}</>
           ) : (
             <span className="muted">No upcoming events</span>
           )}
-          {" · "}
+        </div>
+        <div className="snap-support snap-support-quiet">
           {money(summary.committedCost)} committed
         </div>
       </div>
@@ -242,7 +257,7 @@ function SeasonSnapshot({ summary }) {
 function TeamSnapshot({ team }) {
   if (team.playerCount + team.staffCount === 0) {
     return (
-      <Snapshot label="Team" href="/team?add=person" cta="Add players">
+      <Snapshot label="Team" mark="team" href="/team?add=person" cta="Add players">
         <div className="snap-empty">
           <p>Build your roster. Add your players and coaches.</p>
         </div>
@@ -251,19 +266,21 @@ function TeamSnapshot({ team }) {
   }
 
   return (
-    <Snapshot label="Team" href="/team" cta="Team">
+    <Snapshot label="Team" mark="team" href="/team" cta="Team">
       <div className="snap-row-main">
         <div className="snap-hero">{team.playerCount}</div>
         <div className="snap-hero-label">
           active {team.playerCount === 1 ? "player" : "players"}
         </div>
         <div className="snap-support">
-          {team.staffCount} {team.staffCount === 1 ? "coach" : "coaches"}
           {team.actionCount > 0 ? (
-            <> · {team.actionCount} need attention</>
+            <>{team.actionCount} {team.actionCount === 1 ? "item needs" : "items need"} attention</>
           ) : (
-            <span className="muted"> · all set</span>
+            <span className="muted">Everyone&rsquo;s set up</span>
           )}
+        </div>
+        <div className="snap-support snap-support-quiet">
+          {team.staffCount} {team.staffCount === 1 ? "coach" : "coaches"}
         </div>
       </div>
     </Snapshot>
@@ -278,7 +295,7 @@ function TeamSnapshot({ team }) {
 function FinanceSnapshot({ finance, funds, dues }) {
   if (finance.budgetedExpenses === 0 && dues.expected === 0) {
     return (
-      <Snapshot label="Finance" href="/finance?tab=player-payments" cta="Set up player payments">
+      <Snapshot label="Finance" mark="finance" href="/finance?tab=player-payments" cta="Set up player payments">
         <div className="snap-empty">
           <p>Set what each player owes for the season. Budget and spending follow from there.</p>
         </div>
@@ -287,14 +304,15 @@ function FinanceSnapshot({ finance, funds, dues }) {
   }
 
   return (
-    <Snapshot label="Finance" href="/finance" cta="Finance">
+    <Snapshot label="Finance" mark="finance" href="/finance" cta="Finance">
       <div className="snap-row-main">
         <div className="snap-hero">{money(finance.remainingBudget)}</div>
         <div className="snap-hero-label">Remaining budget</div>
         <div className="snap-support">
-          {money(funds.total)} received
-          <span className="muted"> · </span>
           {money(dues.outstanding)} dues outstanding
+        </div>
+        <div className="snap-support snap-support-quiet">
+          {money(funds.total)} received
         </div>
       </div>
     </Snapshot>
