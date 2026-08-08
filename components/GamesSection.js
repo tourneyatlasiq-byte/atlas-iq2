@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { saveGame, deleteGame } from "../lib/actions/games";
 import { GAME_TYPES, isFutureGame, recordFrom } from "../lib/game-rules";
 
@@ -33,10 +33,16 @@ function fmtTime(t) {
 const resultClass = (r) =>
   r === "W" ? "res-w" : r === "L" ? "res-l" : r === "T" ? "res-t" : "res-none";
 
-export function GamesSection({ tournament, games, canWrite, onChanged }) {
+export function GamesSection({ tournament, games, canWrite, onChanged, openSignal = 0 }) {
   const [editing, setEditing] = useState(null); // game | "new" | null
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
+
+  // The drawer's quick action bumps openSignal to open this form, so the form
+  // state stays owned here rather than being lifted into the drawer.
+  useEffect(() => {
+    if (openSignal > 0) setEditing("new");
+  }, [openSignal]);
 
   const record = recordFrom(games);
 
@@ -70,7 +76,7 @@ export function GamesSection({ tournament, games, canWrite, onChanged }) {
   }
 
   return (
-    <section className="detail-section games-section">
+    <section className="detail-section games-section" id="section-games">
       <div className="games-header">
         <div className="games-heading">
           <h3 className="detail-section-title">Games</h3>

@@ -58,7 +58,7 @@ export default async function FinancePage() {
       transactions={transactions}
       payments={payments}
       summary={financeSummary(budget, transactions, payments)}
-      funds={fundsIn(transactions, payments)}
+      funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
       committedTournaments={committed}
       budgetItems={items}

@@ -285,17 +285,20 @@ export function FundsInTab({ funds, dues }) {
   const rows = [
     {
       label: "Player dues",
-      value: funds.playerDues,
-      note: `${money(dues.collected)} collected of ${money(dues.expected)} expected`,
+      received: funds.playerDues,
+      goal: dues.expected,
+      note: "Derived from Player Payments",
       derived: true,
     },
-    { label: "Fundraising", value: funds.fundraising, note: "From income transactions" },
-    { label: "Sponsorships / donations", value: funds.sponsors, note: "From income transactions" },
+    { label: "Fundraising", received: funds.fundraising, goal: funds.fundraisingGoal },
+    { label: "Sponsorships / donations", received: funds.sponsors, goal: funds.sponsorsGoal },
   ];
 
-  if (funds.other !== 0) {
-    rows.push({ label: "Other funds in", value: funds.other, note: "Income transactions outside the categories above" });
+  if (funds.other !== 0 || funds.otherGoal > 0) {
+    rows.push({ label: "Other", received: funds.other, goal: funds.otherGoal });
   }
+
+  const pct = (r, g) => (g > 0 ? Math.round((r / g) * 100) : null);
 
   return (
     <>
@@ -307,24 +310,46 @@ export function FundsInTab({ funds, dues }) {
 
       <div className="card card-flush">
         <table className="table">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Received</th>
+              <th>Goal</th>
+              <th>% of goal</th>
+            </tr>
+          </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.label}>
                 <td>
                   <span className="cell-name">{r.label}</span>
-                  {r.derived && (
-                    <span className="role-tag" title="Derived from Player Payments">
-                      Derived
-                    </span>
+                  {r.derived && <span className="role-tag">Derived</span>}
+                  {r.note && (
+                    <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{r.note}</div>
                   )}
-                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{r.note}</div>
                 </td>
-                <td className="t-cost">{money(r.value)}</td>
+                <td className="t-cost">{money(r.received)}</td>
+                <td className="t-cost">{r.goal > 0 ? money(r.goal) : <span className="muted">—</span>}</td>
+                <td className="t-cost">
+                  {pct(r.received, r.goal) == null
+                    ? <span className="muted">—</span>
+                    : `${pct(r.received, r.goal)}%`}
+                </td>
               </tr>
             ))}
             <tr className="funds-total">
               <td><span className="cell-name">Total funds in</span></td>
               <td className="t-cost">{money(funds.total)}</td>
+              <td className="t-cost">
+                {funds.totalGoal + dues.expected > 0
+                  ? money(funds.totalGoal + dues.expected)
+                  : <span className="muted">—</span>}
+              </td>
+              <td className="t-cost">
+                {pct(funds.total, funds.totalGoal + dues.expected) == null
+                  ? <span className="muted">—</span>
+                  : `${pct(funds.total, funds.totalGoal + dues.expected)}%`}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -347,7 +372,8 @@ export function BudgetTab({ budget, summary, committedTournaments, openCats, set
     <>
       <div className="tab-head">
         <div className="page-sub">
-          Actual spend is derived from paid transactions linked to each budget line.
+          Planned expenses only. Actual spend derives from paid transactions linked to each
+          budget line. Income targets live in Funds In.
         </div>
         {canWrite && <button className="btn btn-primary" onClick={onAdd}>Add budget line</button>}
       </div>
@@ -359,7 +385,7 @@ export function BudgetTab({ budget, summary, committedTournaments, openCats, set
         </div>
       )}
 
-      {budget.expenses.length === 0 && budget.income.length === 0 ? (
+      {budget.expenses.length === 0 ? (
         <div className="card">
           <div className="empty">
             <h3>No budget yet</h3>
@@ -373,11 +399,6 @@ export function BudgetTab({ budget, summary, committedTournaments, openCats, set
             title="Expenses" groups={budget.expenses} openCats={openCats}
             setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
             onDelete={onDelete} pending={pending}
-          />
-          <BudgetSection
-            title="Income" groups={budget.income} openCats={openCats}
-            setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
-            onDelete={onDelete} pending={pending} income
           />
         </>
       )}
@@ -575,29 +596,31 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Vendor</th>
                 <th>Description</th>
                 <th>Budget line</th>
                 <th>Amount</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((t) => (
                 <tr key={t.id} className="row-click" onClick={() => onOpen(t)}>
                   <td className="nowrap">{fmtDate(t.txn_date)}</td>
-                  <td>{t.vendor ?? <span className="muted">—</span>}</td>
-                  <td className="cell-name">
-                    {t.item}
+                  <td>
+                    <span className="cell-name">{t.item}</span>
                     {t.is_income && <span className="role-tag">Income</span>}
+                    {t.vendor && <div className="txn-vendor">{t.vendor}</div>}
                   </td>
                   <td>
                     {t.budget_item
-                      ? <>{t.budget_item.category}<span className="muted"> · {t.budget_item.name}</span></>
-                      : <span className="muted">{t.category} (unlinked)</span>}
+                      ? t.budget_item.category
+                      : <span className="muted">{t.category}</span>}
                   </td>
-                  <td className="t-cost">{money(t.actual_amount)}</td>
-                  <td><span className={`pill ${statusClass(t.status)}`}>{t.status}</span></td>
+                  <td className="t-cost txn-amount">
+                    {money(t.actual_amount)}
+                    <span className={`txn-status ${statusClass(t.status)}`} title={t.status}>
+                      {t.status}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

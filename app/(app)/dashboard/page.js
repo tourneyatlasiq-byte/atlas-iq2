@@ -66,7 +66,7 @@ export default async function DashboardPage() {
       nextUp={nextUpTournament(tournaments)}
       actions={dashboardActions({ roster, tournaments, payments })}
       finance={financeSummary(budget, transactions, payments)}
-      funds={fundsIn(transactions, payments)}
+      funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
       team={{ ...team_, actionCount: teamActions(roster).length }}
       seasonSummary={tournamentSummary(tournaments)}

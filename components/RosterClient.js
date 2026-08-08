@@ -586,6 +586,9 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               <input id="parent_email" name="parent_email" type="email" defaultValue={p.parent_email ?? ""} />
             </div>
 
+            <details className="more-details" open={!isNew}>
+              <summary>More details</summary>
+
             <div className="field-row">
               <div className="field">
                 <label htmlFor="person_type">Type</label>
@@ -689,6 +692,7 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               <label htmlFor="notes">Notes</label>
               <textarea id="notes" name="notes" rows={3} defaultValue={p.notes ?? ""} />
             </div>
+            </details>
           </div>
 
           <div className="modal-foot">

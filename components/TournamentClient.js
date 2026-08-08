@@ -339,6 +339,13 @@ function Row({ label, value }) {
 }
 
 export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus }) {
+  // Bumped by the quick action to open the Add game form further down the
+  // drawer, without lifting that form's state out of GamesSection.
+  const [addGameSignal, setAddGameSignal] = useState(0);
+  const onAddGame = () => {
+    setAddGameSignal((n) => n + 1);
+    document.getElementById("section-games")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside
@@ -367,6 +374,34 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
         </div>
 
         <div className="drawer-body">
+          {canWrite && (
+            <div className="quick-actions">
+              <button className="quick-action" onClick={onAddGame}>+ Add game</button>
+              {t.paid_status !== "Paid in Full" && (
+                <button
+                  className="quick-action"
+                  onClick={() => onStatus(t.id, "paid_status", "Paid in Full")}
+                >
+                  Mark paid in full
+                </button>
+              )}
+              {t.decision === "Considering" && (
+                <button
+                  className="quick-action quick-action-primary"
+                  onClick={() => onStatus(t.id, "decision", "Committed")}
+                >
+                  Commit
+                </button>
+              )}
+              {t.event_url && (
+                <a className="quick-action" href={t.event_url} target="_blank" rel="noreferrer">
+                  Event page ↗
+                </a>
+              )}
+              <button className="quick-action" onClick={onEdit}>Edit details</button>
+            </div>
+          )}
+
           {canWrite && (
             <div className="status-controls">
               <div className="field">
@@ -457,6 +492,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             tournament={t}
             games={t.games ?? []}
             canWrite={canWrite}
+            openSignal={addGameSignal}
           />
 
           <Section title="Notes">
@@ -589,6 +625,9 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
               </div>
             </div>
 
+            <details className="more-details" open={!isNew}>
+              <summary>More details</summary>
+
             <div className="field-row">
               <div className="field">
                 <label htmlFor="age_division">Age division</label>
@@ -686,44 +725,51 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
               <textarea id="notes" name="notes" rows={3} placeholder="Planning notes"
                         defaultValue={row?.notes ?? ""} />
             </div>
+            </details>
 
-            <div className="form-divider">Post tournament review</div>
+            {/* Only shown when editing. Asking how a tournament went while
+                creating it is asking about something that has not happened. */}
+            {!isNew && (
+              <>
+                <div className="form-divider">Post tournament review</div>
 
-            <div className="field">
-              <label htmlFor="placement">Final placement</label>
-              <input id="placement" name="placement" placeholder="e.g. 3rd"
-                     defaultValue={row?.placement ?? ""} />
-            </div>
+                <div className="field">
+                  <label htmlFor="placement">Final placement</label>
+                  <input id="placement" name="placement" placeholder="e.g. 3rd"
+                         defaultValue={row?.placement ?? ""} />
+                </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="overall_rating">Overall rating</label>
-                <select id="overall_rating" name="overall_rating"
-                        defaultValue={row?.overall_rating ?? ""}>
-                  <option value="">Not rated</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>{n} of 5</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="would_play_again">Would play again</label>
-                <select id="would_play_again" name="would_play_again"
-                        defaultValue={row?.would_play_again === null || row?.would_play_again === undefined
-                          ? "" : String(row.would_play_again)}>
-                  <option value="">Not evaluated</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </div>
-            </div>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="overall_rating">Overall rating</label>
+                    <select id="overall_rating" name="overall_rating"
+                            defaultValue={row?.overall_rating ?? ""}>
+                      <option value="">Not rated</option>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>{n} of 5</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="would_play_again">Would play again</label>
+                    <select id="would_play_again" name="would_play_again"
+                            defaultValue={row?.would_play_again === null || row?.would_play_again === undefined
+                              ? "" : String(row.would_play_again)}>
+                      <option value="">Not evaluated</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                </div>
 
-            <div className="field">
-              <label htmlFor="history_notes">Post-event notes</label>
-              <textarea id="history_notes" name="history_notes" rows={2}
-                        placeholder="How did it actually go?"
-                        defaultValue={row?.history_notes ?? ""} />
-            </div>
+                <div className="field">
+                  <label htmlFor="history_notes">Post-event notes</label>
+                  <textarea id="history_notes" name="history_notes" rows={2}
+                            placeholder="How did it actually go?"
+                            defaultValue={row?.history_notes ?? ""} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="modal-foot">

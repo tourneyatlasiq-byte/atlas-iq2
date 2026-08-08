@@ -1040,3 +1040,46 @@ input[type="file"] {
 @media (max-width: 720px) {
   .btn-add-game { width: 100%; }
 }
+
+/* Quick actions at the top of a detail drawer */
+.quick-actions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding-bottom: 16px; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.quick-action {
+  font-family: var(--font-body); font-size: 12.5px; font-weight: 600;
+  padding: 7px 13px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--navy);
+  white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center;
+}
+.quick-action:hover { background: var(--bg); border-color: var(--slate); }
+.quick-action-primary { border-color: var(--green); color: var(--green); }
+.quick-action-primary:hover { background: #eaf5eb; border-color: var(--green); }
+
+/* Collapsible secondary form fields */
+.more-details { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px; }
+.more-details > summary {
+  cursor: pointer; font-family: var(--font-display); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--slate);
+  list-style: none; padding: 4px 0; user-select: none;
+}
+.more-details > summary::-webkit-details-marker { display: none; }
+.more-details > summary::before { content: "▸ "; display: inline-block; margin-right: 4px; }
+.more-details[open] > summary::before { content: "▾ "; }
+.more-details > summary:hover { color: var(--navy); }
+.more-details > .field,
+.more-details > .field-row,
+.more-details > .form-divider { margin-top: 12px; }
+
+/* Transactions: vendor under the description, status beside the amount */
+.txn-vendor { font-size: 11.5px; color: var(--slate); margin-top: 2px; }
+.txn-amount { white-space: nowrap; }
+.txn-status {
+  display: block; font-size: 10.5px; font-weight: 700; margin-top: 2px;
+  letter-spacing: 0.02em; background: none; border: none; padding: 0;
+}
+.txn-status.pill-paid { color: var(--green); }
+.txn-status.pill-registered { color: var(--blue-dark); }
+.txn-status.pill-deposit { color: #8a6100; }
+.txn-status.pill-unregistered { color: var(--slate); }

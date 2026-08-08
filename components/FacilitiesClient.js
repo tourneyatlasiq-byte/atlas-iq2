@@ -1266,26 +1266,34 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               <input id="f-website" name="website" type="url" placeholder="https://" defaultValue={prefill?.website ?? row?.website ?? ""} />
             </div>
 
-            <div className="field">
-              <label htmlFor="f-maps">Maps link</label>
-              <input id="f-maps" name="maps_link" type="url" placeholder="https://" defaultValue={row?.maps_link ?? ""} />
-            </div>
+            <details className="more-details" open={Boolean(prefill)}>
+              <summary>Advanced</summary>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="f-lat">Latitude</label>
-                <input id="f-lat" name="latitude" type="number" step="0.000001" defaultValue={prefill?.latitude ?? row?.latitude ?? ""} />
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="f-lat">Latitude</label>
+                  <input id="f-lat" name="latitude" type="number" step="0.000001"
+                         defaultValue={prefill?.latitude ?? row?.latitude ?? ""} />
+                </div>
+                <div className="field">
+                  <label htmlFor="f-lng">Longitude</label>
+                  <input id="f-lng" name="longitude" type="number" step="0.000001"
+                         defaultValue={prefill?.longitude ?? row?.longitude ?? ""} />
+                </div>
               </div>
+
               <div className="field">
-                <label htmlFor="f-lng">Longitude</label>
-                <input id="f-lng" name="longitude" type="number" step="0.000001" defaultValue={prefill?.longitude ?? row?.longitude ?? ""} />
+                <label htmlFor="f-maps">Maps link</label>
+                <input id="f-maps" name="maps_link" type="url" placeholder="https://"
+                       defaultValue={row?.maps_link ?? ""} />
               </div>
-            </div>
-            <p className="field-note">
-              {prefill
-                ? "Coordinates came from the external place result."
-                : "Coordinates are optional and fill automatically when external place search is connected."}
-            </p>
+
+              <p className="field-note">
+                {prefill
+                  ? "Coordinates came from the external place result."
+                  : "Optional. These fill automatically once external place search is connected."}
+              </p>
+            </details>
           </div>
 
           <div className="modal-foot">

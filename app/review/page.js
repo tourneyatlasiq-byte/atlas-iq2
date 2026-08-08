@@ -86,7 +86,7 @@ export default async function ReviewPage() {
 
   const budget = buildBudget(budgetItems, transactions);
   const finance = financeSummary(budget, transactions, payments);
-  const funds = fundsIn(transactions, payments);
+  const funds = fundsIn(transactions, payments, budgetItems);
   const dues = duesSummary(payments);
   const isAdmin = profile?.role === "owner" || profile?.role === "admin";
   const writable = canWrite(profile);
