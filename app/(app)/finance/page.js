@@ -16,7 +16,7 @@ async function pickers(seasonId, organizationId) {
   const supabase = createClient();
   const [tournaments, players, facilities] = await Promise.all([
     supabase.from("tournaments").select("id, name, total_cost").eq("season_id", seasonId).order("start_date"),
-    supabase.from("players").select("id, full_name").eq("organization_id", organizationId).order("full_name"),
+    supabase.from("players").select("id, full_name, person_type").eq("organization_id", organizationId).order("full_name"),
     supabase.from("facilities").select("id, name").order("name"),
   ]);
   return {

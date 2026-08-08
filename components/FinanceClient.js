@@ -733,7 +733,12 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
                 <label htmlFor="t-player">Player</label>
                 <select id="t-player" name="player_id" defaultValue={row?.player_id ?? ""}>
                   <option value="">—</option>
-                  {players.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                  {players.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name}
+                      {(p.person_type ?? "player") !== "player" ? ` (${p.person_type})` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="field">
@@ -904,7 +909,10 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
 function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
   const isNew = !row;
   const taken = new Set(existing.map((p) => p.player_id));
-  const available = players.filter((p) => !taken.has(p.id));
+  // Season fees are owed by players. Coaches and other staff are excluded.
+  const available = players.filter(
+    (p) => !taken.has(p.id) && (p.person_type ?? "player") === "player"
+  );
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
@@ -924,7 +932,10 @@ function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
                   {available.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </select>
                 {available.length === 0 && (
-                  <p className="field-note">Every player already has a payment record for this season.</p>
+                  <p className="field-note">
+                    Every player already has a payment record for this season. Coaches and
+                    staff are not included, since season fees apply to players only.
+                  </p>
                 )}
               </div>
             )}
