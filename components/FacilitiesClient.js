@@ -52,6 +52,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
   const [view, setView] = useState("ours");
   const [openGroups, setOpenGroups] = useState({});
   const [detail, setDetail] = useState(null);
+  const [historyTarget, setHistoryTarget] = useState(null);
   const [editing, setEditing] = useState(null); // facility | "new" | null
   const [editingNotes, setEditingNotes] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -141,6 +142,12 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
       }));
   }, [visible, states]);
 
+  /** Opens the drawer, optionally jumping to a history block. */
+  function openFacility(f, target = null) {
+    setHistoryTarget(target);
+    setDetail(f);
+  }
+
   const groupKey = (state, county) => `${state}::${county}`;
   const isOpen = (state, county) => openGroups[groupKey(state, county)] !== false;
 
@@ -189,7 +196,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
           onClick={() => setView("ours")}
           aria-pressed={view === "ours"}
         >
-          Your venues <span className="seg-count">{ourCount}</span>
+          Our Venues <span className="seg-count">{ourCount}</span>
         </button>
         <button
           className={`segment${view === "all" ? " on" : ""}`}
@@ -255,14 +262,14 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
               {facilities.length === 0
                 ? "No facilities yet"
                 : view === "ours" && ourCount === 0
-                  ? "You haven't played anywhere yet"
+                  ? "No venues yet"
                   : "Nothing matches"}
             </h3>
             <p>
               {facilities.length === 0
                 ? "Add the first venue. Facilities are shared, so other organizations benefit too."
                 : view === "ours" && ourCount === 0
-                  ? "Venues appear here once you schedule a tournament at one or add your own notes."
+                  ? "A facility appears here once you commit to a tournament there, or save your own notes about it."
                   : "Try a different search or clear the filters."}
             </p>
             {view === "ours" && ourCount === 0 && facilities.length > 0 && (
@@ -297,24 +304,28 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
                     <span className="group-count">{rows.length}</span>
                   </button>
                   {isOpen(g.state, county) && (
-                    <FacilityTable rows={rows} onOpen={setDetail} />
+                    <FacilityTable rows={rows} onOpen={openFacility} />
                   )}
                 </div>
               ))}
             </div>
           ))
         ) : (
-          <FacilityTable rows={visible} onOpen={setDetail} />
+          <FacilityTable rows={visible} onOpen={openFacility} />
         )}
       </div>
 
       {detail && !editing && !editingNotes && (
         <FacilityDetail
           f={detail}
+          historyTarget={historyTarget}
           canWrite={canWrite}
           canEditShared={canWrite && detail.created_by_organization_id === organizationId}
           pending={pending}
-          onClose={() => setDetail(null)}
+          onClose={() => {
+            setDetail(null);
+            setHistoryTarget(null);
+          }}
           onEdit={() => setEditing(detail)}
           onEditNotes={() => setEditingNotes(detail)}
           onDelete={() => remove(detail)}
@@ -374,6 +385,22 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
  * a filter and appears in the drawer.
  */
 function FacilityTable({ rows, onOpen }) {
+  const countCell = (n, facility, which) =>
+    n > 0 ? (
+      <button
+        className="count-link"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen(facility, which);
+        }}
+        title={`Show ${which} tournaments at ${facility.name}`}
+      >
+        {n}
+      </button>
+    ) : (
+      <span className="muted">—</span>
+    );
+
   return (
     <table className="table">
       <thead>
@@ -400,8 +427,8 @@ function FacilityTable({ rows, onOpen }) {
             <td>{cityState(f) ?? <span className="muted">—</span>}</td>
             <td>{f.county ?? <span className="muted">—</span>}</td>
             <td>{f.field_count ?? <span className="muted">—</span>}</td>
-            <td>{f.upcomingCount > 0 ? f.upcomingCount : <span className="muted">—</span>}</td>
-            <td>{f.pastCount > 0 ? f.pastCount : <span className="muted">—</span>}</td>
+            <td>{countCell(f.upcomingCount, f, "upcoming")}</td>
+            <td>{countCell(f.pastCount, f, "past")}</td>
           </tr>
         ))}
       </tbody>
@@ -411,15 +438,38 @@ function FacilityTable({ rows, onOpen }) {
 
 /* ---------------- Detail ---------------- */
 
-function Section({ title, children, action }) {
+function Section({ title, children, action, anchor }) {
   return (
-    <section className="detail-section">
+    <section className="detail-section" id={anchor ? `section-${anchor}` : undefined}>
       <div className="detail-section-head">
         <h3 className="detail-section-title">{title}</h3>
         {action}
       </div>
       {children}
     </section>
+  );
+}
+
+/** Tournament rows inside the history section. */
+function HistoryTable({ rows }) {
+  return (
+    <table className="table">
+      <tbody>
+        {rows.map((t) => (
+          <tr key={t.id}>
+            <td className="cell-name">{t.name}</td>
+            <td className="muted nowrap">{fmtDate(t.start_date)}</td>
+            <td>
+              {t.decision === "Declined" ? (
+                <span className="muted">Declined</span>
+              ) : (
+                t.placement ?? <span className="muted">—</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -433,7 +483,15 @@ function Row({ label, value }) {
   );
 }
 
-function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, onEditNotes, onDelete }) {
+function FacilityDetail({ f, historyTarget, canWrite, canEditShared, pending, onClose, onEdit, onEditNotes, onDelete }) {
+  // Arriving from a count click, scroll straight to that block rather than
+  // leaving the user to find it.
+  useEffect(() => {
+    if (!historyTarget) return;
+    const el = document.getElementById(`history-${historyTarget}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [historyTarget, f?.id]);
+
   const n = f.orgNotes;
   const hasNotes =
     n && [n.parking_notes, n.entry_notes, n.concessions_notes, n.restroom_notes, n.seating_notes, n.internal_notes]
@@ -485,30 +543,26 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
             />
           </Section>
 
-          <Section title="Fields & Surface">
+          <Section title="Facility Details">
             <Row label="Number of fields" value={f.field_count} />
             <Row label="Surface" value={f.surface_type ?? "Unknown"} />
-            <Row label="Indoor" value={amenityMark(f.indoor)} />
-          </Section>
-
-          <Section title="Amenities">
+            <Row label="Parking" value={f.parking} />
             <div className="amenity-grid">
-              {AMENITIES.filter((a) => a.key !== "indoor").map((a) => (
+              {AMENITIES.map((a) => (
                 <div key={a.key} className="amenity-row">
                   <span>{a.label}</span>
                   {amenityMark(f[a.key])}
                 </div>
               ))}
             </div>
-            <Row label="Parking" value={f.parking} />
           </Section>
 
           <Section
-            title="Logistics"
+            title="Our Notes"
             action={
               canWrite ? (
                 <button className="btn btn-ghost" onClick={onEditNotes} disabled={pending}>
-                  {hasNotes ? "Edit notes" : "Add notes"}
+                  {hasNotes ? "Edit" : "Add notes"}
                 </button>
               ) : null
             }
@@ -520,46 +574,42 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
                 <Row label="Concessions" value={n.concessions_notes} />
                 <Row label="Restrooms" value={n.restroom_notes} />
                 <Row label="Seating / shade" value={n.seating_notes} />
+                <Row label="General notes" value={n.internal_notes} />
               </>
             ) : (
               <p className="section-body muted">
-                No notes yet. Anything you add here stays private to your organization.
+                Nothing recorded yet. Anything added here is private to your organization.
               </p>
             )}
           </Section>
 
-          <Section title="Tournament history">
+          <Section title="Tournament History" anchor="history">
             {f.history.length === 0 ? (
               <p className="section-body muted">No tournaments have been held here yet.</p>
             ) : (
-              <table className="table">
-                <tbody>
-                  {f.history.map((t) => (
-                    <tr key={t.id}>
-                      <td className="cell-name">{t.name}</td>
-                      <td className="muted nowrap">{fmtDate(t.start_date)}</td>
-                      <td>{t.placement ?? <span className="muted">—</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                {f.upcoming.length > 0 && (
+                  <div className="history-block" id="history-upcoming">
+                    <h4 className="history-heading">Upcoming</h4>
+                    <HistoryTable rows={f.upcoming} />
+                  </div>
+                )}
+                {f.past.length > 0 && (
+                  <div className="history-block" id="history-past">
+                    <h4 className="history-heading">Past</h4>
+                    <HistoryTable rows={f.past} />
+                  </div>
+                )}
+              </>
             )}
           </Section>
 
           {f.description && (
             <Section title="About this venue">
               <p className="section-body">{f.description}</p>
-              {f.data_source && (
-                <p className="field-note">Source: {f.data_source}</p>
-              )}
+              {f.data_source && <p className="field-note">Source: {f.data_source}</p>}
             </Section>
           )}
-
-          <Section title="Your notes">
-            <p className="section-body">
-              {n?.internal_notes ?? <span className="muted">No internal notes.</span>}
-            </p>
-          </Section>
         </div>
 
         {canWrite && (
@@ -1029,9 +1079,10 @@ function NotesForm({ f, pending, onSubmit, onCancel }) {
         <form action={onSubmit}>
           <input type="hidden" name="facility_id" value={f.id} />
           <div className="modal-head">
-            <h2>Your notes on {f.name}</h2>
+            <h2>Our notes on {f.name}</h2>
             <div className="page-sub">
-              Private to your organization. Other organizations never see these.
+              Private to your organization and shared across all its teams. Other
+              organizations never see these.
             </div>
           </div>
 
@@ -1057,7 +1108,7 @@ function NotesForm({ f, pending, onSubmit, onCancel }) {
               <textarea id="n-seat" name="seating_notes" rows={2} defaultValue={n.seating_notes ?? ""} />
             </div>
             <div className="field">
-              <label htmlFor="n-internal">Internal notes</label>
+              <label htmlFor="n-internal">General notes</label>
               <textarea id="n-internal" name="internal_notes" rows={3} defaultValue={n.internal_notes ?? ""} />
             </div>
           </div>
