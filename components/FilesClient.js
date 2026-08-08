@@ -257,7 +257,7 @@ function Row({ label, value }) {
   );
 }
 
-function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete }) {
+export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete }) {
   const r = relatedTo(d);
   return (
     <div className="drawer-backdrop" onClick={onClose}>

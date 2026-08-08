@@ -527,7 +527,7 @@ function Row({ label, value }) {
   );
 }
 
-function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject }) {
+export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject }) {
   // Arriving from a count click, scroll straight to that block rather than
   // leaving the user to find it.
   useEffect(() => {
@@ -862,7 +862,7 @@ function toDisplay(v) {
 
 /* ---------------- Create / edit, search-first ---------------- */
 
-function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onPickExisting, onCancel }) {
+export function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onPickExisting, onCancel }) {
   const isNew = !row;
   const [step, setStep] = useState(isNew ? "search" : "form");
   const [search, setSearch] = useState("");

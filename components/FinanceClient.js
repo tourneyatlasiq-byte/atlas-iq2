@@ -35,8 +35,11 @@ const payClass = (s) =>
 export function FinanceClient({
   budget, transactions, payments, summary, funds, dues, committedTournaments,
   tournaments, players, facilities, budgetItems, canWrite, seasonName,
+  // Review surface only: lets /review render each tab. Defaults to the normal
+  // starting tab, so nothing changes in the application itself.
+  initialTab = "budget",
 }) {
-  const [tab, setTab] = useState("budget");
+  const [tab, setTab] = useState(initialTab);
   const [actionId, setActionId] = useState(null);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
@@ -278,7 +281,7 @@ export function FinanceClient({
  * Player dues derive from Player Payments and are read-only here — recording
  * them as transactions as well would double-count every payment.
  */
-function FundsInTab({ funds, dues }) {
+export function FundsInTab({ funds, dues }) {
   const rows = [
     {
       label: "Player dues",
@@ -337,7 +340,7 @@ function FundsInTab({ funds, dues }) {
 
 /* ---------------- Budget ---------------- */
 
-function BudgetTab({ budget, summary, committedTournaments, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending }) {
+export function BudgetTab({ budget, summary, committedTournaments, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending }) {
   const recorded = summary.actualExpenses;
 
   return (
@@ -538,7 +541,7 @@ function BudgetForm({ row, pending, onSubmit, onCancel }) {
 
 /* ---------------- Transactions ---------------- */
 
-function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
+export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
   const [q, setQ] = useState("");
   const rows = transactions.filter((t) => {
     const s = q.trim().toLowerCase();
@@ -839,7 +842,7 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
 
 /* ---------------- Player payments ---------------- */
 
-function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
+export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
   return (
     <>
       <div className="tab-head">

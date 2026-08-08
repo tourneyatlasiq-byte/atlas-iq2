@@ -343,7 +343,7 @@ function Row({ label, value }) {
   );
 }
 
-function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
   const p = row.player ?? {};
 
   return (
@@ -537,7 +537,7 @@ function AddPersonFlow({ assignable, seasonName, pending, onAssign, onCreateNew,
 
 /* ---------------- Create / edit form ---------------- */
 
-function PlayerForm({ row, pending, onSubmit, onCancel }) {
+export function PlayerForm({ row, pending, onSubmit, onCancel }) {
   const p = row?.player ?? {};
   const isNew = !row;
   const [type, setType] = useState(p.person_type ?? "player");

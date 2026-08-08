@@ -338,7 +338,7 @@ function Row({ label, value }) {
   );
 }
 
-function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus }) {
+export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus }) {
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside
@@ -507,7 +507,7 @@ function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, p
   );
 }
 
-function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility }) {
+export function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
   const [gate, setGate] = useState(row?.gate_fee ?? "");
