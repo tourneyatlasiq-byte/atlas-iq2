@@ -759,3 +759,29 @@ input[type="file"] {
   padding: 2px 7px; white-space: nowrap;
 }
 .drawer-head-meta .atlas-id { color: var(--navy); }
+
+/* ===== Facilities: views and grouping ===== */
+
+.view-toggle { margin-bottom: 14px; }
+.seg-count {
+  display: inline-block; margin-left: 7px; padding: 1px 7px;
+  border-radius: 999px; font-size: 11px; font-weight: 700;
+  background: rgba(100, 116, 139, 0.14);
+}
+.segment.on .seg-count { background: rgba(255, 255, 255, 0.2); }
+
+.fac-state + .fac-state { border-top: 1px solid var(--border); }
+.fac-state-head {
+  font-family: var(--font-display); font-size: 12px; font-weight: 800;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--navy);
+  padding: 14px 16px 10px; background: #fbfcfe;
+  border-bottom: 1px solid var(--border);
+}
+.fac-county-head {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  background: var(--surface); border: none; border-bottom: 1px solid #eef2f7;
+  padding: 10px 16px; cursor: pointer; font-family: var(--font-body);
+  font-size: 13px; font-weight: 600; color: var(--navy); text-align: left;
+}
+.fac-county-head:hover { background: #fbfcfe; }
+.fac-county-head .group-count { margin-left: auto; }

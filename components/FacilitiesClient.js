@@ -48,6 +48,9 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
   const [amenityFilter, setAmenityFilter] = useState("all");
+  const [countyFilter, setCountyFilter] = useState("all");
+  const [view, setView] = useState("ours");
+  const [openGroups, setOpenGroups] = useState({});
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // facility | "new" | null
   const [editingNotes, setEditingNotes] = useState(null);
@@ -74,15 +77,31 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
     };
   }, [overlayOpen, editing, editingNotes, importing]);
 
+  const ourCount = useMemo(() => facilities.filter((f) => f.isOurs).length, [facilities]);
+
   const states = useMemo(
     () => [...new Set(facilities.map((f) => f.state).filter(Boolean))].sort(),
     [facilities]
   );
 
+  // Counties are scoped to the chosen state — "Cherokee" means something
+  // different in Georgia than in Alabama.
+  const counties = useMemo(() => {
+    const pool = stateFilter === "all" ? facilities : facilities.filter((f) => f.state === stateFilter);
+    return [...new Set(pool.map((f) => f.county).filter(Boolean))].sort();
+  }, [facilities, stateFilter]);
+
+  // A county chosen under one state shouldn't survive switching to another.
+  useEffect(() => {
+    if (countyFilter !== "all" && !counties.includes(countyFilter)) setCountyFilter("all");
+  }, [counties, countyFilter]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return facilities.filter((f) => {
+      if (view === "ours" && !f.isOurs) return false;
       if (stateFilter !== "all" && f.state !== stateFilter) return false;
+      if (countyFilter !== "all" && f.county !== countyFilter) return false;
       if (surfaceFilter !== "all" && (f.surface_type ?? "Unknown") !== surfaceFilter) return false;
       if (amenityFilter !== "all" && f[amenityFilter] !== true) return false;
       if (!q) return true;
@@ -90,7 +109,40 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
         .toLowerCase()
         .includes(q);
     });
-  }, [facilities, query, stateFilter, surfaceFilter, amenityFilter]);
+  }, [facilities, query, stateFilter, surfaceFilter, amenityFilter, countyFilter, view]);
+
+  /**
+   * Groups the visible facilities by state, then county.
+   *
+   * Only groups when it helps: a single state with few results reads better as
+   * a plain list than as one header wrapping everything.
+   */
+  const groups = useMemo(() => {
+    const shouldGroup = visible.length > 12 || states.length > 1;
+    if (!shouldGroup) return null;
+
+    const byState = new Map();
+    for (const f of visible) {
+      const st = f.state || "Unknown state";
+      if (!byState.has(st)) byState.set(st, new Map());
+      const byCounty = byState.get(st);
+      const co = f.county || "Other";
+      byCounty.set(co, [...(byCounty.get(co) ?? []), f]);
+    }
+
+    return [...byState.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([state, byCounty]) => ({
+        state,
+        total: [...byCounty.values()].reduce((n, r) => n + r.length, 0),
+        counties: [...byCounty.entries()]
+          .sort(([a, ra], [b, rb]) => rb.length - ra.length || a.localeCompare(b))
+          .map(([county, rows]) => ({ county, rows })),
+      }));
+  }, [visible, states]);
+
+  const groupKey = (state, county) => `${state}::${county}`;
+  const isOpen = (state, county) => openGroups[groupKey(state, county)] !== false;
 
   function run(action, fd, onDone) {
     setError(null);
@@ -131,11 +183,28 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
         )}
       </div>
 
+      <div className="segmented view-toggle" role="group" aria-label="Which facilities to show">
+        <button
+          className={`segment${view === "ours" ? " on" : ""}`}
+          onClick={() => setView("ours")}
+          aria-pressed={view === "ours"}
+        >
+          Your venues <span className="seg-count">{ourCount}</span>
+        </button>
+        <button
+          className={`segment${view === "all" ? " on" : ""}`}
+          onClick={() => setView("all")}
+          aria-pressed={view === "all"}
+        >
+          All facilities <span className="seg-count">{facilities.length}</span>
+        </button>
+      </div>
+
       <div className="toolbar">
         <input
           className="toolbar-search"
           type="search"
-          placeholder="Search name, city, state or address"
+          placeholder="Search name, city, county, address or Atlas ID"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search facilities"
@@ -148,6 +217,16 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
         >
           <option value="all">All states</option>
           {states.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select
+          className="filter-select"
+          value={countyFilter}
+          onChange={(e) => setCountyFilter(e.target.value)}
+          aria-label="Filter by county"
+          disabled={counties.length === 0}
+        >
+          <option value="all">All counties</option>
+          {counties.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <select
           className="filter-select"
@@ -172,54 +251,60 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
       <div className="card card-flush">
         {visible.length === 0 ? (
           <div className="empty">
-            <h3>{facilities.length === 0 ? "No facilities yet" : "Nothing matches"}</h3>
+            <h3>
+              {facilities.length === 0
+                ? "No facilities yet"
+                : view === "ours" && ourCount === 0
+                  ? "You haven't played anywhere yet"
+                  : "Nothing matches"}
+            </h3>
             <p>
               {facilities.length === 0
                 ? "Add the first venue. Facilities are shared, so other organizations benefit too."
-                : "Try a different search or clear the filters."}
+                : view === "ours" && ourCount === 0
+                  ? "Venues appear here once you schedule a tournament at one or add your own notes."
+                  : "Try a different search or clear the filters."}
             </p>
+            {view === "ours" && ourCount === 0 && facilities.length > 0 && (
+              <button className="btn btn-secondary" onClick={() => setView("all")}>
+                Browse all {facilities.length} facilities
+              </button>
+            )}
             {facilities.length === 0 && canWrite && (
               <button className="btn btn-primary" onClick={() => setEditing("new")}>Add facility</button>
             )}
           </div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Atlas ID</th>
-                <th>Facility</th>
-                <th>City / State</th>
-                <th>Surface</th>
-                <th>Fields</th>
-                <th>Upcoming</th>
-                <th>Past</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((f) => (
-                <tr key={f.id} className="row-click" onClick={() => setDetail(f)}>
-                  <td><span className="atlas-id">{f.atlas_id}</span></td>
-                  <td>
-                    <span className="cell-name">{f.name}</span>
-                    {f.orgNotes && (
-                      <span className="role-tag" title="Your organization has notes on this venue">
-                        Notes
-                      </span>
-                    )}
-                  </td>
-                  <td>{cityState(f) ?? <span className="muted">—</span>}</td>
-                  <td>
-                    <span className={`pill ${surfaceClass(f.surface_type)}`}>
-                      {f.surface_type ?? "Unknown"}
-                    </span>
-                  </td>
-                  <td>{f.field_count ?? <span className="muted">—</span>}</td>
-                  <td>{f.upcomingCount > 0 ? f.upcomingCount : <span className="muted">—</span>}</td>
-                  <td>{f.pastCount > 0 ? f.pastCount : <span className="muted">—</span>}</td>
-                </tr>
+        ) : groups ? (
+          groups.map((g) => (
+            <div key={g.state} className="fac-state">
+              <div className="fac-state-head">
+                {g.state} <span className="muted">({g.total})</span>
+              </div>
+              {g.counties.map(({ county, rows }) => (
+                <div key={county}>
+                  <button
+                    className="fac-county-head"
+                    onClick={() =>
+                      setOpenGroups({
+                        ...openGroups,
+                        [groupKey(g.state, county)]: !isOpen(g.state, county),
+                      })
+                    }
+                    aria-expanded={isOpen(g.state, county)}
+                  >
+                    <span className={`group-caret${isOpen(g.state, county) ? "" : " collapsed"}`} aria-hidden="true">▾</span>
+                    <span>{county === "Other" ? "Other" : `${county} County`}</span>
+                    <span className="group-count">{rows.length}</span>
+                  </button>
+                  {isOpen(g.state, county) && (
+                    <FacilityTable rows={rows} onOpen={setDetail} />
+                  )}
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          ))
+        ) : (
+          <FacilityTable rows={visible} onOpen={setDetail} />
         )}
       </div>
 
@@ -272,6 +357,55 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, externa
         />
       )}
     </>
+  );
+}
+
+/* ---------------- Shared table ---------------- */
+
+/**
+ * One row per facility.
+ *
+ * The Atlas ID is deliberately NOT a column — a coach thinks "Bethesda Park in
+ * Lawrenceville", never "GA-0019". It lives in the detail drawer and stays
+ * searchable, which is where it earns its keep.
+ *
+ * County replaces Surface here because surface is Unknown on most records,
+ * while county is how people actually reason about location. Surface is still
+ * a filter and appears in the drawer.
+ */
+function FacilityTable({ rows, onOpen }) {
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Facility</th>
+          <th>City / State</th>
+          <th>County</th>
+          <th>Fields</th>
+          <th>Upcoming</th>
+          <th>Past</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((f) => (
+          <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
+            <td>
+              <span className="cell-name">{f.name}</span>
+              {f.orgNotes && (
+                <span className="role-tag" title="Your organization has notes on this venue">
+                  Notes
+                </span>
+              )}
+            </td>
+            <td>{cityState(f) ?? <span className="muted">—</span>}</td>
+            <td>{f.county ?? <span className="muted">—</span>}</td>
+            <td>{f.field_count ?? <span className="muted">—</span>}</td>
+            <td>{f.upcomingCount > 0 ? f.upcomingCount : <span className="muted">—</span>}</td>
+            <td>{f.pastCount > 0 ? f.pastCount : <span className="muted">—</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
