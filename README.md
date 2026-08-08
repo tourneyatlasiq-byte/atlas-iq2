@@ -48,6 +48,24 @@ These exist in the database but must not be referenced by application code:
 
 They remain in place until an explicit cleanup is approved.
 
+## Open items
+
+**External Places provider pending licensing confirmation for permanent
+multi-tenant canonical Facility storage.**
+
+The Facilities workflow is provider-agnostic and complete: search Atlas first,
+then external places, then confirm before creating. `lib/places/provider.js`
+defines `searchPlaces()` / `getPlaceDetails()`; `getProvider()` returns null
+until a provider is approved, and that is the only line that changes.
+
+Blocking question per provider:
+- **Google Places** — `place_id` may be stored indefinitely, but name and
+  address may not be persisted and coordinates are capped at 30 days. Not
+  compatible with a canonical shared Facility record.
+- **Mapbox Permanent Geocoding** — permits indefinite storage, but its "no
+  distribution or sublicense" wording needs confirming against multi-tenant
+  reads before we commit.
+
 ## Security maintenance debt
 
 **Move RLS helper functions to a non-exposed private schema and recreate dependent

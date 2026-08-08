@@ -1,5 +1,6 @@
 import { getContext, canWrite } from "../../../lib/context";
 import { listFacilities } from "../../../lib/queries/facilities";
+import { isExternalSearchEnabled } from "../../../lib/places/provider";
 import { FacilitiesClient } from "../../../components/FacilitiesClient";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function FacilitiesPage() {
       facilities={facilities}
       organizationId={organization.id}
       canWrite={canWrite(profile)}
+      externalEnabled={isExternalSearchEnabled()}
     />
   );
 }

@@ -694,3 +694,13 @@ a { color: inherit; text-decoration: none; }
   .filter-select { flex: 1; min-width: 140px; }
   .dupe-list li { flex-wrap: wrap; }
 }
+
+.foot-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.inline-search { display: flex; gap: 8px; }
+.inline-search input { flex: 1; min-width: 0; }
+.inline-search .btn { flex-shrink: 0; }
+
+@media (max-width: 720px) {
+  .foot-actions { width: 100%; }
+  .foot-actions .btn { flex: 1; }
+}

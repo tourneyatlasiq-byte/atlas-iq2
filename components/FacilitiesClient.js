@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
 import {
   createFacility,
   updateFacility,
@@ -25,7 +26,7 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Dirt" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, organizationId, canWrite }) {
+export function FacilitiesClient({ facilities, organizationId, canWrite, externalEnabled = false }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
@@ -202,6 +203,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite }) {
         <FacilityForm
           row={editing === "new" ? null : editing}
           facilities={facilities}
+          externalEnabled={externalEnabled}
           pending={pending}
           onSubmit={(fd) =>
             run(editing === "new" ? createFacility : updateFacility, fd, () => {
@@ -382,13 +384,51 @@ function FacilityDetail({ f, canWrite, canEditShared, pending, onClose, onEdit, 
 
 /* ---------------- Create / edit, search-first ---------------- */
 
-function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCancel }) {
+function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onPickExisting, onCancel }) {
   const isNew = !row;
   const [step, setStep] = useState(isNew ? "search" : "form");
   const [search, setSearch] = useState("");
   const [name, setName] = useState(row?.name ?? "");
   const [city, setCity] = useState(row?.city ?? "");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [prefill, setPrefill] = useState(null);
+  const [externalResults, setExternalResults] = useState([]);
+  const [externalState, setExternalState] = useState("idle");
+  const [externalError, setExternalError] = useState(null);
+
+  /** Fills the form from a confirmed external result. Nothing is saved yet. */
+  function applyExternal(details) {
+    setPrefill(details);
+    setName(details.name ?? "");
+    setCity(details.city ?? "");
+    setStep("form");
+  }
+
+  async function runExternalSearch(q) {
+    setExternalState("searching");
+    setExternalError(null);
+    const fd = new FormData();
+    fd.set("query", q);
+    const res = await searchExternalPlaces(fd);
+    if (res.unavailable) {
+      setExternalState("unavailable");
+    } else if (!res.ok) {
+      setExternalError(res.error ?? "External search failed.");
+      setExternalState("idle");
+    } else {
+      setExternalResults(res.results);
+      setExternalState("done");
+    }
+  }
+
+  async function pickExternal(suggestion) {
+    setExternalError(null);
+    const fd = new FormData();
+    fd.set("external_id", suggestion.externalId);
+    const res = await fetchExternalPlaceDetails(fd);
+    if (res.ok && res.details) applyExternal(res.details);
+    else setExternalError(res.error ?? "Could not load that place.");
+  }
 
   const matches = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -466,6 +506,121 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
 
           <div className="modal-foot modal-foot-split">
             <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+            <div className="foot-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setStep("external");
+                  if (search.trim()) runExternalSearch(search.trim());
+                }}
+                title={
+                  externalEnabled
+                    ? "Look this venue up in an external place directory"
+                    : "External place search isn't connected yet"
+                }
+              >
+                Search external places{externalEnabled ? "" : " (not connected)"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setName(search.trim());
+                  setStep("form");
+                }}
+              >
+                Enter manually
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "external") {
+    return (
+      <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-head">
+            <h2>Search external places</h2>
+            <div className="page-sub">
+              Look the venue up by name or address, then confirm before it becomes an Atlas facility.
+            </div>
+          </div>
+
+          <div className="modal-body">
+            {externalError && <div className="alert alert-error">{externalError}</div>}
+
+            <div className="field">
+              <label htmlFor="ext-search">Place name or address</label>
+              <div className="inline-search">
+                <input
+                  id="ext-search"
+                  type="search"
+                  autoFocus
+                  placeholder="e.g. Hobgood Park Woodstock GA"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      runExternalSearch(search.trim());
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => runExternalSearch(search.trim())}
+                  disabled={!search.trim() || externalState === "searching"}
+                >
+                  {externalState === "searching" ? "Searching…" : "Search"}
+                </button>
+              </div>
+            </div>
+
+            {externalState === "unavailable" && (
+              <div className="alert alert-info">
+                <strong>External place search isn't connected yet.</strong>
+                <p style={{ margin: "8px 0 0" }}>
+                  A provider is pending licensing confirmation for storing shared facility
+                  records. Until then, enter the facility details manually — everything else
+                  works the same, and results can be matched to a provider later.
+                </p>
+              </div>
+            )}
+
+            {externalState === "done" && externalResults.length === 0 && (
+              <p className="section-body muted">
+                Nothing found. Try a different spelling, or enter the details manually.
+              </p>
+            )}
+
+            {externalResults.length > 0 && (
+              <ul className="pick-list">
+                {externalResults.map((r) => (
+                  <li key={r.externalId}>
+                    <div className="pick-row">
+                      <span className="pick-name">
+                        {r.name}
+                        {r.description && <span className="muted"> · {r.description}</span>}
+                      </span>
+                      <button type="button" className="btn btn-secondary" onClick={() => pickExternal(r)}>
+                        Use this place
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="modal-foot modal-foot-split">
+            <button type="button" className="btn btn-ghost" onClick={() => setStep("search")}>
+              Back
+            </button>
             <button
               type="button"
               className="btn btn-primary"
@@ -474,7 +629,7 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
                 setStep("form");
               }}
             >
-              Create new facility
+              Enter manually
             </button>
           </div>
         </div>
@@ -490,14 +645,29 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
         <form action={onSubmit}>
           {row && <input type="hidden" name="id" value={row.id} />}
 
+          {prefill?.externalId && (
+            <>
+              <input type="hidden" name="external_place_id" value={prefill.externalId} />
+              <input type="hidden" name="external_source" value={prefill.externalSource ?? ""} />
+            </>
+          )}
+
           <div className="modal-head">
             <h2>{isNew ? "New facility" : `Edit ${row.name}`}</h2>
             <div className="page-sub">
-              These details are shared with every organization in Atlas.
+              {prefill
+                ? "Check these details, then confirm to create the shared Atlas facility."
+                : "These details are shared with every organization in Atlas."}
             </div>
           </div>
 
           <div className="modal-body">
+            {prefill && (
+              <div className="alert alert-info">
+                Prefilled from an external place result. Everything is editable — nothing is
+                saved until you confirm.
+              </div>
+            )}
             {duplicates.length > 0 && (
               <div className="alert alert-error">
                 <strong>
@@ -535,7 +705,7 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
 
             <div className="field">
               <label htmlFor="f-street">Street address</label>
-              <input id="f-street" name="street_address" defaultValue={row?.street_address ?? ""} />
+              <input id="f-street" name="street_address" defaultValue={prefill?.streetAddress ?? row?.street_address ?? ""} />
             </div>
 
             <div className="field-row">
@@ -545,14 +715,14 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
               </div>
               <div className="field">
                 <label htmlFor="f-state">State</label>
-                <input id="f-state" name="state" maxLength={2} placeholder="GA" defaultValue={row?.state ?? ""} />
+                <input id="f-state" name="state" maxLength={2} placeholder="GA" defaultValue={prefill?.state ?? row?.state ?? ""} />
               </div>
             </div>
 
             <div className="field-row">
               <div className="field">
                 <label htmlFor="f-zip">ZIP</label>
-                <input id="f-zip" name="zip" defaultValue={row?.zip ?? ""} />
+                <input id="f-zip" name="zip" defaultValue={prefill?.zip ?? row?.zip ?? ""} />
               </div>
               <div className="field">
                 <label htmlFor="f-fields">Number of fields</label>
@@ -572,7 +742,7 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
 
             <div className="field">
               <label htmlFor="f-website">Website</label>
-              <input id="f-website" name="website" type="url" placeholder="https://" defaultValue={row?.website ?? ""} />
+              <input id="f-website" name="website" type="url" placeholder="https://" defaultValue={prefill?.website ?? row?.website ?? ""} />
             </div>
 
             <div className="field">
@@ -583,22 +753,24 @@ function FacilityForm({ row, facilities, pending, onSubmit, onPickExisting, onCa
             <div className="field-row">
               <div className="field">
                 <label htmlFor="f-lat">Latitude</label>
-                <input id="f-lat" name="latitude" type="number" step="0.000001" defaultValue={row?.latitude ?? ""} />
+                <input id="f-lat" name="latitude" type="number" step="0.000001" defaultValue={prefill?.latitude ?? row?.latitude ?? ""} />
               </div>
               <div className="field">
                 <label htmlFor="f-lng">Longitude</label>
-                <input id="f-lng" name="longitude" type="number" step="0.000001" defaultValue={row?.longitude ?? ""} />
+                <input id="f-lng" name="longitude" type="number" step="0.000001" defaultValue={prefill?.longitude ?? row?.longitude ?? ""} />
               </div>
             </div>
             <p className="field-note">
-              Coordinates are optional and will be filled automatically once address search is enabled.
+              {prefill
+                ? "Coordinates came from the external place result."
+                : "Coordinates are optional and fill automatically when external place search is connected."}
             </p>
           </div>
 
           <div className="modal-foot">
             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={pending || blocked}>
-              {pending ? "Saving…" : isNew ? "Create facility" : "Save changes"}
+              {pending ? "Saving…" : isNew ? (prefill ? "Confirm and create" : "Create facility") : "Save changes"}
             </button>
           </div>
         </form>
