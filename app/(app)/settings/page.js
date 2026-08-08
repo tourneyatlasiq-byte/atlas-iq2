@@ -12,10 +12,10 @@ export const dynamic = "force-dynamic";
  * are a courtesy rather than the boundary.
  */
 export default async function SettingsPage() {
-  const { user, profile, organization, team, season } = await getContext();
+  const { user, profile, organization, team, season, seasons, currentSeason } = await getContext();
   const supabase = createClient();
 
-  const [profilesRes, invitesRes, teamsRes, memberships, rosterCount, tournamentCount] =
+  const [profilesRes, invitesRes, teamsRes, memberships, rosterRes, rosterCount, tournamentCount] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -33,6 +33,14 @@ export default async function SettingsPage() {
         .eq("organization_id", organization.id)
         .order("name"),
       supabase.from("team_memberships").select("profile_id, team:teams(id, name)"),
+      // Roster of the CURRENT season, which is what rolls forward — not
+      // whichever season the user happens to be viewing.
+      currentSeason
+        ? supabase
+            .from("team_season_players")
+            .select("player_id, jersey_number, is_active, player:players(id, full_name, person_type)")
+            .eq("season_id", currentSeason.id)
+        : Promise.resolve({ data: [] }),
       season
         ? supabase
             .from("team_season_players")
@@ -64,6 +72,15 @@ export default async function SettingsPage() {
       organization={organization}
       team={team}
       season={season}
+      seasons={seasons}
+      currentSeason={currentSeason}
+      roster={(rosterRes.data ?? []).map((r) => ({
+        player_id: r.player_id,
+        full_name: r.player?.full_name ?? "Unnamed",
+        person_type: r.player?.person_type ?? "player",
+        jersey_number: r.jersey_number,
+        is_active: r.is_active,
+      }))}
       people={people}
       invites={invitesRes.data ?? []}
       teams={teamsRes.data ?? []}

@@ -10,7 +10,7 @@ import { RosterClient } from "../../../components/RosterClient";
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
-  const { profile, organization, season } = await getContext();
+  const { profile, organization, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -46,6 +46,7 @@ export default async function TeamPage() {
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       documentTargets={targets}
       seasonName={season.name}
+      seasonPhase={seasonPhase}
     />
   );
 }

@@ -43,7 +43,7 @@ const TAB_ALIASES = {
 };
 
 export default async function FinancePage({ searchParams }) {
-  const { profile, organization, season } = await getContext();
+  const { profile, organization, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -85,6 +85,7 @@ export default async function FinancePage({ searchParams }) {
       facilities={picks.facilities}
       canWrite={canWrite(profile)}
       seasonName={season.name}
+      seasonPhase={seasonPhase}
       initialTab={requestedTab}
     />
   );

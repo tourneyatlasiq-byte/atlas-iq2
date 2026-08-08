@@ -12,7 +12,7 @@ import { TournamentClient } from "../../../components/TournamentClient";
 export const dynamic = "force-dynamic";
 
 export default async function TournamentsPage() {
-  const { profile, organization, season } = await getContext();
+  const { profile, organization, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -40,7 +40,7 @@ export default async function TournamentsPage() {
   return (
     <TournamentClient
       tournaments={withDocs}
-      actions={tournamentActions(withDocs)}
+      actions={seasonPhase === "current" ? tournamentActions(withDocs) : []}
       summary={deriveSummary(withDocs)}
       record={seasonRecord(withDocs)}
       providers={reference.providers}

@@ -33,7 +33,7 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current" }) {
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
   const [adding, setAdding] = useState(false);
@@ -62,7 +62,13 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     };
   }, [overlayOpen, editing, adding]);
 
-  const actions = useMemo(() => teamActions(rows), [rows]);
+  // Needs Action answers "what needs doing now", so it only applies to the
+  // current season. A past season has nothing outstanding; a planning season
+  // has not started.
+  const actions = useMemo(
+    () => (seasonPhase === "current" ? teamActions(rows) : []),
+    [rows, seasonPhase]
+  );
 
   // An action that resolves disappears; clear the filter with it.
   useEffect(() => {

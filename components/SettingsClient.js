@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
   renameOrganization,
   renameTeam,
@@ -17,6 +18,22 @@ import {
  * appear only for owners and admins, and RLS enforces that regardless.
  */
 
+/** Mirrors seasonPhase() in lib/context.js. */
+function seasonPhaseOf(s, currentSeason) {
+  if (s.is_current) return "current";
+  if (!currentSeason) return "current";
+  const key = (x) => x.start_date ?? x.created_at?.slice(0, 10) ?? "";
+  return key(s) > key(currentSeason) ? "future" : "past";
+}
+
+/** "2026-27" -> "2027-28". Falls back to a blank field rather than guessing. */
+function suggestNextSeasonName(current) {
+  const m = (current ?? "").match(/^(\d{4})\s*-\s*(\d{2,4})$/);
+  if (!m) return "";
+  const start = Number(m[1]) + 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
+
 const ROLE_LABELS = {
   owner: "Owner",
   admin: "Admin",
@@ -31,12 +48,13 @@ function fmtDate(d) {
 }
 
 export function SettingsClient({
-  organization, team, season, people, invites, teams,
+  organization, team, season, seasons, currentSeason, roster, people, invites, teams,
   counts, isAdmin, currentUserId,
 }) {
   const [editing, setEditing] = useState(null); // organization | team | season | invite
   const [error, setError] = useState(null);
   const [newInvite, setNewInvite] = useState(null);
+  const [newSeason, setNewSeason] = useState(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -112,13 +130,49 @@ export function SettingsClient({
               <button className="btn btn-ghost" onClick={() => setEditing("season")}>Edit</button>
             )}
           </div>
-          <p className="settings-value">
-            {season?.name ?? "No season"}
-            {season?.is_current && <span className="pill pill-paid settings-current">Current</span>}
-          </p>
+          <ul className="season-list">
+            {seasons.map((s) => {
+              const phase = s.is_current ? "current" : seasonPhaseOf(s, currentSeason);
+              return (
+                <li key={s.id}>
+                  <span className="season-list-name">{s.name}</span>
+                  <span className={`season-option-tag tag-${phase}`}>
+                    {phase === "current" ? "Current" : phase === "future" ? "Planning" : "Past"}
+                  </span>
+                  {isAdmin && !s.is_current && (
+                    <button
+                      className="btn btn-ghost"
+                      disabled={pending}
+                      onClick={() => {
+                        if (!confirm(
+                          `Make ${s.name} the current season?\n\nEveryone on ${team?.name ?? "this team"} will start working in ${s.name}. ${season?.name ?? "The current season"} stays intact and you can still view it.`
+                        )) return;
+                        const fd = new FormData();
+                        fd.set("season_id", s.id);
+                        run(makeSeasonCurrent, fd);
+                      }}
+                    >
+                      Make current
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
           <p className="settings-meta">
-            {counts.roster} players · {counts.tournaments} tournaments
+            {counts.roster} players · {counts.tournaments} tournaments this season
           </p>
+
+          {isAdmin && (
+            <button
+              className="btn btn-secondary"
+              style={{ marginTop: 12 }}
+              onClick={() => setEditing("season-new")}
+            >
+              Start next season
+            </button>
+          )}
         </div>
 
         {/* People & Access */}
@@ -214,6 +268,18 @@ export function SettingsClient({
           pending={pending}
           onSubmit={(fd) => run(renameSeason, fd, () => setEditing(null))}
           onCancel={() => setEditing(null)}
+        />
+      )}
+
+      {editing === "season-new" && (
+        <StartNextSeasonForm
+          roster={roster}
+          suggestedName={suggestNextSeasonName(currentSeason?.name ?? season?.name)}
+          currentName={currentSeason?.name ?? season?.name}
+          created={newSeason}
+          pending={pending}
+          onSubmit={(fd) => run(startNextSeason, fd, (res) => setNewSeason(res.result))}
+          onCancel={() => { setEditing(null); setNewSeason(null); }}
         />
       )}
 
@@ -359,5 +425,151 @@ function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
         </form>
       </div>
     </div>
+  );
+}
+
+/**
+ * Start next season.
+ *
+ * Everyone active starts selected; inactive players start unselected, since
+ * they have already left. Nothing is copied except the people chosen here and,
+ * optionally, the shape of the budget.
+ */
+function StartNextSeasonForm({ roster, suggestedName, currentName, created, pending, onSubmit, onCancel }) {
+  const active = roster.filter((r) => r.is_active);
+  const inactive = roster.filter((r) => !r.is_active);
+  const [selected, setSelected] = useState(() => new Set(active.map((r) => r.player_id)));
+
+  if (created) {
+    return (
+      <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-head">
+            <h2>{created.name} created</h2>
+          </div>
+          <div className="modal-body">
+            <p className="section-body">
+              {created.players_copied} {created.players_copied === 1 ? "person" : "people"} carried over
+              {created.budget_lines_copied > 0 &&
+                `, ${created.budget_lines_copied} budget lines copied with amounts at zero`}.
+            </p>
+            <div className="alert alert-info">
+              Your current season is still <strong>{currentName}</strong>. You can start planning{" "}
+              {created.name} now and make it current when you're ready.
+            </div>
+          </div>
+          <div className="modal-foot">
+            <button className="btn btn-secondary" onClick={onCancel}>
+              Keep working in {currentName}
+            </button>
+            <ViewNewSeason seasonId={created.season_id} name={created.name} onDone={onCancel} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const toggle = (id) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+        <form action={onSubmit}>
+          <div className="modal-head">
+            <h2>Start next season</h2>
+            <div className="page-sub">
+              {currentName} stays exactly as it is. Nothing is moved.
+            </div>
+          </div>
+
+          <div className="modal-body">
+            <div className="field">
+              <label htmlFor="ns-name">Season name</label>
+              <input id="ns-name" name="season_name" required defaultValue={suggestedName}
+                     placeholder="2027-28" autoFocus />
+            </div>
+
+            <div className="form-divider">
+              Who's coming back? <span className="muted">{selected.size} selected</span>
+            </div>
+
+            <div className="rollover-list">
+              {active.map((r) => (
+                <label key={r.player_id} className="rollover-row">
+                  <input
+                    type="checkbox"
+                    name="player_ids"
+                    value={r.player_id}
+                    checked={selected.has(r.player_id)}
+                    onChange={() => toggle(r.player_id)}
+                  />
+                  <span className="rollover-name">{r.full_name}</span>
+                  <span className="muted">
+                    {r.person_type === "player"
+                      ? r.jersey_number != null ? `#${r.jersey_number}` : ""
+                      : r.person_type}
+                  </span>
+                </label>
+              ))}
+
+              {inactive.map((r) => (
+                <label key={r.player_id} className="rollover-row rollover-inactive">
+                  <input
+                    type="checkbox"
+                    name="player_ids"
+                    value={r.player_id}
+                    checked={selected.has(r.player_id)}
+                    onChange={() => toggle(r.player_id)}
+                  />
+                  <span className="rollover-name">{r.full_name}</span>
+                  <span className="muted">inactive</span>
+                </label>
+              ))}
+            </div>
+
+            <label className="dupe-ack" style={{ marginTop: 16 }}>
+              <input type="checkbox" name="copy_budget" />
+              Start with last season's budget categories
+            </label>
+            <p className="field-note">
+              Copies the line items only. Amounts start at zero so you set this year's numbers.
+            </p>
+          </div>
+
+          <div className="modal-foot">
+            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={pending}>
+              {pending ? "Creating…" : "Create season"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/** Switches the viewing context to the new season. Never touches is_current. */
+function ViewNewSeason({ seasonId, name, onDone }) {
+  const [pending, startTransition] = useTransition();
+  return (
+    <button
+      className="btn btn-primary"
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          await viewSeason(seasonId);
+          onDone?.();
+        })
+      }
+    >
+      {pending ? "Opening…" : `View ${name}`}
+    </button>
   );
 }

@@ -39,7 +39,8 @@ export function FinanceClient({
   tournaments, players, facilities, budgetItems, canWrite, seasonName,
   // Review surface only: lets /review render each tab. Defaults to the normal
   // starting tab, so nothing changes in the application itself.
-  initialTab = "budget",
+  initialTab = "budget",,
+  seasonPhase = "current",
 }) {
   const [tab, setTab] = useState(initialTab);
   const [actionId, setActionId] = useState(null);
@@ -53,7 +54,10 @@ export function FinanceClient({
   const [editPay, setEditPay] = useState(null);
   const [openCats, setOpenCats] = useState({});
 
-  const actions = useMemo(() => financeActions(payments), [payments]);
+  const actions = useMemo(
+    () => (seasonPhase === "current" ? financeActions(payments) : []),
+    [payments, seasonPhase]
+  );
 
   useEffect(() => {
     if (actionId && !actions.some((a) => a.id === actionId)) setActionId(null);

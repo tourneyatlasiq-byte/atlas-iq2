@@ -34,7 +34,7 @@ export const dynamic = "force-dynamic";
  * every query below already resolves through auth_season_ids().
  */
 export default async function DashboardPage() {
-  const { profile, organization, team, season } = await getContext();
+  const { profile, organization, team, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -87,7 +87,14 @@ export default async function DashboardPage() {
         season: season.name,
       }}
       nextUp={nextUpTournament(tournaments)}
-      actions={dashboardActions({ roster, tournaments, payments })}
+      // Needs Action answers "what needs doing now". A past season has nothing
+      // outstanding, and a planning season has not started.
+      actions={
+        seasonPhase === "current"
+          ? dashboardActions({ roster, tournaments, payments })
+          : { visible: [], total: 0, hidden: 0, overflowModules: [] }
+      }
+      seasonPhase={seasonPhase}
       finance={financeSummary(budget, transactions, payments)}
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
