@@ -42,7 +42,7 @@ export default async function FinancePage() {
     );
   }
 
-  const [items, transactions, payments, committed, picks] = await Promise.all([
+  const [budgetItems, transactions, payments, committed, picks] = await Promise.all([
     listBudgetItems(season.id),
     listTransactions(season.id),
     listPlayerPayments(season.id),
@@ -50,7 +50,7 @@ export default async function FinancePage() {
     pickers(season.id, organization.id),
   ]);
 
-  const budget = buildBudget(items, transactions);
+  const budget = buildBudget(budgetItems, transactions);
 
   return (
     <FinanceClient
@@ -61,7 +61,7 @@ export default async function FinancePage() {
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
       committedTournaments={committed}
-      budgetItems={items}
+      budgetItems={budgetItems}
       tournaments={picks.tournaments}
       players={picks.players}
       facilities={picks.facilities}
