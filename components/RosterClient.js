@@ -33,10 +33,11 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current" }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false }) {
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
-  const [adding, setAdding] = useState(false);
+  // Opened directly from the help panel.
+  const [adding, setAdding] = useState(autoOpen);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
   const [actionId, setActionId] = useState(null);

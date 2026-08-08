@@ -55,7 +55,7 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin = false, externalEnabled = false }) {
+export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
@@ -64,11 +64,12 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   // Default to whichever view actually has something in it. A new organization
   // has no venues yet, and an empty tab makes the directory look empty too.
   const hasOwnVenues = facilities.some((f) => f.isOurs);
-  const [view, setView] = useState(hasOwnVenues ? "ours" : "all");
+  const [view, setView] = useState(forceAllView || !hasOwnVenues ? "all" : "ours");
   const [openGroups, setOpenGroups] = useState({});
   const [detail, setDetail] = useState(null);
   const [historyTarget, setHistoryTarget] = useState(null);
-  const [editing, setEditing] = useState(null); // facility | "new" | null
+  // Opened directly from the help panel.
+  const [editing, setEditing] = useState(autoOpen ? "new" : null);
   const [editingNotes, setEditingNotes] = useState(null);
   const [importing, setImporting] = useState(false);
   const [suggesting, setSuggesting] = useState(null);

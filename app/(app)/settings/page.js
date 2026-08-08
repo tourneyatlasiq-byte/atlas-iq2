@@ -11,9 +11,13 @@ export const dynamic = "force-dynamic";
  * owners and admins. RLS enforces that independently, so the hidden buttons
  * are a courtesy rather than the boundary.
  */
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }) {
   const { user, profile, organization, team, season, seasons, currentSeason } = await getContext();
   const supabase = createClient();
+
+  const params = await searchParams;
+  const openPanel =
+    params?.invite === "1" ? "invite" : params?.["new-season"] === "1" ? "season-new" : null;
 
   const [profilesRes, invitesRes, teamsRes, memberships, rosterRes, rosterCount, tournamentCount] =
     await Promise.all([
@@ -87,6 +91,7 @@ export default async function SettingsPage() {
       counts={{ roster: rosterCount.count ?? 0, tournaments: tournamentCount.count ?? 0 }}
       isAdmin={isOrgAdmin(profile)}
       currentUserId={user.id}
+      autoOpen={openPanel}
     />
   );
 }

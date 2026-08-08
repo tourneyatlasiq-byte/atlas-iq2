@@ -4,7 +4,7 @@ import { FilesClient } from "../../../components/FilesClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function FilesPage() {
+export default async function FilesPage({ searchParams }) {
   const { profile, organization, season } = await getContext();
 
   if (!season) {
@@ -31,6 +31,7 @@ export default async function FilesPage() {
       seasonName={season.name}
       canWrite={canWrite(profile)}
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
+      autoOpen={(await searchParams)?.upload === "1"}
     />
   );
 }

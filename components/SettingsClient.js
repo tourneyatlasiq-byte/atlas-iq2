@@ -49,9 +49,10 @@ function fmtDate(d) {
 
 export function SettingsClient({
   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
-  counts, isAdmin, currentUserId,
+  counts, isAdmin, currentUserId, autoOpen = null,
 }) {
-  const [editing, setEditing] = useState(null); // organization | team | season | invite
+  // Opened directly from the help panel.
+  const [editing, setEditing] = useState(autoOpen);
   const [error, setError] = useState(null);
   const [newInvite, setNewInvite] = useState(null);
   const [newSeason, setNewSeason] = useState(null);

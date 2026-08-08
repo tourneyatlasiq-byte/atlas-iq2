@@ -5,7 +5,7 @@ import { FacilitiesClient } from "../../../components/FacilitiesClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function FacilitiesPage() {
+export default async function FacilitiesPage({ searchParams }) {
   const { profile, organization } = await getContext();
 
   const facilities = await listFacilities(organization.id);
@@ -17,6 +17,8 @@ export default async function FacilitiesPage() {
       canWrite={canWrite(profile)}
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       externalEnabled={isExternalSearchEnabled()}
+      forceAllView={(await searchParams)?.view === "all"}
+      autoOpen={(await searchParams)?.add === "1"}
     />
   );
 }

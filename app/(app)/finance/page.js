@@ -68,7 +68,8 @@ export default async function FinancePage({ searchParams }) {
 
   // Awaited so this works whether searchParams is a plain object (Next 14) or
   // a promise (Next 15). Awaiting a non-promise simply returns it.
-  const requestedTab = TAB_ALIASES[(await searchParams)?.tab] ?? "budget";
+  const params = await searchParams;
+  const requestedTab = TAB_ALIASES[params?.tab] ?? "budget";
 
   return (
     <FinanceClient
@@ -87,6 +88,7 @@ export default async function FinancePage({ searchParams }) {
       seasonName={season.name}
       seasonPhase={seasonPhase}
       initialTab={requestedTab}
+      autoOpen={params?.add === "1"}
     />
   );
 }

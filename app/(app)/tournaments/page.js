@@ -11,7 +11,7 @@ import { TournamentClient } from "../../../components/TournamentClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function TournamentsPage() {
+export default async function TournamentsPage({ searchParams }) {
   const { profile, organization, season, seasonPhase } = await getContext();
 
   if (!season) {
@@ -49,6 +49,7 @@ export default async function TournamentsPage() {
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       documentTargets={docTargets}
       seasonName={season.name}
+      autoOpen={(await searchParams)?.add === "1"}
     />
   );
 }

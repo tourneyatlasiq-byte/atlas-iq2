@@ -33,13 +33,14 @@ const catClass = (c) =>
   : c === "Receipt" ? "pill-deposit"
   : "pill-unregistered";
 
-export function FilesClient({ documents, summary, targets, seasonName, canWrite, isAdmin }) {
+export function FilesClient({ documents, summary, targets, seasonName, canWrite, isAdmin, autoOpen = false }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [scope, setScope] = useState("all");
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  // Opened directly from the help panel.
+  const [uploading, setUploading] = useState(autoOpen);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 

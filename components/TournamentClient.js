@@ -59,12 +59,13 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName }) {
+export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false }) {
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
   const [detail, setDetail] = useState(null);
-  const [editing, setEditing] = useState(null); // row | "new" | null
+  // Opened directly from the help panel.
+  const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState({ Declined: true });

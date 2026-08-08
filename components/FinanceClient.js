@@ -41,6 +41,7 @@ export function FinanceClient({
   // starting tab, so nothing changes in the application itself.
   initialTab = "budget",,
   seasonPhase = "current",
+  autoOpen = false,
 }) {
   const [tab, setTab] = useState(initialTab);
   const [actionId, setActionId] = useState(null);
@@ -48,7 +49,8 @@ export function FinanceClient({
   const [pending, startTransition] = useTransition();
 
   const [editBudget, setEditBudget] = useState(null);
-  const [editTxn, setEditTxn] = useState(null);
+  // Opened directly from the help panel, alongside the requested tab.
+  const [editTxn, setEditTxn] = useState(autoOpen && initialTab === "transactions" ? "new" : null);
   const [detailTxn, setDetailTxn] = useState(null);
   const [detailPay, setDetailPay] = useState(null);
   const [editPay, setEditPay] = useState(null);

@@ -9,7 +9,7 @@ import { RosterClient } from "../../../components/RosterClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function TeamPage() {
+export default async function TeamPage({ searchParams }) {
   const { profile, organization, season, seasonPhase } = await getContext();
 
   if (!season) {
@@ -47,6 +47,7 @@ export default async function TeamPage() {
       documentTargets={targets}
       seasonName={season.name}
       seasonPhase={seasonPhase}
+      autoOpen={(await searchParams)?.add === "person"}
     />
   );
 }
