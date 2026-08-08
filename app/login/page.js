@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 import { LogoLockup } from "../../components/Logo";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
@@ -17,7 +21,14 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        // Carry the intended destination through the magic link. Without this
+        // an invited person lands on /dashboard, then /welcome, and creates
+        // their own organization instead of joining the one that invited them.
+        emailRedirectTo:
+          `${window.location.origin}/auth/callback` +
+          (next ? `?next=${encodeURIComponent(next)}` : ""),
+      },
     });
 
     if (error) {
@@ -81,5 +92,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * useSearchParams opts the page out of static rendering, which Next requires a
+ * Suspense boundary for. Without it the production build fails on this page.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

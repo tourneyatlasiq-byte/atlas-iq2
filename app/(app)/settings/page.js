@@ -1,68 +1,75 @@
-import { getContext, canWrite } from "../../../lib/context";
+import { getContext, isOrgAdmin } from "../../../lib/context";
+import { createClient } from "../../../lib/supabase/server";
+import { SettingsClient } from "../../../components/SettingsClient";
 
 export const dynamic = "force-dynamic";
 
-function Row({ label, value }) {
-  return (
-    <tr>
-      <td style={{ width: 200, color: "var(--slate)", fontWeight: 600 }}>{label}</td>
-      <td>{value ?? <span className="muted">—</span>}</td>
-    </tr>
-  );
-}
-
+/**
+ * Settings — organization administration.
+ *
+ * Readable by everyone in the organization; edit controls appear only for
+ * owners and admins. RLS enforces that independently, so the hidden buttons
+ * are a courtesy rather than the boundary.
+ */
 export default async function SettingsPage() {
-  const { user, profile, organization, teams, team, seasons, season } = await getContext();
+  const { user, profile, organization, team, season } = await getContext();
+  const supabase = createClient();
+
+  const [profilesRes, invitesRes, teamsRes, memberships, rosterCount, tournamentCount] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .eq("organization_id", organization.id)
+        .order("role"),
+      supabase
+        .from("invites")
+        .select("id, email, role, created_at, accepted_at, expires_at, team_id, team:teams(id, name)")
+        .eq("organization_id", organization.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("teams")
+        .select("id, name")
+        .eq("organization_id", organization.id)
+        .order("name"),
+      supabase.from("team_memberships").select("profile_id, team:teams(id, name)"),
+      season
+        ? supabase
+            .from("team_season_players")
+            .select("id", { count: "exact", head: true })
+            .eq("season_id", season.id)
+        : Promise.resolve({ count: 0 }),
+      season
+        ? supabase
+            .from("tournaments")
+            .select("id", { count: "exact", head: true })
+            .eq("season_id", season.id)
+        : Promise.resolve({ count: 0 }),
+    ]);
+
+  // An owner or admin sees every team, so listing their memberships would be
+  // misleading — "All teams" is the honest description.
+  const teamsBy = new Map();
+  for (const m of memberships.data ?? []) {
+    teamsBy.set(m.profile_id, [...(teamsBy.get(m.profile_id) ?? []), m.team?.name].filter(Boolean));
+  }
+
+  const people = (profilesRes.data ?? []).map((p) => ({
+    ...p,
+    teamNames: isOrgAdmin(p) ? [] : teamsBy.get(p.id) ?? [],
+  }));
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>Settings</h1>
-          <div className="page-sub">Account and organization context resolved for this session.</div>
-        </div>
-      </div>
-
-      <div className="card card-flush">
-        <div style={{ padding: "16px 16px 0" }}>
-          <h2>Account</h2>
-        </div>
-        <table className="table">
-          <tbody>
-            <Row label="Signed in as" value={user.email} />
-            <Row label="Name" value={profile?.full_name} />
-            <Row label="Role" value={profile?.role} />
-            <Row label="Can edit records" value={canWrite(profile) ? "Yes" : "No"} />
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card card-flush">
-        <div style={{ padding: "16px 16px 0" }}>
-          <h2>Organization</h2>
-        </div>
-        <table className="table">
-          <tbody>
-            <Row label="Organization" value={organization?.name} />
-            <Row label="Teams" value={teams.length > 0 ? teams.map((t) => t.name).join(", ") : null} />
-            <Row label="Active team" value={team?.name} />
-            <Row label="Current season" value={season ? `${season.name}${season.is_current ? " (current)" : ""}` : null} />
-            <Row
-              label="Season range"
-              value={season?.start_date ? `${season.start_date} → ${season.end_date ?? "—"}` : null}
-            />
-            <Row label="All seasons" value={seasons.length > 0 ? seasons.map((s) => s.name).join(", ") : null} />
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card">
-        <h2>Coming next</h2>
-        <p className="page-sub" style={{ marginTop: 8 }}>
-          Switching teams and seasons, editing organization details, and managing who has access
-          are all planned. Right now Atlas IQ resolves the current team and season automatically.
-        </p>
-      </div>
-    </>
+    <SettingsClient
+      organization={organization}
+      team={team}
+      season={season}
+      people={people}
+      invites={invitesRes.data ?? []}
+      teams={teamsRes.data ?? []}
+      counts={{ roster: rosterCount.count ?? 0, tournaments: tournamentCount.count ?? 0 }}
+      isAdmin={isOrgAdmin(profile)}
+      currentUserId={user.id}
+    />
   );
 }
