@@ -2,11 +2,12 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { NeedsAction, FilterChip } from "./NeedsAction";
+import { FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
 import { QuickAddFacility } from "./QuickAddFacility";
 import { GamesSection } from "./GamesSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { TopoMotif } from "./TopoMotif";
 import { HelpTip } from "./HelpTip";
 import { TOURNAMENT_FILTER_LABELS } from "../lib/readiness/tournaments";
 import {
@@ -50,6 +51,32 @@ function placeLine(t) {
     return [t.facility.name, cityState].filter(Boolean).join(" \u2022 ");
   }
   return t.location ?? null;
+}
+
+/** Whole days from today to a date. Display only; no rule depends on it. */
+function daysUntil(date) {
+  if (!date) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  return Math.round(
+    (new Date(date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
+  );
+}
+
+/**
+ * Renders registration and payment from the one paid_status field.
+ *
+ * "Are we going?" (decision) and "where does entry stand?" (registration) are
+ * separate fields and stay that way — this only splits the existing value into
+ * the two facts a coach scans for.
+ */
+function statusParts(paid) {
+  switch (paid) {
+    case "Paid in Full":  return { registered: true,  detail: "Paid in full", tone: "good" };
+    case "Deposit Paid":  return { registered: true,  detail: "Deposit paid",  tone: "part" };
+    case "Registered":    return { registered: true,  detail: "Payment due",   tone: "due"  };
+    case "Waitlisted":    return { registered: false, detail: "Waitlisted",    tone: "wait" };
+    default:              return { registered: false, detail: "Not registered", tone: "none" };
+  }
 }
 
 const paidClass = (s) =>
@@ -160,46 +187,62 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       </div>
 
       {/* 1. Season summary */}
-      <div className="stat-grid">
-        <div className="card">
-          <div className="stat-label">Committed</div>
-          <div className="stat-value">{summary.committedCount}</div>
-          <div className="stat-foot">of {tournaments.length} tracked</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Committed Tournament Cost</div>
-          <div className="stat-value">{money(summary.committedCost)}</div>
-          <div className="stat-foot">entry + gate fees only</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Next event</div>
-          <div className="stat-value stat-value-sm">{summary.next ? summary.next.name : "None"}</div>
-          <div className="stat-foot">
-            {summary.next
-              ? `${dateRange(summary.next.start_date, summary.next.end_date)} · ${summary.daysToNext} days out`
-              : "Nothing committed yet"}
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Season record</div>
-          <div className="stat-value">
-            {record.played > 0 ? `${record.w}–${record.l}${record.t > 0 ? `–${record.t}` : ""}` : "—"}
-          </div>
-          <div className="stat-foot">
-            {record.played > 0
-              ? `${record.played} game${record.played === 1 ? "" : "s"} played`
-              : "add games inside a tournament"}
-          </div>
-        </div>
-        <div className={`card${actions.length ? " card-alert" : ""}`}>
-          <div className="stat-label">Needs action</div>
-          <div className="stat-value">{actions.length}</div>
-          <div className="stat-foot">{actions.length ? "see below" : "all clear"}</div>
+      <div className="tiq-band">
+        <div className="tiq-band-grid">
+          <TiqNextUp tournament={summary.next} />
+
+          <section className={`briefing${actions.length === 0 ? " briefing-is-clear" : ""}`}>
+            <p className="briefing-title">Needs action</p>
+
+            {actions.length === 0 ? (
+              <div className="briefing-clear briefing-clear-good">
+                <p className="briefing-clear-title">Schedule is in order</p>
+                <p className="briefing-clear-sub">
+                  Nothing outstanding on your tournaments right now.
+                </p>
+              </div>
+            ) : (
+              <ul className="briefing-list">
+                {actions.map((a) => (
+                  <li key={a.id} className="briefing-item">
+                    <button
+                      className={`briefing-link${actionId === a.id ? " on" : ""}`}
+                      onClick={() => setActionId(actionId === a.id ? null : a.id)}
+                    >
+                      <span
+                        className={`briefing-dot ${
+                          a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="briefing-text">
+                        <span className="briefing-what">{a.title}</span>
+                        <span className="briefing-where">{a.detail}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </div>
 
-      {/* 2. Needs Action — shared Atlas pattern */}
-      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} showWhenClear />
+      {/* Context, not headlines. The list is the point of this screen. */}
+      <p className="tiq-context">
+        <strong>{summary.committedCount}</strong> committed
+        <span className="tiq-dot" aria-hidden="true">·</span>
+        <strong>{money(summary.committedCost)}</strong> committed cost
+        <span className="tiq-dot" aria-hidden="true">·</span>
+        {record.played > 0 ? (
+          <>
+            <strong>{record.w}&ndash;{record.l}{record.t > 0 ? `–${record.t}` : ""}</strong> season record
+          </>
+        ) : (
+          <span className="muted">no games played yet</span>
+        )}
+      </p>
+
 
       {activeAction && (
         <FilterChip
@@ -248,22 +291,39 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                   {rows.map((t) => (
                     <div key={t.id} className="t-row">
                       <button className="t-main" onClick={() => setDetail(t)}>
-                        <span className="t-name">
-                          <span
-                            className={`decision-dot decision-dot-${t.decision.toLowerCase()}`}
-                            title={t.decision}
-                            aria-hidden="true"
-                          />
-                          {t.name}
-                        </span>
-                        <span className="t-meta">
-                          {dateRange(t.start_date, t.end_date)}
-                          {t.provider?.name && <> · {t.provider.name}</>}
-                          {(t.facility?.name || t.location) && <> · {t.facility?.name ?? t.location}</>}
+                        {/* Dates lead: this is the column a coach scans. */}
+                        <span className="t-date">{dateRange(t.start_date, t.end_date)}</span>
+
+                        <span className="t-body">
+                          <span className="t-name">
+                            {/* No decision dot inside a decision group — the
+                                heading already says it. Shown only when a
+                                filter mixes groups together. */}
+                            {activeAction && (
+                              <span
+                                className={`decision-dot decision-dot-${t.decision.toLowerCase()}`}
+                                title={t.decision}
+                                aria-hidden="true"
+                              />
+                            )}
+                            {t.name}
+                          </span>
+                          <span className="t-meta">
+                            {[t.provider?.name, t.facility?.name ?? t.location]
+                              .filter(Boolean)
+                              .join(" · ") || "—"}
+                          </span>
                         </span>
                       </button>
+
+                      {/* Registration and payment as words, not two pills. */}
+                      <span className={`t-status t-status-${statusParts(t.paid_status).tone}`}>
+                        {statusParts(t.paid_status).registered
+                          ? `Registered · ${statusParts(t.paid_status).detail}`
+                          : statusParts(t.paid_status).detail}
+                      </span>
+
                       <span className="t-cost">{money(t.total_cost)}</span>
-                      <span className={`pill ${paidClass(t.paid_status)}`}>{t.paid_status}</span>
                       {canWrite && decision === "Considering" && (
                         <button
                           className="btn btn-commit"
@@ -804,5 +864,95 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
         </form>
       </div>
     </div>
+  );
+}
+
+/**
+ * The one brand surface on Tournament IQ.
+ *
+ * Home answers "what do I need to know". This answers "what are we playing
+ * next and is anything unresolved about it" — so it carries registration,
+ * payment and the game count, which Home deliberately does not.
+ */
+function TiqNextUp({ tournament: t }) {
+  if (!t) {
+    return (
+      <section className="nextup nextup-empty tiq-nextup">
+        <TopoMotif />
+        <div className="nextup-inner">
+          <span className="nextup-eyebrow">Next up</span>
+          <h2 className="nextup-name">Nothing committed yet</h2>
+          <div className="nextup-lines">
+            <span className="nextup-line">
+              Commit to a tournament and it appears here with everything you need for the weekend.
+            </span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const days = daysUntil(t.start_date);
+  const status = statusParts(t.paid_status);
+  const gameCount = (t.games ?? []).length;
+
+  const place = t.facility?.name
+    ? [t.facility.name, [t.facility.city, t.facility.state].filter(Boolean).join(", ")]
+        .filter(Boolean)
+        .join(", ")
+    : t.location;
+
+  return (
+    <section className="nextup tiq-nextup">
+      <TopoMotif />
+      <div className="nextup-inner">
+        <span className="nextup-eyebrow">Next up</span>
+
+        <div className="nextup-when">
+          {days === 0 ? (
+            <span className="nextup-days">Today</span>
+          ) : days === 1 ? (
+            <span className="nextup-days">Tomorrow</span>
+          ) : (
+            <>
+              <span className="nextup-days">{days}</span>
+              <span className="nextup-days-unit">days away</span>
+            </>
+          )}
+        </div>
+
+        <h2 className="nextup-name">{t.name}</h2>
+
+        <div className="nextup-lines">
+          <span className="nextup-line">
+            {dateRange(t.start_date, t.end_date)}
+            {t.provider?.name && ` · ${t.provider.name}`}
+          </span>
+          {place && <span className="nextup-line">{place}</span>}
+        </div>
+
+        {/* Registration and payment shown separately, because a coach acts on
+            them separately. Both come from the one paid_status field. */}
+        <div className="tiq-nextup-status">
+          <span className={`tiq-flag ${status.registered ? "flag-good" : "flag-todo"}`}>
+            <span aria-hidden="true">{status.registered ? "✓" : "•"}</span>
+            {status.registered ? "Registered" : status.detail}
+          </span>
+
+          {status.registered && (
+            <span className={`tiq-flag ${status.tone === "good" ? "flag-good" : "flag-todo"}`}>
+              <span aria-hidden="true">{status.tone === "good" ? "✓" : "•"}</span>
+              {status.detail}
+            </span>
+          )}
+
+          <span className="tiq-flag flag-quiet">
+            {gameCount > 0
+              ? `${gameCount} ${gameCount === 1 ? "game" : "games"} scheduled`
+              : "No games scheduled"}
+          </span>
+        </div>
+      </div>
+    </section>
   );
 }
