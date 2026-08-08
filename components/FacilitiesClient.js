@@ -473,10 +473,12 @@ function FacilityTable({ rows, onOpen }) {
           <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
             <td>
               <span className="cell-name">{f.name}</span>
-              {f.orgNotes && (
+              {f.orgNotes ? (
                 <span className="role-tag" title="Your organization has notes on this venue">
                   Notes
                 </span>
+              ) : (
+                f.isOurs && <span className="add-notes-hint">Add notes</span>
               )}
               {f.pendingEdits?.length > 0 && (
                 <span className="pending-badge" title="Corrections awaiting review">
@@ -603,20 +605,6 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
             />
           </Section>
 
-          <Section title="Facility Details">
-            <Row label="Number of fields" value={f.field_count} />
-            <Row label="Surface" value={f.surface_type ?? "Unknown"} />
-            <Row label="Parking" value={f.parking} />
-            <div className="amenity-grid">
-              {AMENITIES.map((a) => (
-                <div key={a.key} className="amenity-row">
-                  <span>{a.label}</span>
-                  {amenityMark(f[a.key])}
-                </div>
-              ))}
-            </div>
-          </Section>
-
           <Section
             title="Our Notes"
             action={
@@ -637,10 +625,32 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
                 <Row label="General notes" value={n.internal_notes} />
               </>
             ) : (
-              <p className="section-body muted">
-                Nothing recorded yet. Anything added here is private to your organization.
-              </p>
+              <div className="notes-empty">
+                <p className="section-body muted">
+                  Parking, gate entry, concessions — what your team will want to know next time.
+                  Private to your organization.
+                </p>
+                {canWrite && (
+                  <button className="btn btn-primary" onClick={onEditNotes} disabled={pending}>
+                    Add your notes
+                  </button>
+                )}
+              </div>
             )}
+          </Section>
+
+          <Section title="Facility Details">
+            <Row label="Number of fields" value={f.field_count} />
+            <Row label="Surface" value={f.surface_type ?? "Unknown"} />
+            <Row label="Parking" value={f.parking} />
+            <div className="amenity-grid">
+              {AMENITIES.map((a) => (
+                <div key={a.key} className="amenity-row">
+                  <span>{a.label}</span>
+                  {amenityMark(f[a.key])}
+                </div>
+              ))}
+            </div>
           </Section>
 
           <Section title="Tournament History" anchor="history">

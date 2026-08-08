@@ -412,7 +412,9 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           {canWrite && (
             <div className="status-controls">
               <div className="field">
-                <label htmlFor="d-decision">Decision status</label>
+                <label htmlFor="d-decision">
+                  Are we going? <HelpTip term={t.decision} />
+                </label>
                 <select
                   id="d-decision"
                   value={t.decision}
@@ -423,7 +425,10 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="d-paid">Registration status</label>
+                <label htmlFor="d-paid">
+                  Registration &amp; payment
+                  {t.paid_status === "Waitlisted" && <HelpTip term="Waitlisted" />}
+                </label>
                 <select
                   id="d-paid"
                   value={t.paid_status}
@@ -434,6 +439,14 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                 </select>
               </div>
             </div>
+          )}
+
+          {canWrite && (
+            <p className="status-note">
+              These are separate on purpose. <strong>Are we going?</strong> is your decision.{" "}
+              <strong>Registration &amp; payment</strong> is where the paperwork stands — it's
+              normal to be committed before you've registered.
+            </p>
           )}
 
           <Section title="Overview">
