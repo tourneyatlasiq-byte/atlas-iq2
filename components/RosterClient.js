@@ -1,43 +1,129 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { addRosterMember, updateRosterMember, removeRosterMember } from "../lib/actions/roster";
+import { useState, useTransition, useEffect, useMemo } from "react";
+import {
+  addRosterMember,
+  assignExistingPlayer,
+  updateRosterMember,
+  setRosterActive,
+  removeRosterMember,
+  deletePlayerPermanently,
+} from "../lib/actions/roster";
 
-const POSITIONS = ["", "P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "UTIL"];
-const SIZES = ["", "YS", "YM", "YL", "AS", "AM", "AL", "AXL"];
+const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "UTIL", "DP", "FLEX"];
+const SIZES = ["YS", "YM", "YL", "AS", "AM", "AL", "AXL"];
+const PERSON_TYPES = [
+  { value: "player", label: "Player" },
+  { value: "coach", label: "Coach" },
+  { value: "manager", label: "Manager" },
+  { value: "other", label: "Other" },
+];
+const THROWS = ["R", "L"];
+const BATS = ["R", "L", "S"];
 
-function fmtDob(d) {
-  if (!d) return "—";
+const typeLabel = (v) => PERSON_TYPES.find((t) => t.value === v)?.label ?? "Player";
+
+function fmtDate(d) {
+  if (!d) return null;
   const [y, m, day] = d.split("-");
   return `${m}/${day}/${y}`;
 }
 
-export function RosterClient({ rows, canWrite, seasonName }) {
+/** Mirrors missingInfo() in lib/queries/roster.js. */
+function gapsFor(row) {
+  const p = row.player ?? {};
+  const gaps = [];
+  if (row.jersey_number == null) gaps.push("jersey number");
+  if (!row.positions?.length) gaps.push("position");
+  if (!row.jersey_size) gaps.push("jersey size");
+  if (!row.pants_size) gaps.push("pants size");
+  if (p.person_type === "player" && !p.grad_year) gaps.push("grad year");
+  if (!p.parent_email && !p.parent_phone && !p.player_email) gaps.push("contact");
+  return gaps;
+}
+
+export function RosterClient({ rows, assignable, summary, canWrite, seasonName }) {
+  const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null); // row | "new" | null
+  const [adding, setAdding] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("active");
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
-  function submit(formData) {
+  const overlayOpen = Boolean(detail || editing || adding);
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+    function onKey(e) {
+      if (e.key !== "Escape") return;
+      if (editing) setEditing(null);
+      else if (adding) setAdding(false);
+      else setDetail(null);
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [overlayOpen, editing, adding]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows
+      .filter((r) => (filter === "all" ? true : filter === "active" ? r.is_active : !r.is_active))
+      .filter((r) => !q || (r.player?.full_name ?? "").toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+        if (a.jersey_number == null) return 1;
+        if (b.jersey_number == null) return -1;
+        return a.jersey_number - b.jersey_number;
+      });
+  }, [rows, query, filter]);
+
+  function run(action, fd, onDone) {
     setError(null);
     startTransition(async () => {
-      const action = editing === "new" ? addRosterMember : updateRosterMember;
-      const result = await action(formData);
-      if (result?.ok) setEditing(null);
+      const result = await action(fd);
+      if (result?.ok) onDone?.();
       else setError(result?.error ?? "Something went wrong. Try again.");
+    });
+  }
+
+  function submitEdit(formData) {
+    const action = editing === "new" ? addRosterMember : updateRosterMember;
+    run(action, formData, () => {
+      setEditing(null);
+      setDetail(null);
+    });
+  }
+
+  function toggleActive(row, next) {
+    const fd = new FormData();
+    fd.set("assignment_id", row.id);
+    fd.set("is_active", String(next));
+    run(setRosterActive, fd, () => {
+      if (detail?.id === row.id) setDetail({ ...detail, is_active: next });
     });
   }
 
   function remove(row) {
     const name = row.player?.full_name ?? "this person";
-    if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nTheir player record stays in the organization.`)) return;
-
-    setError(null);
+    if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nTheir player record and history in other seasons are kept.`)) return;
     const fd = new FormData();
     fd.set("assignment_id", row.id);
-    startTransition(async () => {
-      const result = await removeRosterMember(fd);
-      if (!result?.ok) setError(result?.error ?? "Could not remove that person.");
-    });
+    run(removeRosterMember, fd, () => setDetail(null));
+  }
+
+  function deleteForever(row) {
+    const name = row.player?.full_name ?? "this player";
+    if (!confirm(`Permanently delete ${name}?\n\nThis erases the player entirely and cannot be undone. Only do this for a record created by mistake.`)) return;
+    const fd = new FormData();
+    fd.set("player_id", row.player?.id ?? "");
+    fd.set("assignment_id", row.id);
+    run(deletePlayerPermanently, fd, () => setDetail(null));
   }
 
   return (
@@ -47,26 +133,76 @@ export function RosterClient({ rows, canWrite, seasonName }) {
       <div className="page-head">
         <div>
           <h1>Team</h1>
-          <div className="page-sub">
-            {rows.length} {rows.length === 1 ? "person" : "people"} on the {seasonName} roster
-          </div>
+          <div className="page-sub">{seasonName} roster</div>
         </div>
         {canWrite && (
-          <button className="btn btn-primary" onClick={() => setEditing("new")}>
+          <button className="btn btn-primary" onClick={() => setAdding(true)}>
             Add person
           </button>
         )}
       </div>
 
+      <div className="stat-grid">
+        <div className="card">
+          <div className="stat-label">Players</div>
+          <div className="stat-value">{summary.playerCount}</div>
+          <div className="stat-foot">active this season</div>
+        </div>
+        <div className="card">
+          <div className="stat-label">Coaches &amp; staff</div>
+          <div className="stat-value">{summary.staffCount}</div>
+          <div className="stat-foot">active this season</div>
+        </div>
+        <div className="card">
+          <div className="stat-label">Inactive</div>
+          <div className="stat-value">{summary.inactiveCount}</div>
+          <div className="stat-foot">still on the roster</div>
+        </div>
+        <div className={`card${summary.incompleteCount ? " card-alert" : ""}`}>
+          <div className="stat-label">Missing information</div>
+          <div className="stat-value">{summary.incompleteCount}</div>
+          <div className="stat-foot">{summary.incompleteCount ? "shown in the table" : "all complete"}</div>
+        </div>
+      </div>
+
+      <div className="toolbar">
+        <input
+          className="toolbar-search"
+          type="search"
+          placeholder="Search by name"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search roster by name"
+        />
+        <div className="segmented" role="group" aria-label="Filter by status">
+          {[
+            { key: "active", label: "Active" },
+            { key: "inactive", label: "Inactive" },
+            { key: "all", label: "All" },
+          ].map((o) => (
+            <button
+              key={o.key}
+              className={`segment${filter === o.key ? " on" : ""}`}
+              onClick={() => setFilter(o.key)}
+              aria-pressed={filter === o.key}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="card card-flush">
-        {rows.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="empty">
-            <h3>No one on the roster yet</h3>
-            <p>Add your first player to start building the {seasonName} season.</p>
-            {canWrite && (
-              <button className="btn btn-primary" onClick={() => setEditing("new")}>
-                Add person
-              </button>
+            <h3>{rows.length === 0 ? "No one on the roster yet" : "No one matches"}</h3>
+            <p>
+              {rows.length === 0
+                ? `Add your first player to start building the ${seasonName} season.`
+                : "Try a different name or switch the status filter."}
+            </p>
+            {rows.length === 0 && canWrite && (
+              <button className="btn btn-primary" onClick={() => setAdding(true)}>Add person</button>
             )}
           </div>
         ) : (
@@ -75,56 +211,93 @@ export function RosterClient({ rows, canWrite, seasonName }) {
               <tr>
                 <th>#</th>
                 <th>Name</th>
-                <th>Type</th>
-                <th>Position</th>
                 <th>Grad</th>
-                <th>Date of birth</th>
-                <th>Parent contact</th>
-                {canWrite && <th aria-label="Actions" />}
+                <th>Positions</th>
+                <th>Jersey</th>
+                <th>Pants</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    {row.jersey_number != null ? (
-                      <span className="jersey">{row.jersey_number}</span>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{row.player?.full_name ?? "—"}</td>
-                  <td>
-                    <span className={`pill ${row.player?.person_type === "player" ? "pill-player" : "pill-staff"}`}>
-                      {row.player?.person_type ?? "player"}
-                    </span>
-                  </td>
-                  <td>{row.position ?? <span className="muted">—</span>}</td>
-                  <td>{row.player?.grad_year ?? <span className="muted">—</span>}</td>
-                  <td>{fmtDob(row.player?.date_of_birth)}</td>
-                  <td className="muted">{row.player?.parent_email ?? "—"}</td>
-                  {canWrite && (
-                    <td className="td-actions">
-                      <button className="btn btn-ghost" onClick={() => setEditing(row)} disabled={pending}>
-                        Edit
-                      </button>
-                      <button className="btn btn-danger-ghost" onClick={() => remove(row)} disabled={pending}>
-                        Remove
-                      </button>
+              {visible.map((row) => {
+                const p = row.player ?? {};
+                const gaps = gapsFor(row);
+                return (
+                  <tr
+                    key={row.id}
+                    className={`row-click${row.is_active ? "" : " row-inactive"}`}
+                    onClick={() => setDetail(row)}
+                  >
+                    <td>
+                      {row.jersey_number != null
+                        ? <span className="jersey">{row.jersey_number}</span>
+                        : <span className="muted">—</span>}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td>
+                      <span className="cell-name">{p.full_name ?? "—"}</span>
+                      {p.person_type !== "player" && (
+                        <span className="pill pill-staff cell-tag">{typeLabel(p.person_type)}</span>
+                      )}
+                      {gaps.length > 0 && row.is_active && (
+                        <span className="gap-flag" title={`Missing: ${gaps.join(", ")}`}>
+                          {gaps.length} missing
+                        </span>
+                      )}
+                    </td>
+                    <td>{p.grad_year ?? <span className="muted">—</span>}</td>
+                    <td>
+                      {row.positions?.length
+                        ? row.positions.join(" / ")
+                        : <span className="muted">—</span>}
+                    </td>
+                    <td>{row.jersey_size ?? <span className="muted">—</span>}</td>
+                    <td>{row.pants_size ?? <span className="muted">—</span>}</td>
+                    <td>
+                      <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
+                        {row.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
+      {detail && (
+        <PlayerDetail
+          row={detail}
+          canWrite={canWrite}
+          pending={pending}
+          gaps={gapsFor(detail)}
+          onClose={() => setDetail(null)}
+          onEdit={() => setEditing(detail)}
+          onRemove={() => remove(detail)}
+          onDeleteForever={() => deleteForever(detail)}
+          onToggleActive={(next) => toggleActive(detail, next)}
+        />
+      )}
+
+      {adding && (
+        <AddPersonFlow
+          assignable={assignable}
+          seasonName={seasonName}
+          pending={pending}
+          onAssign={(fd) => run(assignExistingPlayer, fd, () => setAdding(false))}
+          onCreateNew={() => {
+            setAdding(false);
+            setEditing("new");
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
       {editing && (
-        <RosterForm
+        <PlayerForm
           row={editing === "new" ? null : editing}
           pending={pending}
-          onSubmit={submit}
+          onSubmit={submitEdit}
           onCancel={() => {
             setEditing(null);
             setError(null);
@@ -135,19 +308,239 @@ export function RosterClient({ rows, canWrite, seasonName }) {
   );
 }
 
-function RosterForm({ row, pending, onSubmit, onCancel }) {
-  const p = row?.player ?? {};
-  const isNew = !row;
+/* ---------------- Detail drawer ---------------- */
+
+function Section({ title, children }) {
+  return (
+    <section className="detail-section">
+      <h3 className="detail-section-title">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function Row({ label, value }) {
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <div className="detail-row">
+      <span className="detail-row-label">{label}</span>
+      <span className="detail-row-value">{empty ? <span className="muted">—</span> : value}</span>
+    </div>
+  );
+}
+
+function PlayerDetail({ row, canWrite, pending, gaps, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
+  const p = row.player ?? {};
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="roster-form-title">
-      <div className="modal">
+    <div className="drawer-backdrop" onClick={onClose}>
+      <aside
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="player-detail-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="drawer-head">
+          <div className="drawer-head-text">
+            <h2 id="player-detail-title">{p.full_name ?? "—"}</h2>
+            <div className="drawer-head-meta">
+              {row.jersey_number != null && <span className="drawer-head-dates">#{row.jersey_number}</span>}
+              {row.positions?.length > 0 && <span>{row.positions.join(" / ")}</span>}
+              {p.grad_year && <span>Class of {p.grad_year}</span>}
+            </div>
+            <div className="drawer-head-pills">
+              <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
+                {row.is_active ? "Active" : "Inactive"}
+              </span>
+              <span className="pill pill-staff">{typeLabel(p.person_type)}</span>
+            </div>
+          </div>
+          <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <div className="drawer-body">
+          {gaps.length > 0 && (
+            <div className="alert alert-info">
+              Still missing: {gaps.join(", ")}.
+            </div>
+          )}
+
+          {canWrite && (
+            <div className="status-controls">
+              <div className="field">
+                <label htmlFor="p-active">Roster status</label>
+                <select
+                  id="p-active"
+                  value={row.is_active ? "true" : "false"}
+                  disabled={pending}
+                  onChange={(e) => onToggleActive(e.target.value === "true")}
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <Section title="Player Information">
+            <Row label="Name" value={p.full_name} />
+            <Row label="Type" value={p.person_type === "other" ? p.other_role_label ?? "Other" : typeLabel(p.person_type)} />
+            <Row label="Grad year" value={p.grad_year} />
+            <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />
+            <Row label="Jersey number" value={row.jersey_number} />
+            <Row label="Positions" value={row.positions?.length ? row.positions.join(" / ") : null} />
+            <Row label="Throws" value={p.throws} />
+            <Row label="Bats" value={p.bats} />
+          </Section>
+
+          <Section title="Uniform">
+            <Row label="Jersey size" value={row.jersey_size} />
+            <Row label="Pants size" value={row.pants_size} />
+          </Section>
+
+          <Section title="Contact">
+            <Row label="Player email" value={p.player_email} />
+            <Row label="Player phone" value={p.player_phone} />
+            <Row label="Parent / guardian" value={p.parent_name} />
+            <Row label="Parent email" value={p.parent_email} />
+            <Row label="Parent phone" value={p.parent_phone} />
+          </Section>
+
+          <Section title="Notes">
+            <p className="section-body">{p.notes ?? <span className="muted">No notes yet.</span>}</p>
+          </Section>
+        </div>
+
+        {canWrite && (
+          <div className="drawer-foot drawer-foot-stack">
+            <div className="drawer-foot-row">
+              <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
+                Remove from roster
+              </button>
+              <button className="btn btn-primary" onClick={onEdit} disabled={pending}>
+                Edit details
+              </button>
+            </div>
+            <button className="btn btn-danger-ghost btn-block" onClick={onDeleteForever} disabled={pending}>
+              Delete player permanently
+            </button>
+          </div>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+/* ---------------- Add: search existing first ---------------- */
+
+function AddPersonFlow({ assignable, seasonName, pending, onAssign, onCreateNew, onCancel }) {
+  const [query, setQuery] = useState("");
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return assignable.slice(0, 8);
+    return assignable.filter((p) => p.full_name.toLowerCase().includes(q)).slice(0, 8);
+  }, [assignable, query]);
+
+  function assign(playerId) {
+    const fd = new FormData();
+    fd.set("player_id", playerId);
+    onAssign(fd);
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-title" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2 id="add-title">Add to the {seasonName} roster</h2>
+          <div className="page-sub">
+            Search first — if someone played for you before, assign them rather than creating a second record.
+          </div>
+        </div>
+
+        <div className="modal-body">
+          <div className="field">
+            <label htmlFor="add-search">Search people in your organization</label>
+            <input
+              id="add-search"
+              type="search"
+              autoFocus
+              placeholder="Start typing a name"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+
+          {assignable.length === 0 ? (
+            <p className="section-body muted">
+              Everyone in your organization is already on this roster.
+            </p>
+          ) : matches.length === 0 ? (
+            <p className="section-body muted">
+              No one matches “{query.trim()}”. Create them as a new person below.
+            </p>
+          ) : (
+            <ul className="pick-list">
+              {matches.map((p) => (
+                <li key={p.id}>
+                  <div className="pick-row">
+                    <span className="pick-name">
+                      {p.full_name}
+                      {p.grad_year && <span className="muted"> · {p.grad_year}</span>}
+                      {p.person_type !== "player" && (
+                        <span className="pill pill-staff cell-tag">{typeLabel(p.person_type)}</span>
+                      )}
+                    </span>
+                    <button className="btn btn-secondary" disabled={pending} onClick={() => assign(p.id)}>
+                      Assign to season
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="modal-foot modal-foot-split">
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={pending}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-primary" onClick={onCreateNew} disabled={pending}>
+            Create new person
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Create / edit form ---------------- */
+
+function PlayerForm({ row, pending, onSubmit, onCancel }) {
+  const p = row?.player ?? {};
+  const isNew = !row;
+  const [type, setType] = useState(p.person_type ?? "player");
+  const [positions, setPositions] = useState(row?.positions ?? []);
+
+  function togglePosition(pos) {
+    setPositions((cur) => (cur.includes(pos) ? cur.filter((x) => x !== pos) : [...cur, pos]));
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="player-form-title" onClick={onCancel}>
+      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <form action={onSubmit}>
           {row && <input type="hidden" name="assignment_id" value={row.id} />}
           {p.id && <input type="hidden" name="player_id" value={p.id} />}
+          {positions.map((pos) => (
+            <input key={pos} type="hidden" name="positions" value={pos} />
+          ))}
+          <input type="hidden" name="is_active" value={row ? String(row.is_active) : "true"} />
 
           <div className="modal-head">
-            <h2 id="roster-form-title">{isNew ? "Add person" : `Edit ${p.full_name}`}</h2>
+            <h2 id="player-form-title">{isNew ? "Add person" : `Edit ${p.full_name}`}</h2>
+            {isNew && <div className="page-sub">A name is all you need. Everything else can come later.</div>}
           </div>
 
           <div className="modal-body">
@@ -159,11 +552,8 @@ function RosterForm({ row, pending, onSubmit, onCancel }) {
             <div className="field-row">
               <div className="field">
                 <label htmlFor="person_type">Type</label>
-                <select id="person_type" name="person_type" defaultValue={p.person_type ?? "player"}>
-                  <option value="player">Player</option>
-                  <option value="coach">Coach</option>
-                  <option value="manager">Manager</option>
-                  <option value="other">Other</option>
+                <select id="person_type" name="person_type" value={type} onChange={(e) => setType(e.target.value)}>
+                  {PERSON_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div className="field">
@@ -173,44 +563,95 @@ function RosterForm({ row, pending, onSubmit, onCancel }) {
               </div>
             </div>
 
+            {type === "other" && (
+              <div className="field">
+                <label htmlFor="other_role_label">Role</label>
+                <input id="other_role_label" name="other_role_label" placeholder="e.g. Team parent"
+                       defaultValue={p.other_role_label ?? ""} />
+              </div>
+            )}
+
+            <div className="field">
+              <label>Positions</label>
+              <div className="chip-picker">
+                {POSITIONS.map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    className={`chip${positions.includes(pos) ? " on" : ""}`}
+                    onClick={() => togglePosition(pos)}
+                    aria-pressed={positions.includes(pos)}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="field-row">
               <div className="field">
-                <label htmlFor="position">Position</label>
-                <select id="position" name="position" defaultValue={row?.position ?? ""}>
-                  {POSITIONS.map((o) => (
-                    <option key={o} value={o}>{o === "" ? "—" : o}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="grad_year">Graduation year</label>
+                <label htmlFor="grad_year">Grad year</label>
                 <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
                        defaultValue={p.grad_year ?? ""} />
               </div>
+              <div className="field">
+                <label htmlFor="date_of_birth">Date of birth</label>
+                <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
+              </div>
             </div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="throws">Throws</label>
+                <select id="throws" name="throws" defaultValue={p.throws ?? ""}>
+                  <option value="">—</option>
+                  {THROWS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="bats">Bats</label>
+                <select id="bats" name="bats" defaultValue={p.bats ?? ""}>
+                  <option value="">—</option>
+                  {BATS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-divider">Uniform</div>
 
             <div className="field-row">
               <div className="field">
                 <label htmlFor="jersey_size">Jersey size</label>
                 <select id="jersey_size" name="jersey_size" defaultValue={row?.jersey_size ?? ""}>
-                  {SIZES.map((o) => (
-                    <option key={o} value={o}>{o === "" ? "—" : o}</option>
-                  ))}
+                  <option value="">—</option>
+                  {SIZES.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label htmlFor="pants_size">Pants size</label>
                 <select id="pants_size" name="pants_size" defaultValue={row?.pants_size ?? ""}>
-                  {SIZES.map((o) => (
-                    <option key={o} value={o}>{o === "" ? "—" : o}</option>
-                  ))}
+                  <option value="">—</option>
+                  {SIZES.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
             </div>
 
+            <div className="form-divider">Contact</div>
+
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="player_email">Player email</label>
+                <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
+              </div>
+              <div className="field">
+                <label htmlFor="player_phone">Player phone</label>
+                <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
+              </div>
+            </div>
+
             <div className="field">
-              <label htmlFor="date_of_birth">Date of birth</label>
-              <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
+              <label htmlFor="parent_name">Parent / guardian name</label>
+              <input id="parent_name" name="parent_name" defaultValue={p.parent_name ?? ""} />
             </div>
 
             <div className="field-row">
@@ -222,6 +663,11 @@ function RosterForm({ row, pending, onSubmit, onCancel }) {
                 <label htmlFor="parent_phone">Parent phone</label>
                 <input id="parent_phone" name="parent_phone" defaultValue={p.parent_phone ?? ""} />
               </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="notes">Notes</label>
+              <textarea id="notes" name="notes" rows={3} defaultValue={p.notes ?? ""} />
             </div>
           </div>
 

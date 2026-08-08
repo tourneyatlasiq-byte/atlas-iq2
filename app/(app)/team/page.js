@@ -1,11 +1,15 @@
 import { getContext, canWrite } from "../../../lib/context";
-import { listSeasonRoster } from "../../../lib/queries/roster";
+import {
+  listSeasonRoster,
+  listAssignablePlayers,
+  deriveSummary,
+} from "../../../lib/queries/roster";
 import { RosterClient } from "../../../components/RosterClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
-  const { profile, season } = await getContext();
+  const { profile, organization, season } = await getContext();
 
   if (!season) {
     return (
@@ -18,7 +22,18 @@ export default async function TeamPage() {
     );
   }
 
-  const rows = await listSeasonRoster(season.id);
+  const [rows, assignable] = await Promise.all([
+    listSeasonRoster(season.id),
+    listAssignablePlayers(organization.id, season.id),
+  ]);
 
-  return <RosterClient rows={rows} canWrite={canWrite(profile)} seasonName={season.name} />;
+  return (
+    <RosterClient
+      rows={rows}
+      assignable={assignable}
+      summary={deriveSummary(rows)}
+      canWrite={canWrite(profile)}
+      seasonName={season.name}
+    />
+  );
 }
