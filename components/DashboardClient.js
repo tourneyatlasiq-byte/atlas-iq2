@@ -76,21 +76,29 @@ export function DashboardClient({ context, nextUp, actions, finance, funds, dues
         ) : (
           <>
             <span className="section-eyebrow">Next up</span>
-            <h2 className="next-up-name next-up-empty">No committed tournaments yet</h2>
+            <h2 className="next-up-name next-up-empty">No tournaments scheduled yet</h2>
             <p className="page-sub" style={{ marginTop: 4 }}>
-              Once you commit to an event it appears here with dates, venue and payment status.
+              Add tournaments you're considering and start building your season.
             </p>
             <div className="next-up-foot">
               <span />
               <Link className="link-arrow" href="/tournaments">
-                Review Tournament IQ →
+                Add tournament →
               </Link>
             </div>
           </>
         )}
       </div>
 
-      {/* 2. Needs action — shared rules, only when non-empty */}
+      {/* 2. Needs action */}
+      {actions.visible.length === 0 && (
+        <div className="card action-band action-clear">
+          <h2>Needs Action</h2>
+          <p className="action-clear-title">You're up to date</p>
+          <p className="action-clear-sub">Nothing needs your attention right now.</p>
+        </div>
+      )}
+
       {actions.visible.length > 0 && (
         <div className="card action-band">
           <h2>Needs Action</h2>
@@ -123,6 +131,14 @@ export function DashboardClient({ context, nextUp, actions, finance, funds, dues
             <Link className="link-arrow" href="/finance">Finance →</Link>
           </div>
 
+          {finance.budgetedExpenses === 0 && dues.expected === 0 ? (
+            <div className="dash-empty">
+              <p className="dash-empty-title">Set what each player owes for the season.</p>
+              <p className="dash-empty-sub">Budget and spending follow from there.</p>
+              <Link className="btn btn-secondary" href="/finance">Set up player payments</Link>
+            </div>
+          ) : (
+          <>
           {/* Three concepts, one card. Matches the Finance page exactly so the
               two pages never describe the same money differently. */}
           <dl className="dash-figures dash-finance">
@@ -154,6 +170,8 @@ export function DashboardClient({ context, nextUp, actions, finance, funds, dues
               {money(finance.committedUnpaid)} committed but not yet paid.
             </p>
           )}
+          </>
+          )}
         </div>
 
         <div className="card">
@@ -162,16 +180,24 @@ export function DashboardClient({ context, nextUp, actions, finance, funds, dues
             <Link className="link-arrow" href="/team">Team →</Link>
           </div>
 
-          <dl className="dash-figures">
-            <div><dt>Active players</dt><dd>{team.playerCount}</dd></div>
-            <div><dt>Coaches &amp; staff</dt><dd>{team.staffCount}</dd></div>
-            <div className={team.actionCount > 0 ? "over" : undefined}>
-              <dt>Needs action</dt><dd>{team.actionCount}</dd>
+          {team.playerCount + team.staffCount === 0 ? (
+            <div className="dash-empty">
+              <p className="dash-empty-title">Build your roster.</p>
+              <p className="dash-empty-sub">Add your players and coaches.</p>
+              <Link className="btn btn-secondary" href="/team">Add players</Link>
             </div>
-            {team.inactiveCount > 0 && (
-              <div><dt>Inactive</dt><dd>{team.inactiveCount}</dd></div>
-            )}
-          </dl>
+          ) : (
+            <dl className="dash-figures">
+              <div><dt>Active players</dt><dd>{team.playerCount}</dd></div>
+              <div><dt>Coaches &amp; staff</dt><dd>{team.staffCount}</dd></div>
+              <div className={team.actionCount > 0 ? "over" : undefined}>
+                <dt>Needs action</dt><dd>{team.actionCount}</dd>
+              </div>
+              {team.inactiveCount > 0 && (
+                <div><dt>Inactive</dt><dd>{team.inactiveCount}</dd></div>
+              )}
+            </dl>
+          )}
         </div>
 
         <div className="card">
@@ -180,18 +206,28 @@ export function DashboardClient({ context, nextUp, actions, finance, funds, dues
             <Link className="link-arrow" href="/tournaments">Tournament IQ →</Link>
           </div>
 
-          <dl className="dash-figures">
-            <div><dt>Committed tournaments</dt><dd>{seasonSummary.committedCount}</dd></div>
-            <div><dt>Committed cost</dt><dd>{money(seasonSummary.committedCost)}</dd></div>
-            <div>
-              <dt>Next event</dt>
-              <dd className="dash-small">
-                {seasonSummary.next
-                  ? fmtRange(seasonSummary.next.start_date, seasonSummary.next.end_date)
-                  : "—"}
-              </dd>
+          {seasonSummary.committedCount === 0 ? (
+            <div className="dash-empty">
+              <p className="dash-empty-title">No tournaments committed yet.</p>
+              <p className="dash-empty-sub">
+                Commit to an event and its cost and dates show up here.
+              </p>
+              <Link className="btn btn-secondary" href="/tournaments">Plan your season</Link>
             </div>
-          </dl>
+          ) : (
+            <dl className="dash-figures">
+              <div><dt>Committed tournaments</dt><dd>{seasonSummary.committedCount}</dd></div>
+              <div><dt>Committed cost</dt><dd>{money(seasonSummary.committedCost)}</dd></div>
+              <div>
+                <dt>Next event</dt>
+                <dd className="dash-small">
+                  {seasonSummary.next
+                    ? fmtRange(seasonSummary.next.start_date, seasonSummary.next.end_date)
+                    : "—"}
+                </dd>
+              </div>
+            </dl>
+          )}
         </div>
       </div>
     </>

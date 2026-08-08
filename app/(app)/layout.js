@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getContext } from "../../lib/context";
 import { NavSidebar } from "../../components/NavSidebar";
 import { HelpMenu } from "../../components/HelpMenu";
@@ -7,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }) {
   const { user, organization, team, season } = await getContext();
+
+  // No organization yet means a brand-new signup, not a misconfigured account.
+  // Setup lives outside this shell, which assumes an organization exists.
+  if (!organization) redirect("/welcome");
 
   return (
     <div className="shell">
@@ -30,19 +35,8 @@ export default async function AppLayout({ children }) {
         </header>
 
         <main className="content">
-          {!organization ? (
-            <div className="card">
-              <div className="empty">
-                <h3>This account isn't linked to an organization</h3>
-                <p>
-                  Your sign-in worked, but there's no organization attached to it yet, so there's
-                  nothing to show. An administrator needs to add you to one.
-                </p>
-              </div>
-            </div>
-          ) : (
-            children
-          )}
+          {children}
+
         </main>
       </div>
     </div>
