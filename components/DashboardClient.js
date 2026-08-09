@@ -40,7 +40,7 @@ function fmtRange(start, end) {
 const dotClass = (p) => (p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "dot-planning");
 
 export function DashboardClient({
-  context, nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current",
+  nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current",
 }) {
   return (
     <>

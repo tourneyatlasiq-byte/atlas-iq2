@@ -56,9 +56,16 @@ export function WelcomeForm({ defaultSeason, seasonOptions = [] }) {
 
       <div className="field">
         <label htmlFor="season_name">Season</label>
-        <input id="season_name" name="season_name" required defaultValue={defaultSeason} />
+        {/* Options come from seasonOptions() in lib/onboarding, which derives
+            from currentSeasonLabel(). No second rule for what "current" means. */}
+        <select id="season_name" name="season_name" required defaultValue={defaultSeason}>
+          {seasonOptions.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
         <p className="field-note">
-          We've filled in the current season for you. Change it if yours runs differently.
+          We&rsquo;ve selected the current season. Change it if you&rsquo;re setting up a
+          different one.
         </p>
       </div>
 

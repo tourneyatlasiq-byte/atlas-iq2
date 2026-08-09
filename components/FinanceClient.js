@@ -68,7 +68,7 @@ const statusClass = (s) =>
 
 export function FinanceClient({
   budget, transactions, payments, summary, funds, dues, committedTournaments,
-  tournaments, players, facilities, budgetItems, canWrite, seasonName,
+  tournaments, players, facilities, budgetItems, canWrite,
   // Review surface only: lets /review render each tab. Defaults to the normal
   // starting tab, so nothing changes in the application itself.
   initialTab = "budget",

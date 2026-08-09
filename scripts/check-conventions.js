@@ -167,6 +167,38 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4e. A prop that is passed must be used ---------------------------
+   seasonOptions was threaded from the page into WelcomeForm and then never
+   consumed, because a string replacement silently failed. The prop existed,
+   the data flowed, and the control was still a text input. A destructured
+   prop that appears exactly once in a component is a prop nobody uses. */
+
+for (const f of componentFiles()) {
+  const s2 = read(f);
+  const sig = s2.match(/export function \w+\(\{([^}]*)\}\)/);
+  if (!sig) continue;
+
+  const props = sig[1]
+    .split(",")
+    .map((p) => p.trim().split(/[:=]/)[0].trim())
+    .filter((p) => p && /^[a-z][A-Za-z0-9]*$/.test(p));
+
+  // Strip comments first — a JSDoc line mentioning the prop is not a use, and
+  // counting it is how this check silently passed on the bug it was written for.
+  const body = s2
+    .slice(s2.indexOf(sig[0]) + sig[0].length)
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "");
+
+  for (const prop of props) {
+    const uses = (body.match(new RegExp(`\\b${prop}\\b`, "g")) || []).length;
+    if (uses === 0) {
+      failures.push(`${f}: prop \`${prop}\` is destructured but never used`);
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [

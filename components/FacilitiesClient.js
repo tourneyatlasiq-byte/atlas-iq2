@@ -57,7 +57,7 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false }) {
+export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
