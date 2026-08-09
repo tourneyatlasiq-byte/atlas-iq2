@@ -99,7 +99,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
   const [detail, setDetail] = useState(null);
 
   // ?open=<id> opens the matching drawer; closing clears the parameter.
-  const { clearOpenParam } = useOpenParam(rows, setDetail);
+  const { clearOpenParam } = useOpenParam(tournaments, setDetail);
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const [error, setError] = useState(null);
