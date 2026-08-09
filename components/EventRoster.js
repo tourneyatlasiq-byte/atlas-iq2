@@ -219,7 +219,7 @@ function SetEventRosterSheet({
           <div className="modal-body">
             <div className="er-select-bar">
               <span className="er-selected-count">
-                {selected.size} of {players.length} selected
+                {selected.size} of {players.length} attending
               </span>
               <span className="er-select-actions">
                 <button
@@ -227,7 +227,7 @@ function SetEventRosterSheet({
                   className="btn btn-ghost"
                   onClick={() => setSelected(new Set(players.map((r) => r.player_id)))}
                 >
-                  Select everyone
+                  Select active roster
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={() => setSelected(new Set())}>
                   Clear
