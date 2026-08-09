@@ -5,6 +5,19 @@ The operating system for modern travel sports organizations.
 This repository is the **permanent source of truth**. Vercel deploys from GitHub.
 Nothing is ever deployed from a temporary development container.
 
+## Before changing anything
+
+Three documents carry the reasoning. Read the relevant one first — several
+decisions here look arbitrary until you know what they replaced.
+
+| Document | Read it when |
+|---|---|
+| **ATLAS-PRODUCT-RULES.md** | You need to know how a rule behaves, or what a term means |
+| **ATLAS-DECISIONS.md** | You are about to change or reverse an architectural choice |
+| **ATLAS-QA.md** | Before calling a milestone done, and in full before a release |
+
+Run `npm run check` before every commit. Brace counting is not a syntax check.
+
 ## Architecture
 
 ```
