@@ -19,7 +19,7 @@ the assignment, never the person.
 attached to the same human being.
 
 ### Pickup is participation, not identity — `tournament_participants`
-**Designed, not yet built.**
+**Built. Schema, trigger and RLS migrated; interface not yet built.**
 
 A pickup player is someone who played with the team for an event without being
 on the season roster.
@@ -58,6 +58,38 @@ that renumbers is not permanent, and may already be printed on a schedule.
 `documents.player_id` points at `players`, and `season_id` is nullable. A birth
 certificate uploaded with no season follows the person across every year and
 never needs re-uploading — including for a pickup who returns.
+
+### Statistics reference the persistent player
+`player_stats.player_id` originally referenced `roster`, the deprecated table —
+which meant a pickup could never have a stat recorded, contradicting the
+premise of the whole participation model.
+
+Repointed to `players(id)` while the table had zero rows. Doing it later would
+have been a data migration.
+
+`ON DELETE CASCADE` kept: `deletePlayerPermanently()` already exists as a
+deliberate destructive action, and `RESTRICT` would make it fail once stats
+exist.
+
+### Historical write hardening — a known gap
+**Verified by test:** an authenticated writer calling the API directly can
+insert into their own organization's **past** seasons on `games`,
+`budget_items`, `budget_transactions`, `player_payments` and
+`team_season_players`. `requireSeasonContext()` blocks this in the interface;
+the database does not.
+
+**Severity P2.** No cross-tenant exposure, no escalation — a writer can only
+alter their own history.
+
+`tournament_participants` **is** protected at the database layer, because the
+table was new and the check cost one line in a trigger already being written.
+
+*Deliberately not retrofitted:* five more triggers, five sets of tests, and a
+real risk of blocking a legitimate correction path. A coach can currently fix a
+typo in last year's score through direct access; closing that needs a decision
+about how corrections happen, not just a trigger.
+
+**Logged as its own future milestone.**
 
 ---
 

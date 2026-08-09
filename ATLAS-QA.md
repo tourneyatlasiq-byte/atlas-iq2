@@ -87,6 +87,22 @@ passed for a while.
 - [ ] Coach inserts a decoy row at an existing `file_path` → blocked by UNIQUE
 - [ ] Owner has the full lifecycle → allowed
 
+### Event roster
+
+- [ ] roster participant who IS on the season roster → allowed
+- [ ] roster label but NOT on the roster → blocked
+- [ ] pickup label but IS on the roster → blocked
+- [ ] pickup NOT on the roster → allowed
+- [ ] another organization's player by UUID → blocked
+- [ ] season mismatched with the tournament → blocked
+- [ ] organization mismatched with the tournament → blocked
+- [ ] direct write into a past season → **blocked by trigger**
+- [ ] `added_by` ignores the client value and uses `auth.uid()`
+- [ ] same player twice in one tournament → blocked
+- [ ] deleting participation keeps the player
+- [ ] pickup creates no roster row and no dues row
+- [ ] parent adds a participant → blocked
+
 ### Isolation
 
 - [ ] New organization sees 0 other-organization players and documents
@@ -192,3 +208,8 @@ nothing else.
 - Anything visual.
 - Storage object fetches through the API, as opposed to the RLS policy behind
   them.
+- **Past-season writes on legacy tables.** `games`, `budget_items`,
+  `budget_transactions`, `player_payments` and `team_season_players` are
+  protected in the interface but not in the database. Verified, logged in
+  ATLAS-DECISIONS.md as a future hardening milestone. `tournament_participants`
+  **is** protected at the database layer and is tested above.

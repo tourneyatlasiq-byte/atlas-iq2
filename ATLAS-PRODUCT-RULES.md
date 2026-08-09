@@ -392,6 +392,21 @@ and "not current" does not mean historical.
 | **Future / planning** | **Yes** | No |
 | **Past** | **No — read-only** | No |
 
+**Where read-only is actually enforced.** This distinction matters:
+
+| Table | UI / server actions | Direct API call |
+|---|---|---|
+| `tournament_participants` | Blocked | **Blocked** by trigger |
+| `games` | Blocked | **Not blocked** |
+| `budget_items`, `budget_transactions` | Blocked | **Not blocked** |
+| `player_payments` | Blocked | **Not blocked** |
+| `team_season_players` | Blocked | **Not blocked** |
+
+Verified by test, not assumed. A writer calling the API directly can still
+write into their own organization's past seasons on the legacy tables. No
+cross-tenant exposure and no escalation, but the guarantee is application-layer
+only. See ATLAS-DECISIONS.md, "Historical write hardening".
+
 A coach building next year's roster in March needs to write to a season that is
 not current yet. Blocking that would defeat the point.
 
@@ -429,6 +444,35 @@ rather than on hover, because hover does not exist on a phone.
 
 Links inside clickable rows stop propagation, so clicking the related name opens
 the related record rather than the row's own drawer.
+
+## 8e. Event roster
+
+**Season roster** is who belongs to the team this year. **Event roster** is who
+actually dressed for one tournament. Rostered players miss events.
+
+`tournament_participants` carries `participation` of `roster` or `pickup`:
+
+- **roster** — the player must have a `team_season_players` row for that season
+- **pickup** — the player must **not** have one
+
+Both directions are enforced in the database. Without the second, Atlas could
+record a regular roster player as a pickup and corrupt the historical meaning.
+
+Validated at write time. If a pickup later joins the season roster, their
+earlier pickup rows stand — she genuinely was a pickup at that event.
+
+**Never auto-populated.** An empty event roster means "not recorded yet", never
+"everyone attended".
+
+**Pickups affect nothing else by construction.** Dues come from
+`player_payments`, roster counts and Team readiness from `team_season_players`.
+A pickup has no row in either. Event jersey and positions never write back to
+the season roster.
+
+**`added_by` is derived from `auth.uid()` in the trigger**, never accepted from
+the client. A valid foreign key is not the same as a trustworthy one.
+
+*Enforced: `enforce_participant_integrity()` — database.*
 
 ## 9. Onboarding
 

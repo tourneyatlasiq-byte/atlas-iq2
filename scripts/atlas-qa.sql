@@ -494,6 +494,138 @@ begin
 end $$;
 
 -- =============================================================================
+-- SECTION 8 — Event roster (tournament_participants)
+--
+-- RLS governs who and which tenant. enforce_participant_integrity() governs
+-- whether the row is coherent. Both are exercised here.
+-- =============================================================================
+reset role;
+
+insert into seasons (id, team_id, name, is_current, start_date)
+select '00000000-0000-0000-0000-0000000c0001'::uuid, team, 'QA Past', false, current_date - 400 from qa_ctx;
+insert into tournaments (id, organization_id, season_id, name, start_date, decision, paid_status)
+select '00000000-0000-0000-0000-0000000c0011'::uuid, org, '00000000-0000-0000-0000-0000000c0001'::uuid,
+       'QA Past Event', current_date - 390, 'Committed', 'Paid in Full' from qa_ctx;
+insert into players (id, organization_id, full_name, person_type)
+select '00000000-0000-0000-0000-0000000c0021'::uuid, org, 'QA Pickup One', 'player' from qa_ctx;
+insert into players (id, organization_id, full_name, person_type)
+select '00000000-0000-0000-0000-0000000c0022'::uuid, org, 'QA Pickup Two', 'player' from qa_ctx;
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"9e66ec43-a138-4945-be27-351dffcb1004","role":"authenticated"}';
+
+do $$
+declare
+  c record; rostered uuid; otherorg uuid; cur_t uuid; newid uuid;
+  p1 uuid := '00000000-0000-0000-0000-0000000c0021';
+  p2 uuid := '00000000-0000-0000-0000-0000000c0022';
+begin
+  select * into c from qa_ctx;
+  select tsp.player_id into rostered from team_season_players tsp where tsp.season_id = c.season limit 1;
+  select p.id into otherorg from players p where p.organization_id <> c.org limit 1;
+  select id into cur_t from tournaments where season_id = c.season limit 1;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, cur_t, rostered, 'roster');
+    insert into qa(area,test,result) values ('EventRoster','roster participant who IS on roster (ALLOWED)','PASS');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','roster participant who IS on roster (ALLOWED)','FAIL - '||sqlerrm); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, cur_t, p1, 'roster');
+    insert into qa(area,test,result) values ('EventRoster','roster label but NOT on roster','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','roster label but NOT on roster','PASS'); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, cur_t, rostered, 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','pickup label but IS on roster','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','pickup label but IS on roster','PASS'); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, cur_t, p1, 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','pickup NOT on roster (ALLOWED)','PASS');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','pickup NOT on roster (ALLOWED)','FAIL - '||sqlerrm); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, cur_t, otherorg, 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','another organization''s player by UUID','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','another organization''s player by UUID','PASS'); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, '00000000-0000-0000-0000-0000000c0001', cur_t, p2, 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','season mismatched with tournament','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','season mismatched with tournament','PASS'); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values ('00000000-0000-0000-0000-000000000001', c.season, cur_t, p2, 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','organization mismatched with tournament','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','organization mismatched with tournament','PASS'); end;
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, '00000000-0000-0000-0000-0000000c0001', '00000000-0000-0000-0000-0000000c0011', p2, 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','direct write into a PAST season','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','direct write into a PAST season','PASS'); end;
+
+  insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation, added_by)
+  values (c.org, c.season, cur_t, p2, 'pickup', '00000000-0000-0000-0000-000000000999')
+  returning id into newid;
+  insert into qa(area,test,result) values ('EventRoster','added_by ignores the client value',
+    case when (select added_by from tournament_participants where id = newid) = auth.uid()
+         then 'PASS' else 'FAIL - client value kept' end);
+
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, cur_t, rostered, 'roster');
+    insert into qa(area,test,result) values ('EventRoster','same player twice in one tournament','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','same player twice in one tournament','PASS'); end;
+
+  delete from tournament_participants where player_id = p1;
+  insert into qa(area,test,result) values ('EventRoster','deleting participation keeps the player',
+    case when exists (select 1 from players where id = p1) then 'PASS' else 'FAIL - player deleted' end);
+
+  -- Pickups must not leak into season-roster concepts.
+  insert into qa(area,test,result) values ('EventRoster','pickup appears on the season roster',
+    case when not exists (select 1 from team_season_players where player_id = p2 and season_id = c.season)
+         then 'PASS' else 'FAIL' end);
+  insert into qa(area,test,result) values ('EventRoster','pickup creates a dues row',
+    case when not exists (select 1 from player_payments where player_id = p2) then 'PASS' else 'FAIL' end);
+end $$;
+
+-- Parent must never write a participant.
+reset role;
+update profiles set role='parent' where id = (select second_user from qa_ctx);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"6452ca9a-aaed-4e28-9dc1-e2f3aa6c058b","role":"authenticated"}';
+do $$
+declare c record;
+begin
+  select * into c from qa_ctx;
+  begin
+    insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+    values (c.org, c.season, (select id from tournaments where season_id = c.season limit 1),
+            '00000000-0000-0000-0000-0000000c0021', 'pickup');
+    insert into qa(area,test,result) values ('EventRoster','PARENT adds a participant','FAIL - ALLOWED');
+  exception when others then
+    insert into qa(area,test,result) values ('EventRoster','PARENT adds a participant','PASS'); end;
+end $$;
+
+-- =============================================================================
 -- RESULTS
 -- =============================================================================
 reset role;
