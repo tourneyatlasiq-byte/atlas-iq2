@@ -1943,3 +1943,74 @@ a.help-task.featured:hover { background: #eef4fe; }
 
 /* Long last names wrap rather than stretch the column. */
 .col-player .cell-name { overflow-wrap: anywhere; }
+
+/* ===== Facilities =====
+   Two tables, two jobs. Our Venues is team memory; All Facilities is
+   discovery. The table stays dominant — this is a reference tool, so no hero. */
+
+.fac-context { font-size: 13px; color: var(--slate); margin: 0 0 12px; padding-left: 2px; }
+.fac-context strong { color: var(--navy); font-family: var(--font-display); font-weight: 800; font-size: 15px; }
+
+.fac-import-link {
+  background: none; border: none; padding: 0 0 10px 2px; cursor: pointer;
+  font-family: var(--font-body); font-size: 12.5px; font-weight: 600; color: var(--blue);
+}
+.fac-import-link:hover { color: var(--blue-dark); text-decoration: underline; }
+
+.facility-table { table-layout: fixed; max-width: 1120px; }
+
+/* Our Venues */
+.ours-table .fc-name { width: 26%; }
+.ours-table .fc-loc { width: 15%; }
+.ours-table .fc-next { width: 20%; }
+.ours-table .fc-notes { width: 25%; }
+.ours-table .fc-history { width: 14%; }
+
+/* The date is what a coach scans for, so it carries the weight. */
+.fc-date {
+  display: block; font-family: var(--font-display); font-weight: 800;
+  font-size: 14px; color: var(--navy);
+}
+.fc-event { display: block; font-size: 12.5px; color: var(--slate); margin-top: 1px; }
+
+/* Notes are the differentiated thing on this page, not metadata. */
+.fc-notes-label {
+  display: block; font-size: 12px; font-weight: 700; color: var(--navy);
+}
+.fc-notes-preview {
+  display: block; font-size: 12.5px; color: var(--slate); margin-top: 2px;
+  line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fc-notes-add { font-size: 12.5px; font-weight: 600; color: var(--blue); }
+
+.fc-visits { display: block; font-size: 13px; font-weight: 600; color: var(--navy); }
+.fc-last { display: block; font-size: 12px; color: var(--slate); margin-top: 1px; }
+
+/* All Facilities */
+.facility-table .fc-county { width: 14%; }
+.facility-table .fc-fields { width: 9%; }
+.facility-table .fc-surface { width: 11%; }
+.facility-table .fc-amen { width: 24%; }
+.fc-amen-list {
+  font-size: 12.5px; color: var(--slate);
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Desktop has real columns, so the folded line is hidden. */
+.fc-sub { display: none; }
+
+@media (max-width: 720px) {
+  /* Compact rows, not a shrunken table. Arriving at a tournament, a coach
+     needs the venue, where it is, and when they are there. */
+  .facility-table thead { display: none; }
+  .facility-table { max-width: none; }
+  .facility-table tr { display: block; padding: 13px 14px; }
+  .facility-table td { display: none; padding: 0; border: none; }
+  .facility-table td.fc-name { display: block; }
+  .fc-sub {
+    display: block; font-size: 12.5px; color: var(--slate); margin-top: 3px;
+    line-height: 1.45;
+  }
+  .fac-context { font-size: 12.5px; }
+  .fac-import-link { min-height: 44px; }
+}

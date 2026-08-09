@@ -196,9 +196,6 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
         </div>
         {canWrite && (
           <div className="foot-actions">
-            <button className="btn btn-secondary" onClick={() => setImporting(true)}>
-              Import CSV
-            </button>
             <button className="btn btn-primary" onClick={() => setEditing("new")}>
               Add facility
             </button>
@@ -214,6 +211,23 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
             you'll want to remember next time.
           </span>
         </div>
+      )}
+
+      {view === "ours" && ourCount > 0 && (
+        <p className="fac-context">
+          <strong>{ourCount}</strong> {ourCount === 1 ? "venue" : "venues"}
+          <span className="tiq-dot" aria-hidden="true">·</span>
+          <strong>{facilities.filter((f) => f.isOurs && (f.upcoming ?? []).length > 0).length}</strong> with
+          upcoming events
+          <span className="tiq-dot" aria-hidden="true">·</span>
+          <strong>{facilities.filter((f) => f.orgNotes).length}</strong> with team notes
+        </p>
+      )}
+
+      {view === "all" && isAdmin && (
+        <button className="fac-import-link" onClick={() => setImporting(true)}>
+          Import facilities from CSV
+        </button>
       )}
 
       <div className="view-toggle-row">
@@ -245,6 +259,10 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search facilities"
         />
+        {/* Discovery filters belong with the 178-record directory, not with
+            seven venues you already know. */}
+        {view === "all" && (
+          <>
         <select
           className="filter-select"
           value={stateFilter}
@@ -282,6 +300,8 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           <option value="all">Any amenity</option>
           {AMENITIES.map((a) => <option key={a.key} value={a.key}>Has {a.label.toLowerCase()}</option>)}
         </select>
+          </>
+        )}
       </div>
 
       <div className="card card-flush">
@@ -310,6 +330,8 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
               <button className="btn btn-primary" onClick={() => setEditing("new")}>Add facility</button>
             )}
           </div>
+        ) : view === "ours" ? (
+          <OurVenuesTable rows={visible} onOpen={openFacility} />
         ) : groups ? (
           groups.map((g) => (
             <div key={g.state} className="fac-state">
@@ -329,7 +351,9 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
                     aria-expanded={isOpen(g.state, county)}
                   >
                     <span className={`group-caret${isOpen(g.state, county) ? "" : " collapsed"}`} aria-hidden="true">▾</span>
-                    <span>{county === "Other" ? "Other" : `${county} County`}</span>
+                    <span>
+                      {county === "Other" ? "County not recorded" : `${county} County`}
+                    </span>
                     <span className="group-count">{rows.length}</span>
                   </button>
                   {isOpen(g.state, county) && (
@@ -440,6 +464,129 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
  * while county is how people actually reason about location. Surface is still
  * a filter and appears in the drawer.
  */
+/**
+ * The single most useful thing this team knows about a venue.
+ *
+ * Deliberately does NOT count populated fields — "6 notes saved" describes the
+ * data model, not six occasions. One useful line is worth more.
+ */
+function notePreview(f) {
+  const n = f.orgNotes;
+  if (!n) return null;
+  return (
+    n.parking_notes || n.entry_notes || n.internal_notes ||
+    n.concessions_notes || n.seating_notes || n.restroom_notes || null
+  );
+}
+
+/** "Sep 12 · Fall Kickoff Classic", or null. */
+function nextEventOf(f) {
+  const t = (f.upcoming ?? []).filter((x) => x.decision !== "Declined")[0];
+  if (!t) return null;
+  const when = new Date(t.start_date + "T00:00:00")
+    .toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return { when, name: t.name };
+}
+
+/**
+ * Atlas only knows what has been recorded, so "No previous visits" rather than
+ * "First visit" — the latter claims the team has never been.
+ */
+function historyOf(f) {
+  const past = (f.past ?? []).filter((t) => t.decision !== "Declined");
+  if (past.length === 0) return null;
+  const last = past[0];
+  const when = new Date((last.end_date ?? last.start_date) + "T00:00:00")
+    .toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return { count: past.length, when };
+}
+
+/**
+ * Our Venues — team operational memory.
+ *
+ * Different columns from All Facilities on purpose: you have been to these
+ * places, so field count and county are evaluation criteria you no longer
+ * need. What matters is when you are going back and what you learned.
+ */
+function OurVenuesTable({ rows, onOpen }) {
+  return (
+    <table className="table facility-table ours-table">
+      <thead>
+        <tr>
+          <th className="fc-name">Facility</th>
+          <th className="fc-loc">Location</th>
+          <th className="fc-next">Next event</th>
+          <th className="fc-notes">Team notes</th>
+          <th className="fc-history">History</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((f) => {
+          const next = nextEventOf(f);
+          const preview = notePreview(f);
+          const hist = historyOf(f);
+
+          return (
+            <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
+              <td className="fc-name">
+                <span className="cell-name">{f.name}</span>
+                <span className="fc-sub">
+                  {[
+                    [f.city, f.state].filter(Boolean).join(", "),
+                    next && `${next.when} · ${next.name}`,
+                    preview ? "Team notes" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </td>
+
+              <td className="fc-loc">
+                {[f.city, f.state].filter(Boolean).join(", ") || <span className="muted">—</span>}
+              </td>
+
+              <td className="fc-next">
+                {next ? (
+                  <>
+                    <span className="fc-date">{next.when}</span>
+                    <span className="fc-event">{next.name}</span>
+                  </>
+                ) : (
+                  <span className="muted">Nothing scheduled</span>
+                )}
+              </td>
+
+              <td className="fc-notes">
+                {preview ? (
+                  <>
+                    <span className="fc-notes-label">Team notes</span>
+                    <span className="fc-notes-preview">{preview}</span>
+                  </>
+                ) : (
+                  <span className="fc-notes-add">Add team notes</span>
+                )}
+              </td>
+
+              <td className="fc-history">
+                {hist ? (
+                  <>
+                    <span className="fc-visits">
+                      {hist.count} {hist.count === 1 ? "visit" : "visits"}
+                    </span>
+                    <span className="fc-last">Last: {hist.when}</span>
+                  </>
+                ) : (
+                  <span className="muted">No previous visits</span>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 function FacilityTable({ rows, onOpen }) {
   const countCell = (n, facility, which) =>
     n > 0 ? (
@@ -457,22 +604,31 @@ function FacilityTable({ rows, onOpen }) {
       <span className="muted">—</span>
     );
 
+  const amenities = (f) =>
+    [
+      f.lights && "Lights",
+      f.batting_cages && "Cages",
+      f.concessions && "Concessions",
+      f.restrooms && "Restrooms",
+      f.playground && "Playground",
+    ].filter(Boolean);
+
   return (
-    <table className="table">
+    <table className="table facility-table">
       <thead>
         <tr>
-          <th>Facility</th>
-          <th>City / State</th>
-          <th>County</th>
-          <th>Fields</th>
-          <th>Upcoming</th>
-          <th>Past</th>
+          <th className="fc-name">Facility</th>
+          <th className="fc-loc">Location</th>
+          <th className="fc-county">County</th>
+          <th className="fc-fields">Fields</th>
+          <th className="fc-surface">Surface</th>
+          <th className="fc-amen">Amenities</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((f) => (
           <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
-            <td>
+            <td className="fc-name">
               <span className="cell-name">{f.name}</span>
               {f.orgNotes ? (
                 <span className="role-tag" title="Your organization has notes on this venue">
@@ -486,12 +642,23 @@ function FacilityTable({ rows, onOpen }) {
                   {f.pendingEdits.length} pending
                 </span>
               )}
+              <span className="fc-sub">
+                {[cityState(f), f.county && `${f.county} County`, f.surface_type]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
             </td>
-            <td>{cityState(f) ?? <span className="muted">—</span>}</td>
-            <td>{f.county ?? <span className="muted">—</span>}</td>
-            <td>{f.field_count ?? <span className="muted">—</span>}</td>
-            <td>{countCell(f.upcomingCount, f, "upcoming")}</td>
-            <td>{countCell(f.pastCount, f, "past")}</td>
+            <td className="fc-loc">{cityState(f) ?? <span className="muted">—</span>}</td>
+            <td className="fc-county">{f.county ?? <span className="muted">—</span>}</td>
+            <td className="fc-fields">{f.field_count ?? <span className="muted">—</span>}</td>
+            <td className="fc-surface">{f.surface_type ?? <span className="muted">—</span>}</td>
+            <td className="fc-amen">
+              {amenities(f).length ? (
+                <span className="fc-amen-list">{amenities(f).join(" · ")}</span>
+              ) : (
+                <span className="muted">Not recorded</span>
+              )}
+            </td>
           </tr>
         ))}
       </tbody>
