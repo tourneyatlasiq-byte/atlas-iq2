@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { rowsFromCsv, IMPORT_COLUMNS } from "../lib/facility-import";
+import { rowsFromGrid, IMPORT_COLUMNS } from "../lib/facility-import";
+import { readSpreadsheet, downloadTemplate, csvTemplateHref } from "../lib/spreadsheet";
 import { importFacilities } from "../lib/actions/facility-import";
 
 /**
@@ -13,6 +14,12 @@ import { importFacilities } from "../lib/actions/facility-import";
  */
 
 const BATCH = 50;
+
+/** Fills the template's second row so the expected format is obvious. */
+const EXAMPLE_ROW = [
+  "Hobgood Park", "6688 Bells Ferry Rd", "Woodstock", "GA", "30189", "Cherokee",
+  "", "", "", "", "6", "Turf", "No", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "", "",
+];
 
 export function FacilityImport({ onClose, onDone }) {
   const [stage, setStage] = useState("pick"); // pick | review | report
@@ -30,18 +37,14 @@ export function FacilityImport({ onClose, onDone }) {
     setError(null);
     setFileName(file.name);
 
-    try {
-      const text = await file.text();
-      const result = rowsFromCsv(text);
-      if (result.fatal) {
-        setError(result.fatal);
-        return;
-      }
-      setParsed(result);
-      setStage("review");
-    } catch {
-      setError("That file couldn't be read. Make sure it's a plain CSV.");
-    }
+    const read = await readSpreadsheet(file);
+    if (read.error) { setError(read.error); return; }
+
+    const result = rowsFromGrid(read.grid);
+    if (result.fatal) { setError(result.fatal); return; }
+
+    setParsed(result);
+    setStage("review");
   }
 
   function run() {
@@ -85,7 +88,7 @@ export function FacilityImport({ onClose, onDone }) {
         <div className="modal-head">
           <h2>Import facilities</h2>
           <div className="page-sub">
-            Facilities created here are canonical Season Tempo records, shared with every organization.
+            Upload a completed Season Tempo facility template to add multiple facilities at once.
           </div>
         </div>
 
@@ -94,35 +97,57 @@ export function FacilityImport({ onClose, onDone }) {
 
           {stage === "pick" && (
             <>
+              <div className="import-template">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={async () => {
+                    const r = await downloadTemplate(IMPORT_COLUMNS, "season-tempo-facilities", EXAMPLE_ROW);
+                    if (!r.ok) setError("Couldn't build the Excel template. Use the CSV link instead.");
+                  }}
+                >
+                  Download Excel template
+                </button>
+                <a
+                  className="link"
+                  href={csvTemplateHref(IMPORT_COLUMNS, EXAMPLE_ROW)}
+                  download="season-tempo-facilities.csv"
+                >
+                  or CSV
+                </a>
+              </div>
+
               <div className="field">
-                <label htmlFor="csv-file">CSV file</label>
-                <input id="csv-file" type="file" accept=".csv,text/csv" onChange={onFile} />
+                <label htmlFor="import-file">Upload file</label>
+                <input
+                  id="import-file"
+                  type="file"
+                  accept=".xlsx,.xls,.csv,text/csv"
+                  onChange={onFile}
+                />
+                <p className="field-note">Supports .xlsx and .csv</p>
               </div>
 
               <p className="field-note">
-                The first row must be headers. Recognised columns:
-              </p>
-              <div className="chip-picker" style={{ marginTop: 8 }}>
-                {IMPORT_COLUMNS.map((c) => (
-                  <span key={c} className="chip" style={{ cursor: "default" }}>{c}</span>
-                ))}
-              </div>
-              <p className="field-note">
-                Only Facility Name, City and State are required — the rest fill in what they can.
-                Running the same file twice creates nothing the second time.
+                <strong>Facility Name</strong>, <strong>City</strong> and <strong>State</strong> are
+                required. Existing matching facilities will not be duplicated.
               </p>
             </>
           )}
 
           {stage === "review" && parsed && (
             <>
+              {/* Every row is accounted for before anything is written —
+                  nothing is silently dropped. */}
               <div className="import-summary">
+                <span><strong>{parsed.rows.length}</strong> facilities found</span>
                 <span><strong>{validCount}</strong> ready to import</span>
-                {warningCount > 0 && <span className="warn"><strong>{warningCount}</strong> with warnings</span>}
-                {errorCount > 0 && <span className="over"><strong>{errorCount}</strong> can't be imported</span>}
+                {warningCount > 0 && <span className="warn"><strong>{warningCount}</strong> need attention</span>}
+                {errorCount > 0 && <span className="over"><strong>{errorCount}</strong> can&rsquo;t be imported</span>}
               </div>
               <p className="field-note">
-                From <strong>{fileName}</strong>. Existing facilities will be skipped automatically.
+                From <strong>{fileName}</strong>. Facilities that already exist are skipped, not
+                duplicated. Rows needing attention are listed below with the reason.
               </p>
 
               <div className="import-scroll">

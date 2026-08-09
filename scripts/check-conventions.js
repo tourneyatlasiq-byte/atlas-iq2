@@ -128,6 +128,45 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4c. CSV must not depend on the Excel path ------------------------
+   Excel loads SheetJS from a CDN on demand. If the CSV branch ever starts
+   awaiting that loader, a CDN outage would take working CSV imports with it. */
+
+{
+  const sp = fs.readFileSync("lib/spreadsheet.js", "utf8");
+
+  const csvFn = sp.slice(sp.indexOf("export function csvToGrid"), sp.indexOf("export async function readSpreadsheet"));
+  if (/loadSheetJs|XLSX/.test(csvFn)) {
+    failures.push("lib/spreadsheet.js: the CSV parser references the Excel loader");
+  }
+
+  const reader = sp.slice(sp.indexOf("export async function readSpreadsheet"), sp.indexOf("export async function downloadTemplate"));
+  const csvBranch = reader.slice(0, reader.indexOf('name.endsWith(".xlsx")'));
+  if (/loadSheetJs/.test(csvBranch)) {
+    failures.push("lib/spreadsheet.js: the CSV branch awaits SheetJS — a CDN outage would break CSV");
+  }
+
+  if (!/csvToGrid|splitCsvLine/.test(sp)) {
+    failures.push("lib/spreadsheet.js: the hand-written CSV parser is missing");
+  }
+}
+
+/* ---- 4d. Import templates must match their parsers -------------------- */
+
+{
+  const fi = fs.readFileSync("lib/facility-import.js", "utf8");
+  const fc = fs.readFileSync("components/FacilityImport.js", "utf8");
+  const colsMatch = fi.match(/export const IMPORT_COLUMNS = \[([\s\S]*?)\n\]/);
+  const exMatch = fc.match(/EXAMPLE_ROW = \[([\s\S]*?)\n\]/);
+  if (colsMatch && exMatch) {
+    const cols = (colsMatch[1].match(/"/g) || []).length / 2;
+    const vals = (exMatch[1].match(/"/g) || []).length / 2;
+    if (cols !== vals) {
+      failures.push(`FacilityImport.js: template example has ${vals} values for ${cols} columns — columns would shift`);
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [

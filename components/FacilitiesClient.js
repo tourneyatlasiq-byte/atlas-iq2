@@ -238,7 +238,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
 
       {view === "all" && isAdmin && (
         <button className="fac-import-link" onClick={() => setImporting(true)}>
-          Import facilities from CSV
+          Import facilities
         </button>
       )}
 

@@ -136,6 +136,20 @@ passed for a while.
 
 ---
 
+## Spreadsheet imports — Facilities and Roster
+
+Excel support must never be able to break CSV. The CSV parser is hand-written
+and has no dependency; Excel loads SheetJS from a CDN only when an .xlsx is
+chosen. `npm run check` asserts that separation.
+
+- [ ] a `.csv` imports with SheetJS blocked in the browser
+- [ ] a `.xlsx` with the same data produces identical rows
+- [ ] Excel template downloads with every column in the parser's order
+- [ ] the CSV template link produces the same headers
+- [ ] a file that is neither format is refused with a plain message
+- [ ] the pre-import summary accounts for every row — none silently dropped
+- [ ] rows needing attention are listed with the reason
+
 ## Roster import
 
 - [ ] a CSV with only a `name` column imports
