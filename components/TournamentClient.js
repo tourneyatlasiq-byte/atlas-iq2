@@ -29,11 +29,15 @@ const money = (n) =>
 
 function dateRange(start, end) {
   if (!start) return "—";
-  const f = (d) =>
-    new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const year = new Date(start + "T00:00:00").getFullYear();
-  if (!end || end === start) return `${f(start)}, ${year}`;
-  return `${f(start)} – ${f(end)}, ${year}`;
+  const d = (x) => new Date(x + "T00:00:00");
+  const mon = (x) => d(x).toLocaleDateString(undefined, { month: "short" });
+  const day = (x) => d(x).getDate();
+
+  // The year is already stated by the season, and repeating it on every row
+  // costs about 40px of the width that makes names ragged.
+  if (!end || end === start) return `${mon(start)} ${day(start)}`;
+  if (mon(start) === mon(end)) return `${mon(start)} ${day(start)} – ${day(end)}`;
+  return `${mon(start)} ${day(start)} – ${mon(end)} ${day(end)}`;
 }
 
 /**
@@ -273,7 +277,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           if (rows.length === 0) return null;
           const isCollapsed = collapsed[decision];
           return (
-            <div key={decision} className="group">
+            <div key={decision} className="group tiq-list">
               {/* The tip sits beside the toggle, not inside it — a button
                   inside a button is invalid HTML and swallows the click. */}
               <div className="group-head-row">
