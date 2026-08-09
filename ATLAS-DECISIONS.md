@@ -71,7 +71,28 @@ have been a data migration.
 deliberate destructive action, and `RESTRICT` would make it fail once stats
 exist.
 
-### Historical write hardening — a known gap
+### Historical seasons: locked, with corrections
+**Built.** Past seasons are locked for normal operations; owner and admin may
+correct them.
+
+*Rejected: absolute immutability.* Legitimate corrections are real — a wrong
+score, a payment against the wrong player, a late cheque. Making them
+impossible would push coaches into keeping a second record elsewhere, which is
+worse than a controlled correction path.
+
+*Rejected: preserving a false row to fake an audit trail.* Atlas has no audit
+log. Zeroing a duplicate payment is not an audit trail and pretending otherwise
+would be dishonest, so owner and admin may delete.
+
+**INSERT stays blocked for everyone, including owners.** Correcting a fact that
+was always true is different from adding an event that never happened.
+
+**One shared function.** `atlas_season_phase()` decides phase;
+`enforce_season_write_policy()` applies the operation rules across all seven
+season-scoped tables. `enforce_participant_integrity()` was refactored to drop
+its own copy — three implementations of the same logic was already one too many.
+
+### Historical write hardening — RESOLVED (was a known gap)
 **Verified by test:** an authenticated writer calling the API directly can
 insert into their own organization's **past** seasons on `games`,
 `budget_items`, `budget_transactions`, `player_payments` and

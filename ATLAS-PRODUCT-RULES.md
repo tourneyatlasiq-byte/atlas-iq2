@@ -390,22 +390,40 @@ and "not current" does not mean historical.
 |---|---|---|
 | **Current** | Yes | Yes |
 | **Future / planning** | **Yes** | No |
-| **Past** | **No — read-only** | No |
+| **Past** | **Locked for normal operations** | No |
 
-**Where read-only is actually enforced.** This distinction matters:
+**Past seasons are locked, not immutable.** A finished season still needs
+correcting — a wrong score, a payment against the wrong player, a
+mis-categorised expense, a cheque that arrived late.
 
-| Table | UI / server actions | Direct API call |
-|---|---|---|
-| `tournament_participants` | Blocked | **Blocked** by trigger |
-| `games` | Blocked | **Not blocked** |
-| `budget_items`, `budget_transactions` | Blocked | **Not blocked** |
-| `player_payments` | Blocked | **Not blocked** |
-| `team_season_players` | Blocked | **Not blocked** |
+| Operation | Past season |
+|---|---|
+| **INSERT** | **Blocked for everyone.** Adding to a finished season is rewriting what happened |
+| **UPDATE** | **Owner and admin only.** This is what a correction is |
+| **DELETE** | **Owner and admin only**, with explicit confirmation in the interface |
+| Coach, manager, parent | No historical mutation at all |
 
-Verified by test, not assumed. A writer calling the API directly can still
-write into their own organization's past seasons on the legacy tables. No
-cross-tenant exposure and no escalation, but the guarantee is application-layer
-only. See ATLAS-DECISIONS.md, "Historical write hardening".
+A record cannot be moved into or out of a past season by UPDATE, which would
+otherwise sidestep the operation rules.
+
+Historical corrections are corrections, not routine work. The interface must
+not make them casual.
+
+**Enforced in the database on every season-scoped table**, not only in the
+interface: `games`, `budget_items`, `budget_transactions`, `player_payments`,
+`payment_log`, `team_season_players` and `tournament_participants`.
+
+`payment_log` has no season of its own and resolves through its parent
+`player_payments` — it is part of the historical financial record and is not a
+bypass.
+
+*Enforced: `enforce_season_write_policy()`, using `atlas_season_phase()` —
+database.*
+
+**One definition of season phase.** `atlas_season_phase()` is the only place
+past/current/future is decided in the database; `seasonPhase()` in
+`lib/context.js` mirrors it. Ambiguity resolves to *future*, so a season is
+never wrongly locked.
 
 A coach building next year's roster in March needs to write to a season that is
 not current yet. Blocking that would defeat the point.

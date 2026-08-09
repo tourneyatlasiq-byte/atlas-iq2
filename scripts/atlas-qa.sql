@@ -650,6 +650,128 @@ begin
 end $$;
 
 -- =============================================================================
+-- SECTION 9 — Historical season policy
+--
+-- No real rows sit in a past season, so the fixture deliberately creates one
+-- WITH data. The absence of history cannot substitute for testing the
+-- historical path.
+--
+--   INSERT into a past season  -> blocked for everyone
+--   UPDATE / DELETE            -> owner and admin only
+--   Current and future seasons -> unchanged
+-- =============================================================================
+reset role;
+
+insert into seasons (id, team_id, name, is_current, start_date)
+select '00000000-0000-0000-0000-00000000ba01'::uuid, team, 'QA Past', false, current_date - 400 from qa_ctx;
+insert into seasons (id, team_id, name, is_current, start_date)
+select '00000000-0000-0000-0000-00000000ba02'::uuid, team, 'QA Plan', false, current_date + 400 from qa_ctx;
+insert into tournaments (id, organization_id, season_id, name, start_date, decision, paid_status)
+select '00000000-0000-0000-0000-00000000ba11'::uuid, org, '00000000-0000-0000-0000-00000000ba01'::uuid,
+       'QA Past Tourney', current_date - 395, 'Committed', 'Paid in Full' from qa_ctx;
+
+insert into games (id, organization_id, season_id, tournament_id, game_date, opponent_name, game_type, runs_for, runs_against)
+select '00000000-0000-0000-0000-00000000ba21'::uuid, org, '00000000-0000-0000-0000-00000000ba01'::uuid,
+       '00000000-0000-0000-0000-00000000ba11'::uuid, current_date - 395, 'QA Opp', 'Pool', 7, 3 from qa_ctx;
+insert into budget_transactions (id, organization_id, season_id, category, item, actual_amount, status, txn_date)
+select '00000000-0000-0000-0000-00000000ba23'::uuid, org, '00000000-0000-0000-0000-00000000ba01'::uuid,
+       'Equipment', 'QA Past Txn', 50, 'Paid', current_date - 395 from qa_ctx;
+insert into player_payments (id, organization_id, season_id, player_id, initial_cost)
+select '00000000-0000-0000-0000-00000000ba24'::uuid, org, '00000000-0000-0000-0000-00000000ba01'::uuid,
+       (select id from players where organization_id = c.org limit 1), 500 from qa_ctx c;
+insert into payment_log (id, payment_id, month_label, amount, paid_date)
+values ('00000000-0000-0000-0000-00000000ba25', '00000000-0000-0000-0000-00000000ba24', 'Past', 100, current_date - 395);
+
+-- Phase resolution itself.
+do $$
+begin
+  insert into qa(area,test,result) values ('Historical','past season resolves as past',
+    case when atlas_season_phase('00000000-0000-0000-0000-00000000ba01') = 'past' then 'PASS' else 'FAIL' end);
+  insert into qa(area,test,result) values ('Historical','planning season resolves as future',
+    case when atlas_season_phase('00000000-0000-0000-0000-00000000ba02') = 'future' then 'PASS' else 'FAIL' end);
+  insert into qa(area,test,result) values ('Historical','season with no start_date is not past',
+    case when (select count(*) from seasons s where s.start_date is null
+                and atlas_season_phase(s.id) = 'past') = 0 then 'PASS' else 'FAIL - misclassified' end);
+end $$;
+
+-- COACH: no historical mutation at all.
+update profiles set role='coach' where id = (select second_user from qa_ctx);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"6452ca9a-aaed-4e28-9dc1-e2f3aa6c058b","role":"authenticated"}';
+
+do $$
+declare c record; past uuid := '00000000-0000-0000-0000-00000000ba01'; n int;
+begin
+  select * into c from qa_ctx;
+
+  begin insert into games (organization_id, season_id, game_date, opponent_name, game_type)
+    values (c.org, past, current_date - 390, 'X', 'Pool');
+    insert into qa(area,test,result) values ('Historical','coach INSERT games past','FAIL - ALLOWED');
+  exception when others then insert into qa(area,test,result) values ('Historical','coach INSERT games past','PASS'); end;
+
+  begin insert into budget_items (organization_id, season_id, category, name, budgeted)
+    values (c.org, past, 'Equipment', 'X', 1);
+    insert into qa(area,test,result) values ('Historical','coach INSERT budget_items past','FAIL - ALLOWED');
+  exception when others then insert into qa(area,test,result) values ('Historical','coach INSERT budget_items past','PASS'); end;
+
+  begin insert into payment_log (payment_id, month_label, amount)
+    values ('00000000-0000-0000-0000-00000000ba24', 'X', 5);
+    insert into qa(area,test,result) values ('Historical','coach INSERT payment_log past (via parent)','FAIL - ALLOWED');
+  exception when others then insert into qa(area,test,result) values ('Historical','coach INSERT payment_log past (via parent)','PASS'); end;
+
+  begin update games set opponent_name='HACK' where id='00000000-0000-0000-0000-00000000ba21'; get diagnostics n=row_count;
+    insert into qa(area,test,result) values ('Historical','coach UPDATE past', case when n=0 then 'PASS' else 'FAIL - ALLOWED' end);
+  exception when others then insert into qa(area,test,result) values ('Historical','coach UPDATE past','PASS'); end;
+
+  begin delete from budget_transactions where id='00000000-0000-0000-0000-00000000ba23'; get diagnostics n=row_count;
+    insert into qa(area,test,result) values ('Historical','coach DELETE past', case when n=0 then 'PASS' else 'FAIL - ALLOWED' end);
+  exception when others then insert into qa(area,test,result) values ('Historical','coach DELETE past','PASS'); end;
+
+  begin insert into budget_items (organization_id, season_id, category, name, budgeted)
+    values (c.org, c.season, 'Equipment', 'QA current', 1);
+    insert into qa(area,test,result) values ('Historical','coach INSERT current (MUST WORK)','PASS');
+  exception when others then insert into qa(area,test,result) values ('Historical','coach INSERT current (MUST WORK)','FAIL - '||sqlerrm); end;
+
+  begin insert into budget_items (organization_id, season_id, category, name, budgeted)
+    values (c.org, '00000000-0000-0000-0000-00000000ba02', 'Equipment', 'QA future', 1);
+    insert into qa(area,test,result) values ('Historical','coach INSERT future (MUST WORK)','PASS');
+  exception when others then insert into qa(area,test,result) values ('Historical','coach INSERT future (MUST WORK)','FAIL - '||sqlerrm); end;
+end $$;
+
+-- OWNER: corrections allowed, inserts still blocked, phase-hopping blocked.
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"9e66ec43-a138-4945-be27-351dffcb1004","role":"authenticated"}';
+
+do $$
+declare c record; past uuid := '00000000-0000-0000-0000-00000000ba01'; n int;
+begin
+  select * into c from qa_ctx;
+
+  begin insert into games (organization_id, season_id, game_date, opponent_name, game_type)
+    values (c.org, past, current_date - 390, 'X', 'Pool');
+    insert into qa(area,test,result) values ('Historical','OWNER INSERT past (still blocked)','FAIL - ALLOWED');
+  exception when others then insert into qa(area,test,result) values ('Historical','OWNER INSERT past (still blocked)','PASS'); end;
+
+  begin update games set runs_for=8 where id='00000000-0000-0000-0000-00000000ba21'; get diagnostics n=row_count;
+    insert into qa(area,test,result) values ('Historical','OWNER UPDATE past score (correction)',
+      case when n=1 then 'PASS' else 'FAIL' end);
+  exception when others then insert into qa(area,test,result) values ('Historical','OWNER UPDATE past score (correction)','FAIL - '||sqlerrm); end;
+
+  begin update payment_log set amount=150 where id='00000000-0000-0000-0000-00000000ba25'; get diagnostics n=row_count;
+    insert into qa(area,test,result) values ('Historical','OWNER UPDATE past payment_log', case when n=1 then 'PASS' else 'FAIL' end);
+  exception when others then insert into qa(area,test,result) values ('Historical','OWNER UPDATE past payment_log','FAIL - '||sqlerrm); end;
+
+  begin delete from payment_log where id='00000000-0000-0000-0000-00000000ba25'; get diagnostics n=row_count;
+    insert into qa(area,test,result) values ('Historical','OWNER DELETE past payment_log', case when n=1 then 'PASS' else 'FAIL' end);
+  exception when others then insert into qa(area,test,result) values ('Historical','OWNER DELETE past payment_log','FAIL - '||sqlerrm); end;
+
+  begin update budget_transactions set season_id=c.season where id='00000000-0000-0000-0000-00000000ba23';
+    insert into qa(area,test,result) values ('Historical','move row OUT of past season','FAIL - ALLOWED');
+  exception when others then insert into qa(area,test,result) values ('Historical','move row OUT of past season','PASS'); end;
+end $$;
+
+-- =============================================================================
 -- RESULTS
 -- =============================================================================
 reset role;

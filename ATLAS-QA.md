@@ -136,6 +136,24 @@ passed for a while.
 
 ---
 
+## Historical seasons
+
+The fixture must **deliberately create a past season with data in it**. No real
+historical rows exist, and their absence cannot substitute for testing the
+historical path.
+
+- [ ] past season resolves as `past`; planning as `future`
+- [ ] a season with no `start_date` is never classified `past`
+- [ ] coach INSERT into a past season → blocked, every table
+- [ ] coach UPDATE / DELETE in a past season → blocked
+- [ ] owner INSERT into a past season → **still blocked**
+- [ ] owner UPDATE a past score, category, payment → **allowed**
+- [ ] owner DELETE a past record → **allowed**
+- [ ] a row cannot be moved into or out of a past season by UPDATE
+- [ ] `payment_log` resolves its season through `player_payments`
+- [ ] current and future writes unchanged for coach and owner
+- [ ] participant rules still pass after the phase refactor
+
 ## Season behaviour
 
 - [ ] Past season: writes refused server-side, not just hidden
@@ -235,8 +253,6 @@ nothing else.
 - Anything visual.
 - Storage object fetches through the API, as opposed to the RLS policy behind
   them.
-- **Past-season writes on legacy tables.** `games`, `budget_items`,
-  `budget_transactions`, `player_payments` and `team_season_players` are
-  protected in the interface but not in the database. Verified, logged in
-  ATLAS-DECISIONS.md as a future hardening milestone. `tournament_participants`
-  **is** protected at the database layer and is tested above.
+- ~~Past-season writes on legacy tables~~ — **resolved.** All seven
+  season-scoped tables are now protected at the database layer and covered by
+  the Historical section of `atlas-qa.sql`.
