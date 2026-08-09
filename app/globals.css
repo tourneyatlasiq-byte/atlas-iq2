@@ -2844,3 +2844,16 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .recruit-add { margin-left: 0; min-height: 44px; display: inline-flex; align-items: center; }
   .recruit-row .link-list, .recruit-row .college-list { width: 100%; }
 }
+
+/* Quantity-based budget lines — the arithmetic as supporting information,
+   so the Planned column stays a clean single figure. */
+.budget-calc {
+  display: block; font-size: 12px; color: var(--slate); margin-top: 1px;
+}
+.planned-total {
+  margin: 4px 0 0; font-size: 13.5px; color: var(--slate);
+}
+.planned-total strong {
+  font-family: var(--font-display); font-size: 19px; font-weight: 800;
+  color: var(--navy); margin-left: 8px;
+}

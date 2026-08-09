@@ -582,7 +582,14 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   <tbody>
                     {g.rows.map((r) => (
                       <tr key={r.id}>
-                        <td>{r.name}</td>
+                        <td>
+                          {r.name}
+                          {r.quantity != null && r.unitCost != null && (
+                            <span className="budget-calc">
+                              {r.quantity} &times; {money(r.unitCost)}
+                            </span>
+                          )}
+                        </td>
                         <td>{money(r.budgeted)}</td>
                         <td>{money(r.actual)}</td>
                         {!income && (
@@ -617,6 +624,17 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
 
 function BudgetForm({ row, pending, onSubmit, onCancel }) {
   const isNew = !row;
+
+  // An existing line already tells us which mode it was saved in.
+  const [method, setMethod] = useState(row?.quantity != null ? "quantity" : "total");
+  const [qty, setQty] = useState(row?.quantity ?? "");
+  const [unit, setUnit] = useState(row?.unitCost ?? "");
+
+  // Live preview only. The server recalculates on save, so a stale preview
+  // can never become a stored total.
+  const plannedTotal =
+    Number(String(qty).replace(/[$,\s]/g, "") || 0) *
+    Number(String(unit).replace(/[$,\s]/g, "") || 0);
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -631,21 +649,66 @@ function BudgetForm({ row, pending, onSubmit, onCancel }) {
               <input id="b-name" name="name" required placeholder="e.g. Game uniform set"
                      defaultValue={row?.name ?? ""} />
             </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="b-cat">Category</label>
-                <input id="b-cat" name="category" required list="fin-categories"
-                       defaultValue={row?.category ?? ""} />
-                <datalist id="fin-categories">
-                  {CATEGORIES.map((c) => <option key={c} value={c} />)}
-                </datalist>
-              </div>
-              <div className="field">
-                <label htmlFor="b-amt">Budgeted amount</label>
-                <input id="b-amt" name="budgeted" type="number" min="0" step="1"
-                       defaultValue={row?.budgeted ?? ""} />
+            <div className="field">
+              <label htmlFor="b-cat">Category</label>
+              <input id="b-cat" name="category" required list="fin-categories"
+                     defaultValue={row?.category ?? ""} />
+              <datalist id="fin-categories">
+                {CATEGORIES.map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+
+            {/* Total amount stays the default. Quantity mode exists so a coach
+                budgeting 16 jerseys at $120 doesn't multiply in Excel first. */}
+            <input type="hidden" name="budget_method" value={method} />
+
+            <div className="field">
+              <label>How is this budgeted?</label>
+              <div className="segmented" role="group" aria-label="Budget method">
+                <button type="button" className={`segment${method === "total" ? " on" : ""}`}
+                        aria-pressed={method === "total"} onClick={() => setMethod("total")}>
+                  Total amount
+                </button>
+                <button type="button" className={`segment${method === "quantity" ? " on" : ""}`}
+                        aria-pressed={method === "quantity"} onClick={() => setMethod("quantity")}>
+                  Quantity &times; unit cost
+                </button>
               </div>
             </div>
+
+            {method === "total" ? (
+              <div className="field">
+                <label htmlFor="b-amt">Budgeted amount</label>
+                <div className="input-money">
+                  <span aria-hidden="true">$</span>
+                  <input id="b-amt" name="budgeted" type="number" min="0" step="0.01"
+                         inputMode="decimal" defaultValue={row?.budgeted ?? ""} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="b-qty">Quantity</label>
+                    <input id="b-qty" name="quantity" type="number" min="0" step="1"
+                           inputMode="decimal" value={qty}
+                           onChange={(e) => setQty(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="b-unit">Unit cost</label>
+                    <div className="input-money">
+                      <span aria-hidden="true">$</span>
+                      <input id="b-unit" name="unit_cost" type="number" min="0" step="0.01"
+                             inputMode="decimal" value={unit}
+                             onChange={(e) => setUnit(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+                <p className="planned-total">
+                  Planned total <strong>{money(plannedTotal)}</strong>
+                </p>
+              </>
+            )}
             <div className="field">
               <label htmlFor="b-income">Type</label>
               <select id="b-income" name="is_income" defaultValue={row?.is_income ? "true" : "false"}>
@@ -655,7 +718,9 @@ function BudgetForm({ row, pending, onSubmit, onCancel }) {
             </div>
             <div className="field">
               <label htmlFor="b-notes">Notes</label>
-              <textarea id="b-notes" name="notes" rows={2} defaultValue={row?.notes ?? ""} />
+              <textarea id="b-notes" name="notes" rows={2}
+                        placeholder="e.g. 15 players + 1 extra jersey"
+                        defaultValue={row?.notes ?? ""} />
             </div>
           </div>
           <div className="modal-foot">
