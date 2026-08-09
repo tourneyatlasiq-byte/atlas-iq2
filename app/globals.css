@@ -2161,8 +2161,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 }
 .fin-lead-amounts { font-size: 13.5px; color: var(--navy); margin: 10px 0 8px; }
 .fin-lead-main .meter { max-width: 420px; }
-.fin-lead-rest { font-size: 13px; color: var(--slate); margin: 8px 0 0; }
-.fin-lead-rest.alert { color: var(--status-urgent); font-weight: 600; }
 
 .fin-lead-side { display: flex; flex-direction: column; gap: 8px; }
 .fin-mini {
@@ -2234,3 +2232,28 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .pay-table .pay-balance { width: auto; flex-shrink: 0; }
   .pay-sub { display: block; font-size: 12.5px; color: var(--slate); margin-top: 2px; }
 }
+
+/* --- Finance subtraction pass --- */
+
+/* The fact carries its own urgency; a bordered alert made it look like a
+   system error rather than a number to act on. */
+.fin-lead-rest {
+  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  background: none; border: none; padding: 0; margin-top: 10px;
+}
+.fin-owed { color: var(--status-urgent); font-weight: 600; font-size: 13.5px; }
+.fin-settled { color: var(--status-good); font-weight: 600; font-size: 13.5px; }
+.fin-lead-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--blue);
+}
+.fin-lead-link:hover { color: var(--blue-dark); text-decoration: underline; }
+
+/* Money In: a reading width, and longer bars now the rows are simple. */
+.fi-list { max-width: 900px; }
+.fi-row .meter { max-width: none; }
+.fi-row-total { padding-bottom: 4px; }
+.fi-row-total .fi-source { color: var(--slate); font-weight: 600; font-size: 13px; }
+
+/* Player Payments filters use the same control as Team. */
+.pay-views .segment { padding: 8px 13px; }

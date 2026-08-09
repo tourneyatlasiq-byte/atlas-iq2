@@ -85,19 +85,6 @@ export function FinanceClient({
   const [editPay, setEditPay] = useState(null);
   const [openCats, setOpenCats] = useState({});
 
-  // Counts for the consolidated action row. Same payments the rules read.
-  const duesSummary = useMemo(() => {
-    const rows = payments.map((p) => {
-      const paid = (p.payment_log ?? []).reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
-      return { due: Number(p.initial_cost ?? 0), paid };
-    });
-    return {
-      withBalance: rows.filter((r) => r.due - r.paid > 0).length,
-      notStarted: rows.filter((r) => r.paid === 0 && r.due > 0).length,
-      outstanding: rows.reduce((sum, r) => sum + Math.max(0, r.due - r.paid), 0),
-    };
-  }, [payments]);
-
   const actions = useMemo(
     () => (seasonPhase === "current" ? financeActions(payments) : []),
     [payments, seasonPhase]
@@ -108,6 +95,12 @@ export function FinanceClient({
   }, [actions, actionId]);
 
   const activeAction = actions.find((a) => a.id === actionId) ?? null;
+
+  // Everything except the dues story, which the summary already tells.
+  const otherActions = useMemo(
+    () => actions.filter((a) => a.id !== "outstanding" && a.id !== "not-started"),
+    [actions]
+  );
 
   const overlayOpen = Boolean(editBudget || editTxn || detailTxn || detailPay || editPay);
   useEffect(() => {
@@ -188,10 +181,17 @@ export function FinanceClient({
             {money(dues.collected)} of {money(dues.expected)} collected
           </p>
           <Meter value={dues.collected} total={dues.expected} hidePct />
-          <p className={`fin-lead-rest${dues.outstanding > 0 ? " alert" : ""}`}>
-            {dues.outstanding > 0
-              ? `${money(dues.outstanding)} still to collect`
-              : "All dues collected"}
+          <p className="fin-lead-rest">
+            <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
+              {dues.outstanding > 0
+                ? `${money(dues.outstanding)} still to collect`
+                : "All dues collected"}
+            </span>
+            {dues.outstanding > 0 && (
+              <button className="fin-lead-link" onClick={() => { setTab("payments"); selectAction("outstanding"); }}>
+                View player balances →
+              </button>
+            )}
           </p>
         </div>
 
@@ -210,33 +210,23 @@ export function FinanceClient({
         </div>
       </div>
 
-      {/* The two rules describe one situation, so they are presented as one.
-          Both still run — this is a display consolidation. */}
-      <div className="roster-actions finance-actions">
-        <p className="roster-actions-label">Needs action</p>
-
-        {actions.length === 0 ? (
-          <p className="roster-clear">Nothing needs attention</p>
-        ) : (
-          <button
-            className={`roster-action${actionId ? " on" : ""}`}
-            onClick={() => selectAction(actionId ? null : "outstanding")}
-          >
-            <span className="briefing-dot dot-urgent" aria-hidden="true" />
-            <span className="roster-action-text">
-              <strong>{duesSummary.withBalance} players have outstanding balances</strong>
-              <span className="roster-action-sub">
-                {money(duesSummary.outstanding)} remaining
-                {duesSummary.notStarted > 0 &&
-                  `, including ${duesSummary.notStarted} who ${
-                    duesSummary.notStarted === 1 ? "hasn't" : "haven't"
-                  } started paying`}
-              </span>
-            </span>
-            <span className="roster-action-cta">View player balances →</span>
-          </button>
-        )}
-      </div>
+      {/* The dues line above already carries the outstanding-balance story, so
+          this only appears when something unrelated needs attention. */}
+      {otherActions.length > 0 && (
+        <div className="roster-actions finance-actions">
+          <p className="roster-actions-label">Needs action</p>
+          {otherActions.map((a) => (
+            <button
+              key={a.id}
+              className={`roster-action${actionId === a.id ? " on" : ""}`}
+              onClick={() => selectAction(actionId === a.id ? null : a.id)}
+            >
+              <span className="briefing-dot dot-attention" aria-hidden="true" />
+              <span className="roster-action-text">{financeActionText(a, dues)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {activeAction && (
         <FilterChip
@@ -451,10 +441,9 @@ export function FundsInTab({ funds, dues }) {
 
         <div className="fi-row fi-row-total">
           <div className="fi-row-head">
-            <span className="fi-source">Total money in</span>
+            <span className="fi-source">Total received this season</span>
             <span className="fi-received">{money(funds.total)}</span>
           </div>
-          <Meter value={funds.total} total={funds.totalGoal + dues.expected} />
         </div>
       </div>
 
@@ -699,7 +688,7 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
               <tr>
                 <th>Date</th>
                 <th>Description</th>
-                <th>Budget line</th>
+                <th>Category</th>
                 <th>Amount</th>
               </tr>
             </thead>
@@ -1017,7 +1006,7 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
           {PAYMENT_VIEWS.map((v) => (
             <button
               key={v.key}
-              className={`seg${view === v.key ? " on" : ""}`}
+              className={`segment${view === v.key ? " on" : ""}`}
               onClick={() => setView(v.key)}
               aria-pressed={view === v.key}
             >
@@ -1078,7 +1067,7 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
                           <span className="pay-amounts">
                             {money(p.totalPaid)} <span className="muted">of {money(p.totalDue)}</span>
                           </span>
-                          <Meter value={p.totalPaid} total={p.totalDue} />
+                          <Meter value={p.totalPaid} total={p.totalDue} hidePct />
                         </>
                       )}
                     </td>
