@@ -135,34 +135,38 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   }, [facilities, query, stateFilter, surfaceFilter, amenityFilter, countyFilter, view]);
 
   /**
-   * Groups the visible facilities by state, then county.
+   * Groups the visible facilities by state only.
    *
-   * Only groups when it helps: a single state with few results reads better as
-   * a plain list than as one header wrapping everything.
+   * County was a second navigation level, which meant two clicks to reach a
+   * facility when county is already available as a filter and as a column.
+   * State sections are for browsing the whole directory; the moment a state
+   * is chosen, that scope is already decided and a single accordion wrapping
+   * every result is pure friction.
    */
   const groups = useMemo(() => {
-    const shouldGroup = visible.length > 12 || states.length > 1;
-    if (!shouldGroup) return null;
+    // A chosen state, an active search or a small result set all mean the
+    // scope is already narrow — show the facilities, not a folder.
+    const narrowed =
+      stateFilter !== "all" ||
+      countyFilter !== "all" ||
+      query.trim().length > 0 ||
+      visible.length <= 12;
+
+    if (narrowed) return null;
 
     const byState = new Map();
     for (const f of visible) {
       const st = f.state || "Unknown state";
-      if (!byState.has(st)) byState.set(st, new Map());
-      const byCounty = byState.get(st);
-      const co = f.county || "Other";
-      byCounty.set(co, [...(byCounty.get(co) ?? []), f]);
+      byState.set(st, [...(byState.get(st) ?? []), f]);
     }
 
     return [...byState.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([state, byCounty]) => ({
+      .map(([state, rows]) => ({
         state,
-        total: [...byCounty.values()].reduce((n, r) => n + r.length, 0),
-        counties: [...byCounty.entries()]
-          .sort(([a, ra], [b, rb]) => rb.length - ra.length || a.localeCompare(b))
-          .map(([county, rows]) => ({ county, rows })),
+        rows: rows.sort((a, b) => a.name.localeCompare(b.name)),
       }));
-  }, [visible, states]);
+  }, [visible, stateFilter, countyFilter, query]);
 
   /** Opens the drawer, optionally jumping to a history block. */
   function openFacility(f, target = null) {
@@ -170,8 +174,12 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
     openDetail(f);
   }
 
-  const groupKey = (state, county) => `${state}::${county}`;
-  const isOpen = (state, county) => openGroups[groupKey(state, county)] !== false;
+  const isOpen = (state) => openGroups[state] !== false;
+
+  const setAllGroups = (open) => {
+    if (!groups) return;
+    setOpenGroups(Object.fromEntries(groups.map((g) => [g.state, open])));
+  };
 
   function run(action, fd, onDone) {
     setError(null);
@@ -337,36 +345,36 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
         ) : view === "ours" ? (
           <OurVenuesTable rows={visible} onOpen={openFacility} />
         ) : groups ? (
-          groups.map((g) => (
-            <div key={g.state} className="fac-state">
-              <div className="fac-state-head">
-                {g.state} <span className="muted">({g.total})</span>
-              </div>
-              {g.counties.map(({ county, rows }) => (
-                <div key={county}>
-                  <button
-                    className="fac-county-head"
-                    onClick={() =>
-                      setOpenGroups({
-                        ...openGroups,
-                        [groupKey(g.state, county)]: !isOpen(g.state, county),
-                      })
-                    }
-                    aria-expanded={isOpen(g.state, county)}
-                  >
-                    <span className={`group-caret${isOpen(g.state, county) ? "" : " collapsed"}`} aria-hidden="true">▾</span>
-                    <span>
-                      {county === "Other" ? "County not recorded" : `${county} County`}
-                    </span>
-                    <span className="group-count">{rows.length}</span>
-                  </button>
-                  {isOpen(g.state, county) && (
-                    <FacilityTable rows={rows} onOpen={openFacility} />
-                  )}
-                </div>
-              ))}
+          <>
+            <div className="fac-expand-bar">
+              <span className="muted">
+                {groups.length} states · {visible.length} facilities
+              </span>
+              <span className="fac-expand-actions">
+                <button className="btn btn-ghost" onClick={() => setAllGroups(true)}>Expand all</button>
+                <button className="btn btn-ghost" onClick={() => setAllGroups(false)}>Collapse all</button>
+              </span>
             </div>
-          ))
+
+            {groups.map((g) => (
+              <div key={g.state} className="fac-state">
+                {/* The whole header is the control — a chevron alone is a
+                    small target and reads as decoration. */}
+                <button
+                  className="fac-state-head"
+                  onClick={() => setOpenGroups({ ...openGroups, [g.state]: !isOpen(g.state) })}
+                  aria-expanded={isOpen(g.state)}
+                >
+                  <span className={`group-caret${isOpen(g.state) ? "" : " collapsed"}`} aria-hidden="true">▾</span>
+                  <span className="fac-state-name">{g.state}</span>
+                  <span className="group-count">{g.rows.length}</span>
+                  <span className="fac-state-toggle">{isOpen(g.state) ? "Collapse" : "Expand"}</span>
+                </button>
+
+                {isOpen(g.state) && <FacilityTable rows={g.rows} onOpen={openFacility} />}
+              </div>
+            ))}
+          </>
         ) : (
           <FacilityTable rows={visible} onOpen={openFacility} />
         )}
