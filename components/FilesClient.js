@@ -53,7 +53,7 @@ const FILE_VIEWS = [
 const EMPTY_VIEW = {
   team: {
     title: "No team files yet",
-    body: "Insurance, waivers, sanctioning forms — anything that belongs to the team rather than one player or event.",
+    body: "Team insurance, waivers, sanctioning forms — anything that belongs to the team rather than one player or event.",
   },
   players: {
     title: "No player documents yet",

@@ -46,8 +46,8 @@
   --status-action: #2f80ed;
 
   --sidebar-w: 232px;
-  --font-body: "Inter", system-ui, sans-serif;
-  --font-display: "Poppins", system-ui, sans-serif;
+  --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-display: var(--font-poppins), "Poppins", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -2586,3 +2586,12 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .import-template { flex-direction: column; align-items: stretch; }
   .import-template .btn { min-height: 44px; }
 }
+
+/* Stated where uploads happen, not only in a policy page. */
+.sensitive-warning {
+  padding: 11px 14px; margin-bottom: 16px;
+  background: #fdf6e7; border: 1px solid #f0dcae;
+  border-radius: var(--radius-control);
+  font-size: 12.5px; line-height: 1.55; color: var(--navy);
+}
+.sensitive-warning strong { display: block; margin-bottom: 2px; }
