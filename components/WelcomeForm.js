@@ -11,7 +11,7 @@ import { createOrganization } from "../lib/actions/setup";
  * definition, and accepting a role from the browser is exactly what the
  * Phase 1 fix removed.
  */
-export function WelcomeForm({ defaultSeason }) {
+export function WelcomeForm({ defaultSeason, seasonOptions = [] }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -36,7 +36,7 @@ export function WelcomeForm({ defaultSeason }) {
           required
           autoFocus
           autoComplete="organization"
-          placeholder="Armor Elite"
+          placeholder="e.g., Armor Elite"
         />
         <p className="field-note">
           If your team isn't part of a club or organization, use your team name here.
@@ -49,7 +49,7 @@ export function WelcomeForm({ defaultSeason }) {
           id="team_name"
           name="team_name"
           required
-          placeholder="Armor Elite 16U"
+          placeholder="e.g., Armor Elite 16U"
         />
         <p className="field-note">Include the age group if you use one — Mower 2028/29, Armor Elite 16U.</p>
       </div>

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getContext } from "../../lib/context";
-import { currentSeasonLabel } from "../../lib/onboarding";
+import { currentSeasonLabel, seasonOptions } from "../../lib/onboarding";
 import { LogoLockup } from "../../components/Logo";
 import { WelcomeForm } from "../../components/WelcomeForm";
 
@@ -39,7 +39,7 @@ export default async function WelcomePage() {
 
         <div className="card">
           <p className="welcome-sub">This only takes a couple of minutes.</p>
-          <WelcomeForm defaultSeason={currentSeasonLabel()} />
+          <WelcomeForm defaultSeason={currentSeasonLabel()} seasonOptions={seasonOptions()} />
         </div>
       </div>
     </div>
