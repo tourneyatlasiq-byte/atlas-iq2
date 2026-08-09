@@ -178,7 +178,10 @@ export function FinanceClient({
             Money in <HelpTip term="Money In" />
           </p>
           <p className="fin-hero">{money(funds.total)}</p>
-          <p className="fin-hero-sub">received this season</p>
+          <p className="fin-hero-sub">
+            received this season
+            <span className="fin-hero-note">Includes player dues, fundraising and sponsors.</span>
+          </p>
           <div className="fin-panel-foot">
             <p className="fin-line">{money(funds.playerDues)} player dues</p>
             <p className="fin-line fin-line-quiet">
@@ -202,7 +205,7 @@ export function FinanceClient({
         </section>
       </div>
 
-      <div className="roster-actions">
+      <div className="roster-actions finance-actions">
         <p className="roster-actions-label">Needs action</p>
         {actions.length === 0 ? (
           <p className="roster-clear">Nothing needs attention</p>
@@ -465,8 +468,8 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
     <>
       <div className="tab-head">
         <div className="page-sub">
-          Planned expenses only. Actual spend derives from paid transactions linked to each
-          budget line. Income targets live in Money In.
+          Plan your season expenses here. Paid amounts come from transactions linked to each
+          category. Money received is tracked separately in Money In.
         </div>
         {canWrite && <button className="btn btn-primary" onClick={onAdd}>Add budget line</button>}
       </div>
