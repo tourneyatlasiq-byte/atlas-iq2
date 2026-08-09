@@ -6,7 +6,7 @@ import { WelcomeForm } from "../../components/WelcomeForm";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Welcome to Atlas IQ" };
+export const metadata = { title: "Welcome to Season Tempo" };
 
 /**
  * First-run setup, deliberately outside the (app) route group.
@@ -31,7 +31,7 @@ export default async function WelcomePage() {
           <LogoLockup size={44} tone="navy" />
         </div>
 
-        <h1 className="welcome-title">Welcome to Atlas IQ</h1>
+        <h1 className="welcome-title">Welcome to Season Tempo</h1>
         <p className="welcome-lead">Set up your team and start running your season.</p>
         <p className="welcome-value">
           Run your team, tournaments, money, and season in one place.

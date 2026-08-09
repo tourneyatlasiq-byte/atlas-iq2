@@ -20,11 +20,11 @@ import { LogoLockup } from "../../components/SeasonTempoLogo";
  */
 const COPY = {
   new: {
-    title: "Start with Atlas IQ",
+    title: "Start with Season Tempo",
     lede: "Enter your email and we'll send you a secure sign-in link. No password to remember.",
     note: "Free while we're in early access.",
     button: "Send my link",
-    altText: "Already using Atlas?",
+    altText: "Already using Season Tempo?",
     altLabel: "Sign in",
     altHref: "/login",
   },
@@ -40,8 +40,8 @@ const COPY = {
     lede: "Enter your email and we'll send you a secure sign-in link.",
     note: null,
     button: "Send sign-in link",
-    altText: "New to Atlas?",
-    altLabel: "Try Atlas",
+    altText: "New to Season Tempo?",
+    altLabel: "Try Season Tempo",
     altHref: "/login?new=1",
   },
 };
@@ -100,7 +100,7 @@ function LoginForm() {
           {status === "sent" ? (
             <div>
               <div className="alert alert-info" style={{ marginBottom: 0 }}>
-                Check <strong>{email}</strong> for your link. It opens Atlas IQ directly — no
+                Check <strong>{email}</strong> for your link. It opens Season Tempo directly — no
                 password needed.
               </div>
               <button

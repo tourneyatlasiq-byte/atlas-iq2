@@ -1,4 +1,4 @@
-# Atlas IQ — QA Checklist
+# Season Tempo — QA Checklist
 
 ## Definition of done
 
@@ -207,9 +207,9 @@ error means Supabase accepted the request, not that a message arrived.
       tester gets "Email address not authorized" and no email at all.
 - [ ] Send to a **Gmail** address: does it arrive, and in Inbox or Spam?
 - [ ] Send to an **Outlook** address: Inbox or Junk?
-- [ ] Sender name reads Atlas IQ, not Supabase Auth
-- [ ] Sender address is an Atlas domain, not `mail.app.supabase.io`
-- [ ] Subject is the Atlas wording, not "Confirm your email address"
+- [ ] Sender name reads Season Tempo, not Supabase Auth
+- [ ] Sender address is an Season Tempo domain, not `mail.app.supabase.io`
+- [ ] Subject is the Season Tempo wording, not "Confirm your email address"
 - [ ] No "powered by Supabase" in the footer
 - [ ] The link works and lands in the right place
 - [ ] SPF, DKIM and DMARC pass — check the received message's headers

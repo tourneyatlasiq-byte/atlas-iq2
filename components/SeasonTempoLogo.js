@@ -1,8 +1,8 @@
 /**
  * Season Tempo — brand mark and lockup.
  *
- * NOT YET IN USE. Atlas IQ remains the live identity everywhere; this exists
- * so the mark can be reviewed at real product sizes before any replacement.
+ * The live Season Tempo identity. components/Logo.js retains the previous
+ * Atlas IQ mark and is no longer referenced by any call site.
  *
  * The mark is "Season Track": events along a season, with the gold point on
  * what is next — the same idea the Home screen already leads with.
@@ -63,7 +63,7 @@ export function LogoLockup({ size = 32, tone = "navy", wordSize }) {
   const word = wordSize ?? Math.round(size * 0.62);
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: Math.round(size * 0.34) }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: Math.round(size * 0.46) }}>
       <LogoMark size={size} tone={tone} />
       <span
         className="brand-word"

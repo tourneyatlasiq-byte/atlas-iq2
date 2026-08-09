@@ -96,7 +96,7 @@ export function HelpMenu() {
 
             {nothingFound ? (
               <p className="help-none">
-                Nothing matches “{query.trim()}”. Try a word like payment, roster, game or venue.
+                Nothing matches “{query.trim()}”. Try a word like payment, roster, game or facility.
               </p>
             ) : (
               <>

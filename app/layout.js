@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Atlas IQ | Softball",
-  description: "The Operating System for Modern Travel Sports Organizations.",
+  title: "Season Tempo — Run the team. Set the pace.",
+  description: "Tournaments, roster, facilities, games and dues in one place. Built for competitive travel softball.",
 };
 
 export default function RootLayout({ children }) {

@@ -90,7 +90,7 @@ export function SettingsClient({
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <div className="page-sub">How Atlas is set up for your organization.</div>
+          <div className="page-sub">How Season Tempo is set up for your organization.</div>
         </div>
       </div>
 

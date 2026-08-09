@@ -171,7 +171,7 @@ export function FinanceClient({
       {/*
         Three panels, deliberately different shapes so they cannot be read as
         arithmetic. Nothing is netted across them and there is no cash-on-hand
-        figure — Atlas does not track bank balances.
+        figure — Season Tempo does not track bank balances.
 
         Each leads with what has HAPPENED, not what is theoretically left.
         Leading with remaining budget made a season look healthy while most of

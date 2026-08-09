@@ -1,4 +1,4 @@
-# Atlas IQ — Decisions
+# Season Tempo — Decisions
 
 Why things are the way they are. Read this before reversing something.
 
@@ -34,7 +34,7 @@ per player+season, and a pickup at three tournaments isn't on it at all.
 
 *Why the `participation` column exists now:* the same table becomes the **event
 roster** — who actually dressed for a weekend, as distinct from who belongs to
-the team this year. Rostered players miss events; Atlas currently cannot express
+the team this year. Rostered players miss events; Season Tempo currently cannot express
 that. Adding the column later would be a migration.
 
 **The event roster is never auto-populated.** An empty list must mean "not
@@ -80,7 +80,7 @@ score, a payment against the wrong player, a late cheque. Making them
 impossible would push coaches into keeping a second record elsewhere, which is
 worse than a controlled correction path.
 
-*Rejected: preserving a false row to fake an audit trail.* Atlas has no audit
+*Rejected: preserving a false row to fake an audit trail.* Season Tempo has no audit
 log. Zeroing a duplicate payment is not an audit trail and pretending otherwise
 would be dishonest, so owner and admin may delete.
 
@@ -95,7 +95,7 @@ its own copy — three implementations of the same logic was already one too man
 ### Historical correction UI — deliberately not built
 The database permits owner/admin corrections to a past season. **No interface
 offers them.** `requireSeasonContext()` still refuses every past-season write,
-so through normal Atlas a past season remains read-only.
+so through normal Season Tempo a past season remains read-only.
 
 *Why the gap is intentional:* we do not yet know which corrections coaches
 actually need. Building a general correction screen now would guess at that,
@@ -133,7 +133,7 @@ about how corrections happen, not just a trigger.
 They answer different questions and are shown side by side. A team can be over
 budget and well funded at the same time; one number would hide that.
 
-*Explicitly rejected:* a "team balance" or "cash available" figure. Atlas does
+*Explicitly rejected:* a "team balance" or "cash available" figure. Season Tempo does
 not track bank balances, so any such number would be a guess presented as fact.
 
 ### Only `Paid` counts as spend
@@ -164,7 +164,7 @@ as historical would have blocked the main reason to create a season early.
 ### Viewing ≠ switching
 Viewing another season is a per-user preference. Switching changes what everyone
 on the team sees and is admin-only. A coach looking at last year should not have
-to tell Atlas that last year is now active.
+to tell Season Tempo that last year is now active.
 
 ### Creating a season does not make it current
 `start_next_season()` leaves `is_current` alone. A coach planning 2027-28 in
@@ -266,7 +266,7 @@ Recorded so the reasoning is not relitigated.
 - **External places integration** — pending licensing for shared storage
 - **Facility merge tooling** — duplicates can be corrected in place
 - **Transaction filters** — fourteen rows don't need them
-- **Cash on hand** — Atlas does not track bank balances
+- **Cash on hand** — Season Tempo does not track bank balances
 - **Mobile bottom navigation** — designed, not built
 - **PWA** — after the above
 

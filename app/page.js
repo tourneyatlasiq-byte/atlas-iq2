@@ -6,7 +6,7 @@ import { LogoLockup } from "../components/SeasonTempoLogo";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Atlas IQ — Run your team from one place",
+  title: "Season Tempo — Run your team from one place",
   description:
     "Tournaments, roster, money, facilities and games for travel softball teams, without the spreadsheets and group texts.",
 };
@@ -28,7 +28,7 @@ export default async function HomePage() {
     <div className="mk">
       <header className="mk-header">
         <div className="mk-wrap mk-header-inner">
-          <Link href="/" className="mk-logo" aria-label="Atlas IQ home">
+          <Link href="/" className="mk-logo" aria-label="Season Tempo home">
             <LogoLockup size={34} tone="navy" wordSize={26} />
           </Link>
 
@@ -39,11 +39,11 @@ export default async function HomePage() {
 
           <div className="mk-header-actions">
             {signedIn ? (
-              <Link href={appHref} className="btn btn-primary">Go to Atlas</Link>
+              <Link href={appHref} className="btn btn-primary">Open Season Tempo</Link>
             ) : (
               <>
                 <Link href="/login" className="mk-signin">Sign in</Link>
-                <Link href="/login?new=1" className="btn btn-primary">Try Atlas</Link>
+                <Link href="/login?new=1" className="btn btn-primary">Get started</Link>
               </>
             )}
           </div>
@@ -60,10 +60,10 @@ export default async function HomePage() {
 
           <div className="mk-cta">
             {signedIn ? (
-              <Link href={appHref} className="btn btn-primary mk-btn-lg">Go to Atlas</Link>
+              <Link href={appHref} className="btn btn-primary mk-btn-lg">Go to Season Tempo</Link>
             ) : (
               <>
-                <Link href="/login?new=1" className="btn btn-primary mk-btn-lg">Try Atlas</Link>
+                <Link href="/login?new=1" className="btn btn-primary mk-btn-lg">Try Season Tempo</Link>
                 <Link href="/login" className="btn btn-secondary mk-btn-lg">Sign in</Link>
               </>
             )}
@@ -74,12 +74,12 @@ export default async function HomePage() {
       </section>
 
       {/* PLACEHOLDER — replace the inner block with:
-            <img src="/product-screenshot.png" alt="The Atlas IQ dashboard" />
+            <img src="/product-screenshot.png" alt="The Season Tempo dashboard" />
           and drop the file into /public. Keep the frame; it carries the styling. */}
       <section className="mk-shot">
         <div className="mk-wrap">
           <div className="mk-shot-frame">
-            <div className="mk-preview" aria-label="A preview of the Atlas IQ home screen">
+            <div className="mk-preview" aria-label="A preview of the Season Tempo home screen">
               <div className="mk-preview-bar">
                 <strong>Armor Elite</strong> / <strong>Armor Elite 16U</strong> / 2026-27
               </div>
@@ -149,7 +149,7 @@ export default async function HomePage() {
             three players still owe you.
           </p>
           <p className="mk-emphasis">
-            Atlas IQ keeps it together, so the answer takes five seconds instead of an evening.
+            Season Tempo keeps it together, so the answer takes five seconds instead of an evening.
           </p>
         </div>
       </section>
@@ -180,7 +180,7 @@ export default async function HomePage() {
               concessions for next time.
             </Capability>
             <Capability title="Games">
-              Schedule and results inside each tournament. Enter the score; Atlas works out
+              Schedule and results inside each tournament. Enter the score; Season Tempo works out
               the record.
             </Capability>
             <Capability title="Files">
@@ -219,7 +219,7 @@ export default async function HomePage() {
         <div className="mk-wrap mk-narrow">
           <h2>Built around how travel teams actually operate</h2>
           <p>
-            Atlas IQ is built around the realities of running a travel season: entry fees,
+            Season Tempo is built around the realities of running a travel season: entry fees,
             facility details that are hard to find, payments scattered across messages, and a
             schedule that keeps changing.
           </p>
@@ -228,7 +228,7 @@ export default async function HomePage() {
             person who ends up holding all of it.
           </p>
           <p>
-            We&rsquo;re building Atlas alongside the teams using it. Early access is
+            We&rsquo;re building Season Tempo alongside the teams using it. Early access is
             intentionally small so real coach and team feedback shapes what comes next.
           </p>
         </div>
@@ -239,7 +239,7 @@ export default async function HomePage() {
           <h2>Ready to run your season?</h2>
           <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
           <Link href={signedIn ? appHref : "/login?new=1"} className="btn btn-primary mk-btn-lg">
-            {signedIn ? "Go to Atlas" : "Try Atlas"}
+            {signedIn ? "Go to Season Tempo" : "Try Season Tempo"}
           </Link>
         </div>
       </section>
@@ -252,7 +252,7 @@ export default async function HomePage() {
             <a href="mailto:tourneyatlasiq@gmail.com">Contact</a>
             {!signedIn && <Link href="/login">Sign in</Link>}
           </nav>
-          <span className="mk-copyright">© {new Date().getFullYear()} Atlas IQ</span>
+          <span className="mk-copyright">© {new Date().getFullYear()} Season Tempo</span>
         </div>
       </footer>
     </div>

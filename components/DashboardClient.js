@@ -109,7 +109,7 @@ function NextUp({ nextUp }) {
       <div className="nextup-inner">
         <span className="nextup-eyebrow">Next up</span>
 
-        {/* "When" is the question a coach opens Atlas to answer, so it leads. */}
+        {/* "When" is the question a coach opens Season Tempo to answer, so it leads. */}
         <div className="nextup-when">
           {days === 0 ? (
             <span className="nextup-days">Today</span>

@@ -85,7 +85,7 @@ export function FacilityImport({ onClose, onDone }) {
         <div className="modal-head">
           <h2>Import facilities</h2>
           <div className="page-sub">
-            Facilities created here are canonical Atlas records, shared with every organization.
+            Facilities created here are canonical Season Tempo records, shared with every organization.
           </div>
         </div>
 

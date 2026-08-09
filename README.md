@@ -1,6 +1,6 @@
-# Atlas IQ
+# Season Tempo
 
-The operating system for modern travel sports organizations.
+Run the team. Set the pace.
 
 This repository is the **permanent source of truth**. Vercel deploys from GitHub.
 Nothing is ever deployed from a temporary development container.
@@ -66,7 +66,7 @@ They remain in place until an explicit cleanup is approved.
 **External Places provider pending licensing confirmation for permanent
 multi-tenant canonical Facility storage.**
 
-The Facilities workflow is provider-agnostic and complete: search Atlas first,
+The Facilities workflow is provider-agnostic and complete: search Season Tempo first,
 then external places, then confirm before creating. `lib/places/provider.js`
 defines `searchPlaces()` / `getPlaceDetails()`; `getProvider()` returns null
 until a provider is approved, and that is the only line that changes.
@@ -90,10 +90,10 @@ under the legacy Georgia Power organization, which has zero profiles pointing at
 it. Migration `fac_11` reassigned their curation to the active organization.
 There is no mechanism to detect or repair this automatically.
 
-**Atlas-level moderation needed as the directory grows.** One organization
+**Platform-level moderation needed as the directory grows.** One organization
 currently curates all 178 facilities, so every correction from every future
 organization lands in a single queue with no delegation. Options when it becomes
-a problem: trusted-editor roles, Atlas staff moderation, or auto-approval of
+a problem: trusted-editor roles, Season Tempo staff moderation, or auto-approval of
 low-risk fields with a source reference.
 
 **No merge tooling.** A genuine duplicate that is already referenced by a

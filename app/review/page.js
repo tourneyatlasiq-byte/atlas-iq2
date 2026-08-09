@@ -48,7 +48,7 @@ import { NeedsAction } from "../../components/NeedsAction";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Atlas IQ — UI Review" };
+export const metadata = { title: "Season Tempo — UI Review" };
 
 /**
  * TEMPORARY review surface.
@@ -135,7 +135,7 @@ export default async function ReviewPage() {
   return (
     <div className="rv-page">
       <header className="rv-cover">
-        <h1>Atlas IQ</h1>
+        <h1>Season Tempo</h1>
         <p className="rv-cover-sub">User interface review</p>
         <dl className="rv-meta">
           <div><dt>Organization</dt><dd>{organization.name}</dd></div>
@@ -316,7 +316,7 @@ export default async function ReviewPage() {
         <PaymentsTab payments={payments} canWrite={writable} onAdd={noop} onOpen={noop} />
       </ReviewSection>
 
-      <ReviewSection number={20} title="Facilities" note="Shared directory. Defaults to Our Venues." wide>
+      <ReviewSection number={20} title="Facilities" note="Shared directory. Defaults to Our Facilities." wide>
         <FacilitiesClient
           facilities={facilities}
           organizationId={organization.id}
@@ -388,7 +388,7 @@ export default async function ReviewPage() {
       </ReviewSection>
 
       <footer className="rv-footer">
-        End of review surface · Atlas IQ · {season.name}
+        End of review surface · Season Tempo · {season.name}
       </footer>
     </div>
   );

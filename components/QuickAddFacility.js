@@ -33,7 +33,7 @@ export function QuickAddFacility({ onClose, onCreated }) {
           <div className="modal-head">
             <h2>Add a facility</h2>
             <div className="page-sub">
-              Shared across Atlas. Add the basics now — the rest can be filled in from Facilities.
+              Shared across Season Tempo. Add the basics now — the rest can be filled in from Facilities.
             </div>
           </div>
 
@@ -62,7 +62,7 @@ export function QuickAddFacility({ onClose, onCreated }) {
             </div>
 
             <p className="field-note">
-              Check Facilities first — this venue may already exist under a slightly different name.
+              Check Facilities first — this facility may already exist under a slightly different name.
             </p>
           </div>
 

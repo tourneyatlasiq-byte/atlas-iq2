@@ -183,7 +183,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   }
 
   function remove(f) {
-    if (!confirm(`Delete ${f.name}?\n\nFacilities are shared across Atlas. Only do this for a record created by mistake.`)) return;
+    if (!confirm(`Delete ${f.name}?\n\nFacilities are shared across Season Tempo. Only do this for a record created by mistake.`)) return;
     const fd = new FormData();
     fd.set("id", f.id);
     run(deleteFacility, fd, () => closeDetail());
@@ -1149,7 +1149,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
           <div className="modal-head">
             <h2>Add facility</h2>
             <div className="page-sub">
-              Facilities are shared across Atlas. Search first — the facility may already exist.
+              Facilities are shared across Season Tempo. Search first — the facility may already exist.
             </div>
           </div>
 
@@ -1168,7 +1168,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
 
             {search.trim() === "" ? (
               <p className="section-body muted">
-                Start typing to search {facilities.length} facilities already in Atlas.
+                Start typing to search {facilities.length} facilities already in Season Tempo.
               </p>
             ) : matches.length === 0 ? (
               <p className="section-body muted">
@@ -1235,7 +1235,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
           <div className="modal-head">
             <h2>Search external places</h2>
             <div className="page-sub">
-              Look the facility up by name or address, then confirm before it becomes an Atlas facility.
+              Look the facility up by name or address, then confirm before it becomes an Season Tempo facility.
             </div>
           </div>
 
@@ -1345,8 +1345,8 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
             <h2>{isNew ? "New facility" : `Edit ${row.name}`}</h2>
             <div className="page-sub">
               {prefill
-                ? "Check these details, then confirm to create the shared Atlas facility."
-                : "These details are shared with every organization in Atlas."}
+                ? "Check these details, then confirm to create the shared Season Tempo facility."
+                : "These details are shared with every organization in Season Tempo."}
             </div>
           </div>
 

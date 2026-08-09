@@ -31,7 +31,7 @@ export function GettingStarted({ steps }) {
         <div>
           <p className="gs-complete-title">You&rsquo;re set up</p>
           <p className="gs-complete-body">
-            Your team, roster, first tournament and dues are in. Atlas has what it needs to
+            Your team, roster, first tournament and dues are in. Season Tempo has what it needs to
             run the season from here.
           </p>
         </div>
@@ -56,7 +56,7 @@ export function GettingStarted({ steps }) {
       <div className="gs-head">
         <div>
           <h2>Getting started</h2>
-          <p className="gs-sub">Set up the basics and Atlas will take it from here.</p>
+          <p className="gs-sub">Set up the basics and Season Tempo will take it from here.</p>
         </div>
         <div className="gs-progress">
           <span className="gs-count">{done} of {steps.length} done</span>

@@ -1,6 +1,6 @@
-# Atlas IQ — Product Rules and Data Dictionary
+# Season Tempo — Product Rules and Data Dictionary
 
-The rules that govern how Atlas behaves, in one place.
+The rules that govern how Season Tempo behaves, in one place.
 
 This document exists because these rules currently live in three places at
 once: application code, database constraints, and conversation history. When
@@ -306,7 +306,7 @@ no.** A blank import cell must never be reported as an absent amenity.
 Categories: `Birth Certificate`, `Insurance`, `Sanctioning / Roster`, `Waiver`,
 `Receipt`, `Team Form`, `Tournament Document`, `Other`.
 
-**Medical is deliberately absent.** Atlas does not store medical records.
+**Medical is deliberately absent.** Season Tempo does not store medical records.
 
 ### Birth certificates
 
@@ -473,7 +473,7 @@ actually dressed for one tournament. Rostered players miss events.
 - **roster** — the player must have a `team_season_players` row for that season
 - **pickup** — the player must **not** have one
 
-Both directions are enforced in the database. Without the second, Atlas could
+Both directions are enforced in the database. Without the second, Season Tempo could
 record a regular roster player as a pickup and corrupt the historical meaning.
 
 Validated at write time. If a pickup later joins the season roster, their
