@@ -26,6 +26,9 @@ export function EventRoster({
   playerDocuments = {},
 }) {
   const [editing, setEditing] = useState(null); // "roster" | "pickup" | null
+  // Selection made in the sheet, preserved while a pickup is added so the
+  // coach returns to the same editing session.
+  const [draft, setDraft] = useState(null);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -144,9 +147,10 @@ export function EventRoster({
           participants={rows}
           seasonName={seasonName}
           pending={pending}
-          onSubmit={(fd) => run(setEventRoster, fd, () => setEditing(null))}
-          onCancel={() => setEditing(null)}
-          onAddPickup={() => setEditing("pickup")}
+          draft={draft}
+          onSubmit={(fd) => run(setEventRoster, fd, () => { setEditing(null); setDraft(null); })}
+          onCancel={() => { setEditing(null); setDraft(null); }}
+          onAddPickup={(current) => { setDraft(current); setEditing("pickup"); }}
         />
       )}
 
@@ -157,8 +161,9 @@ export function EventRoster({
           alreadyIn={new Set(rows.map((r) => r.player_id))}
           seasonName={seasonName}
           pending={pending}
-          onSubmit={(fd) => run(addPickup, fd, () => setEditing(null))}
-          onCancel={() => setEditing(null)}
+          // Returns to the roster sheet with the in-progress selection intact.
+          onSubmit={(fd) => run(addPickup, fd, () => setEditing(draft ? "roster" : null))}
+          onCancel={() => setEditing(draft ? "roster" : null)}
         />
       )}
     </section>
@@ -173,34 +178,43 @@ export function EventRoster({
  * something.
  */
 function SetEventRosterSheet({
-  tournament, seasonRoster, participants, seasonName, pending, onSubmit, onCancel, onAddPickup,
+  tournament, seasonRoster, participants, seasonName, pending, draft, onSubmit, onCancel, onAddPickup,
 }) {
   const existing = useMemo(
     () => new Map(participants.filter((p) => p.participation === "roster").map((p) => [p.player_id, p])),
     [participants]
   );
 
-  const [selected, setSelected] = useState(() => new Set(existing.keys()));
+  // Keyed on the persistent player id — r.player.id, not r.player_id, which
+  // this query does not return.
+  const [selected, setSelected] = useState(() => draft ?? new Set(existing.keys()));
 
-  const players = (seasonRoster ?? []).filter((r) => r.is_active);
+  // Players only. Coaches and staff never attend as participants, and
+  // including them made the denominator wrong as well as the list.
+  const players = (seasonRoster ?? []).filter(
+    (r) => r.is_active && r.player?.person_type === "player" && r.player?.id
+  );
 
-  const toggle = (id) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
+  const toggle = (playerId) => {
+    if (!playerId) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
   };
 
   function submit(formData) {
     formData.set("tournament_id", tournament.id);
     for (const r of players) {
-      if (!selected.has(r.player_id)) continue;
-      const prior = existing.get(r.player_id);
+      if (!selected.has(r.player.id)) continue;
+      const prior = existing.get(r.player.id);
       // Event values default from the season roster but are stored separately —
       // changing one here never writes back.
       const jersey = prior?.jersey_number ?? r.jersey_number ?? "";
       const positions = (prior?.positions ?? r.positions ?? []).join(",");
-      formData.append("participant", `${r.player_id}|roster|${jersey}|${positions}`);
+      formData.append("participant", `${r.player.id}|roster|${jersey}|${positions}`);
     }
     onSubmit(formData);
   }
@@ -225,7 +239,7 @@ function SetEventRosterSheet({
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  onClick={() => setSelected(new Set(players.map((r) => r.player_id)))}
+                  onClick={() => setSelected(new Set(players.map((r) => r.player.id)))}
                 >
                   Select active roster
                 </button>
@@ -237,11 +251,11 @@ function SetEventRosterSheet({
 
             <div className="er-pick-list">
               {players.map((r) => (
-                <label key={r.player_id} className="er-pick">
+                <label key={r.player.id} className="er-pick">
                   <input
                     type="checkbox"
-                    checked={selected.has(r.player_id)}
-                    onChange={() => toggle(r.player_id)}
+                    checked={selected.has(r.player.id)}
+                    onChange={() => toggle(r.player.id)}
                   />
                   <span className="er-pick-jersey">
                     {r.jersey_number != null ? `#${r.jersey_number}` : "—"}
@@ -260,7 +274,11 @@ function SetEventRosterSheet({
               )}
             </div>
 
-            <button type="button" className="er-add-pickup" onClick={onAddPickup}>
+            <button
+              type="button"
+              className="er-add-pickup"
+              onClick={() => onAddPickup(selected)}
+            >
               + Add someone who isn&rsquo;t on your roster
             </button>
           </div>

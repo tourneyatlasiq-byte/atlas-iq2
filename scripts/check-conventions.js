@@ -104,6 +104,30 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4b. Selection state must not key on a field the query never returns --
+   listSeasonRoster returns `id` and a nested `player` object, never
+   `player_id`. Keying React state on r.player_id gave every row the same
+   undefined key: clicking one checked them all. */
+
+for (const f of componentFiles()) {
+  const s2 = read(f);
+  // Scope to the function that receives seasonRoster, not a fixed window.
+  // tournament_participants rows legitimately have player_id, so matching the
+  // whole file would be a false positive.
+  const fnStart = s2.indexOf("function SetEventRosterSheet");
+  if (fnStart > -1) {
+    const nextFn = s2.indexOf("\nfunction ", fnStart);
+    const body = s2
+      .slice(fnStart, nextFn === -1 ? s2.length : nextFn)
+      // Strip comments: the note explaining this very bug mentions the string.
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/[^\n]*/g, "");
+    if (/\br\.player_id\b/.test(body)) {
+      failures.push(`${f}: keys on r.player_id where seasonRoster is used — that query returns r.player.id`);
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [

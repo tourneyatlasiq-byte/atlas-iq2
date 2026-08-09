@@ -102,6 +102,13 @@ passed for a while.
 - [ ] deleting participation keeps the player
 - [ ] pickup creates no roster row and no dues row
 - [ ] parent adds a participant → blocked
+- [ ] staff and inactive players never appear in the attendance picker
+- [ ] each checkbox toggles independently, keyed on the persistent player id
+- [ ] the counter matches the number checked
+- [ ] Select active roster then Clear returns to zero
+- [ ] Save persists, and reopening shows exactly what was saved
+- [ ] a pickup survives an edit to the regular attendees
+- [ ] Add pickup is reachable without saving first, and the selection survives
 
 ### Isolation
 
@@ -169,6 +176,24 @@ do? Where do I click? What happens next?*
 - [ ] Tables become compact rows on mobile, not shrunken columns
 
 ---
+
+## Deployment verification — before reporting anything as done
+
+**Source containing a change is not the same as the change being live.**
+
+Reporting a rename as complete while the running application shows the old
+wording wastes a review cycle and erodes trust in every other claim in the
+report.
+
+Before saying a milestone is done:
+
+- [ ] Confirm the change is in the source file
+- [ ] Confirm the package was handed over
+- [ ] **Confirm it was pushed and the build went green**
+- [ ] State plainly which of these have and have not happened
+
+When a change is packaged but not pushed, say so — do not describe it in the
+past tense as though the user can see it.
 
 ## Before every commit
 

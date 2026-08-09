@@ -2304,6 +2304,17 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .rel-link { min-height: 32px; display: inline-flex; align-items: center; }
 }
 
+/* The save action must stay visible while the list scrolls. This was defined
+   only inside the mobile query, so on desktop it scrolled out of reach. */
+.modal-sheet { display: flex; flex-direction: column; max-height: 86vh; }
+.modal-sheet form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.modal-sheet .modal-body { overflow-y: auto; flex: 1; min-height: 0; }
+.modal-foot-sticky {
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 14px 20px; box-shadow: 0 -6px 16px rgba(11,35,65,0.06);
+}
+
 /* ===== Event roster =====
    Attendance for one weekend, not roster management. */
 
