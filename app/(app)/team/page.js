@@ -2,6 +2,7 @@ import { getContext, canWrite } from "../../../lib/context";
 import {
   listSeasonRoster,
   listAssignablePlayers,
+  organizationPlayerCount,
   deriveSummary,
 } from "../../../lib/queries/roster";
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
@@ -9,10 +10,12 @@ import { createClient } from "../../../lib/supabase/server";
 import { pickupsForSeason } from "../../../lib/queries/participants";
 import { RosterClient } from "../../../components/RosterClient";
 
+import { SetupNext, setupState } from "../../../components/SetupNext";
+
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage({ searchParams }) {
-  const { profile, organization, season, seasonPhase } = await getContext();
+  const { profile, organization, team, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -48,10 +51,15 @@ export default async function TeamPage({ searchParams }) {
     (payRows ?? []).filter((r) => r.player_id).map((r) => [r.player_id, r.id])
   );
 
+  const setup = await setupState(createClient(), { organization, team, season, profile });
+
   return (
+    <>
+      <SetupNext steps={setup.steps} hidden={setup.hidden} currentStepId="roster" />
     <RosterClient
       rows={withDocs}
       assignable={assignable}
+      orgPlayerCount={await organizationPlayerCount(organization.id)}
       summary={deriveSummary(rows)}
       canWrite={canWrite(profile)}
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
@@ -62,5 +70,6 @@ export default async function TeamPage({ searchParams }) {
       pickups={await pickupsForSeason(season.id)}
       autoOpen={(await searchParams)?.add === "person"}
     />
+    </>
   );
 }

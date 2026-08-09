@@ -12,6 +12,8 @@ import {
 import { createClient } from "../../../lib/supabase/server";
 import { FinanceClient } from "../../../components/FinanceClient";
 
+import { SetupNext, setupState } from "../../../components/SetupNext";
+
 export const dynamic = "force-dynamic";
 
 async function pickers(seasonId, organizationId) {
@@ -43,7 +45,7 @@ const TAB_ALIASES = {
 };
 
 export default async function FinancePage({ searchParams }) {
-  const { profile, organization, season, seasonPhase } = await getContext();
+  const { profile, organization, team, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -71,7 +73,11 @@ export default async function FinancePage({ searchParams }) {
   const params = await searchParams;
   const requestedTab = TAB_ALIASES[params?.tab] ?? "budget";
 
+  const setup = await setupState(createClient(), { organization, team, season, profile });
+
   return (
+    <>
+      <SetupNext steps={setup.steps} hidden={setup.hidden} currentStepId="dues" />
     <FinanceClient
       budget={budget}
       transactions={transactions}
@@ -91,5 +97,6 @@ export default async function FinancePage({ searchParams }) {
       autoOpen={params?.add === "1"}
       initialTournament={params?.tournament ?? null}
     />
+    </>
   );
 }

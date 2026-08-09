@@ -2458,3 +2458,42 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 }
 .login-alt a { font-weight: 600; color: var(--blue); }
 .login-alt a:hover { color: var(--blue-dark); text-decoration: underline; }
+
+/* Setup orientation — keeps a first-time coach on track after a step is done
+   on a page other than Home, where the checklist lives. */
+.setup-next {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 11px 16px; margin-bottom: 16px;
+  background: #f0f6fe; border: 1px solid #cfe0f7;
+  border-radius: var(--radius-control); max-width: 1120px;
+}
+.setup-next-progress {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue-dark);
+  flex-shrink: 0;
+}
+.setup-next-text { font-size: 13.5px; color: var(--navy); }
+.setup-next-link { font-size: 13.5px; font-weight: 600; color: var(--blue); }
+.setup-next-link:hover { text-decoration: underline; }
+.setup-next-home { margin-left: auto; font-size: 12.5px; color: var(--slate); }
+.setup-next-home:hover { color: var(--navy); text-decoration: underline; }
+
+/* Setup finished. Previously the card vanished with no acknowledgement. */
+.gs-complete {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap; border-left: 3px solid var(--status-good);
+}
+.gs-complete-title {
+  font-family: var(--font-display); font-size: 15px; font-weight: 800;
+  color: var(--navy); margin: 0 0 3px;
+}
+.gs-complete-body {
+  font-size: 13px; color: var(--slate); margin: 0; line-height: 1.55; max-width: 520px;
+}
+
+@media (max-width: 720px) {
+  .setup-next { padding: 10px 12px; gap: 8px; }
+  .setup-next-home { margin-left: 0; }
+  .gs-complete { flex-direction: column; align-items: stretch; }
+  .gs-complete .btn { min-height: 44px; }
+}

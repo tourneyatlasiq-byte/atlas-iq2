@@ -11,10 +11,13 @@ import { participantsBySeason, pickupCandidates } from "../../../lib/queries/par
 import { listSeasonRoster } from "../../../lib/queries/roster";
 import { TournamentClient } from "../../../components/TournamentClient";
 
+import { createClient } from "../../../lib/supabase/server";
+import { SetupNext, setupState } from "../../../components/SetupNext";
+
 export const dynamic = "force-dynamic";
 
 export default async function TournamentsPage({ searchParams }) {
-  const { profile, organization, season, seasonPhase } = await getContext();
+  const { profile, organization, team, season, seasonPhase } = await getContext();
 
   if (!season) {
     return (
@@ -46,7 +49,11 @@ export default async function TournamentsPage({ searchParams }) {
     documents: docsByTournament.get(t.id) ?? [],
   }));
 
+  const setup = await setupState(createClient(), { organization, team, season, profile });
+
   return (
+    <>
+      <SetupNext steps={setup.steps} hidden={setup.hidden} currentStepId="tournament" />
     <TournamentClient
       tournaments={withDocs}
       actions={seasonPhase === "current" ? tournamentActions(withDocs) : []}
@@ -64,5 +71,6 @@ export default async function TournamentsPage({ searchParams }) {
       playerDocuments={playerDocs}
       autoOpen={(await searchParams)?.add === "1"}
     />
+    </>
   );
 }

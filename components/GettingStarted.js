@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { hideGettingStarted } from "../lib/actions/onboarding";
+import { setupComplete } from "../lib/onboarding";
 
 /**
  * Getting started card.
@@ -15,13 +16,40 @@ import { hideGettingStarted } from "../lib/actions/onboarding";
  * a coach who genuinely doesn't need one of them.
  */
 export function GettingStarted({ steps }) {
+  const complete = setupComplete(steps);
   const [hidden, setHidden] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const done = steps.filter((s) => s.done).length;
-  if (hidden || done === steps.length) return null;
+  if (hidden) return null;
 
   const next = steps.find((s) => !s.done && s.href);
+
+  if (complete) {
+    return (
+      <div className="card gs-complete">
+        <div>
+          <p className="gs-complete-title">You&rsquo;re set up</p>
+          <p className="gs-complete-body">
+            Your team, roster, first tournament and dues are in. Atlas has what it needs to
+            run the season from here.
+          </p>
+        </div>
+        <button
+          className="btn btn-secondary"
+          disabled={pending}
+          onClick={() => {
+            setHidden(true);
+            startTransition(async () => {
+              await hideGettingStarted();
+            });
+          }}
+        >
+          {pending ? "Hiding…" : "Got it"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="card getting-started">

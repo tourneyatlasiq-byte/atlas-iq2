@@ -60,7 +60,7 @@ function uniformText(row) {
   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [] }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0 }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   // Pickups are not roster rows, so the lookup covers both. Each pickup is
@@ -470,6 +470,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       {adding && (
         <AddPersonFlow
           assignable={assignable}
+          orgPlayerCount={orgPlayerCount}
           seasonName={seasonName}
           pending={pending}
           onAssign={(fd) => run(assignExistingPlayer, fd, () => setAdding(false))}
@@ -671,7 +672,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
 
 /* ---------------- Add: search existing first ---------------- */
 
-function AddPersonFlow({ assignable, seasonName, pending, onAssign, onCreateNew, onCancel }) {
+function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, onAssign, onCreateNew, onCancel }) {
   const [query, setQuery] = useState("");
 
   const matches = useMemo(() => {
@@ -709,7 +710,11 @@ function AddPersonFlow({ assignable, seasonName, pending, onAssign, onCreateNew,
             />
           </div>
 
-          {assignable.length === 0 ? (
+          {orgPlayerCount === 0 ? (
+            <p className="section-body muted">
+              No players yet. Add your first person below — a name is all you need.
+            </p>
+          ) : assignable.length === 0 ? (
             <p className="section-body muted">
               Everyone in your organization is already on this roster.
             </p>

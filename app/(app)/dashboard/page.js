@@ -59,10 +59,6 @@ export default async function DashboardPage() {
 
   // Getting started steps derive entirely from data that already exists.
   const supabase = createClient();
-  const { count: facilityNoteCount } = await supabase
-    .from("organization_facilities")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organization.id);
 
   const steps = gettingStartedSteps({
     teamNamed: Boolean(team) && team.is_placeholder_name !== true,
@@ -70,7 +66,6 @@ export default async function DashboardPage() {
     rosterCount: roster.length,
     tournamentCount: tournaments.length,
     duesCount: payments.length,
-    facilityNoteCount: facilityNoteCount ?? 0,
     teamName: team?.name,
     seasonName: season?.name,
   });
