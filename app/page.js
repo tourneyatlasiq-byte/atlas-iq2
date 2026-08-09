@@ -43,7 +43,7 @@ export default async function HomePage() {
             ) : (
               <>
                 <Link href="/login" className="mk-signin">Sign in</Link>
-                <Link href="/login" className="btn btn-primary">Try Atlas</Link>
+                <Link href="/login?new=1" className="btn btn-primary">Try Atlas</Link>
               </>
             )}
           </div>
@@ -63,7 +63,7 @@ export default async function HomePage() {
               <Link href={appHref} className="btn btn-primary mk-btn-lg">Go to Atlas</Link>
             ) : (
               <>
-                <Link href="/login" className="btn btn-primary mk-btn-lg">Try Atlas</Link>
+                <Link href="/login?new=1" className="btn btn-primary mk-btn-lg">Try Atlas</Link>
                 <Link href="/login" className="btn btn-secondary mk-btn-lg">Sign in</Link>
               </>
             )}
@@ -238,7 +238,7 @@ export default async function HomePage() {
         <div className="mk-wrap">
           <h2>Ready to run your season?</h2>
           <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
-          <Link href={signedIn ? appHref : "/login"} className="btn btn-primary mk-btn-lg">
+          <Link href={signedIn ? appHref : "/login?new=1"} className="btn btn-primary mk-btn-lg">
             {signedIn ? "Go to Atlas" : "Try Atlas"}
           </Link>
         </div>

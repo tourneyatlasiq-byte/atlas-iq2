@@ -2439,3 +2439,14 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 .er-docs { font-size: 11.5px; flex-shrink: 0; }
 @media (max-width: 720px) { .er-docs { min-height: 32px; } }
+
+/* Auth entry: one magic-link flow, framed for who is arriving */
+.login-note {
+  margin-top: 10px; font-size: 12.5px; font-weight: 600;
+  color: var(--green); text-align: center;
+}
+.login-alt {
+  margin: 16px 0 0; text-align: center; font-size: 13px; color: var(--slate);
+}
+.login-alt a { font-weight: 600; color: var(--blue); }
+.login-alt a:hover { color: var(--blue-dark); text-decoration: underline; }
