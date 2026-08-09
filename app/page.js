@@ -250,6 +250,8 @@ export default async function HomePage() {
           <nav className="mk-footer-nav">
             <a href="#about">About</a>
             <a href="mailto:tourneyatlasiq@gmail.com">Contact</a>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
             {!signedIn && <Link href="/login">Sign in</Link>}
           </nav>
           <span className="mk-copyright">© {new Date().getFullYear()} Season Tempo</span>

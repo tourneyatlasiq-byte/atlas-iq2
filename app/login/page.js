@@ -147,6 +147,11 @@ function LoginForm() {
           )}
         </div>
 
+        <p className="login-legal">
+          By continuing you agree to our{" "}
+          <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.
+        </p>
+
         {copy.altText && (
           <p className="login-alt">
             {copy.altText}{" "}

@@ -205,3 +205,29 @@
   .mk-footer-nav { margin-left: 0; }
   .mk-copyright { margin-left: 0; }
 }
+
+/* Legal documents — reading width, generous line height. */
+.legal-page { background: var(--surface); min-height: 100vh; }
+.legal-wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 64px; }
+.legal-wrap h1 {
+  font-family: var(--font-display); font-size: 32px; font-weight: 800;
+  color: var(--navy); margin: 0 0 6px; letter-spacing: -0.02em;
+}
+.legal-meta { font-size: 12.5px; color: var(--slate); margin: 0 0 28px; }
+.legal-lede { font-size: 16px; line-height: 1.7; color: var(--navy); margin: 0 0 32px; }
+.legal-wrap h2 {
+  font-family: var(--font-display); font-size: 19px; font-weight: 800;
+  color: var(--navy); margin: 36px 0 10px;
+}
+.legal-wrap h3 {
+  font-family: var(--font-display); font-size: 15px; font-weight: 800;
+  color: var(--navy); margin: 22px 0 6px;
+}
+.legal-wrap p { font-size: 15px; line-height: 1.75; color: var(--navy); margin: 0 0 14px; }
+.legal-list { margin: 0 0 16px; padding-left: 20px; }
+.legal-list li { font-size: 15px; line-height: 1.75; color: var(--navy); margin-bottom: 7px; }
+
+@media (max-width: 720px) {
+  .legal-wrap { padding: 32px 18px 48px; }
+  .legal-wrap h1 { font-size: 26px; }
+}

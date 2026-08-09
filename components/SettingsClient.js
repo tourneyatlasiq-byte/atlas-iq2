@@ -239,6 +239,20 @@ export function SettingsClient({
         </div>
       </div>
 
+      <div className="settings-legal">
+        <span className="section-eyebrow">Legal</span>
+        <p>
+          <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>
+          <span className="tiq-dot" aria-hidden="true">·</span>
+          <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a>
+        </p>
+        <p className="field-note">
+          To delete your account and your organization&rsquo;s information, email us from the
+          address on your account.
+        </p>
+      </div>
+
+
       {editing === "organization" && (
         <NameForm
           title="Organization name"
