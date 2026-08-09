@@ -282,15 +282,28 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                   inside a button is invalid HTML and swallows the click. */}
               <div className="group-head-row">
                 <button
-                  className="group-head"
+                  className={`group-head${isCollapsed ? " is-collapsed" : ""}`}
                   onClick={() => setCollapsed({ ...collapsed, [decision]: !isCollapsed })}
                   aria-expanded={!isCollapsed}
                 >
                   <span className={`group-caret${isCollapsed ? " collapsed" : ""}`} aria-hidden="true">▾</span>
                   <span className={`group-title decision-${decision.toLowerCase()}`}>{decision}</span>
                   <span className="group-count">{rows.length}</span>
+
+                  {/* Collapsed, the heading is all there is — so it has to say
+                      what is inside rather than just how many. */}
+                  {isCollapsed && (
+                    <span className="group-preview">
+                      {rows
+                        .slice(0, 2)
+                        .map((r) => r.name)
+                        .join(", ")}
+                      {rows.length > 2 && ` and ${rows.length - 2} more`}
+                    </span>
+                  )}
+
+                  <span className="group-toggle">{isCollapsed ? "Show" : "Hide"}</span>
                 </button>
-                <HelpTip term={decision} />
               </div>
 
               {!isCollapsed && (
