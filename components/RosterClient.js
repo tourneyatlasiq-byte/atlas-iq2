@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
-import { NeedsAction, FilterChip } from "./NeedsAction";
+import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { DocumentSection } from "./DocumentSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -31,6 +31,12 @@ function fmtDate(d) {
   if (!d) return null;
   const [y, m, day] = d.split("-");
   return `${m}/${day}/${y}`;
+}
+
+/** Uniform as one string, for the mobile sub-line. */
+function uniformText(row) {
+  if (!row.jersey_size && !row.pants_size) return "Uniform not set";
+  return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
 export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false }) {
@@ -147,30 +153,50 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         </div>
         {canWrite && (
           <button className="btn btn-primary" onClick={() => setAdding(true)}>
-            Add person
+            Add player or coach
           </button>
         )}
       </div>
 
-      <div className="stat-grid">
-        <div className="card">
-          <div className="stat-label">Players</div>
-          <div className="stat-value">{summary.playerCount}</div>
-          <div className="stat-foot">active this season</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Coaches &amp; staff</div>
-          <div className="stat-value">{summary.staffCount}</div>
-          <div className="stat-foot">active this season</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Inactive</div>
-          <div className="stat-value">{summary.inactiveCount}</div>
-          <div className="stat-foot">still on the roster</div>
-        </div>
-      </div>
+      {/* Context, not headlines. This is a workspace — the roster is the point. */}
+      <p className="roster-context">
+        <strong>{summary.playerCount}</strong> active {summary.playerCount === 1 ? "player" : "players"}
+        {summary.staffCount > 0 && (
+          <>
+            <span className="tiq-dot" aria-hidden="true">·</span>
+            <strong>{summary.staffCount}</strong> {summary.staffCount === 1 ? "coach" : "coaches"}
+          </>
+        )}
+        {summary.inactiveCount > 0 && (
+          <>
+            <span className="tiq-dot" aria-hidden="true">·</span>
+            <strong>{summary.inactiveCount}</strong> inactive
+          </>
+        )}
+      </p>
 
-      <NeedsAction actions={actions} activeId={actionId} onSelect={setActionId} showWhenClear />
+      {/* Grows and shrinks with its content rather than reserving a card. */}
+      <div className="roster-actions">
+        {actions.length === 0 ? (
+          <p className="roster-clear">Nothing needs attention</p>
+        ) : (
+          actions.slice(0, 3).map((a) => (
+            <button
+              key={a.id}
+              className={`roster-action${actionId === a.id ? " on" : ""}`}
+              onClick={() => setActionId(actionId === a.id ? null : a.id)}
+            >
+              <span
+                className={`briefing-dot ${
+                  a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
+                }`}
+                aria-hidden="true"
+              />
+              <span className="roster-action-text">{a.detail}</span>
+            </button>
+          ))
+        )}
+      </div>
 
       {activeAction && (
         <FilterChip
@@ -222,16 +248,20 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             )}
           </div>
         ) : (
-          <table className="table">
+          <table className="table roster-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Grad</th>
+                <th className="col-num">#</th>
+                <th>Player</th>
+                <th>Grad Year</th>
                 <th>Positions</th>
-                <th>Jersey</th>
-                <th>Pants</th>
-                <th>Status</th>
+                <th>
+                  Uniform
+                  <span className="th-sub">Jersey · Pants</span>
+                </th>
+                {/* Every row says "Active" in the Active view. Only shown
+                    where statuses genuinely differ. */}
+                {filter === "all" && <th>Status</th>}
               </tr>
             </thead>
             <tbody>
@@ -247,21 +277,31 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                     className={`row-click${row.is_active ? "" : " row-inactive"}${isStaff ? " row-staff" : ""}`}
                     onClick={() => setDetail(row)}
                   >
-                    <td>
+                    <td className="col-num">
                       {isStaff ? (
-                        <span className="role-badge">{roleName.slice(0, 1).toUpperCase()}</span>
+                        <span className="muted">—</span>
                       ) : row.jersey_number != null ? (
                         <span className="jersey">{row.jersey_number}</span>
                       ) : (
                         <span className="muted">—</span>
                       )}
                     </td>
-                    <td>
+                    <td className="col-player">
                       <span className="cell-name">{p.full_name ?? "—"}</span>
                       {isStaff && <span className="role-tag">{roleName}</span>}
+                      {/* Mobile only: the rest of the row folds under the name. */}
+                      <span className="player-sub">
+                        {[
+                          isStaff ? roleName : p.grad_year,
+                          isStaff ? null : row.positions?.length ? row.positions.join(" / ") : null,
+                          isStaff ? null : uniformText(row),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
                     </td>
-                    <td>{isStaff ? <span className="muted">—</span> : p.grad_year ?? <span className="muted">—</span>}</td>
-                    <td>
+                    <td className="col-grad">{isStaff ? <span className="muted">—</span> : p.grad_year ?? <span className="muted">—</span>}</td>
+                    <td className="col-positions">
                       {isStaff ? (
                         <span className="muted">Staff</span>
                       ) : row.positions?.length ? (
@@ -270,13 +310,25 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                         <span className="muted">—</span>
                       )}
                     </td>
-                    <td>{row.jersey_size ?? <span className="muted">—</span>}</td>
-                    <td>{row.pants_size ?? <span className="muted">—</span>}</td>
-                    <td>
-                      <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
-                        {row.is_active ? "Active" : "Inactive"}
-                      </span>
+                    <td className="col-uniform">
+                      {isStaff ? (
+                        <span className="muted">—</span>
+                      ) : row.jersey_size || row.pants_size ? (
+                        <>
+                          {row.jersey_size ?? "—"} <span className="muted">·</span>{" "}
+                          {row.pants_size ?? "—"}
+                        </>
+                      ) : (
+                        <span className="muted">Not set</span>
+                      )}
                     </td>
+                    {filter === "all" && (
+                      <td className="col-status">
+                        <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
+                          {row.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

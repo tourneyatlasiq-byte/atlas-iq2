@@ -1829,3 +1829,67 @@ a.help-task.featured:hover { background: #eef4fe; }
   .tiq-list .group-head { padding: 12px; min-height: 44px; }
   .group-preview { display: none; }
 }
+
+/* ===== Team — roster workspace =====
+   No hero. Team inherits Atlas typography, spacing and colour without the
+   navy panel Home and Tournament IQ use: there is no "next player". */
+
+.roster-context {
+  font-size: 13.5px; color: var(--slate); margin: 0 0 12px; padding-left: 2px;
+}
+.roster-context strong { color: var(--navy); font-family: var(--font-display); font-weight: 800; }
+
+/* Grows with its content instead of reserving a card. */
+.roster-actions { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.roster-clear { font-size: 13px; color: var(--slate); margin: 0; padding: 4px 2px; }
+.roster-action {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 9px 10px; cursor: pointer; text-align: left;
+  font-family: var(--font-body); font-size: 13.5px; color: var(--navy);
+}
+.roster-action:hover { background: var(--surface-sunken); }
+.roster-action.on { background: #eef4fe; border-color: #cfe0f7; }
+.roster-action-text { flex: 1; min-width: 0; }
+
+/* --- Table --- */
+.th-sub {
+  display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.02em;
+  text-transform: none; color: var(--slate); margin-top: 1px;
+}
+
+.col-num { width: 52px; }
+.col-uniform { white-space: nowrap; }
+.col-status { width: 108px; }
+
+/* Number and name read as one block while staying separate columns. */
+.jersey {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px; padding: 0 7px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: 8px; font-family: var(--font-display);
+  font-weight: 800; font-size: 14px; color: var(--navy);
+}
+.col-player .cell-name { font-size: 15px; font-weight: 600; }
+
+/* Desktop shows real columns, so the folded sub-line is hidden. */
+.player-sub { display: none; }
+
+@media (max-width: 720px) {
+  /* Seven columns cannot shrink to a phone. Two lines per player, everything
+     else already lives in the drawer. */
+  .roster-table thead { display: none; }
+  .roster-table tr { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .roster-table td { display: block; padding: 0; border: none; }
+  .roster-table .col-grad,
+  .roster-table .col-positions,
+  .roster-table .col-uniform,
+  .roster-table .col-status { display: none; }
+  .col-num { width: auto; flex-shrink: 0; }
+  .col-player { flex: 1; min-width: 0; }
+  .player-sub {
+    display: block; font-size: 12.5px; color: var(--slate);
+    margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .roster-context { font-size: 12.5px; }
+}
