@@ -217,7 +217,11 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                       />
                       <span className="briefing-text">
                         <span className="briefing-what">{a.title}</span>
-                        <span className="briefing-where">{a.detail}</span>
+                        <span className="briefing-where">
+                          {a.affected?.length === 1 && a.affected[0]?.name
+                            ? a.affected[0].name
+                            : a.detail}
+                        </span>
                       </span>
                     </button>
                   </li>
@@ -279,7 +283,6 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                   aria-expanded={!isCollapsed}
                 >
                   <span className={`group-caret${isCollapsed ? " collapsed" : ""}`} aria-hidden="true">▾</span>
-                  <span className={`group-title-dot decision-dot-${decision.toLowerCase()}`} aria-hidden="true" />
                   <span className={`group-title decision-${decision.toLowerCase()}`}>{decision}</span>
                   <span className="group-count">{rows.length}</span>
                 </button>

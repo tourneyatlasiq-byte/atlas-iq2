@@ -1179,9 +1179,13 @@ a.help-item:hover { background: var(--bg); }
 .help-item-disabled .help-q { color: var(--slate); }
 
 /* Term help — click, not hover, so it works on a phone */
-.helptip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+.helptip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 8px; }
+/* Comfortable to hit without enlarging the visible control. */
+.helptip-btn::after {
+  content: ""; position: absolute; inset: -12px;
+}
 .helptip-btn {
-  width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+  width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
   border: 1px solid var(--border); background: var(--surface);
   color: var(--slate); font-size: 10px; font-weight: 800; line-height: 1;
   font-family: var(--font-body); padding: 0;
@@ -1691,10 +1695,13 @@ a.help-task.featured:hover { background: #eef4fe; }
 }
 .tiq-band .briefing-is-clear { align-self: start; }
 
-.tiq-nextup { min-height: 0; }
+.tiq-nextup { min-height: 0; padding: 18px 24px 16px; }
+.tiq-nextup .nextup-when { margin-top: 8px; }
+.tiq-nextup .nextup-name { margin-top: 8px; }
+.tiq-nextup .nextup-lines { margin-top: 6px; }
 .tiq-nextup-status {
-  display: flex; flex-wrap: wrap; gap: 8px 16px;
-  margin-top: auto; padding-top: 16px;
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  margin-top: auto; padding-top: 13px;
 }
 .tiq-flag {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1705,8 +1712,18 @@ a.help-task.featured:hover { background: #eef4fe; }
 .flag-quiet { color: rgba(255,255,255,0.6); font-weight: 500; }
 
 /* Needs Action here filters the list, so the active item stays marked. */
-.tiq-band .briefing-link { width: 100%; background: none; border: none; cursor: pointer; font-family: var(--font-body); }
+.tiq-band .briefing-link {
+  width: 100%; background: none; border: none; cursor: pointer;
+  font-family: var(--font-body); text-align: left;
+}
 .tiq-band .briefing-link.on { background: #eef4fe; }
+
+/* Left-aligned, not centred: this sits beside a working list, so it should
+   read as part of it. */
+.tiq-band .briefing-clear {
+  text-align: left; align-items: flex-start; padding: 14px 6px 12px;
+}
+.tiq-band .briefing-clear-good::before { margin-bottom: 8px; }
 
 .tiq-context {
   font-size: 13.5px; color: var(--slate); margin: 0 0 18px; padding-left: 2px;
@@ -1741,6 +1758,16 @@ a.help-task.featured:hover { background: #eef4fe; }
 
 @media (max-width: 1080px) {
   .tiq-band-grid { grid-template-columns: 1fr; }
+}
+
+/* Tablet: the sidebar is still 232px, so four columns leave about 66px for the
+   tournament name. Stack the row instead of clipping it. */
+@media (min-width: 721px) and (max-width: 900px) {
+  .t-row { flex-wrap: wrap; gap: 6px 12px; }
+  .t-main { flex-direction: column; align-items: flex-start; gap: 3px; flex-basis: 100%; }
+  .t-date { min-width: 0; font-size: 12.5px; color: var(--slate); }
+  .t-status { min-width: 0; text-align: left; }
+  .t-cost { margin-left: auto; }
 }
 
 @media (max-width: 720px) {
