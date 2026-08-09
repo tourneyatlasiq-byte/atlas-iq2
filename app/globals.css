@@ -2497,3 +2497,37 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .gs-complete { flex-direction: column; align-items: stretch; }
   .gs-complete .btn { min-height: 44px; }
 }
+
+/* Money input — a bare number field reads as a quantity, not an amount. */
+.input-money { position: relative; display: flex; align-items: center; }
+.input-money > span {
+  position: absolute; left: 12px; font-size: 14px;
+  color: var(--slate); pointer-events: none;
+}
+.input-money input { padding-left: 26px; width: 100%; }
+
+/* Bulk dues: one amount for the whole active roster, offered only where it
+   helps — the empty state. */
+.bulk-dues {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; flex-wrap: wrap; margin: 4px 0 10px;
+}
+.bulk-dues .input-money { width: 140px; }
+
+/* Type sits beside Name, so it needs less room than a full column. */
+.field-narrow { flex: 0 0 168px; }
+
+/* More details earns a visible edge — it was bare text and read as a label. */
+.more-details > summary {
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+  padding: 9px 13px; background: var(--surface-sunken);
+  font-weight: 600; font-size: 13.5px; color: var(--navy);
+}
+.more-details > summary:hover { border-color: var(--slate); }
+
+@media (max-width: 720px) {
+  .field-narrow { flex: 1 1 100%; }
+  .bulk-dues { flex-direction: column; align-items: stretch; }
+  .bulk-dues .input-money { width: 100%; }
+  .bulk-dues .btn { min-height: 44px; }
+}

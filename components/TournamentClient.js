@@ -146,11 +146,17 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
   function submit(formData) {
     setError(null);
     startTransition(async () => {
-      const action = editing === "new" ? addTournament : updateTournament;
+      const isNew = editing === "new";
+      const action = isNew ? addTournament : updateTournament;
       const result = await action(formData);
+
       if (result?.ok) {
         setEditing(null);
-        closeDetail();
+        // A new tournament opens straight into its drawer — registration,
+        // costs and event roster are all there, and the coach is already
+        // where the next decision happens. Editing just closes.
+        if (isNew && result.id) openDetail({ id: result.id });
+        else closeDetail();
       } else setError(result?.error ?? "Something went wrong. Try again.");
     });
   }

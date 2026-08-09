@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useMemo } from "react";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { NeedsAction, FilterChip } from "./NeedsAction";
+import { setDuesForAll } from "../lib/actions/finance";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import { isActual, CATEGORIES, TXN_STATUSES } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -310,6 +311,8 @@ export function FinanceClient({
           canWrite={canWrite}
           onAdd={() => setEditPay("new")}
           onOpen={(p) => openDetail(p)}
+          onBulk={(fd) => run(setDuesForAll, fd)}
+          pending={pending}
         />
       )}
 
@@ -1003,8 +1006,9 @@ const PAYMENT_VIEWS = [
  * Progress replaces three numeric columns a coach had to compare. Exact
  * amounts and payment history remain in the drawer.
  */
-export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
+export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending }) {
   const [view, setView] = useState("all");
+  const [bulkAmount, setBulkAmount] = useState("");
 
   const visible = payments.filter((p) => {
     if (view === "owes") return p.balance > 0;
@@ -1047,8 +1051,37 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
         {payments.length === 0 ? (
           <div className="empty">
             <h3>No player payments yet</h3>
-            <p>Set what each family owes for the season. Record payments as they arrive and Atlas keeps the balances for you.</p>
-            {canWrite && <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>}
+            <p>
+              Most teams charge the same amount to everyone. Set it once here, then adjust
+              individual players later if you need to.
+            </p>
+            {canWrite && (
+              <>
+                <div className="bulk-dues">
+                  <div className="input-money">
+                    <span aria-hidden="true">$</span>
+                    <input
+                      type="number" min="0" step="1" inputMode="decimal"
+                      placeholder="0" aria-label="Amount each player owes"
+                      value={bulkAmount}
+                      onChange={(e) => setBulkAmount(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    disabled={pending || !bulkAmount}
+                    onClick={() => {
+                      const fd = new FormData();
+                      fd.set("initial_cost", bulkAmount);
+                      onBulk(fd);
+                    }}
+                  >
+                    {pending ? "Setting…" : "Set for all active players"}
+                  </button>
+                </div>
+                <button className="btn btn-ghost" onClick={onAdd}>Set one player instead</button>
+              </>
+            )}
           </div>
         ) : visible.length === 0 ? (
           <div className="empty">
@@ -1242,8 +1275,12 @@ function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
             )}
             <div className="field">
               <label htmlFor="p-cost">Total due for the season</label>
-              <input id="p-cost" name="initial_cost" type="number" min="0" step="1" required
-                     defaultValue={row?.totalDue ?? ""} />
+              <div className="input-money">
+                <span aria-hidden="true">$</span>
+                <input id="p-cost" name="initial_cost" type="number" min="0" step="1" required
+                       inputMode="decimal" placeholder="0"
+                       defaultValue={row?.totalDue ?? ""} />
+              </div>
             </div>
           </div>
           <div className="modal-foot">

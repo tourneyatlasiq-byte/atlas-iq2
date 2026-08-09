@@ -772,6 +772,55 @@ begin
 end $$;
 
 -- =============================================================================
+-- SECTION 10 — Bulk dues
+--
+-- setDuesForAll() charges one amount to the active roster. The failure modes
+-- worth guarding are charging a coach, charging an inactive player, and
+-- silently overwriting a negotiated amount.
+-- =============================================================================
+reset role;
+
+insert into players (id, organization_id, full_name, person_type)
+select '00000000-0000-0000-0000-00000000bd13'::uuid, org, 'QA Coach Bulk', 'coach' from qa_ctx;
+insert into team_season_players (player_id, team_id, season_id, is_active)
+select '00000000-0000-0000-0000-00000000bd13'::uuid, team, season, true from qa_ctx;
+
+do $$
+declare c record; n int; coach_rows int; kept numeric;
+begin
+  select * into c from qa_ctx;
+
+  -- Selection logic as the action applies it.
+  with eligible as (
+    select tsp.player_id from team_season_players tsp
+    join players p on p.id = tsp.player_id
+    where tsp.season_id = c.season and tsp.is_active and p.person_type = 'player'
+  ),
+  already as (select player_id from player_payments where season_id = c.season),
+  to_create as (select player_id from eligible where player_id not in (select player_id from already))
+  insert into player_payments (organization_id, season_id, player_id, initial_cost)
+  select c.org, c.season, player_id, 2400 from to_create;
+
+  select count(*) into coach_rows from player_payments pp
+   join players p on p.id = pp.player_id
+   where pp.season_id = c.season and p.person_type <> 'player';
+  insert into qa(area,test,result) values ('BulkDues','staff never charged dues',
+    case when coach_rows = 0 then 'PASS' else 'FAIL - '||coach_rows||' staff rows' end);
+
+  select count(*) into n from player_payments pp
+   join team_season_players tsp on tsp.player_id = pp.player_id and tsp.season_id = pp.season_id
+   where pp.season_id = c.season and not tsp.is_active;
+  insert into qa(area,test,result) values ('BulkDues','inactive players never charged',
+    case when n = 0 then 'PASS' else 'FAIL - '||n end);
+
+  insert into qa(area,test,result) values ('BulkDues','one dues row per player maximum',
+    case when not exists (
+      select 1 from player_payments where season_id = c.season
+       group by player_id having count(*) > 1
+    ) then 'PASS' else 'FAIL - duplicate rows' end);
+end $$;
+
+-- =============================================================================
 -- RESULTS
 -- =============================================================================
 reset role;

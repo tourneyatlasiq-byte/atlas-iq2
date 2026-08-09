@@ -763,6 +763,7 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
   const p = row?.player ?? {};
   const isNew = !row;
   const [type, setType] = useState(p.person_type ?? "player");
+  const isPlayer = type === "player";
   const [positions, setPositions] = useState(row?.positions ?? []);
 
   function togglePosition(pos) {
@@ -786,42 +787,16 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
           </div>
 
           <div className="modal-body">
-            <div className="field">
-              <label htmlFor="full_name">Name</label>
-              <input id="full_name" name="full_name" required defaultValue={p.full_name ?? ""} />
-            </div>
-
             <div className="field-row">
               <div className="field">
-                <label htmlFor="date_of_birth">Date of birth</label>
-                <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
+                <label htmlFor="full_name">Name</label>
+                <input id="full_name" name="full_name" required defaultValue={p.full_name ?? ""} />
               </div>
-              <div className="field">
-                <label htmlFor="jersey_number">Jersey number</label>
-                <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
-                       defaultValue={row?.jersey_number ?? ""} />
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="parent_email">Parent email</label>
-              <input id="parent_email" name="parent_email" type="email" defaultValue={p.parent_email ?? ""} />
-            </div>
-
-            <details className="more-details" open={!isNew}>
-              <summary>More details</summary>
-
-            <div className="field-row">
-              <div className="field">
+              <div className="field field-narrow">
                 <label htmlFor="person_type">Type</label>
                 <select id="person_type" name="person_type" value={type} onChange={(e) => setType(e.target.value)}>
                   {PERSON_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-              </div>
-              <div className="field">
-                <label htmlFor="grad_year">Grad year</label>
-                <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
-                       defaultValue={p.grad_year ?? ""} />
               </div>
             </div>
 
@@ -830,6 +805,53 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                 <label htmlFor="other_role_label">Role</label>
                 <input id="other_role_label" name="other_role_label" placeholder="e.g. Team parent"
                        defaultValue={p.other_role_label ?? ""} />
+              </div>
+            )}
+
+            {/* Player-only fields. A coach has no jersey number, grad year or
+                parent contact, so showing them is noise they must read past. */}
+            {isPlayer && (
+              <>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="date_of_birth">Date of birth</label>
+                    <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="jersey_number">Jersey number</label>
+                    <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
+                           defaultValue={row?.jersey_number ?? ""} />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="parent_email">Parent email</label>
+                  <input id="parent_email" name="parent_email" type="email" defaultValue={p.parent_email ?? ""} />
+                </div>
+              </>
+            )}
+
+            {!isPlayer && (
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="player_email_staff">Email</label>
+                  <input id="player_email_staff" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
+                </div>
+                <div className="field">
+                  <label htmlFor="player_phone_staff">Phone</label>
+                  <input id="player_phone_staff" name="player_phone" defaultValue={p.player_phone ?? ""} />
+                </div>
+              </div>
+            )}
+
+            <details className="more-details" open={!isNew}>
+              <summary>More details</summary>
+
+            {isPlayer && (
+              <div className="field">
+                <label htmlFor="grad_year">Grad year</label>
+                <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
+                       defaultValue={p.grad_year ?? ""} />
               </div>
             )}
 
@@ -886,18 +908,22 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
             </div>
 
-            <div className="form-divider">Contact</div>
+            {isPlayer && (
+              <>
+                <div className="form-divider">Contact</div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="player_email">Player email</label>
-                <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
-              </div>
-              <div className="field">
-                <label htmlFor="player_phone">Player phone</label>
-                <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
-              </div>
-            </div>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="player_email">Player email</label>
+                    <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="player_phone">Player phone</label>
+                    <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="field-row">
               <div className="field">
