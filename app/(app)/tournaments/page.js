@@ -7,6 +7,8 @@ import {
 } from "../../../lib/queries/tournaments";
 import { tournamentActions } from "../../../lib/readiness/tournaments";
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
+import { participantsBySeason, pickupCandidates } from "../../../lib/queries/participants";
+import { listSeasonRoster } from "../../../lib/queries/roster";
 import { TournamentClient } from "../../../components/TournamentClient";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,13 @@ export default async function TournamentsPage({ searchParams }) {
     documentTargets(season.id, organization.id),
   ]);
 
+  const [participantMap, seasonRoster, candidates, playerDocs] = await Promise.all([
+    participantsBySeason(season.id),
+    listSeasonRoster(season.id),
+    pickupCandidates(organization.id, season.id),
+    documentsByEntity("player_id"),
+  ]);
+
   const withDocs = tournaments.map((t) => ({
     ...t,
     documents: docsByTournament.get(t.id) ?? [],
@@ -49,6 +58,10 @@ export default async function TournamentsPage({ searchParams }) {
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       documentTargets={docTargets}
       seasonName={season.name}
+      participants={Object.fromEntries(participantMap)}
+      seasonRoster={seasonRoster}
+      pickupCandidates={candidates}
+      playerDocuments={playerDocs}
       autoOpen={(await searchParams)?.add === "1"}
     />
   );

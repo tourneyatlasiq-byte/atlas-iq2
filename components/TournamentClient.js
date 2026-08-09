@@ -9,6 +9,7 @@ import { FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
 import { QuickAddFacility } from "./QuickAddFacility";
 import { GamesSection } from "./GamesSection";
+import { EventRoster } from "./EventRoster";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { TopoMotif } from "./TopoMotif";
 import { HelpTip } from "./HelpTip";
@@ -93,7 +94,7 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false }) {
+export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {} }) {
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
@@ -374,6 +375,9 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           isAdmin={isAdmin}
           documentTargets={documentTargets}
           seasonName={seasonName}
+          participants={participants[detail.id] ?? []}
+          seasonRoster={seasonRoster}
+          pickupCandidates={pickupCandidates}
           pending={pending}
           onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
@@ -430,7 +434,7 @@ function Row({ label, value }) {
   );
 }
 
-export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus }) {
+export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {} }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -610,6 +614,16 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
               }
             />
           </Section>
+
+          <EventRoster
+            tournament={t}
+            participants={participants}
+            seasonRoster={seasonRoster}
+            pickupCandidates={pickupCandidates}
+            playerDocuments={playerDocuments}
+            canWrite={canWrite}
+            seasonName={seasonName}
+          />
 
           <GamesSection
             tournament={t}

@@ -32,7 +32,7 @@ function componentFiles() {
 const DRAWER_MODULES = [
   ["TournamentClient.js", "tournaments", "detail"],
   ["FacilitiesClient.js", "facilities", "detail"],
-  ["RosterClient.js", "rows", "detail"],
+  ["RosterClient.js", "openable", "detail"],
   ["FilesClient.js", "documents", "detail"],
   ["FinanceClient.js", "payments", "detailPay"],
 ];

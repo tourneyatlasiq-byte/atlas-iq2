@@ -6,6 +6,7 @@ import {
 } from "../../../lib/queries/roster";
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
 import { createClient } from "../../../lib/supabase/server";
+import { pickupsForSeason } from "../../../lib/queries/participants";
 import { RosterClient } from "../../../components/RosterClient";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,7 @@ export default async function TeamPage({ searchParams }) {
       seasonName={season.name}
       seasonPhase={seasonPhase}
       paymentIdByPlayer={paymentIdByPlayer}
+      pickups={await pickupsForSeason(season.id)}
       autoOpen={(await searchParams)?.add === "person"}
     />
   );

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
+import { addPickupToRoster } from "../lib/actions/participants";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { DocumentSection } from "./DocumentSection";
@@ -59,10 +60,29 @@ function uniformText(row) {
   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {} }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [] }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
-  const { detail: detail, openDetail, closeDetail } = useOpenParam(rows);
+  // Pickups are not roster rows, so the lookup covers both. Each pickup is
+  // shaped like a roster row (id + player_id + player) so the drawer and the
+  // ?open= convention work unchanged.
+  const openable = useMemo(
+    () => [
+      ...rows,
+      ...pickups.map((p) => ({
+        id: p.player_id,
+        player_id: p.player_id,
+        player: p.player,
+        positions: p.positions,
+        jersey_number: p.jersey_number ?? null,
+        is_active: true,
+        isPickupOnly: true,
+      })),
+    ],
+    [rows, pickups]
+  );
+
+  const { detail, openDetail, closeDetail } = useOpenParam(openable);
   const [editing, setEditing] = useState(null); // row | "new" | null
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
@@ -241,6 +261,8 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         <div className="segmented" role="group" aria-label="Filter by status">
           {[
             { key: "active", label: "Active" },
+            // Pickup is a season view of participation, not a roster status.
+            { key: "pickup", label: "Pickup", count: pickups.length },
             { key: "inactive", label: "Inactive" },
             { key: "all", label: "All" },
           ].map((o) => (
@@ -251,12 +273,73 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
               aria-pressed={filter === o.key}
             >
               {o.label}
+              {o.count != null && <span className="seg-count">{o.count}</span>}
             </button>
           ))}
         </div>
         )}
       </div>
 
+      {filter === "pickup" ? (
+        <div className="card card-flush roster-card">
+          {pickups.length === 0 ? (
+            <div className="empty">
+              <h3>No pickup players this season</h3>
+              <p>
+                Someone who plays with you for a tournament without being on the season roster
+                appears here. Add them from a tournament&rsquo;s event roster.
+              </p>
+            </div>
+          ) : (
+            <table className="table roster-table">
+              <thead>
+                <tr>
+                  <th className="col-player">Player</th>
+                  <th className="col-grad">Grad Year</th>
+                  <th className="col-positions">Positions</th>
+                  <th>Played with us</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pickups.map((p) => (
+                  <tr key={p.player_id} className="row-click" onClick={() => openDetail({ id: p.player_id })}>
+                    <td className="col-player">
+                      <span className="cell-name">{p.player.full_name}</span>
+                      <span className="player-sub">
+                        {[p.player.grad_year, p.positions?.join(" / "),
+                          p.tournaments[0]?.name].filter(Boolean).join(" · ")}
+                      </span>
+                    </td>
+                    <td className="col-grad">
+                      {p.player.grad_year ?? <span className="muted">—</span>}
+                    </td>
+                    <td className="col-positions">
+                      {p.positions?.length ? p.positions.join(" / ") : <span className="muted">—</span>}
+                    </td>
+                    <td>
+                      {p.tournaments.length === 0 ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        <>
+                          <RelatedLink
+                            href={`/tournaments?open=${p.tournaments[0].id}`}
+                            season={p.tournaments[0].season_id}
+                          >
+                            {p.tournaments[0].name}
+                          </RelatedLink>
+                          {p.tournaments.length > 1 && (
+                            <span className="muted"> + {p.tournaments.length - 1} more</span>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : (
       <div className="card card-flush roster-card">
         {visible.length === 0 ? (
           <div className="empty">
@@ -359,6 +442,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           </table>
         )}
       </div>
+      )}
 
       {detail && !editing && (
         <PlayerDetail
@@ -373,6 +457,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           onRemove={() => remove(detail)}
           onDeleteForever={() => deleteForever(detail)}
           paymentId={paymentIdByPlayer[detail.player_id] ?? null}
+          pickupHistory={
+            (pickups.find((p) => p.player_id === (detail.player_id ?? detail.id))?.tournaments) ?? []
+          }
+          onRoster={rows.some((r) => r.player_id === (detail.player_id ?? detail.id))}
+          playerId={detail.player_id ?? detail.id}
+          onAddToRoster={(fd) => run(addPickupToRoster, fd)}
           onToggleActive={(next) => toggleActive(detail, next)}
         />
       )}
@@ -427,7 +517,7 @@ function Row({ label, value }) {
   );
 }
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster }) {
   const p = row.player ?? {};
 
   return (
@@ -461,6 +551,42 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
         </div>
 
         <div className="drawer-body">
+          {/* A pickup who is not on the season roster can be promoted without
+              creating a second person — every document and appearance stays. */}
+          {!onRoster && pickupHistory.length > 0 && onAddToRoster && (
+            <div className="drawer-related pickup-promote">
+              <p className="pickup-promote-text">
+                Played with you as a pickup but isn&rsquo;t on the {seasonName} roster.
+              </p>
+              <button
+                className="btn btn-secondary"
+                disabled={pending}
+                onClick={() => {
+                  const fd = new FormData();
+                  fd.set("player_id", playerId);
+                  onAddToRoster(fd);
+                }}
+              >
+                Add to {seasonName} roster
+              </button>
+            </div>
+          )}
+
+          {pickupHistory.length > 0 && (
+            <section className="detail-section">
+              <h3 className="detail-section-title">Played with us</h3>
+              <ul className="pickup-history">
+                {pickupHistory.map((t) => (
+                  <li key={t.id}>
+                    <RelatedLink href={`/tournaments?open=${t.id}`} season={t.season_id}>
+                      {t.name}
+                    </RelatedLink>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {paymentId && (
             <p className="drawer-related">
               <RelatedLink href={`/finance?tab=payments&open=${paymentId}`}>

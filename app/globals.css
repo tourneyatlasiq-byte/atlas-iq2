@@ -2303,3 +2303,128 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   .rel-link { min-height: 32px; display: inline-flex; align-items: center; }
 }
+
+/* ===== Event roster =====
+   Attendance for one weekend, not roster management. */
+
+.er-empty { padding: 4px 0 2px; }
+.er-empty-title { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 4px; }
+.er-empty-body { font-size: 13px; color: var(--slate); margin: 0 0 12px; line-height: 1.55; max-width: 460px; }
+
+.er-count { font-size: 13.5px; color: var(--slate); margin: 0 0 10px; }
+.er-count strong { font-family: var(--font-display); font-size: 16px; font-weight: 800; color: var(--navy); }
+.er-count-split { margin-left: 10px; font-size: 12.5px; }
+
+.er-list { list-style: none; margin: 0; padding: 0; }
+.er-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--border);
+}
+.er-row:first-child { border-top: none; }
+.er-jersey {
+  font-family: var(--font-display); font-weight: 800; font-size: 14px;
+  color: var(--navy); min-width: 34px; flex-shrink: 0;
+}
+.er-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.er-sub { font-size: 12px; color: var(--slate); }
+
+/* Only pickup is marked. A badge on every regular player would be noise. */
+.er-pickup {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  color: #5b3fc4; background: #f0edfb; border: 1px solid #ddd5f5;
+  border-radius: 999px; padding: 1px 7px;
+}
+
+.er-remove {
+  background: none; border: none; cursor: pointer; color: var(--slate);
+  font-size: 13px; padding: 6px 8px; border-radius: 6px; flex-shrink: 0;
+}
+.er-remove:hover { color: var(--status-urgent); background: var(--surface-sunken); }
+
+/* --- Set event roster --- */
+.er-select-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding-bottom: 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.er-selected-count { font-size: 13px; font-weight: 600; color: var(--navy); }
+.er-select-actions { display: flex; gap: 4px; }
+.er-select-actions .btn { padding: 5px 10px; font-size: 12.5px; }
+
+.er-pick-list { max-height: 340px; overflow-y: auto; margin: 0 -4px; }
+.er-pick {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 8px; border-radius: 8px; cursor: pointer; font-size: 14px;
+}
+.er-pick:hover { background: var(--surface-sunken); }
+.er-pick input { width: 20px; height: 20px; flex-shrink: 0; }
+.er-pick-jersey {
+  font-family: var(--font-display); font-weight: 800; font-size: 13px;
+  color: var(--navy); min-width: 32px;
+}
+.er-pick-name { flex: 1; min-width: 0; font-weight: 600; }
+.er-pick-pos { font-size: 12.5px; color: var(--slate); }
+
+.er-add-pickup {
+  display: block; width: 100%; margin-top: 14px; padding: 11px;
+  background: none; border: 1px dashed var(--border); border-radius: var(--radius-control);
+  cursor: pointer; font-family: var(--font-body); font-size: 13.5px;
+  font-weight: 600; color: var(--blue);
+}
+.er-add-pickup:hover { border-color: var(--blue); background: #f4f8fe; }
+
+/* --- Add pickup --- */
+.er-matches { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.er-match {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 10px 12px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); font-family: var(--font-body);
+}
+.er-match:hover:not(:disabled) { border-color: var(--blue); background: #f4f8fe; }
+.er-match:disabled { opacity: 0.55; cursor: not-allowed; }
+.er-match-name { font-size: 14px; font-weight: 600; color: var(--navy); }
+.er-match-meta { font-size: 12.5px; color: var(--slate); }
+.er-chosen { font-size: 14px; color: var(--navy); margin: 0 0 16px; }
+
+@media (max-width: 720px) {
+  /* Full-screen sheet with a sticky action — this is set in a car park. */
+  .modal-sheet {
+    position: fixed; inset: 0; width: 100vw; max-width: none;
+    height: 100dvh; border-radius: 0; display: flex; flex-direction: column;
+  }
+  .modal-sheet .modal-body { flex: 1; overflow-y: auto; }
+  .modal-foot-sticky {
+    position: sticky; bottom: 0; background: var(--surface);
+    border-top: 1px solid var(--border); padding: 12px 16px;
+  }
+  .modal-foot-sticky .btn { min-height: 48px; flex: 1; }
+
+  .er-pick { padding: 14px 8px; min-height: 52px; }
+  .er-pick input { width: 24px; height: 24px; }
+  .er-pick-list { max-height: none; }
+  .er-row { padding: 12px 0; }
+  .er-remove { min-width: 44px; min-height: 44px; }
+  .er-match { min-height: 56px; }
+}
+
+/* Promoting a pickup onto the season roster */
+.pickup-promote {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  background: #f0edfb; border: 1px solid #ddd5f5;
+  border-radius: var(--radius-control); padding: 12px 14px;
+}
+.pickup-promote-text { font-size: 13px; color: var(--navy); margin: 0; flex: 1; min-width: 180px; }
+
+.pickup-history { list-style: none; margin: 0; padding: 0; }
+.pickup-history li { padding: 7px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+.pickup-history li:first-child { border-top: none; }
+
+@media (max-width: 720px) {
+  .pickup-promote { flex-direction: column; align-items: stretch; }
+  .pickup-promote .btn { min-height: 44px; }
+}
+
+.er-docs { font-size: 11.5px; flex-shrink: 0; }
+@media (max-width: 720px) { .er-docs { min-height: 32px; } }
