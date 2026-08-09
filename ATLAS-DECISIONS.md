@@ -125,6 +125,44 @@ about how corrections happen, not just a trigger.
 
 **Logged as its own future milestone.**
 
+### Create-and-link is automatic
+When a related record is created from inside another record's workflow, Season
+Tempo connects it automatically wherever the relationship is unambiguous.
+
+*Why it is a rule and not a preference:* a coach adding a tournament had to
+scroll 178 facilities to reach "Add facility", create it, return, and find it
+again. The relationship was never in doubt — they were creating it *for* that
+tournament.
+
+Requires the create action to return the new id. `addTournament` does;
+`createFacility` and the roster create-person action did not, which is why both
+needed fixing rather than restyling.
+
+### Contacts are shared within an organization, not inline
+Five providers run 17 of 20 tournaments in the current data. Inline
+`contact_name`/`email`/`phone` columns would store one director's details six
+times and require six edits to change a phone number.
+
+*Rejected: a global shared directory.* Another club dealing with PGF may deal
+with a different person, and a shared directory needs moderation — the problem
+already solved once for facilities and not worth repeating.
+
+*Rejected: provider-level contact with tournament override.* A provider's
+events span several states, so the director differs by region. It would also
+make `contact_id IS NULL` ambiguous between "inherit" and "none". The keystroke
+saving is handled in the picker instead, which surfaces contacts already used
+for that provider.
+
+**`contact_category` is explicit.** An organization director is not "a contact
+with no links" — a tournament contact can exist in the directory before any
+event is linked to it.
+
+### College interests carry no status
+The request was colleges a player is interested in, plus the coach's contact
+details. A six-value recruiting status would be the start of a CRM nobody asked
+for. One column and one dropdown adds it later, by which point we will know
+which values coaches actually use.
+
 ---
 
 ## Money
