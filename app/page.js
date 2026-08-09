@@ -158,7 +158,8 @@ export default async function HomePage() {
         <div className="mk-wrap">
           <h2 className="mk-centered">Six things, one place</h2>
           <p className="mk-connect">
-            Everything connects, so you enter information once and find it wherever you need it.
+            Your season stays connected, so information follows the players, tournaments and
+            venues it belongs to.
           </p>
 
           <div className="mk-grid">
@@ -195,7 +196,7 @@ export default async function HomePage() {
           <h2 className="mk-centered">How a season runs</h2>
           <ol className="mk-flow">
             <Step name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Step>
-            <Step name="Commit">Decide what you&rsquo;re playing. Costs and reminders start counting.</Step>
+            <Step name="Commit">Decide what you&rsquo;re playing. Costs start counting, and it shows up in Needs Action.</Step>
             <Step name="Play">Record games and results as the weekend happens.</Step>
             <Step name="Track">Watch the budget, dues and what still needs attention.</Step>
             <Step name="Learn">Note what the venue was like and whether you&rsquo;d go back.</Step>
