@@ -2757,3 +2757,62 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .picked { flex-direction: column; align-items: stretch; }
   .link-type { min-width: 0; }
 }
+
+/* ===== Tournament drawer — progressive disclosure ===== */
+
+/* Four things a coach reaches for, with the answer already showing. */
+.t-actions {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px; margin-bottom: 16px;
+}
+.t-action {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 9px 4px; cursor: pointer; font-family: var(--font-body);
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-control); min-width: 0;
+}
+.t-action:hover { border-color: var(--slate); }
+.t-action-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--slate);
+}
+.t-action-value {
+  font-family: var(--font-display); font-size: 16px; font-weight: 800;
+  color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.t-status { margin-bottom: 4px; }
+
+/* Collapsed sections carry their answer in the heading — that is the point.
+   A collapsed section with a bare title only costs a tap. */
+.collapsible { padding: 0; border-top: 1px solid var(--border); }
+.collapsible-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 2px; cursor: pointer; text-align: left;
+  background: none; border: none; font-family: var(--font-body);
+}
+.collapsible-head:hover .collapsible-title { color: var(--blue); }
+.collapsible-caret {
+  font-size: 11px; color: var(--slate); transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.collapsible-caret.collapsed { transform: rotate(-90deg); }
+.collapsible-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 800; color: var(--navy);
+}
+.collapsible-summary {
+  margin-left: auto; font-size: 13px; color: var(--slate);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%;
+}
+.collapsible-summary.tone-quiet { color: var(--border-strong, #94a3b8); }
+.collapsible-body { padding: 0 2px 16px; }
+
+@media (max-width: 720px) {
+  /* Two rows of two rather than four cramped columns. */
+  .t-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .t-action { min-height: 56px; }
+  .t-action-value { font-size: 17px; }
+  .collapsible-head { min-height: 52px; }
+  .collapsible-summary { max-width: 45%; }
+}

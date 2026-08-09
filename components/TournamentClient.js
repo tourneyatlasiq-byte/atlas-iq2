@@ -12,6 +12,7 @@ import { GamesSection } from "./GamesSection";
 import { EventRoster } from "./EventRoster";
 import { SearchPicker } from "./SearchPicker";
 import { TournamentContact } from "./TournamentContact";
+import { Collapsible, tournamentPhase, gameRecord } from "./Collapsible";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { TopoMotif } from "./TopoMotif";
 import { HelpTip } from "./HelpTip";
@@ -460,9 +461,47 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
+
+  const games = t.games ?? [];
+  const phase = tournamentPhase(t);
+  const record = gameRecord(games);
+
+  const reviewed =
+    Boolean(t.placement) || t.overall_rating != null ||
+    t.would_play_again !== null || Boolean(t.history_notes);
+
+  const reviewSummary = reviewed
+    ? [
+        t.would_play_again === true ? "Would play again" : t.would_play_again === false ? "Wouldn't return" : null,
+        t.overall_rating ? `${t.overall_rating}/5` : null,
+        t.placement,
+      ].filter(Boolean).join(" · ") || "Completed"
+    : "Not completed";
+
+  const detailCount = [
+    t.provider?.name, t.age_division, t.tournament_type,
+    t.guaranteed_games, t.registration_deadline, t.travel_type, t.event_url,
+  ].filter((v) => v != null && v !== "").length;
+
+  /**
+   * Games opens while the event is happening — that is when scores are being
+   * entered. Everything else starts closed.
+   */
+  const [open, setOpen] = useState(() => ({ games: phase === "during" }));
+  const isOpen = (key) => Boolean(open[key]);
+  const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }));
+
+  /** The action row opens a section and scrolls to it. */
+  const reveal = (key) => {
+    setOpen((o) => ({ ...o, [key]: true }));
+    requestAnimationFrame(() => {
+      document.getElementById(`section-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const onAddGame = () => {
     setAddGameSignal((n) => n + 1);
-    document.getElementById("section-games")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    reveal("games");
   };
   return (
     <div className="drawer-backdrop" onClick={onClose}>
@@ -504,46 +543,36 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
         </div>
 
         <div className="drawer-body">
-          {canWrite && (
-            <div className="quick-actions">
-              <button className="quick-action" onClick={onAddGame}>+ Add game</button>
-              {t.paid_status !== "Paid in Full" && (
-                <button
-                  className="quick-action"
-                  onClick={() => onStatus(t.id, "paid_status", "Paid in Full")}
-                >
-                  Mark paid in full
-                </button>
-              )}
-              {t.decision === "Considering" && (
-                <button
-                  className="quick-action quick-action-primary"
-                  onClick={() => onStatus(t.id, "decision", "Committed")}
-                >
-                  Commit
-                </button>
-              )}
-              {t.event_url && (
-                <a className="quick-action" href={t.event_url} target="_blank" rel="noreferrer">
-                  Event page ↗
-                </a>
-              )}
-              <Link
-                className="quick-action"
-                href={`/finance?tab=transactions&tournament=${t.id}`}
-              >
-                Costs →
-              </Link>
-              <button className="quick-action" onClick={onEdit}>Edit details</button>
-            </div>
-          )}
+          {/* Four things a coach reaches for, with the answer already visible.
+              Each opens its section rather than navigating away. */}
+          <div className="t-actions">
+            <button className="t-action" onClick={() => reveal("games")}>
+              <span className="t-action-label">Games</span>
+              <span className="t-action-value">{games.length}</span>
+            </button>
+            <button className="t-action" onClick={() => reveal("roster")}>
+              <span className="t-action-label">Roster</span>
+              <span className="t-action-value">{participants.length}</span>
+            </button>
+            <button className="t-action" onClick={() => reveal("costs")}>
+              <span className="t-action-label">Costs</span>
+              <span className="t-action-value">{money(t.total_cost) || "—"}</span>
+            </button>
+            {canWrite && (
+              <button className="t-action" onClick={onEdit}>
+                <span className="t-action-label">Edit</span>
+                <span className="t-action-value">&nbsp;</span>
+              </button>
+            )}
+          </div>
 
+          {/* Registration stays open: it is the one control a coach changes
+              repeatedly across an event's life. The pills above summarise;
+              these change it. */}
           {canWrite && (
-            <div className="status-controls">
+            <div className="field-row t-status">
               <div className="field">
-                <label htmlFor="d-decision">
-                  Are we going? <HelpTip term={t.decision} />
-                </label>
+                <label htmlFor="d-decision">Are we going?</label>
                 <select
                   id="d-decision"
                   value={t.decision}
@@ -556,7 +585,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
               <div className="field">
                 <label htmlFor="d-paid">
                   Registration &amp; payment
-                  {t.paid_status === "Waitlisted" && <HelpTip term="Waitlisted" />}
+                  <HelpTip term="Registration and payment" />
                 </label>
                 <select
                   id="d-paid"
@@ -570,40 +599,8 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             </div>
           )}
 
-          {canWrite && (
-            <p className="status-note">
-              These are separate on purpose. <strong>Are we going?</strong> is your decision.{" "}
-              <strong>Registration &amp; payment</strong> is where the paperwork stands — it's
-              normal to be committed before you've registered.
-            </p>
-          )}
-
-          <Section title="Overview">
-            <Row label="Tournament Provider" value={t.provider?.name} />
-            <Row label="Age division" value={t.age_division} />
-            <Row label="Type" value={t.tournament_type} />
-            <Row label="Guaranteed games" value={t.guaranteed_games} />
-            <Row label="Dates" value={dateRange(t.start_date, t.end_date)} />
-            <Row label="City / State" value={t.location} />
-            {!canWrite && <Row label="Decision status" value={t.decision} />}
-            <Row label="Travel" value={t.travel_type} />
-          </Section>
-
-          <Section title="Registration">
-            <Row label="Deadline" value={t.registration_deadline ? dateRange(t.registration_deadline) : null} />
-            {!canWrite && <Row label="Registration status" value={t.paid_status} />}
-            <Row
-              label="Event page"
-              value={
-                t.event_url ? (
-                  <a className="link" href={t.event_url} target="_blank" rel="noreferrer">
-                    Open registration page
-                  </a>
-                ) : null
-              }
-            />
-          </Section>
-
+          {/* Kept open deliberately: this is why a coach opens a tournament on
+              a phone during an event. */}
           <TournamentContact
             tournament={t}
             contacts={contacts}
@@ -611,91 +608,159 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             canWrite={canWrite}
           />
 
-          <Section title="Costs">
-            <div className="cost-box">
-              <div className="cost-row"><span>Entry fee</span><span>{money(t.entry_fee)}</span></div>
-              <div className="cost-row"><span>Gate fee</span><span>{money(t.gate_fee)}</span></div>
-              <div className="cost-row cost-total"><span>Tournament Cost</span><span>{money(t.total_cost)}</span></div>
-            </div>
-            <p className="section-note">
-              Team-paid event cost only. Family lodging, meals and transportation are not team expenses.
+          <Collapsible
+            id="section-games"
+            title="Games"
+            summary={
+              games.length === 0
+                ? "None yet"
+                : record
+                  ? `${games.length} · ${record}`
+                  : `${games.length}`
+            }
+            open={isOpen("games")}
+            onToggle={() => toggle("games")}
+          >
+            <GamesSection
+              tournamentId={t.id}
+              games={games}
+              canWrite={canWrite}
+              openSignal={addGameSignal}
+            />
+          </Collapsible>
+
+          <Collapsible
+            id="section-roster"
+            title="Event roster"
+            summary={participants.length === 0 ? "Not set" : `${participants.length} attending`}
+            open={isOpen("roster")}
+            onToggle={() => toggle("roster")}
+          >
+            <EventRoster
+              tournament={t}
+              participants={participants}
+              seasonRoster={seasonRoster}
+              pickupCandidates={pickupCandidates}
+              playerDocuments={playerDocuments}
+              canWrite={canWrite}
+              seasonName={seasonName}
+            />
+          </Collapsible>
+
+          <Collapsible
+            id="section-costs"
+            title="Costs"
+            summary={money(t.total_cost) || "Not recorded"}
+            open={isOpen("costs")}
+            onToggle={() => toggle("costs")}
+          >
+            <Row label="Entry fee" value={money(t.entry_fee)} />
+            <Row label="Gate fee" value={money(t.gate_fee)} />
+            <Row label="Total cost" value={money(t.total_cost)} />
+            <p className="section-body">
+              <RelatedLink href={`/finance?tab=transactions&tournament=${t.id}`}>
+                See what we&rsquo;ve paid for this tournament
+              </RelatedLink>
             </p>
-          </Section>
+          </Collapsible>
 
-          <Section title="Facility">
-            <Row label="Facility" value={t.facility?.name} />
-            <Row
-              label="Location"
-              value={
-                t.facility
-                  ? [t.facility.city, t.facility.state].filter(Boolean).join(", ") || null
-                  : t.location
-              }
+          {/* Only fields with values. An empty tournament shows nothing rather
+              than a column of em-dashes. */}
+          <Collapsible
+            id="section-details"
+            title="Details"
+            summary={detailCount === 0 ? "None recorded" : null}
+            open={isOpen("details")}
+            onToggle={() => toggle("details")}
+          >
+            {detailCount === 0 ? (
+              <p className="section-body muted">Nothing recorded yet. Use Edit to add details.</p>
+            ) : (
+              <>
+                {t.provider?.name && <Row label="Tournament provider" value={t.provider.name} />}
+                {t.age_division && <Row label="Age division" value={t.age_division} />}
+                {t.tournament_type && <Row label="Type" value={t.tournament_type} />}
+                {t.guaranteed_games != null && (
+                  <Row label="Guaranteed games" value={t.guaranteed_games} />
+                )}
+                {t.registration_deadline && (
+                  <Row label="Registration deadline" value={fmtDate(t.registration_deadline)} />
+                )}
+                {t.travel_type && <Row label="Travel" value={t.travel_type} />}
+                {t.event_url && (
+                  <Row
+                    label="Event page"
+                    value={
+                      <a className="link" href={t.event_url} target="_blank" rel="noreferrer">
+                        Open event page
+                      </a>
+                    }
+                  />
+                )}
+              </>
+            )}
+          </Collapsible>
+
+          <Collapsible
+            id="section-documents"
+            title="Documents"
+            summary={`${(t.documents ?? []).length}`}
+            open={isOpen("documents")}
+            onToggle={() => toggle("documents")}
+          >
+            <DocumentSection
+              documents={t.documents ?? []}
+              lockTo={{ kind: "tournament", id: t.id, label: t.name }}
+              targets={documentTargets}
+              canWrite={canWrite}
+              isAdmin={isAdmin}
+              seasonName={seasonName}
             />
-            <Row
-              label="Map"
-              value={
-                t.facility?.maps_link ? (
-                  <a className="link" href={t.facility.maps_link} target="_blank" rel="noreferrer">
-                    Open in maps
-                  </a>
-                ) : null
-              }
-            />
-          </Section>
+          </Collapsible>
 
-          <EventRoster
-            tournament={t}
-            participants={participants}
-            seasonRoster={seasonRoster}
-            pickupCandidates={pickupCandidates}
-            playerDocuments={playerDocuments}
-            canWrite={canWrite}
-            seasonName={seasonName}
-          />
-
-          <GamesSection
-            tournament={t}
-            games={t.games ?? []}
-            canWrite={canWrite}
-            openSignal={addGameSignal}
-          />
-
-          <Section title="Notes">
+          <Collapsible
+            id="section-notes"
+            title="Notes"
+            summary={t.notes ? null : "None"}
+            open={isOpen("notes")}
+            onToggle={() => toggle("notes")}
+          >
             <p className="section-body">
               {t.notes ?? <span className="muted">No notes yet.</span>}
             </p>
-          </Section>
+          </Collapsible>
 
-          <DocumentSection
-            documents={t.documents ?? []}
-            lockTo={{ kind: "tournament", id: t.id, label: t.name }}
-            targets={documentTargets}
-            canWrite={canWrite}
-            isAdmin={isAdmin}
-            seasonName={seasonName}
-          />
-
-          <Section title="Post Tournament Review">
-            {t.placement || t.overall_rating || t.would_play_again !== null || t.history_notes ? (
-              <>
-                <Row label="Final placement" value={t.placement} />
-                <Row
-                  label="Overall rating"
-                  value={t.overall_rating ? `${"★".repeat(t.overall_rating)}${"☆".repeat(5 - t.overall_rating)}` : null}
-                />
-                <Row
-                  label="Would play again"
-                  value={t.would_play_again === null ? null : t.would_play_again ? "Yes" : "No"}
-                />
-                <Row label="Review notes" value={t.history_notes} />
-              </>
-            ) : (
-              <p className="section-body muted">
-                Not reviewed yet. Add a placement and rating once the tournament is played.
-              </p>
-            )}
-          </Section>
+          {/* Nothing to review before the event has happened. */}
+          {phase === "past" && (
+            <Collapsible
+              id="section-review"
+              title="Tournament review"
+              summary={reviewSummary}
+              tone={reviewed ? null : "quiet"}
+              open={isOpen("review")}
+              onToggle={() => toggle("review")}
+            >
+              {reviewed ? (
+                <>
+                  {t.placement && <Row label="Final placement" value={t.placement} />}
+                  {t.overall_rating && (
+                    <Row
+                      label="Overall rating"
+                      value={`${"★".repeat(t.overall_rating)}${"☆".repeat(5 - t.overall_rating)}`}
+                    />
+                  )}
+                  {t.would_play_again !== null && (
+                    <Row label="Would play again" value={t.would_play_again ? "Yes" : "No"} />
+                  )}
+                  {t.history_notes && <Row label="Review notes" value={t.history_notes} />}
+                </>
+              ) : (
+                <p className="section-body muted">
+                  Add a placement and rating so next season&rsquo;s planning has something to go on.
+                </p>
+              )}
+            </Collapsible>
+          )}
         </div>
 
         {canWrite && (
