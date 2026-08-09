@@ -81,10 +81,9 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
       if (key === "tournaments") return Boolean(d.tournament_id);
       return true;
     }).length;
-  const [detail, setDetail] = useState(null);
 
-  // ?open=<id> opens the matching drawer; closing clears the parameter.
-  const { clearOpenParam } = useOpenParam(documents, setDetail);
+  // Drawer state lives in the URL, so refresh and Back behave properly.
+  const { detail: detail, openDetail, closeDetail } = useOpenParam(documents);
   const [editing, setEditing] = useState(null);
   // Opened directly from the help panel.
   const [uploading, setUploading] = useState(autoOpen);
@@ -98,7 +97,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
       if (e.key !== "Escape") return;
       if (editing) setEditing(null);
       else if (uploading) setUploading(false);
-      else setDetail(null);
+      else closeDetail();
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -142,7 +141,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
     if (!confirm(`Delete "${doc.file_name}" permanently?\n\nThe stored file is removed as well. This cannot be undone.`)) return;
     const fd = new FormData();
     fd.set("id", doc.id);
-    run(deleteDocument, fd, () => setDetail(null));
+    run(deleteDocument, fd, () => closeDetail());
   }
 
   return (
@@ -242,7 +241,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
               {visible.map((d) => {
                 const r = relatedTo(d);
                 return (
-                  <tr key={d.id} className="row-click" onClick={() => setDetail(d)}>
+                  <tr key={d.id} className="row-click" onClick={() => openDetail(d)}>
                     <td className="cell-name">{d.file_name}</td>
                     <td><span className={`pill ${catClass(d.category)}`}>{d.category}</span></td>
                     <td>
@@ -278,7 +277,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
           d={detail}
           canWrite={canWrite}
           pending={pending}
-          onClose={() => { setDetail(null); clearOpenParam(); }}
+          onClose={() => { closeDetail(); }}
           onOpen={() => openFile(detail)}
           onEdit={() => setEditing(detail)}
           onDelete={() => remove(detail)}
@@ -291,7 +290,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
           targets={targets}
           isAdmin={isAdmin}
           pending={pending}
-          onSubmit={(fd) => run(updateDocument, fd, () => { setEditing(null); setDetail(null); })}
+          onSubmit={(fd) => run(updateDocument, fd, () => { setEditing(null); closeDetail(); })}
           onCancel={() => setEditing(null)}
         />
       )}

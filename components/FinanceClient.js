@@ -93,11 +93,11 @@ export function FinanceClient({
   // Opened directly from the help panel, alongside the requested tab.
   const [editTxn, setEditTxn] = useState(autoOpen && initialTab === "transactions" ? "new" : null);
   const [detailTxn, setDetailTxn] = useState(null);
-  const [detailPay, setDetailPay] = useState(null);
 
   // ?open=<player_payments.id> opens that payment drawer — the destination
   // record, not the player.
-  const { clearOpenParam } = useOpenParam(payments, setDetailPay);
+  // Drawer state lives in the URL, so refresh and Back behave properly.
+  const { detail: detailPay, openDetail, closeDetail } = useOpenParam(payments);
   const [editPay, setEditPay] = useState(null);
   const [openCats, setOpenCats] = useState({});
 
@@ -127,7 +127,7 @@ export function FinanceClient({
       else if (editTxn) setEditTxn(null);
       else if (editPay) setEditPay(null);
       else if (detailTxn) setDetailTxn(null);
-      else setDetailPay(null);
+      else closeDetail();
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -309,7 +309,7 @@ export function FinanceClient({
           payments={visiblePayments}
           canWrite={canWrite}
           onAdd={() => setEditPay("new")}
-          onOpen={(p) => setDetailPay(p)}
+          onOpen={(p) => openDetail(p)}
         />
       )}
 
@@ -356,13 +356,13 @@ export function FinanceClient({
           p={detailPay}
           canWrite={canWrite}
           pending={pending}
-          onClose={() => { setDetailPay(null); clearOpenParam(); }}
-          onRecord={(fd) => run(recordPayment, fd, () => setDetailPay(null))}
+          onClose={() => { closeDetail(); }}
+          onRecord={(fd) => run(recordPayment, fd, () => closeDetail())}
           onDeleteEntry={(entryId) => {
             if (!confirm("Remove this payment entry?")) return;
             const fd = new FormData();
             fd.set("id", entryId);
-            run(deletePaymentEntry, fd, () => setDetailPay(null));
+            run(deletePaymentEntry, fd, () => closeDetail());
           }}
           onEdit={() => setEditPay(detailPay)}
         />
@@ -374,7 +374,7 @@ export function FinanceClient({
           players={players}
           existing={payments}
           pending={pending}
-          onSubmit={(fd) => run(savePlayerPayment, fd, () => { setEditPay(null); setDetailPay(null); })}
+          onSubmit={(fd) => run(savePlayerPayment, fd, () => { setEditPay(null); closeDetail(); })}
           onCancel={() => setEditPay(null)}
         />
       )}

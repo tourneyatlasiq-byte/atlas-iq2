@@ -68,10 +68,9 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   const hasOwnVenues = facilities.some((f) => f.isOurs);
   const [view, setView] = useState(forceAllView || !hasOwnVenues ? "all" : "ours");
   const [openGroups, setOpenGroups] = useState({});
-  const [detail, setDetail] = useState(null);
 
-  // ?open=<id> opens the matching drawer; closing clears the parameter.
-  const { clearOpenParam } = useOpenParam(facilities, setDetail);
+  // Drawer state lives in the URL, so refresh and Back behave properly.
+  const { detail: detail, openDetail, closeDetail } = useOpenParam(facilities);
   const [historyTarget, setHistoryTarget] = useState(null);
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null);
@@ -90,7 +89,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
       else if (editingNotes) setEditingNotes(null);
       else if (suggesting) setSuggesting(null);
       else if (importing) setImporting(false);
-      else setDetail(null);
+      else closeDetail();
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -168,7 +167,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   /** Opens the drawer, optionally jumping to a history block. */
   function openFacility(f, target = null) {
     setHistoryTarget(target);
-    setDetail(f);
+    openDetail(f);
   }
 
   const groupKey = (state, county) => `${state}::${county}`;
@@ -187,7 +186,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
     if (!confirm(`Delete ${f.name}?\n\nFacilities are shared across Atlas. Only do this for a record created by mistake.`)) return;
     const fd = new FormData();
     fd.set("id", f.id);
-    run(deleteFacility, fd, () => setDetail(null));
+    run(deleteFacility, fd, () => closeDetail());
   }
 
   return (
@@ -384,19 +383,18 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onApprove={(id) => {
             const fd = new FormData();
             fd.set("edit_id", id);
-            run(approveFacilityCorrection, fd, () => setDetail(null));
+            run(approveFacilityCorrection, fd, () => closeDetail());
           }}
           onReject={(id, note) => {
             const fd = new FormData();
             fd.set("edit_id", id);
             if (note) fd.set("review_note", note);
-            run(rejectFacilityCorrection, fd, () => setDetail(null));
+            run(rejectFacilityCorrection, fd, () => closeDetail());
           }}
           pending={pending}
           onClose={() => {
-            setDetail(null);
+            closeDetail();
             setHistoryTarget(null);
-            clearOpenParam();
           }}
           onEdit={() => setEditing(detail)}
           onEditNotes={() => setEditingNotes(detail)}
@@ -413,12 +411,12 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onSubmit={(fd) =>
             run(editing === "new" ? createFacility : updateFacility, fd, () => {
               setEditing(null);
-              setDetail(null);
+              closeDetail();
             })
           }
           onPickExisting={(f) => {
             setEditing(null);
-            setDetail(f);
+            openDetail(f);
           }}
           onCancel={() => setEditing(null)}
         />
@@ -433,7 +431,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onSubmit={(fd) =>
             run(suggestFacilityCorrection, fd, () => {
               setSuggesting(null);
-              setDetail(null);
+              closeDetail();
             })
           }
           onCancel={() => setSuggesting(null)}
@@ -447,7 +445,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onSubmit={(fd) =>
             run(saveOrgFacilityNotes, fd, () => {
               setEditingNotes(null);
-              setDetail(null);
+              closeDetail();
             })
           }
           onCancel={() => setEditingNotes(null)}

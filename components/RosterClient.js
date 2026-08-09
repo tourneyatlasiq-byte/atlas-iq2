@@ -60,10 +60,9 @@ function uniformText(row) {
 }
 
 export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {} }) {
-  const [detail, setDetail] = useState(null);
 
-  // ?open=<id> opens the matching drawer; closing clears the parameter.
-  const { clearOpenParam } = useOpenParam(rows, setDetail);
+  // Drawer state lives in the URL, so refresh and Back behave properly.
+  const { detail: detail, openDetail, closeDetail } = useOpenParam(rows);
   const [editing, setEditing] = useState(null); // row | "new" | null
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
@@ -81,7 +80,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       if (e.key !== "Escape") return;
       if (editing) setEditing(null);
       else if (adding) setAdding(false);
-      else setDetail(null);
+      else closeDetail();
     }
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -135,7 +134,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     const action = editing === "new" ? addRosterMember : updateRosterMember;
     run(action, formData, () => {
       setEditing(null);
-      setDetail(null);
+      closeDetail();
     });
   }
 
@@ -144,7 +143,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     fd.set("assignment_id", row.id);
     fd.set("is_active", String(next));
     run(setRosterActive, fd, () => {
-      if (detail?.id === row.id) setDetail({ ...detail, is_active: next });
     });
   }
 
@@ -153,7 +151,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nTheir player record and history in other seasons are kept.`)) return;
     const fd = new FormData();
     fd.set("assignment_id", row.id);
-    run(removeRosterMember, fd, () => setDetail(null));
+    run(removeRosterMember, fd, () => closeDetail());
   }
 
   function deleteForever(row) {
@@ -162,7 +160,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     const fd = new FormData();
     fd.set("player_id", row.player?.id ?? "");
     fd.set("assignment_id", row.id);
-    run(deletePlayerPermanently, fd, () => setDetail(null));
+    run(deletePlayerPermanently, fd, () => closeDetail());
   }
 
   return (
@@ -300,7 +298,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                   <tr
                     key={row.id}
                     className={`row-click${row.is_active ? "" : " row-inactive"}${isStaff ? " row-staff" : ""}`}
-                    onClick={() => setDetail(row)}
+                    onClick={() => openDetail(row)}
                   >
                     <td className="col-num">
                       {isStaff ? (
@@ -370,7 +368,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           documentTargets={documentTargets}
           seasonName={seasonName}
           pending={pending}
-          onClose={() => { setDetail(null); clearOpenParam(); }}
+          onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
           onRemove={() => remove(detail)}
           onDeleteForever={() => deleteForever(detail)}

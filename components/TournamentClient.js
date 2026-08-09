@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useOpenParam } from "./useOpenParam";
+import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
 import { useRouter } from "next/navigation";
 import { FilterChip } from "./NeedsAction";
@@ -96,10 +97,9 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
-  const [detail, setDetail] = useState(null);
 
-  // ?open=<id> opens the matching drawer; closing clears the parameter.
-  const { clearOpenParam } = useOpenParam(tournaments, setDetail);
+  // Drawer state lives in the URL, so refresh and Back behave properly.
+  const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments);
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const [error, setError] = useState(null);
@@ -120,7 +120,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
     function onKey(e) {
       if (e.key !== "Escape") return;
       if (editing) setEditing(null);
-      else setDetail(null);
+      else closeDetail();
     }
 
     const prev = document.body.style.overflow;
@@ -149,7 +149,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       const result = await action(formData);
       if (result?.ok) {
         setEditing(null);
-        setDetail(null);
+        closeDetail();
       } else setError(result?.error ?? "Something went wrong. Try again.");
     });
   }
@@ -163,7 +163,6 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
     startTransition(async () => {
       const result = await setTournamentStatus(fd);
       if (!result?.ok) setError(result?.error ?? "Could not update that.");
-      else if (detail?.id === id) setDetail({ ...detail, [field]: value });
     });
   }
 
@@ -174,7 +173,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
     fd.set("id", row.id);
     startTransition(async () => {
       const result = await deleteTournament(fd);
-      if (result?.ok) setDetail(null);
+      if (result?.ok) closeDetail();
       else setError(result?.error ?? "Could not delete that.");
     });
   }
@@ -315,7 +314,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
                 <div className="card card-flush">
                   {rows.map((t) => (
                     <div key={t.id} className="t-row">
-                      <button className="t-main" onClick={() => setDetail(t)}>
+                      <button className="t-main" onClick={() => openDetail(t)}>
                         {/* Dates lead: this is the column a coach scans. */}
                         <span className="t-date">{dateRange(t.start_date, t.end_date)}</span>
 
@@ -376,7 +375,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           documentTargets={documentTargets}
           seasonName={seasonName}
           pending={pending}
-          onClose={() => { setDetail(null); clearOpenParam(); }}
+          onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
           onDelete={() => remove(detail)}
           onStatus={setStatus}
@@ -454,7 +453,19 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             <div className="drawer-head-meta">
               <span className="drawer-head-dates">{dateRange(t.start_date, t.end_date)}</span>
               {t.provider?.name && <span>{t.provider.name}</span>}
-              {placeLine(t) && <span>{placeLine(t)}</span>}
+              {placeLine(t) &&
+                (t.facility?.id ? (
+                  <span>
+                    <RelatedLink
+                      href={`/facilities?open=${t.facility.id}`}
+                      title={`Open ${t.facility.name} in Facilities`}
+                    >
+                      {placeLine(t)}
+                    </RelatedLink>
+                  </span>
+                ) : (
+                  <span>{placeLine(t)}</span>
+                ))}
             </div>
             <div className="drawer-head-pills">
               <span className={`pill decision-pill decision-pill-${t.decision.toLowerCase()}`}>
@@ -491,6 +502,12 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                   Event page ↗
                 </a>
               )}
+              <Link
+                className="quick-action"
+                href={`/finance?tab=transactions&tournament=${t.id}`}
+              >
+                Costs →
+              </Link>
               <button className="quick-action" onClick={onEdit}>Edit details</button>
             </div>
           )}
@@ -562,11 +579,6 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           </Section>
 
           <Section title="Costs">
-            <p className="section-body">
-              <RelatedLink href={`/finance?tab=transactions&tournament=${t.id}`}>
-                See what we&rsquo;ve paid for this tournament
-              </RelatedLink>
-            </p>
             <div className="cost-box">
               <div className="cost-row"><span>Entry fee</span><span>{money(t.entry_fee)}</span></div>
               <div className="cost-row"><span>Gate fee</span><span>{money(t.gate_fee)}</span></div>
@@ -578,13 +590,6 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           </Section>
 
           <Section title="Facility">
-            {t.facility?.id && (
-              <p className="section-body">
-                <RelatedLink href={`/facilities?open=${t.facility.id}`}>
-                  Open {t.facility.name} in Facilities
-                </RelatedLink>
-              </p>
-            )}
             <Row label="Facility" value={t.facility?.name} />
             <Row
               label="Location"
