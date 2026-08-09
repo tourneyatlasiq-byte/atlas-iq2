@@ -1,22 +1,44 @@
 # Atlas IQ — QA Checklist
 
-Permanent regression tests. Run the relevant sections before calling a
-milestone done; run **Security** in full before any release.
+## Definition of done
 
-Every security test uses a rolled-back transaction, so production data is never
-touched:
+A milestone is not done until all three pass:
 
-```sql
-begin;
-  set local role authenticated;
-  set local request.jwt.claims = '{"sub":"<user-id>","role":"authenticated"}';
-  -- attempt
-rollback;
+```bash
+npm run check                    # syntax + conventions, ~1 second
 ```
+```
+scripts/atlas-qa.sql             # paste into the Supabase SQL editor
+```
+```
+manual checks below              # the parts a machine cannot judge
+```
+
+**Automated — `scripts/atlas-qa.sql`.** One file, no dependencies, no install.
+Runs entirely inside a transaction that ends in ROLLBACK, so it is safe against
+production. Returns one row per test plus a verdict line; every row must read
+PASS. Covers tenant isolation, role escalation, RLS, season write protection,
+scoping, Finance calculations, invite security and document access.
+
+**Automated — `npm run check`.** Parses every file with the TypeScript parser in
+TSX mode, then asserts the code conventions: one drawer pattern with no local
+mirror, imports matching usage, server actions exporting only async functions,
+and no retired terminology in user-facing strings.
+
+**Manual — everything below.** The five-second test, visual review, mobile
+usability and browser back/forward stay human. A machine can confirm a button
+exists; it cannot tell you a coach will find it.
 
 ---
 
-## Security — all must fail
+## Automated coverage (do not duplicate manually)
+
+Everything in this section runs in `scripts/atlas-qa.sql`. Listed so you know
+what is already protected.
+
+---
+
+### Security — all must fail
 
 These have each caught a real vulnerability. Do not remove one because it has
 passed for a while.
@@ -144,3 +166,29 @@ and broke three production builds. `node --check` cannot parse JSX.
 The parser still won't catch an identifier that doesn't exist — `rows` instead
 of `tournaments` compiled fine and crashed at render. Verify a variable exists
 in scope before any scripted find-and-replace.
+
+
+---
+
+## Maintaining the suite
+
+**Add a test whenever a bug is found.** Every test in `atlas-qa.sql` exists
+because something went wrong once.
+
+**A failing test may be the test's fault.** The document-access assertion
+originally required a coach to see zero storage objects, which was wrong — a
+coach legitimately sees non-restricted ones. It was corrected to check
+restricted and orphaned objects specifically. A suite that cries wolf is worse
+than no suite, because people learn to ignore it.
+
+**The suite depends on demo-data ids** held in the `qa_ctx` table at the top of
+the file. If the demo organization is replaced, update those five values and
+nothing else.
+
+**Known gaps, deliberately manual:**
+
+- Browser behaviour — `?open=` routing, back/forward, refresh. Automating this
+  needs Playwright, which needs a network install.
+- Anything visual.
+- Storage object fetches through the API, as opposed to the RLS policy behind
+  them.
