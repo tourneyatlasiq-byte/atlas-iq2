@@ -199,6 +199,30 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4f. A component cannot read a column the query never selects ------
+   TournamentContact read tournament.contact_id for a whole milestone while
+   listTournaments never selected it, so the contact silently never appeared.
+   The component was right, the action was right, the query was not. */
+
+{
+  const checks = [
+    ["lib/queries/tournaments.js", ["contact_id", "facility:facilities", "provider:tournament_providers"]],
+    ["lib/queries/roster.js", ["jersey_number", "positions", "is_active"]],
+    ["lib/queries/participants.js", ["participation", "jersey_number"]],
+    ["lib/queries/contacts.js", ["contact_category", "organization_or_school"]],
+  ];
+
+  for (const [file, columns] of checks) {
+    if (!fs.existsSync(file)) continue;
+    const src = fs.readFileSync(file, "utf8");
+    for (const col of columns) {
+      if (!src.includes(col)) {
+        failures.push(`${file}: does not select \`${col}\`, which the UI reads`);
+      }
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [
