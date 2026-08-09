@@ -12,7 +12,7 @@ import { LogoLockup } from "./SeasonTempoLogo";
  */
 const NAV = [
   { href: "/dashboard", label: "Home" },
-  { href: "/tournaments", label: "Tournament IQ" },
+  { href: "/tournaments", label: "Tournaments" },
   { href: "/team", label: "Team" },
   { href: "/facilities", label: "Facilities" },
   { href: "/finance", label: "Finance" },

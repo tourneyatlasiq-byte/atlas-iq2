@@ -138,7 +138,7 @@ function NextUp({ nextUp }) {
           </span>
 
           <Link href="/tournaments" className="nextup-link">
-            Open in Tournament IQ <span aria-hidden="true">→</span>
+            Open in Tournaments <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>
@@ -233,7 +233,7 @@ function SeasonSnapshot({ summary }) {
   }
 
   return (
-    <Snapshot label="Season" mark="season" href="/tournaments" cta="Tournament IQ">
+    <Snapshot label="Season" mark="season" href="/tournaments" cta="Tournaments">
       <div className="snap-row-main">
         <div className="snap-hero">{summary.committedCount}</div>
         <div className="snap-hero-label">

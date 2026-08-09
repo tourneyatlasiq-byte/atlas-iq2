@@ -4,6 +4,8 @@ import { useState, useTransition, useEffect, useMemo } from "react";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { addPickupToRoster } from "../lib/actions/participants";
+import { RosterImport } from "./RosterImport";
+import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { DocumentSection } from "./DocumentSection";
@@ -86,6 +88,8 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   const [editing, setEditing] = useState(null); // row | "new" | null
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
   const [actionId, setActionId] = useState(null);
@@ -193,9 +197,14 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           <div className="page-sub">{MODULE_DESCRIPTIONS.team}</div>
         </div>
         {canWrite && (
-          <button className="btn btn-primary" onClick={() => setAdding(true)}>
-            Add player or coach
-          </button>
+          <div className="foot-actions">
+            <button className="btn btn-ghost" onClick={() => setImporting(true)}>
+              Import CSV
+            </button>
+            <button className="btn btn-primary" onClick={() => setAdding(true)}>
+              Add player or coach
+            </button>
+          </div>
         )}
       </div>
 
@@ -350,7 +359,14 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                 : "Try a different name or switch the status filter."}
             </p>
             {rows.length === 0 && canWrite && (
-              <button className="btn btn-primary" onClick={() => setAdding(true)}>Add player or coach</button>
+              <div className="empty-actions">
+                <button className="btn btn-primary" onClick={() => setImporting(true)}>
+                  Import from a spreadsheet
+                </button>
+                <button className="btn btn-secondary" onClick={() => setAdding(true)}>
+                  Add player or coach
+                </button>
+              </div>
             )}
           </div>
         ) : (
@@ -464,6 +480,18 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           playerId={detail.player_id ?? detail.id}
           onAddToRoster={(fd) => run(addPickupToRoster, fd)}
           onToggleActive={(next) => toggleActive(detail, next)}
+        />
+      )}
+
+      {importing && (
+        <RosterImport
+          pending={pending}
+          onImport={(fd) =>
+            run(importRoster, fd, () => {
+              setImporting(false);
+            })
+          }
+          onCancel={() => setImporting(false)}
         />
       )}
 

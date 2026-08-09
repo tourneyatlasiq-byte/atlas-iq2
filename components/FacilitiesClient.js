@@ -695,7 +695,7 @@ function HistoryTable({ rows }) {
               <RelatedLink
                 href={`/tournaments?open=${t.id}`}
                 season={t.season_id}
-                title={`Open ${t.name} in Tournament IQ`}
+                title={`Open ${t.name} in Tournaments`}
               >
                 {t.name}
               </RelatedLink>

@@ -191,7 +191,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
 
       <div className="page-head">
         <div>
-          <h1>Tournament IQ</h1>
+          <h1>Tournaments</h1>
           <div className="page-sub">{MODULE_DESCRIPTIONS.tournaments}</div>
         </div>
         {canWrite && (
@@ -946,7 +946,7 @@ function TiqNextUp({ tournament: t }) {
           <h2 className="nextup-name">Nothing committed yet</h2>
           <div className="nextup-lines">
             <span className="nextup-line">
-              Commit to a tournament and it appears here with everything you need for the weekend.
+              Commit to a tournament and keep its dates, costs, registration, games, and details together here.
             </span>
           </div>
         </div>

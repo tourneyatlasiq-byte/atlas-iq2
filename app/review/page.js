@@ -171,7 +171,7 @@ export default async function ReviewPage() {
         />
       </ReviewSection>
 
-      <ReviewSection number={3} title="Tournament IQ" note="Grouped by decision status." wide>
+      <ReviewSection number={3} title="Tournaments" note="Grouped by decision status." wide>
         <TournamentClient
           tournaments={tournamentsWithDocs}
           actions={tActions}
@@ -347,7 +347,7 @@ export default async function ReviewPage() {
         </ReviewSection>
       )}
 
-      <ReviewSection number={23} title="Files" note="Document library. Attachments surface in Team and Tournament IQ." wide>
+      <ReviewSection number={23} title="Files" note="Document library. Attachments surface in Team and Tournaments." wide>
         <FilesClient
           documents={documents}
           summary={documentSummary(documents)}
@@ -370,7 +370,7 @@ export default async function ReviewPage() {
       <ReviewSection number={25} title="Needs Action" note="One shared pattern used across every module.">
         <div className="rv-stack">
           <div>
-            <p className="rv-label">Tournament IQ</p>
+            <p className="rv-label">Tournaments</p>
             <NeedsAction actions={tActions} activeId={null} onSelect={noop} />
             {tActions.length === 0 && <p className="rv-empty">Nothing outstanding.</p>}
           </div>

@@ -115,7 +115,7 @@ export default async function HomePage() {
                       <span className="mk-preview-action-text">
                         1 tournament isn&rsquo;t registered yet
                       </span>
-                      <span className="mk-preview-action-where">Tournament IQ &rarr;</span>
+                      <span className="mk-preview-action-where">Tournaments &rarr;</span>
                     </span>
                   </div>
                 </div>
@@ -163,7 +163,7 @@ export default async function HomePage() {
           </p>
 
           <div className="mk-grid">
-            <Capability title="Tournament IQ">
+            <Capability title="Tournaments">
               Plan your schedule, weigh up events you&rsquo;re considering, and track
               registration, cost and results in one view.
             </Capability>
@@ -197,7 +197,7 @@ export default async function HomePage() {
           <ol className="mk-flow">
             <Step name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Step>
             <Step name="Commit">Decide what you&rsquo;re playing. Costs start counting, and it shows up in Needs Action.</Step>
-            <Step name="Play">Record games and results as the weekend happens.</Step>
+            <Step name="Play">Record games and results as the event happens.</Step>
             <Step name="Track">Watch the budget, dues and what still needs attention.</Step>
             <Step name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Step>
             <Step name="Next season">Carry your roster forward while keeping prior seasons preserved for reference.</Step>

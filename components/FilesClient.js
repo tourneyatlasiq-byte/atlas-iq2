@@ -254,7 +254,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
                         <RelatedLink
                           href={`/tournaments?open=${d.tournament_id}`}
                           season={d.season_id}
-                          title={`Open ${r.label} in Tournament IQ`}
+                          title={`Open ${r.label} in Tournaments`}
                         >
                           {r.label}
                         </RelatedLink>

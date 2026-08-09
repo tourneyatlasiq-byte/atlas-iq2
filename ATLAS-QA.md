@@ -136,6 +136,18 @@ passed for a while.
 
 ---
 
+## Roster import
+
+- [ ] a CSV with only a `name` column imports
+- [ ] reordered and Title Case headers are accepted
+- [ ] a quoted comma in a name stays one value
+- [ ] a row with no name is skipped and reported by position
+- [ ] a name already on the roster is skipped, not duplicated
+- [ ] a returning player reuses their existing `players` row
+- [ ] a file with no `name` column is refused before anything is written
+- [ ] imported rows land in the importing organization and season only
+- [ ] more than 200 rows is refused with a plain message
+
 ## Historical seasons
 
 The fixture must **deliberately create a past season with data in it**. No real

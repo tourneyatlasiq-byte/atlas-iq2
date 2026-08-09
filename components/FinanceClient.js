@@ -724,7 +724,7 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
                         <RelatedLink
                           href={`/tournaments?open=${t.tournament.id}`}
                           season={t.season_id}
-                          title={`Open ${t.tournament.name} in Tournament IQ`}
+                          title={`Open ${t.tournament.name} in Tournaments`}
                         >
                           {t.tournament.name}
                         </RelatedLink>

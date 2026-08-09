@@ -2531,3 +2531,18 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .bulk-dues .input-money { width: 100%; }
   .bulk-dues .btn { min-height: 44px; }
 }
+
+/* Roster import — the empty state offers both paths as equals. */
+.empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.import-summary { font-size: 13.5px; color: var(--navy); margin: 16px 0 8px; }
+.import-preview {
+  max-height: 300px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+}
+.import-preview .table { margin: 0; }
+
+@media (max-width: 720px) {
+  .empty-actions { flex-direction: column; }
+  .empty-actions .btn { width: 100%; min-height: 44px; }
+  .import-preview { max-height: none; }
+}
