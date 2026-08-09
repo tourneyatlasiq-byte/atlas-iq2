@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { useOpenParam } from "./useOpenParam";
+import { RelatedLink } from "./RelatedLink";
 import { useRouter } from "next/navigation";
 import { FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
@@ -95,6 +97,9 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
   const [detail, setDetail] = useState(null);
+
+  // ?open=<id> opens the matching drawer; closing clears the parameter.
+  const { clearOpenParam } = useOpenParam(rows, setDetail);
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const [error, setError] = useState(null);
@@ -237,7 +242,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       </div>
 
       {/* Context, not headlines. The list is the point of this screen. */}
-      <p className="tiq-context">
+      <p className="page-context">
         <strong>{summary.committedCount}</strong> committed
         <span className="tiq-dot" aria-hidden="true">·</span>
         <strong>{money(summary.committedCost)}</strong> committed cost
@@ -371,7 +376,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           documentTargets={documentTargets}
           seasonName={seasonName}
           pending={pending}
-          onClose={() => setDetail(null)}
+          onClose={() => { setDetail(null); clearOpenParam(); }}
           onEdit={() => setEditing(detail)}
           onDelete={() => remove(detail)}
           onStatus={setStatus}
@@ -557,6 +562,11 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           </Section>
 
           <Section title="Costs">
+            <p className="section-body">
+              <RelatedLink href={`/finance?tab=transactions&tournament=${t.id}`}>
+                See what we&rsquo;ve paid for this tournament
+              </RelatedLink>
+            </p>
             <div className="cost-box">
               <div className="cost-row"><span>Entry fee</span><span>{money(t.entry_fee)}</span></div>
               <div className="cost-row"><span>Gate fee</span><span>{money(t.gate_fee)}</span></div>
@@ -568,6 +578,13 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           </Section>
 
           <Section title="Facility">
+            {t.facility?.id && (
+              <p className="section-body">
+                <RelatedLink href={`/facilities?open=${t.facility.id}`}>
+                  Open {t.facility.name} in Facilities
+                </RelatedLink>
+              </p>
+            )}
             <Row label="Facility" value={t.facility?.name} />
             <Row
               label="Location"

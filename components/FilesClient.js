@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { useOpenParam } from "./useOpenParam";
+import { RelatedLink } from "./RelatedLink";
 import { createClient } from "../lib/supabase/client";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import {
@@ -80,6 +82,9 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
       return true;
     }).length;
   const [detail, setDetail] = useState(null);
+
+  // ?open=<id> opens the matching drawer; closing clears the parameter.
+  const { clearOpenParam } = useOpenParam(documents, setDetail);
   const [editing, setEditing] = useState(null);
   // Opened directly from the help panel.
   const [uploading, setUploading] = useState(autoOpen);
@@ -156,7 +161,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
         )}
       </div>
 
-      <p className="files-context">
+      <p className="page-context">
         <strong>{summary.total}</strong> {summary.total === 1 ? "file" : "files"}
         <span className="tiq-dot" aria-hidden="true">·</span>
         <strong>{summary.orgTeam}</strong> team
@@ -185,7 +190,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
         <input
           className="toolbar-search"
           type="search"
-          placeholder="Search file name, category or related record"
+          placeholder="Search by file name or category"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search files"
@@ -241,7 +246,22 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
                     <td className="cell-name">{d.file_name}</td>
                     <td><span className={`pill ${catClass(d.category)}`}>{d.category}</span></td>
                     <td>
-                      <span className="muted">{r.kind}</span> {r.label}
+                      <span className="muted">{r.kind}</span>{" "}
+                      {d.player_id ? (
+                        <RelatedLink href={`/team?open=${d.player_id}`} title={`Open ${r.label} in Team`}>
+                          {r.label}
+                        </RelatedLink>
+                      ) : d.tournament_id ? (
+                        <RelatedLink
+                          href={`/tournaments?open=${d.tournament_id}`}
+                          season={d.season_id}
+                          title={`Open ${r.label} in Tournament IQ`}
+                        >
+                          {r.label}
+                        </RelatedLink>
+                      ) : (
+                        r.label
+                      )}
                     </td>
                     <td className="nowrap">{formatBytes(d.file_size)}</td>
                     <td className="nowrap">{fmtDate(d.uploaded_at)}</td>
@@ -258,7 +278,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
           d={detail}
           canWrite={canWrite}
           pending={pending}
-          onClose={() => setDetail(null)}
+          onClose={() => { setDetail(null); clearOpenParam(); }}
           onOpen={() => openFile(detail)}
           onEdit={() => setEditing(detail)}
           onDelete={() => remove(detail)}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { useOpenParam } from "./useOpenParam";
+import { RelatedLink } from "./RelatedLink";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import { isActual, CATEGORIES, TXN_STATUSES } from "../lib/finance-rules";
@@ -71,8 +73,18 @@ export function FinanceClient({
   initialTab = "budget",
   seasonPhase = "current",
   autoOpen = false,
+  initialTournament = null,
 }) {
   const [tab, setTab] = useState(initialTab);
+
+  /**
+   * ?tournament=<id> narrows Transactions to one event. Filtered from the
+   * transactions already in scope — no extra query. Cleared by the chip.
+   */
+  const [tournamentFilter, setTournamentFilter] = useState(initialTournament ?? null);
+  const filterTournament = tournamentFilter
+    ? tournaments.find((t) => t.id === tournamentFilter) ?? null
+    : null;
   const [actionId, setActionId] = useState(null);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
@@ -82,6 +94,10 @@ export function FinanceClient({
   const [editTxn, setEditTxn] = useState(autoOpen && initialTab === "transactions" ? "new" : null);
   const [detailTxn, setDetailTxn] = useState(null);
   const [detailPay, setDetailPay] = useState(null);
+
+  // ?open=<player_payments.id> opens that payment drawer — the destination
+  // record, not the player.
+  const { clearOpenParam } = useOpenParam(payments, setDetailPay);
   const [editPay, setEditPay] = useState(null);
   const [openCats, setOpenCats] = useState({});
 
@@ -340,7 +356,7 @@ export function FinanceClient({
           p={detailPay}
           canWrite={canWrite}
           pending={pending}
-          onClose={() => setDetailPay(null)}
+          onClose={() => { setDetailPay(null); clearOpenParam(); }}
           onRecord={(fd) => run(recordPayment, fd, () => setDetailPay(null))}
           onDeleteEntry={(entryId) => {
             if (!confirm("Remove this payment entry?")) return;
@@ -664,7 +680,7 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
   return (
     <>
       <div className="tab-head">
-        <input className="toolbar-search" type="search" placeholder="Search transactions"
+        <input className="toolbar-search" type="search" placeholder="Search by description or vendor"
                value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search transactions" />
         {canWrite && <button className="btn btn-primary" onClick={onAdd}>Add transaction</button>}
       </div>
@@ -700,6 +716,17 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
                     <span className="cell-name">{t.item}</span>
                     {t.is_income && <span className="role-tag">Income</span>}
                     {t.vendor && <div className="txn-vendor">{t.vendor}</div>}
+                    {t.tournament?.id && (
+                      <div className="txn-vendor">
+                        <RelatedLink
+                          href={`/tournaments?open=${t.tournament.id}`}
+                          season={t.season_id}
+                          title={`Open ${t.tournament.name} in Tournament IQ`}
+                        >
+                          {t.tournament.name}
+                        </RelatedLink>
+                      </div>
+                    )}
                   </td>
                   <td>
                     {t.budget_item

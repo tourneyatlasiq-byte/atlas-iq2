@@ -5,6 +5,7 @@ import {
   deriveSummary,
 } from "../../../lib/queries/roster";
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
+import { createClient } from "../../../lib/supabase/server";
 import { RosterClient } from "../../../components/RosterClient";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,15 @@ export default async function TeamPage({ searchParams }) {
     documents: docsByPlayer.get(r.player?.id) ?? [],
   }));
 
+  const { data: payRows } = await createClient()
+    .from("player_payments")
+    .select("id, player_id")
+    .eq("season_id", season.id);
+
+  const paymentIdByPlayer = Object.fromEntries(
+    (payRows ?? []).filter((r) => r.player_id).map((r) => [r.player_id, r.id])
+  );
+
   return (
     <RosterClient
       rows={withDocs}
@@ -47,6 +57,7 @@ export default async function TeamPage({ searchParams }) {
       documentTargets={targets}
       seasonName={season.name}
       seasonPhase={seasonPhase}
+      paymentIdByPlayer={paymentIdByPlayer}
       autoOpen={(await searchParams)?.add === "person"}
     />
   );

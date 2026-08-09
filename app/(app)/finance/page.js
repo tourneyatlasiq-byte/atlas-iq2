@@ -89,6 +89,7 @@ export default async function FinancePage({ searchParams }) {
       seasonPhase={seasonPhase}
       initialTab={requestedTab}
       autoOpen={params?.add === "1"}
+      initialTournament={params?.tournament ?? null}
     />
   );
 }

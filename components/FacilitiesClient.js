@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { useOpenParam } from "./useOpenParam";
+import { RelatedLink } from "./RelatedLink";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
 import { FacilityImport } from "./FacilityImport";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -67,6 +69,9 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   const [view, setView] = useState(forceAllView || !hasOwnVenues ? "all" : "ours");
   const [openGroups, setOpenGroups] = useState({});
   const [detail, setDetail] = useState(null);
+
+  // ?open=<id> opens the matching drawer; closing clears the parameter.
+  const { clearOpenParam } = useOpenParam(facilities, setDetail);
   const [historyTarget, setHistoryTarget] = useState(null);
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null);
@@ -214,7 +219,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
       )}
 
       {view === "ours" && ourCount > 0 && (
-        <p className="fac-context">
+        <p className="page-context">
           <strong>{ourCount}</strong> {ourCount === 1 ? "facility" : "facilities"}
           <span className="tiq-dot" aria-hidden="true">·</span>
           <strong>{facilities.filter((f) => f.isOurs && (f.upcoming ?? []).length > 0).length}</strong> with
@@ -391,6 +396,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onClose={() => {
             setDetail(null);
             setHistoryTarget(null);
+            clearOpenParam();
           }}
           onEdit={() => setEditing(detail)}
           onEditNotes={() => setEditingNotes(detail)}
@@ -687,7 +693,15 @@ function HistoryTable({ rows }) {
       <tbody>
         {rows.map((t) => (
           <tr key={t.id}>
-            <td className="cell-name">{t.name}</td>
+            <td className="cell-name">
+              <RelatedLink
+                href={`/tournaments?open=${t.id}`}
+                season={t.season_id}
+                title={`Open ${t.name} in Tournament IQ`}
+              >
+                {t.name}
+              </RelatedLink>
+            </td>
             <td className="muted nowrap">{fmtDate(t.start_date)}</td>
             <td>
               {t.decision === "Declined" ? (

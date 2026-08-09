@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { useOpenParam } from "./useOpenParam";
+import { RelatedLink } from "./RelatedLink";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { DocumentSection } from "./DocumentSection";
@@ -57,8 +59,11 @@ function uniformText(row) {
   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {} }) {
   const [detail, setDetail] = useState(null);
+
+  // ?open=<id> opens the matching drawer; closing clears the parameter.
+  const { clearOpenParam } = useOpenParam(rows, setDetail);
   const [editing, setEditing] = useState(null); // row | "new" | null
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
@@ -177,7 +182,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       </div>
 
       {/* Context, not headlines. This is a workspace — the roster is the point. */}
-      <p className="roster-context">
+      <p className="page-context">
         <strong>{summary.playerCount}</strong> active {summary.playerCount === 1 ? "player" : "players"}
         {summary.staffCount > 0 && (
           <>
@@ -229,7 +234,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         <input
           className="toolbar-search"
           type="search"
-          placeholder="Search by name"
+          placeholder="Search by player or coach name"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search roster by name"
@@ -365,10 +370,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           documentTargets={documentTargets}
           seasonName={seasonName}
           pending={pending}
-          onClose={() => setDetail(null)}
+          onClose={() => { setDetail(null); clearOpenParam(); }}
           onEdit={() => setEditing(detail)}
           onRemove={() => remove(detail)}
           onDeleteForever={() => deleteForever(detail)}
+          paymentId={paymentIdByPlayer[detail.player_id] ?? null}
           onToggleActive={(next) => toggleActive(detail, next)}
         />
       )}
@@ -423,7 +429,7 @@ function Row({ label, value }) {
   );
 }
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId }) {
   const p = row.player ?? {};
 
   return (
@@ -457,6 +463,13 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
         </div>
 
         <div className="drawer-body">
+          {paymentId && (
+            <p className="drawer-related">
+              <RelatedLink href={`/finance?tab=payments&open=${paymentId}`}>
+                See what this player owes and has paid
+              </RelatedLink>
+            </p>
+          )}
           {canWrite && (
             <div className="status-controls">
               <div className="field">
