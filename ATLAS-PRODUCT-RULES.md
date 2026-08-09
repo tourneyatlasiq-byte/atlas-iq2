@@ -461,6 +461,12 @@ record a regular roster player as a pickup and corrupt the historical meaning.
 Validated at write time. If a pickup later joins the season roster, their
 earlier pickup rows stand — she genuinely was a pickup at that event.
 
+**Players only.** Coaches, managers and other staff are on the season roster
+but never dress as participants. `players.person_type` is the authoritative
+source — the same field the roster counts and readiness rules read. Enforced in
+the trigger, not just filtered from the picker, so a direct API call cannot
+record a coach as having played.
+
 **Never auto-populated.** An empty event roster means "not recorded yet", never
 "everyone attended".
 

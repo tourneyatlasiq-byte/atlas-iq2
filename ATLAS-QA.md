@@ -103,6 +103,8 @@ passed for a while.
 - [ ] pickup creates no roster row and no dues row
 - [ ] parent adds a participant → blocked
 - [ ] staff and inactive players never appear in the attendance picker
+- [ ] staff participant via direct API, as roster → **blocked by trigger**
+- [ ] staff participant via direct API, as pickup → **blocked by trigger**
 - [ ] each checkbox toggles independently, keyed on the persistent player id
 - [ ] the counter matches the number checked
 - [ ] Select active roster then Clear returns to zero

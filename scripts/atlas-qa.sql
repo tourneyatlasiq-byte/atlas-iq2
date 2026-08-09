@@ -516,7 +516,7 @@ set local request.jwt.claims = '{"sub":"9e66ec43-a138-4945-be27-351dffcb1004","r
 
 do $$
 declare
-  c record; rostered uuid; otherorg uuid; cur_t uuid; newid uuid;
+  c record; rostered uuid; otherorg uuid; cur_t uuid; newid uuid; staff_id uuid;
   p1 uuid := '00000000-0000-0000-0000-0000000c0021';
   p2 uuid := '00000000-0000-0000-0000-0000000c0022';
 begin
@@ -559,6 +559,30 @@ begin
     insert into qa(area,test,result) values ('EventRoster','another organization''s player by UUID','FAIL - ALLOWED');
   exception when others then
     insert into qa(area,test,result) values ('EventRoster','another organization''s player by UUID','PASS'); end;
+
+  -- Staff are on the roster but never dress. The interface filters them from
+  -- the picker; the trigger makes it impossible rather than merely unoffered.
+  select tsp.player_id into staff_id
+    from team_season_players tsp join players p on p.id = tsp.player_id
+   where tsp.season_id = c.season and p.person_type <> 'player' limit 1;
+
+  if staff_id is null then
+    insert into qa(area,test,result) values ('EventRoster','staff participant blocked','SKIP - no staff on roster');
+  else
+    begin
+      insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+      values (c.org, c.season, cur_t, staff_id, 'roster');
+      insert into qa(area,test,result) values ('EventRoster','staff participant as roster','FAIL - ALLOWED');
+    exception when others then
+      insert into qa(area,test,result) values ('EventRoster','staff participant as roster','PASS'); end;
+
+    begin
+      insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
+      values (c.org, c.season, cur_t, staff_id, 'pickup');
+      insert into qa(area,test,result) values ('EventRoster','staff participant as pickup','FAIL - ALLOWED');
+    exception when others then
+      insert into qa(area,test,result) values ('EventRoster','staff participant as pickup','PASS'); end;
+  end if;
 
   begin
     insert into tournament_participants (organization_id, season_id, tournament_id, player_id, participation)
