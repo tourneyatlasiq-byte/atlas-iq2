@@ -69,6 +69,15 @@ export function WelcomeForm({ defaultSeason, seasonOptions = [] }) {
         </p>
       </div>
 
+      <label className="accept-terms">
+        <input type="checkbox" name="accept_terms" value="yes" required />
+        <span>
+          I&rsquo;m 18 or older and I agree to the{" "}
+          <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and{" "}
+          <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+        </span>
+      </label>
+
       <button type="submit" className="btn btn-primary welcome-submit" disabled={pending}>
         {pending ? "Setting up…" : "Create My Team"}
       </button>

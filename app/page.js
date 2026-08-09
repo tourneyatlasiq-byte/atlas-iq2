@@ -249,7 +249,7 @@ export default async function HomePage() {
           <LogoLockup size={30} tone="navy" wordSize={20} />
           <nav className="mk-footer-nav">
             <a href="#about">About</a>
-            <a href="mailto:tourneyatlasiq@gmail.com">Contact</a>
+            <a href="mailto:support@seasontempo.com">Contact</a>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
             {!signedIn && <Link href="/login">Sign in</Link>}
