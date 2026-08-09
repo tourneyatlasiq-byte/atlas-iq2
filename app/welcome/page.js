@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getContext } from "../../lib/context";
 import { currentSeasonLabel, seasonOptions } from "../../lib/onboarding";
-import { LogoLockup } from "../../components/Logo";
+import { LogoLockup } from "../../components/SeasonTempoLogo";
 import { WelcomeForm } from "../../components/WelcomeForm";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export default async function WelcomePage() {
     <div className="welcome-wrap">
       <div className="welcome-box">
         <div className="welcome-brand">
-          <LogoLockup size={44} tone="dark" />
+          <LogoLockup size={44} tone="navy" />
         </div>
 
         <h1 className="welcome-title">Welcome to Atlas IQ</h1>

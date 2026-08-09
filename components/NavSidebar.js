@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogoLockup } from "./Logo";
+import { LogoLockup } from "./SeasonTempoLogo";
 
 /**
  * Approved top-level navigation. These labels are the product vocabulary —

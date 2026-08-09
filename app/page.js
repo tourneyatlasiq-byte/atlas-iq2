@@ -1,7 +1,7 @@
 import Link from "next/link";
 import "./home.css";
 import { getViewer } from "../lib/context";
-import { LogoLockup } from "../components/Logo";
+import { LogoLockup } from "../components/SeasonTempoLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function HomePage() {
       <header className="mk-header">
         <div className="mk-wrap mk-header-inner">
           <Link href="/" className="mk-logo" aria-label="Atlas IQ home">
-            <LogoLockup size={34} tone="dark" />
+            <LogoLockup size={34} tone="navy" wordSize={26} />
           </Link>
 
           <nav className="mk-nav">
@@ -246,7 +246,7 @@ export default async function HomePage() {
 
       <footer className="mk-footer">
         <div className="mk-wrap mk-footer-inner">
-          <LogoLockup size={30} tone="dark" />
+          <LogoLockup size={30} tone="navy" wordSize={20} />
           <nav className="mk-footer-nav">
             <a href="#about">About</a>
             <a href="mailto:tourneyatlasiq@gmail.com">Contact</a>

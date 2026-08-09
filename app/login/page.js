@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
-import { LogoLockup } from "../../components/Logo";
+import { LogoLockup } from "../../components/SeasonTempoLogo";
 
 /**
  * One magic-link flow, three framings.
@@ -90,7 +90,7 @@ function LoginForm() {
     <div className="login-wrap">
       <div className="login-box">
         <div className="login-brand">
-          <LogoLockup size={44} tone="dark" />
+          <LogoLockup size={44} tone="navy" />
         </div>
 
         <h1 className="login-title">{copy.title}</h1>
