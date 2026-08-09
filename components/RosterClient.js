@@ -33,6 +33,24 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
+/**
+ * Display wording for Team.
+ *
+ * The rules are untouched — this only phrases them for this screen, the same
+ * way Home has its own map. Falls back to the rule's own detail so a new rule
+ * still reads correctly.
+ */
+const ROSTER_ACTION_TEXT = {
+  uniform: (n) => `${n} ${n === 1 ? "player needs" : "players need"} uniform information`,
+  registration: (n) => `${n} ${n === 1 ? "player is" : "players are"} missing a date of birth`,
+  contact: (n) => `${n} ${n === 1 ? "player has" : "players have"} no contact details`,
+};
+
+function rosterActionText(a) {
+  const fn = ROSTER_ACTION_TEXT[a.id];
+  return fn ? fn(a.affected?.length ?? 0) : a.detail;
+}
+
 /** Uniform as one string, for the mobile sub-line. */
 function uniformText(row) {
   if (!row.jersey_size && !row.pants_size) return "Uniform not set";
@@ -177,6 +195,8 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
 
       {/* Grows and shrinks with its content rather than reserving a card. */}
       <div className="roster-actions">
+        <p className="roster-actions-label">Needs action</p>
+
         {actions.length === 0 ? (
           <p className="roster-clear">Nothing needs attention</p>
         ) : (
@@ -192,7 +212,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                 }`}
                 aria-hidden="true"
               />
-              <span className="roster-action-text">{a.detail}</span>
+              <span className="roster-action-text">{rosterActionText(a)}</span>
             </button>
           ))
         )}
@@ -205,7 +225,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         />
       )}
 
-      <div className="toolbar">
+      <div className="toolbar roster-toolbar">
         <input
           className="toolbar-search"
           type="search"
@@ -234,7 +254,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         )}
       </div>
 
-      <div className="card card-flush">
+      <div className="card card-flush roster-card">
         {visible.length === 0 ? (
           <div className="empty">
             <h3>{rows.length === 0 ? "No one on the roster yet" : "No one matches"}</h3>
@@ -252,16 +272,16 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             <thead>
               <tr>
                 <th className="col-num">#</th>
-                <th>Player</th>
-                <th>Grad Year</th>
-                <th>Positions</th>
-                <th>
+                <th className="col-player">Player</th>
+                <th className="col-grad">Grad Year</th>
+                <th className="col-positions">Positions</th>
+                <th className="col-uniform">
                   Uniform
                   <span className="th-sub">Jersey · Pants</span>
                 </th>
                 {/* Every row says "Active" in the Active view. Only shown
                     where statuses genuinely differ. */}
-                {filter === "all" && <th>Status</th>}
+                {filter === "all" && <th className="col-status">Status</th>}
               </tr>
             </thead>
             <tbody>
