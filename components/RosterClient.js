@@ -244,7 +244,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                 : "Try a different name or switch the status filter."}
             </p>
             {rows.length === 0 && canWrite && (
-              <button className="btn btn-primary" onClick={() => setAdding(true)}>Add person</button>
+              <button className="btn btn-primary" onClick={() => setAdding(true)}>Add player or coach</button>
             )}
           </div>
         ) : (
@@ -619,7 +619,7 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
           <input type="hidden" name="is_active" value={row ? String(row.is_active) : "true"} />
 
           <div className="modal-head">
-            <h2 id="player-form-title">{isNew ? "Add person" : `Edit ${p.full_name}`}</h2>
+            <h2 id="player-form-title">{isNew ? "Add player or coach" : `Edit ${p.full_name}`}</h2>
             {isNew && <div className="page-sub">A name is all you need. Everything else can come later.</div>}
           </div>
 
@@ -760,7 +760,7 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={pending}>
-              {pending ? "Saving…" : isNew ? "Add person" : "Save changes"}
+              {pending ? "Saving…" : isNew ? "Add player or coach" : "Save changes"}
             </button>
           </div>
         </form>
