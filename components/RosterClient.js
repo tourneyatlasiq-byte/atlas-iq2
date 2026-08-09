@@ -91,6 +91,8 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   const [adding, setAdding] = useState(autoOpen);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  // Offered after adding a player when dues are already in use this season.
+  const [duesPrompt, setDuesPrompt] = useState(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
   const [actionId, setActionId] = useState(null);
@@ -150,7 +152,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     setError(null);
     startTransition(async () => {
       const result = await action(fd);
-      if (result?.ok) onDone?.();
+      if (result?.ok) onDone?.(result);
       else setError(result?.error ?? "Something went wrong. Try again.");
     });
   }
@@ -484,6 +486,32 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           onAddToRoster={(fd) => run(addPickupToRoster, fd)}
           onToggleActive={(next) => toggleActive(detail, next)}
         />
+      )}
+
+      {duesPrompt && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setDuesPrompt(null)}>
+          <div className="modal modal-narrow" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Player dues not set</h2>
+            </div>
+            <div className="modal-body">
+              <p className="section-body">
+                Set what <strong>{duesPrompt.name}</strong> owes for this season?
+              </p>
+              <p className="field-note">
+                You can do this later — {duesPrompt.name} stays on the roster either way.
+              </p>
+            </div>
+            <div className="modal-foot modal-foot-sticky">
+              <button className="btn btn-secondary" onClick={() => setDuesPrompt(null)}>
+                Not now
+              </button>
+              <a className="btn btn-primary" href="/finance?tab=payments&add=dues">
+                Set dues now
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
       {importing && (

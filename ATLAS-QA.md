@@ -150,6 +150,20 @@ chosen. `npm run check` asserts that separation.
 - [ ] the pre-import summary accounts for every row — none silently dropped
 - [ ] rows needing attention are listed with the reason
 
+## Player dues
+
+- [ ] the dues player list shows only this season's active roster
+- [ ] a pickup-only player never appears as a dues candidate
+- [ ] setting dues for an off-roster player → blocked server-side
+- [ ] two obligations for one player in one season → blocked by unique index
+- [ ] legacy rows with NULL player_id still coexist
+- [ ] recording a payment with no obligation → blocked, with a Set dues path
+- [ ] adding a roster player while dues are in use → prompt appears
+- [ ] declining the prompt leaves the player on the roster
+- [ ] a roster player with no dues appears in Needs Action
+- [ ] after setting dues and recording a payment, Finance **and Home** both
+      update without a manual refresh
+
 ## Contacts and recruiting
 
 - [ ] parent cannot create a contact or a player link

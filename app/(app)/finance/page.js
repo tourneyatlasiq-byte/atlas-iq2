@@ -20,12 +20,20 @@ async function pickers(seasonId, organizationId) {
   const supabase = createClient();
   const [tournaments, players, facilities] = await Promise.all([
     supabase.from("tournaments").select("id, name, total_cost").eq("season_id", seasonId).order("start_date"),
-    supabase.from("players").select("id, full_name, person_type").eq("organization_id", organizationId).order("full_name"),
+    // Only this season's active roster. Dues are owed by players on the team
+    // now — not by everyone the organization has ever recorded.
+    supabase
+      .from("team_season_players")
+      .select("player_id, is_active, player:players ( id, full_name, person_type )")
+      .eq("season_id", seasonId),
     supabase.from("facilities").select("id, name").order("name"),
   ]);
   return {
     tournaments: tournaments.data ?? [],
-    players: players.data ?? [],
+    players: (players.data ?? [])
+      .filter((r) => r.is_active && r.player?.person_type === "player" && r.player?.id)
+      .map((r) => r.player)
+      .sort((a, b) => a.full_name.localeCompare(b.full_name)),
     facilities: facilities.data ?? [],
   };
 }
@@ -95,7 +103,9 @@ export default async function FinancePage({ searchParams }) {
       seasonPhase={seasonPhase}
       initialTab={requestedTab}
       autoOpen={params?.add === "1"}
+      autoAddDues={params?.add === "dues"}
       initialTournament={params?.tournament ?? null}
+      rosterPlayers={picks.players.map((p) => ({ player_id: p.id, player: p }))}
     />
     </>
   );

@@ -75,6 +75,8 @@ export function FinanceClient({
   seasonPhase = "current",
   autoOpen = false,
   initialTournament = null,
+  rosterPlayers = [],
+  autoAddDues = false,
 }) {
   const [tab, setTab] = useState(initialTab);
 
@@ -99,11 +101,12 @@ export function FinanceClient({
   // record, not the player.
   // Drawer state lives in the URL, so refresh and Back behave properly.
   const { detail: detailPay, openDetail, closeDetail } = useOpenParam(payments);
-  const [editPay, setEditPay] = useState(null);
+  // Arrives from the roster prompt: /finance?tab=payments&add=dues
+  const [editPay, setEditPay] = useState(autoAddDues ? "new" : null);
   const [openCats, setOpenCats] = useState({});
 
   const actions = useMemo(
-    () => (seasonPhase === "current" ? financeActions(payments) : []),
+    () => (seasonPhase === "current" ? financeActions(payments, rosterPlayers) : []),
     [payments, seasonPhase]
   );
 
