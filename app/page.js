@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Atlas IQ — Run your team from one place",
   description:
-    "Tournaments, roster, money, venues and games for travel softball teams, without the spreadsheets and group texts.",
+    "Tournaments, roster, money, facilities and games for travel softball teams, without the spreadsheets and group texts.",
 };
 
 /**
@@ -54,7 +54,7 @@ export default async function HomePage() {
         <div className="mk-wrap">
           <h1>Run your team from one place.</h1>
           <p className="mk-lede">
-            Tournaments, roster, money, venues and games — without the spreadsheets,
+            Tournaments, roster, money, facilities and games — without the spreadsheets,
             group texts and screenshots you&rsquo;re using now.
           </p>
 
@@ -159,7 +159,7 @@ export default async function HomePage() {
           <h2 className="mk-centered">Six things, one place</h2>
           <p className="mk-connect">
             Your season stays connected, so information follows the players, tournaments and
-            venues it belongs to.
+            facilities it belongs to.
           </p>
 
           <div className="mk-grid">
@@ -176,7 +176,7 @@ export default async function HomePage() {
               still owes dues.
             </Capability>
             <Capability title="Facilities">
-              A shared directory of venues, plus your own notes on parking, gates and
+              A shared directory of facilities, plus your own notes on parking, gates and
               concessions for next time.
             </Capability>
             <Capability title="Games">
@@ -199,7 +199,7 @@ export default async function HomePage() {
             <Step name="Commit">Decide what you&rsquo;re playing. Costs start counting, and it shows up in Needs Action.</Step>
             <Step name="Play">Record games and results as the weekend happens.</Step>
             <Step name="Track">Watch the budget, dues and what still needs attention.</Step>
-            <Step name="Learn">Note what the venue was like and whether you&rsquo;d go back.</Step>
+            <Step name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Step>
             <Step name="Next season">Carry your roster forward while keeping prior seasons preserved for reference.</Step>
           </ol>
         </div>
@@ -210,7 +210,7 @@ export default async function HomePage() {
           <h2>Built for the people running travel teams</h2>
           <p>
             Coaches, team managers and organization leaders who are juggling schedules,
-            tournaments, player information, payments, venues and everything in between.
+            tournaments, player information, payments, facilities and everything in between.
           </p>
         </div>
       </section>
@@ -220,7 +220,7 @@ export default async function HomePage() {
           <h2>Built around how travel teams actually operate</h2>
           <p>
             Atlas IQ is built around the realities of running a travel season: entry fees,
-            venue details that are hard to find, payments scattered across messages, and a
+            facility details that are hard to find, payments scattered across messages, and a
             schedule that keeps changing.
           </p>
           <p className="mk-emphasis">

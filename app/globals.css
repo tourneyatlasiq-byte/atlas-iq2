@@ -1,6 +1,14 @@
 /* Atlas IQ — tokens taken directly from BRAND.md. Do not introduce new palettes. */
 
 :root {
+  /* Season Tempo brand layer — defined, not yet applied.
+     Same navy and gold the product already uses, named at the brand level so
+     a later switch changes one place rather than every call site. */
+  --brand-navy: #0b2341;
+  --brand-gold: #f4b400;
+  --brand-on-navy: #ffffff;
+  --brand-muted-on-navy: #8ba3c0;
+
   --navy: #0b2341;
   --navy-soft: #16365d;
   --gold: #f4b400;
