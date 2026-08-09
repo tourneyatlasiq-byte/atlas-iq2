@@ -150,6 +150,22 @@ chosen. `npm run check` asserts that separation.
 - [ ] the pre-import summary accounts for every row — none silently dropped
 - [ ] rows needing attention are listed with the reason
 
+## Contacts and recruiting
+
+- [ ] parent cannot create a contact or a player link
+- [ ] only own-organization contacts are visible
+- [ ] a player link to another organization's player → blocked
+- [ ] another organization's contact on a tournament → blocked
+- [ ] another organization's contact on a college interest → blocked
+- [ ] deleting a contact keeps the tournament and nulls the reference
+- [ ] deleting a contact keeps the college interest
+- [ ] player links and college interests do not change roster counts or dues
+- [ ] a facility created inside a tournament is selected automatically
+- [ ] a contact created inside a tournament is linked automatically
+- [ ] a coach created inside a college interest is linked automatically
+- [ ] provider-suggested contacts are offered, never applied automatically
+- [ ] phone and email are tap-to-act at 375px
+
 ## Roster import
 
 - [ ] a CSV with only a `name` column imports

@@ -10,6 +10,8 @@ import { DocumentSection } from "./DocumentSection";
 import { QuickAddFacility } from "./QuickAddFacility";
 import { GamesSection } from "./GamesSection";
 import { EventRoster } from "./EventRoster";
+import { SearchPicker } from "./SearchPicker";
+import { TournamentContact } from "./TournamentContact";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { TopoMotif } from "./TopoMotif";
 import { HelpTip } from "./HelpTip";
@@ -94,10 +96,11 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {} }) {
+export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [] }) {
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
+  const [justCreatedFacilityId, setJustCreatedFacilityId] = useState(null);
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments);
@@ -382,6 +385,16 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           documentTargets={documentTargets}
           seasonName={seasonName}
           participants={participants[detail.id] ?? []}
+          contacts={contacts}
+          providerContactIds={
+            // Contacts already used for other events by the same provider.
+            // Suggested, never applied automatically.
+            detail.provider?.id
+              ? tournaments
+                  .filter((x) => x.provider?.id === detail.provider.id && x.contact_id)
+                  .map((x) => x.contact_id)
+              : []
+          }
           seasonRoster={seasonRoster}
           pickupCandidates={pickupCandidates}
           pending={pending}
@@ -400,6 +413,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           pending={pending}
           onSubmit={submit}
           onAddFacility={() => setAddingFacility(true)}
+          justCreatedFacilityId={justCreatedFacilityId}
           onCancel={() => {
             setEditing(null);
             setError(null);
@@ -410,9 +424,11 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       {addingFacility && (
         <QuickAddFacility
           onClose={() => setAddingFacility(false)}
-          onCreated={() => {
+          onCreated={(facility) => {
             setAddingFacility(false);
-            // The facility list comes from the server, so refresh to pick it up.
+            // Create-and-link: remember the new id so the form selects it as
+            // soon as the refreshed list arrives.
+            if (facility?.id) setJustCreatedFacilityId(facility.id);
             router.refresh();
           }}
         />
@@ -440,7 +456,7 @@ function Row({ label, value }) {
   );
 }
 
-export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {} }) {
+export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [] }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -588,6 +604,13 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             />
           </Section>
 
+          <TournamentContact
+            tournament={t}
+            contacts={contacts}
+            providerContactIds={providerContactIds}
+            canWrite={canWrite}
+          />
+
           <Section title="Costs">
             <div className="cost-box">
               <div className="cost-row"><span>Entry fee</span><span>{money(t.entry_fee)}</span></div>
@@ -686,11 +709,19 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
   );
 }
 
-export function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility }) {
+export function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility, justCreatedFacilityId }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
   const [gate, setGate] = useState(row?.gate_fee ?? "");
   const [facilityId, setFacilityId] = useState(row?.facility?.id ?? "");
+  const [pickingFacility, setPickingFacility] = useState(false);
+  const chosenFacility = facilities.find((f) => f.id === facilityId) ?? null;
+
+  // Create-and-link: a facility created from inside this tournament is
+  // selected the moment it exists. The coach never searches for it twice.
+  useEffect(() => {
+    if (justCreatedFacilityId) setFacilityId(justCreatedFacilityId);
+  }, [justCreatedFacilityId]);
 
   const total = (Number(entry) || 0) + (Number(gate) || 0);
 
@@ -747,26 +778,67 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="facility_id">Facility</label>
-                <select
-                  id="facility_id"
-                  name="facility_id"
-                  value={facilityId}
-                  onChange={(e) => {
-                    if (e.target.value === "__add__") onAddFacility?.();
-                    else setFacilityId(e.target.value);
-                  }}
-                >
-                  <option value="">Not linked</option>
-                  {facilities.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}{f.city ? ` — ${f.city}${f.state ? `, ${f.state}` : ""}` : ""}
-                    </option>
-                  ))}
-                  <option value="__add__">+ Add a new facility…</option>
-                </select>
+                <label>Facility</label>
+                <input type="hidden" name="facility_id" value={facilityId} />
+                {chosenFacility ? (
+                  <div className="picked">
+                    <span>
+                      <strong>{chosenFacility.name}</strong>
+                      {chosenFacility.city && (
+                        <span className="muted">
+                          {" "}— {chosenFacility.city}
+                          {chosenFacility.state ? `, ${chosenFacility.state}` : ""}
+                        </span>
+                      )}
+                    </span>
+                    <span className="picked-actions">
+                      <button type="button" className="btn btn-ghost" onClick={() => setPickingFacility(true)}>
+                        Change
+                      </button>
+                      <button type="button" className="btn btn-ghost" onClick={() => setFacilityId("")}>
+                        Clear
+                      </button>
+                    </span>
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-secondary" onClick={() => setPickingFacility(true)}>
+                    Choose a facility
+                  </button>
+                )}
+                <p className="field-note">Optional. Leave it unset if you don&rsquo;t know yet.</p>
               </div>
             </div>
+
+            {pickingFacility && (
+              <SearchPicker
+                title="Choose a facility"
+                hint="Search the shared directory. If it isn't there, add it — it'll be linked to this tournament straight away."
+                placeholder="Search facilities…"
+                items={facilities.map((f) => ({
+                  ...f,
+                  searchText: `${f.name} ${f.city ?? ""} ${f.state ?? ""}`,
+                }))}
+                renderItem={(f) => (
+                  <>
+                    <span className="picker-item-name">{f.name}</span>
+                    <span className="picker-item-meta">
+                      {[f.city, f.state].filter(Boolean).join(", ") || "Location not set"}
+                    </span>
+                  </>
+                )}
+                emptyHint="Start typing to search the facility directory."
+                createLabel="+ Add facility"
+                onSelect={(f) => {
+                  setFacilityId(f.id);
+                  setPickingFacility(false);
+                }}
+                onCreate={() => {
+                  setPickingFacility(false);
+                  onAddFacility?.();
+                }}
+                onCancel={() => setPickingFacility(false)}
+              />
+            )}
 
             <details className="more-details" open={!isNew}>
               <summary>More details</summary>

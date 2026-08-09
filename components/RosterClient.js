@@ -5,6 +5,7 @@ import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { addPickupToRoster } from "../lib/actions/participants";
 import { RosterImport } from "./RosterImport";
+import { PlayerRecruiting } from "./PlayerRecruiting";
 import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
@@ -62,7 +63,7 @@ function uniformText(row) {
   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0 }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   // Pickups are not roster rows, so the lookup covers both. Each pickup is
@@ -473,6 +474,8 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           onRemove={() => remove(detail)}
           onDeleteForever={() => deleteForever(detail)}
           paymentId={paymentIdByPlayer[detail.player_id] ?? null}
+          contacts={contacts}
+          recruiting={recruiting[detail.player_id ?? detail.id] ?? { links: [], interests: [] }}
           pickupHistory={
             (pickups.find((p) => p.player_id === (detail.player_id ?? detail.id))?.tournaments) ?? []
           }
@@ -546,7 +549,7 @@ function Row({ label, value }) {
   );
 }
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
   const p = row.player ?? {};
 
   return (
@@ -600,6 +603,14 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               </button>
             </div>
           )}
+
+          <PlayerRecruiting
+            playerId={playerId ?? row.player_id ?? row.id}
+            links={recruiting.links}
+            interests={recruiting.interests}
+            contacts={contacts}
+            canWrite={canWrite}
+          />
 
           {pickupHistory.length > 0 && (
             <section className="detail-section">

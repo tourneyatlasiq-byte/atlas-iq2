@@ -9,6 +9,7 @@ import { tournamentActions } from "../../../lib/readiness/tournaments";
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
 import { participantsBySeason, pickupCandidates } from "../../../lib/queries/participants";
 import { listSeasonRoster } from "../../../lib/queries/roster";
+import { listContacts } from "../../../lib/queries/contacts";
 import { TournamentClient } from "../../../components/TournamentClient";
 
 import { createClient } from "../../../lib/supabase/server";
@@ -69,6 +70,7 @@ export default async function TournamentsPage({ searchParams }) {
       seasonRoster={seasonRoster}
       pickupCandidates={candidates}
       playerDocuments={playerDocs}
+      contacts={await listContacts(organization.id)}
       autoOpen={(await searchParams)?.add === "1"}
     />
     </>

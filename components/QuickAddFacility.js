@@ -21,7 +21,7 @@ export function QuickAddFacility({ onClose, onCreated }) {
     setError(null);
     startTransition(async () => {
       const result = await createFacility(formData);
-      if (result?.ok) onCreated?.();
+      if (result?.ok) onCreated?.(result.facility);
       else setError(result?.error ?? "Could not create that facility.");
     });
   }

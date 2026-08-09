@@ -1,5 +1,6 @@
 import { getContext, isOrgAdmin } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
+import { listContacts } from "../../../lib/queries/contacts";
 import { SettingsClient } from "../../../components/SettingsClient";
 
 export const dynamic = "force-dynamic";

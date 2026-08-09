@@ -8,6 +8,7 @@ import {
 import { documentsByEntity, documentTargets } from "../../../lib/queries/documents";
 import { createClient } from "../../../lib/supabase/server";
 import { pickupsForSeason } from "../../../lib/queries/participants";
+import { listContacts, recruitingByPlayer } from "../../../lib/queries/contacts";
 import { RosterClient } from "../../../components/RosterClient";
 
 import { SetupNext, setupState } from "../../../components/SetupNext";
@@ -68,6 +69,8 @@ export default async function TeamPage({ searchParams }) {
       seasonPhase={seasonPhase}
       paymentIdByPlayer={paymentIdByPlayer}
       pickups={await pickupsForSeason(season.id)}
+      contacts={await listContacts(organization.id)}
+      recruiting={await recruitingByPlayer(organization.id)}
       autoOpen={(await searchParams)?.add === "person"}
     />
     </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { ContactsDirectory } from "./ContactsDirectory";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
   renameOrganization,
@@ -49,7 +50,7 @@ function fmtDate(d) {
 
 export function SettingsClient({
   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
-  counts, isAdmin, currentUserId, autoOpen = null,
+  counts, isAdmin, currentUserId, autoOpen = null, contacts = [],
 }) {
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen);
@@ -238,6 +239,8 @@ export function SettingsClient({
           )}
         </div>
       </div>
+
+      <ContactsDirectory contacts={contacts} canWrite={isAdmin} />
 
       <div className="settings-legal">
         <span className="section-eyebrow">Legal</span>

@@ -2658,3 +2658,102 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   .accept-terms input { width: 22px; height: 22px; }
 }
+
+/* ===== Contacts, recruiting, and the shared picker ===== */
+
+/* Picker — one interaction for contacts, facilities and people. */
+.picker .modal-body { min-height: 220px; }
+.picker-group {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate);
+  margin: 14px 0 6px;
+}
+.picker-list { display: flex; flex-direction: column; gap: 4px; }
+.picker-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 10px 12px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); font-family: var(--font-body);
+}
+.picker-item:hover { border-color: var(--blue); background: #f4f8fe; }
+.picker-item-name { font-size: 14px; font-weight: 600; color: var(--navy); }
+.picker-item-meta { font-size: 12.5px; color: var(--slate); }
+.picker-foot .btn { flex: 1; }
+
+/* A chosen record, shown in place of the picker. */
+.picked {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 10px 12px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-control); font-size: 14px;
+}
+.picked-actions { display: flex; gap: 2px; }
+.picked-actions .btn { padding: 4px 10px; font-size: 12.5px; }
+
+/* Tournament contact — reachable with one hand at a field. */
+.contact-card {
+  padding: 12px 14px; background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+}
+.contact-name { font-size: 15px; font-weight: 600; color: var(--navy); margin: 0; }
+.contact-role { display: block; font-size: 12.5px; font-weight: 500; color: var(--slate); margin-top: 1px; }
+.contact-actions { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.contact-action { font-size: 13.5px; font-weight: 600; color: var(--blue); }
+.contact-action:hover { text-decoration: underline; }
+.contact-remove { margin-top: 6px; padding: 2px 0; font-size: 12.5px; }
+
+/* Settings directory */
+.settings-contacts { max-width: 1120px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+.contact-group { margin-top: 16px; }
+.contact-group-title {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate); margin: 0 0 6px;
+}
+.contact-list { list-style: none; margin: 0; padding: 0; }
+.contact-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.contact-row:first-child { border-top: none; }
+.contact-row-main { flex: 1; min-width: 0; }
+.contact-row-sub { display: block; font-size: 12.5px; color: var(--slate); margin-top: 1px; }
+.contact-row-reach { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
+.contact-row-reach a { color: var(--blue); font-weight: 600; }
+.contact-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.contact-row-actions .btn { padding: 4px 8px; font-size: 12.5px; }
+
+/* Player recruiting */
+.link-list, .college-list { list-style: none; margin: 0; padding: 0; }
+.link-row, .college-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--border);
+}
+.link-row:first-child, .college-row:first-child { border-top: none; }
+.link-type {
+  font-size: 11px; font-weight: 700; color: var(--slate);
+  min-width: 92px; flex-shrink: 0;
+}
+.link-url { flex: 1; min-width: 0; font-size: 13.5px; color: var(--blue); overflow-wrap: anywhere; }
+.link-remove {
+  background: none; border: none; cursor: pointer; color: var(--slate);
+  font-size: 13px; padding: 6px 8px; border-radius: 6px; flex-shrink: 0;
+}
+.link-remove:hover { color: var(--status-urgent); background: var(--surface-sunken); }
+
+.college-main { flex: 1; min-width: 0; }
+.college-notes { display: block; font-size: 12.5px; color: var(--slate); margin-top: 1px; }
+.college-contact { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; text-align: right; }
+.college-contact a { color: var(--blue); font-weight: 600; }
+.college-contact-name { color: var(--navy); font-weight: 600; }
+
+@media (max-width: 720px) {
+  .contact-row, .college-row { flex-wrap: wrap; }
+  .contact-row-reach, .college-contact { width: 100%; text-align: left; flex-direction: row; gap: 14px; }
+  /* Tap targets for call and email at a field. */
+  .contact-action, .contact-row-reach a, .college-contact a {
+    min-height: 44px; display: inline-flex; align-items: center;
+  }
+  .link-remove { min-width: 44px; min-height: 44px; }
+  .picked { flex-direction: column; align-items: stretch; }
+  .link-type { min-width: 0; }
+}
