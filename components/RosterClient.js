@@ -552,6 +552,12 @@ function Row({ label, value }) {
 export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
   const p = row.player ?? {};
 
+  // A section with nothing in it is noise. These stay editable either way.
+  const hasContact = Boolean(
+    p.player_email || p.player_phone || p.parent_name || p.parent_email || p.parent_phone
+  );
+  const hasUniform = Boolean(row.jersey_size || row.pants_size);
+
   return (
     <div className="drawer-backdrop" onClick={onClose}>
       <aside
@@ -604,6 +610,34 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </div>
           )}
 
+          {/* Player Information — empty read-only fields are suppressed
+              rather than shown as em-dashes. They stay available in Edit. */}
+          <Section title="Player Information">
+            <Row label="Name" value={p.full_name} />
+            {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
+            {row.jersey_number != null && <Row label="Jersey number" value={row.jersey_number} />}
+            <Row
+              label="Type"
+              value={p.person_type === "other" ? p.other_role_label ?? "Other" : typeLabel(p.person_type)}
+            />
+            {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
+            {row.positions?.length > 0 && (
+              <Row label="Positions" value={row.positions.join(" / ")} />
+            )}
+            {p.throws && <Row label="Throws" value={p.throws} />}
+            {p.bats && <Row label="Bats" value={p.bats} />}
+          </Section>
+
+          {hasContact && (
+            <Section title="Contact Information">
+              {p.player_email && <Row label="Player email" value={p.player_email} />}
+              {p.player_phone && <Row label="Player phone" value={p.player_phone} />}
+              {p.parent_name && <Row label="Parent / guardian" value={p.parent_name} />}
+              {p.parent_email && <Row label="Parent email" value={p.parent_email} />}
+              {p.parent_phone && <Row label="Parent phone" value={p.parent_phone} />}
+            </Section>
+          )}
+
           <PlayerRecruiting
             playerId={playerId ?? row.player_id ?? row.id}
             links={recruiting.links}
@@ -611,6 +645,41 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             contacts={contacts}
             canWrite={canWrite}
           />
+
+          {hasUniform && (
+            <Section title="Uniform">
+              {row.jersey_size && <Row label="Jersey size" value={row.jersey_size} />}
+              {row.pants_size && <Row label="Pants size" value={row.pants_size} />}
+            </Section>
+          )}
+
+          {p.notes && (
+            <Section title="Notes">
+              <p className="section-body">{p.notes}</p>
+            </Section>
+          )}
+
+          <DocumentSection
+            documents={row.documents ?? []}
+            lockTo={{ kind: "player", id: p.id, label: p.full_name }}
+            targets={documentTargets}
+            canWrite={canWrite}
+            isAdmin={isAdmin}
+            seasonName={seasonName}
+          />
+
+          {/* Roster status sits last: active/inactive is already in the header,
+              so this is where you act on it, not where you learn it. */}
+          <Section title="Roster Status">
+            <Row label="Status" value={row.is_active === false ? "Inactive" : "Active"} />
+            {onToggleActive && canWrite && (
+              <p className="section-body">
+                <button className="btn btn-ghost" disabled={pending} onClick={onToggleActive}>
+                  {row.is_active === false ? "Make active" : "Make inactive"}
+                </button>
+              </p>
+            )}
+          </Section>
 
           {pickupHistory.length > 0 && (
             <section className="detail-section">
@@ -627,66 +696,6 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </section>
           )}
 
-          {paymentId && (
-            <p className="drawer-related">
-              <RelatedLink href={`/finance?tab=payments&open=${paymentId}`}>
-                See what this player owes and has paid
-              </RelatedLink>
-            </p>
-          )}
-          {canWrite && (
-            <div className="status-controls">
-              <div className="field">
-                <label htmlFor="p-active">Roster status</label>
-                <select
-                  id="p-active"
-                  value={row.is_active ? "true" : "false"}
-                  disabled={pending}
-                  onChange={(e) => onToggleActive(e.target.value === "true")}
-                >
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          <Section title="Player Information">
-            <Row label="Name" value={p.full_name} />
-            <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />
-            <Row label="Jersey number" value={row.jersey_number} />
-            <Row label="Type" value={p.person_type === "other" ? p.other_role_label ?? "Other" : typeLabel(p.person_type)} />
-            <Row label="Grad year" value={p.grad_year} />
-            <Row label="Positions" value={row.positions?.length ? row.positions.join(" / ") : null} />
-            <Row label="Throws" value={p.throws} />
-            <Row label="Bats" value={p.bats} />
-          </Section>
-
-          <Section title="Uniform">
-            <Row label="Jersey size" value={row.jersey_size} />
-            <Row label="Pants size" value={row.pants_size} />
-          </Section>
-
-          <Section title="Contact">
-            <Row label="Player email" value={p.player_email} />
-            <Row label="Player phone" value={p.player_phone} />
-            <Row label="Parent / guardian" value={p.parent_name} />
-            <Row label="Parent email" value={p.parent_email} />
-            <Row label="Parent phone" value={p.parent_phone} />
-          </Section>
-
-          <Section title="Notes">
-            <p className="section-body">{p.notes ?? <span className="muted">No notes yet.</span>}</p>
-          </Section>
-
-          <DocumentSection
-            documents={row.documents ?? []}
-            lockTo={{ kind: "player", id: p.id, label: p.full_name }}
-            targets={documentTargets}
-            canWrite={canWrite}
-            isAdmin={isAdmin}
-            seasonName={seasonName}
-          />
         </div>
 
         {canWrite && (

@@ -44,109 +44,109 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
       {error && <div className="alert alert-error">{error}</div>}
 
       <section className="detail-section">
-        <div className="section-head">
-          <h3 className="detail-section-title">Recruiting &amp; social</h3>
-          {canWrite && links.length > 0 && (
-            <button className="btn btn-ghost" onClick={() => setAddingLink(true)}>Add</button>
-          )}
-        </div>
+        <h3 className="detail-section-title">Recruiting</h3>
 
-        {links.length === 0 ? (
-          canWrite && (
-            <button className="btn btn-secondary" onClick={() => setAddingLink(true)}>
-              + Add a link
-            </button>
-          )
-        ) : (
-          <ul className="link-list">
-            {links.map((l) => (
-              <li key={l.id} className="link-row">
-                <span className="link-type">{l.link_type}</span>
-                <a className="link-url" href={l.url} target="_blank" rel="noreferrer">
-                  {l.label || l.url.replace(/^https?:\/\//, "")}
-                </a>
-                {canWrite && (
-                  <button
-                    className="link-remove"
-                    disabled={pending}
-                    aria-label={`Remove ${l.link_type} link`}
-                    onClick={() => {
-                      const fd = new FormData();
-                      fd.set("id", l.id);
-                      run(deletePlayerLink, fd);
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        {/* Compact rows, not two large empty sections. Most players will have
+            neither, and this is not the point of the player record. */}
+        <div className="recruit-row">
+          <span className="recruit-label">Social &amp; recruiting links</span>
 
-      <section className="detail-section">
-        <div className="section-head">
-          <h3 className="detail-section-title">College interests</h3>
-          {canWrite && interests.length > 0 && (
-            <button className="btn btn-ghost" onClick={() => setAddingCollege(true)}>Add</button>
-          )}
-        </div>
-
-        {interests.length === 0 ? (
-          canWrite && (
-            <button className="btn btn-secondary" onClick={() => setAddingCollege(true)}>
-              + Add a college
-            </button>
-          )
-        ) : (
-          <ul className="college-list">
-            {interests.map((i) => {
-              const c = contactFor(i.contact_id);
-              return (
-                <li key={i.id} className="college-row">
-                  <div className="college-main">
-                    <span className="cell-name">{i.college_name}</span>
-                    {i.notes && <span className="college-notes">{i.notes}</span>}
-                  </div>
-
-                  <div className="college-contact">
-                    {c ? (
-                      <>
-                        <span className="college-contact-name">{c.full_name}</span>
-                        {c.phone && (
-                          <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a>
-                        )}
-                        {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
-                      </>
-                    ) : (
-                      canWrite && (
-                        <button className="btn btn-ghost" onClick={() => setPickingContact(i)}>
-                          + Add coach
-                        </button>
-                      )
-                    )}
-                  </div>
-
+          {links.length === 0 ? (
+            <span className="recruit-value muted">None</span>
+          ) : (
+            <ul className="link-list">
+              {links.map((l) => (
+                <li key={l.id} className="link-row">
+                  <span className="link-type">{l.link_type}</span>
+                  <a className="link-url" href={l.url} target="_blank" rel="noreferrer">
+                    {l.label || l.url.replace(/^https?:\/\//, "")}
+                  </a>
                   {canWrite && (
                     <button
                       className="link-remove"
                       disabled={pending}
-                      aria-label={`Remove ${i.college_name}`}
+                      aria-label={`Remove ${l.link_type} link`}
                       onClick={() => {
                         const fd = new FormData();
-                        fd.set("id", i.id);
-                        run(deleteCollegeInterest, fd);
+                        fd.set("id", l.id);
+                        run(deletePlayerLink, fd);
                       }}
                     >
                       ✕
                     </button>
                   )}
                 </li>
-              );
-            })}
-          </ul>
-        )}
+              ))}
+            </ul>
+          )}
+
+          {canWrite && (
+            <button className="recruit-add" onClick={() => setAddingLink(true)}>
+              {links.length === 0 ? "Add" : "Add another"}
+            </button>
+          )}
+        </div>
+
+        <div className="recruit-row">
+          <span className="recruit-label">College interests</span>
+
+          {interests.length === 0 ? (
+            <span className="recruit-value muted">None</span>
+          ) : (
+            <ul className="college-list">
+              {interests.map((i) => {
+                const c = contactFor(i.contact_id);
+                return (
+                  <li key={i.id} className="college-row">
+                    <div className="college-main">
+                      <span className="cell-name">{i.college_name}</span>
+                      {i.notes && <span className="college-notes">{i.notes}</span>}
+                    </div>
+
+                    <div className="college-contact">
+                      {c ? (
+                        <>
+                          <span className="college-contact-name">{c.full_name}</span>
+                          {c.phone && (
+                            <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a>
+                          )}
+                          {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
+                        </>
+                      ) : (
+                        canWrite && (
+                          <button className="recruit-add" onClick={() => setPickingContact(i)}>
+                            Add coach
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    {canWrite && (
+                      <button
+                        className="link-remove"
+                        disabled={pending}
+                        aria-label={`Remove ${i.college_name}`}
+                        onClick={() => {
+                          const fd = new FormData();
+                          fd.set("id", i.id);
+                          run(deleteCollegeInterest, fd);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {canWrite && (
+            <button className="recruit-add" onClick={() => setAddingCollege(true)}>
+              {interests.length === 0 ? "Add" : "Add another"}
+            </button>
+          )}
+        </div>
       </section>
 
       {addingLink && (

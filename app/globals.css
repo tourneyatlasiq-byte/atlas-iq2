@@ -2816,3 +2816,31 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .collapsible-head { min-height: 52px; }
   .collapsible-summary { max-width: 45%; }
 }
+
+/* Recruiting — compact rows, not two large empty sections competing for the
+   top of a player record most coaches never recruit from. */
+.recruit-row {
+  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  padding: 9px 0; border-top: 1px solid var(--border);
+}
+.recruit-row:first-of-type { border-top: none; }
+.recruit-label {
+  font-size: 13px; font-weight: 600; color: var(--navy);
+  min-width: 172px; flex-shrink: 0; padding-top: 1px;
+}
+.recruit-value { font-size: 13px; }
+.recruit-row .link-list, .recruit-row .college-list { flex: 1; min-width: 180px; }
+.recruit-add {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--blue);
+  margin-left: auto;
+}
+.recruit-add:hover { text-decoration: underline; }
+
+.contacts-search { margin: 12px 0 4px; max-width: 420px; }
+
+@media (max-width: 720px) {
+  .recruit-label { min-width: 0; width: 100%; }
+  .recruit-add { margin-left: 0; min-height: 44px; display: inline-flex; align-items: center; }
+  .recruit-row .link-list, .recruit-row .college-list { width: 100%; }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { ContactForm } from "./ContactForm";
 import { saveContact, deleteContact } from "../lib/actions/contacts";
 
@@ -15,6 +15,7 @@ const ORDER = ["Organization", "Tournament", "College", "Other"];
 
 export function ContactsDirectory({ contacts, canWrite }) {
   const [editing, setEditing] = useState(null); // row | "new" | null
+  const [query, setQuery] = useState("");
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -27,9 +28,19 @@ export function ContactsDirectory({ contacts, canWrite }) {
     });
   }
 
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return contacts;
+    return contacts.filter((c) =>
+      [c.full_name, c.title, c.organization_or_school, c.email, c.phone]
+        .filter(Boolean)
+        .some((v) => v.toLowerCase().includes(q))
+    );
+  }, [contacts, query]);
+
   const groups = ORDER.map((category) => ({
     category,
-    rows: contacts.filter((c) => c.contact_category === category),
+    rows: visible.filter((c) => c.contact_category === category),
   })).filter((g) => g.rows.length > 0);
 
   return (
@@ -50,6 +61,22 @@ export function ContactsDirectory({ contacts, canWrite }) {
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {contacts.length > 6 && (
+        <div className="field contacts-search">
+          <input
+            type="search"
+            placeholder="Search by name, role, school or organization"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search contacts"
+          />
+        </div>
+      )}
+
+      {query.trim() && visible.length === 0 && (
+        <p className="field-note">Nobody matches &ldquo;{query.trim()}&rdquo;.</p>
+      )}
 
       {contacts.length === 0 ? (
         <p className="field-note">
