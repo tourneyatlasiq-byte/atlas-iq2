@@ -92,6 +92,19 @@ was always true is different from adding an event that never happened.
 season-scoped tables. `enforce_participant_integrity()` was refactored to drop
 its own copy — three implementations of the same logic was already one too many.
 
+### Historical correction UI — deliberately not built
+The database permits owner/admin corrections to a past season. **No interface
+offers them.** `requireSeasonContext()` still refuses every past-season write,
+so through normal Atlas a past season remains read-only.
+
+*Why the gap is intentional:* we do not yet know which corrections coaches
+actually need. Building a general correction screen now would guess at that,
+and would expose a destructive capability before anyone has asked for it.
+
+**Capability existing is not a reason to expose it.** Deferred until real usage
+shows which corrections matter. When built it needs explicit delete
+confirmation and clear warnings — recorded so that requirement is not lost.
+
 ### Historical write hardening — RESOLVED (was a known gap)
 **Verified by test:** an authenticated writer calling the API directly can
 insert into their own organization's **past** seasons on `games`,

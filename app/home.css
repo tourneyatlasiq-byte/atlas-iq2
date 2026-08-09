@@ -12,9 +12,13 @@
   border-bottom: 1px solid var(--border);
 }
 .mk-header-inner {
-  display: flex; align-items: center; gap: 24px; height: 66px;
+  display: flex; align-items: center; gap: 24px; height: 72px;
 }
 .mk-logo { display: flex; align-items: center; }
+/* Brand large enough to read without study. Header height rises only 6px —
+   the type does the work, not the padding. */
+.mk-logo .brand-word { font-size: 26px; letter-spacing: -0.01em; }
+.mk-logo .brand-sub { font-size: 10.5px; letter-spacing: 0.22em; margin-top: 2px; }
 .mk-nav { display: flex; gap: 22px; margin-left: 12px; }
 .mk-nav a {
   font-size: 13.5px; font-weight: 600; color: var(--slate);
@@ -46,14 +50,85 @@
   box-shadow: 0 18px 50px rgba(11,35,65,0.12);
 }
 .mk-shot-frame img { display: block; width: 100%; height: auto; }
-.mk-shot-placeholder {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 8px; text-align: center; min-height: 380px; padding: 40px 24px;
-  border: 2px dashed var(--border); margin: 12px;
-  border-radius: 10px; background: var(--surface);
+/* Product preview built from real Atlas surfaces — the same Next Up panel and
+   briefing rows the application renders. Nothing here depicts functionality
+   that does not exist. Replace with a screenshot by swapping this block for an
+   <img>; the frame keeps the styling. */
+.mk-preview { padding: 18px; background: var(--bg); }
+.mk-preview-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--slate); margin-bottom: 14px;
 }
-.mk-shot-placeholder strong { font-size: 15px; }
-.mk-shot-placeholder span { font-size: 13px; color: var(--slate); max-width: 420px; line-height: 1.55; }
+.mk-preview-bar strong { color: var(--navy); font-weight: 600; }
+.mk-preview-grid {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); gap: 14px;
+}
+.mk-preview-next {
+  background: linear-gradient(160deg, #0b2341 0%, #123055 100%);
+  border-radius: 12px; padding: 20px 22px; color: #fff;
+}
+.mk-preview-eyebrow {
+  font-family: var(--font-display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.62);
+}
+.mk-preview-days {
+  display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
+}
+.mk-preview-days b {
+  font-family: var(--font-display); font-size: 34px; font-weight: 800;
+  color: var(--gold); line-height: 1;
+}
+.mk-preview-days span {
+  font-family: var(--font-display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.72);
+}
+.mk-preview-name {
+  font-family: var(--font-display); font-size: 22px; font-weight: 800;
+  margin: 10px 0 6px; line-height: 1.15;
+}
+.mk-preview-line { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.5; }
+.mk-preview-flags { display: flex; gap: 14px; margin-top: 14px; font-size: 12.5px; font-weight: 600; }
+.mk-preview-flags .ok { color: #7fd992; }
+.mk-preview-flags .quiet { color: rgba(255,255,255,0.6); font-weight: 500; }
+
+.mk-preview-side { background: var(--surface); border-radius: 12px; padding: 16px 14px; }
+.mk-preview-side-title {
+  font-family: var(--font-display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate); margin: 0 0 10px;
+}
+.mk-preview-action { display: flex; gap: 10px; padding: 9px 0; align-items: flex-start; }
+.mk-preview-action + .mk-preview-action { border-top: 1px solid var(--border); }
+.mk-preview-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.mk-preview-dot.red { background: #c0392b; }
+.mk-preview-dot.amber { background: #b45309; }
+.mk-preview-action-text { font-size: 13px; color: var(--navy); font-weight: 600; line-height: 1.4; }
+.mk-preview-action-where { display: block; font-size: 12px; color: var(--blue); font-weight: 600; margin-top: 1px; }
+
+.mk-preview-snaps {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0; border-top: 1px solid var(--border); margin-top: 14px;
+}
+.mk-preview-snap { padding: 14px 16px; border-left: 1px solid var(--border); }
+.mk-preview-snap:first-child { border-left: none; padding-left: 2px; }
+.mk-preview-snap b {
+  display: block; font-family: var(--font-display); font-size: 22px;
+  font-weight: 800; color: var(--navy);
+}
+.mk-preview-snap span { display: block; font-size: 12px; color: var(--slate); margin-top: 2px; }
+.mk-preview-snap em {
+  display: block; font-family: var(--font-display); font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate);
+  font-style: normal; margin-bottom: 6px;
+}
+
+/* Who Atlas is for */
+.mk-who { text-align: center; }
+.mk-who p { max-width: 640px; margin: 0 auto; font-size: 16px; line-height: 1.7; }
+
+.mk-connect {
+  text-align: center; font-size: 15px; color: var(--navy); font-weight: 600;
+  max-width: 620px; margin: -18px auto 30px; line-height: 1.6;
+}
 
 /* Sections */
 .mk-section { padding: 68px 0; }
@@ -111,7 +186,10 @@
 /* Mobile: Sign in stays in the header, per the brief. */
 @media (max-width: 720px) {
   .mk-nav { display: none; }
-  .mk-header-inner { height: 60px; gap: 12px; }
+  .mk-header-inner { height: 62px; gap: 10px; }
+  /* Recognisable without crowding the two actions beside it. */
+  .mk-logo .brand-word { font-size: 20px; }
+  .mk-logo .brand-sub { font-size: 9px; letter-spacing: 0.18em; }
   .mk-header-actions { gap: 10px; }
   .mk-header-actions .btn { padding: 8px 14px; font-size: 13px; }
   .mk-hero { padding: 52px 0 40px; }
@@ -119,7 +197,14 @@
   .mk-section { padding: 48px 0; }
   .mk-step { flex-direction: column; gap: 4px; }
   .mk-step-name { min-width: 0; }
-  .mk-shot-placeholder { min-height: 260px; }
+  .mk-preview { padding: 12px; }
+  .mk-preview-grid { grid-template-columns: 1fr; }
+  .mk-preview-days b { font-size: 28px; }
+  .mk-preview-name { font-size: 19px; }
+  .mk-preview-snaps { grid-template-columns: 1fr; }
+  .mk-preview-snap { border-left: none; border-top: 1px solid var(--border); padding: 12px 2px; }
+  .mk-preview-snap:first-child { border-top: none; }
+  .mk-connect { font-size: 14px; margin-bottom: 22px; }
   .mk-footer-inner { flex-direction: column; align-items: flex-start; gap: 14px; }
   .mk-footer-nav { margin-left: 0; }
   .mk-copyright { margin-left: 0; }
