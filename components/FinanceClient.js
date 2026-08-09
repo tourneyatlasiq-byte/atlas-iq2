@@ -17,13 +17,13 @@ import {
 } from "../lib/actions/finance";
 
 /** A thin bar. Restraint on purpose — Finance should not become a chart page. */
-function Meter({ value, total }) {
+function Meter({ value, total, hidePct = false }) {
   if (!total || total <= 0) return null;
   const pct = Math.min(100, Math.round((value / total) * 100));
   return (
     <span className="meter" role="img" aria-label={`${pct} percent`}>
       <span className="meter-fill" style={{ width: `${pct}%` }} />
-      <span className="meter-pct">{pct}%</span>
+      {!hidePct && <span className="meter-pct">{pct}%</span>}
     </span>
   );
 }
@@ -53,14 +53,15 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
+const payClass = (s) =>
+  s === "Paid in Full" ? "pill-paid" : s === "Partial" ? "pill-deposit" : "pill-unregistered";
+
 const statusClass = (s) =>
   s === "Paid" ? "pill-paid"
   : s === "Received" ? "pill-registered"
   : s === "Ordered" ? "pill-deposit"
   : "pill-unregistered";
 
-const payClass = (s) =>
-  s === "Paid in Full" ? "pill-paid" : s === "Partial" ? "pill-deposit" : "pill-unregistered";
 
 export function FinanceClient({
   budget, transactions, payments, summary, funds, dues, committedTournaments,
@@ -83,6 +84,19 @@ export function FinanceClient({
   const [detailPay, setDetailPay] = useState(null);
   const [editPay, setEditPay] = useState(null);
   const [openCats, setOpenCats] = useState({});
+
+  // Counts for the consolidated action row. Same payments the rules read.
+  const duesSummary = useMemo(() => {
+    const rows = payments.map((p) => {
+      const paid = (p.payment_log ?? []).reduce((sum, e) => sum + Number(e.amount ?? 0), 0);
+      return { due: Number(p.initial_cost ?? 0), paid };
+    });
+    return {
+      withBalance: rows.filter((r) => r.due - r.paid > 0).length,
+      notStarted: rows.filter((r) => r.paid === 0 && r.due > 0).length,
+      outstanding: rows.reduce((sum, r) => sum + Math.max(0, r.due - r.paid), 0),
+    };
+  }, [payments]);
 
   const actions = useMemo(
     () => (seasonPhase === "current" ? financeActions(payments) : []),
@@ -153,76 +167,74 @@ export function FinanceClient({
         Leading with remaining budget made a season look healthy while most of
         the dues were still outstanding.
       */}
-      <div className="fin-summary">
-        <section className="fin-panel">
-          <p className="fin-panel-label">Spending</p>
-          <p className="fin-hero">{money(summary.actualExpenses)}</p>
-          <p className="fin-hero-sub">
-            paid of {money(summary.budgetedExpenses)} planned
-          </p>
-          <div className="fin-panel-foot">
-            {summary.committedUnpaid > 0 && (
-              <p className="fin-line">
-                {money(summary.committedUnpaid)} committed, not yet paid
-                <HelpTip term="Committed" />
-              </p>
-            )}
-            <p className="fin-line fin-line-quiet">
-              {money(summary.remainingBudget)} remaining
-            </p>
-          </div>
-        </section>
+      {/*
+        Dues lead because they are the actionable story: 31% collected with
+        $19,900 outstanding is what a coach can do something about. Spending and
+        money received are true but not urgent, so they sit beneath.
 
-        <section className="fin-panel">
-          <p className="fin-panel-label">
-            Money in <HelpTip term="Money In" />
-          </p>
-          <p className="fin-hero">{money(funds.total)}</p>
-          <p className="fin-hero-sub">
-            received this season
-            <span className="fin-hero-note">Includes player dues, fundraising and sponsors.</span>
-          </p>
-          <div className="fin-panel-foot">
-            <p className="fin-line">{money(funds.playerDues)} player dues</p>
-            <p className="fin-line fin-line-quiet">
-              {money(funds.otherTotal)} fundraising &amp; sponsors
-            </p>
-          </div>
-        </section>
-
-        <section className="fin-panel">
+        Detail that belongs to a tab lives in that tab — remaining budget,
+        committed-unpaid and the money-in split are all one click away.
+      */}
+      <div className="fin-lead">
+        <div className="fin-lead-main">
           <p className="fin-panel-label">
             Player dues <HelpTip term="Player Payments" />
           </p>
-          <p className="fin-hero">{money(dues.collected)}</p>
-          <p className="fin-hero-sub">collected of {money(dues.expected)}</p>
-          <div className="fin-panel-foot">
-            <Meter value={dues.collected} total={dues.expected} />
-            <p className={`fin-line${dues.outstanding > 0 ? " fin-line-alert" : " fin-line-quiet"}`}>
-              {money(dues.outstanding)} still outstanding
-            </p>
-          </div>
-        </section>
+          <p className="fin-lead-hero">
+            {dues.expected > 0 ? Math.round((dues.collected / dues.expected) * 100) : 0}%
+            <span className="fin-lead-hero-unit">of player dues collected</span>
+          </p>
+          <p className="fin-lead-amounts">
+            {money(dues.collected)} of {money(dues.expected)} collected
+          </p>
+          <Meter value={dues.collected} total={dues.expected} hidePct />
+          <p className={`fin-lead-rest${dues.outstanding > 0 ? " alert" : ""}`}>
+            {dues.outstanding > 0
+              ? `${money(dues.outstanding)} still to collect`
+              : "All dues collected"}
+          </p>
+        </div>
+
+        <div className="fin-lead-side">
+          <button className="fin-mini" onClick={() => setTab("budget")}>
+            <span className="fin-mini-label">Spent</span>
+            <span className="fin-mini-value">{money(summary.actualExpenses)}</span>
+            <span className="fin-mini-sub">of {money(summary.budgetedExpenses)} planned</span>
+          </button>
+
+          <button className="fin-mini" onClick={() => setTab("funds")}>
+            <span className="fin-mini-label">Money received</span>
+            <span className="fin-mini-value">{money(funds.total)}</span>
+            <span className="fin-mini-sub">this season</span>
+          </button>
+        </div>
       </div>
 
+      {/* The two rules describe one situation, so they are presented as one.
+          Both still run — this is a display consolidation. */}
       <div className="roster-actions finance-actions">
         <p className="roster-actions-label">Needs action</p>
+
         {actions.length === 0 ? (
           <p className="roster-clear">Nothing needs attention</p>
         ) : (
-          actions.map((a) => (
-            <button
-              key={a.id}
-              className={`roster-action${actionId === a.id ? " on" : ""}`}
-              onClick={() => selectAction(actionId === a.id ? null : a.id)}
-            >
-              <span
-                className={`briefing-dot ${a.priority <= 15 ? "dot-urgent" : "dot-attention"}`}
-                aria-hidden="true"
-              />
-              <span className="roster-action-text">{financeActionText(a, dues)}</span>
-            </button>
-          ))
+          <button
+            className={`roster-action${actionId ? " on" : ""}`}
+            onClick={() => selectAction(actionId ? null : "outstanding")}
+          >
+            <span className="briefing-dot dot-urgent" aria-hidden="true" />
+            <span className="roster-action-text">
+              <strong>{duesSummary.withBalance} players have outstanding balances</strong>
+              <span className="roster-action-sub">
+                {money(duesSummary.outstanding)} remaining
+                {duesSummary.notStarted > 0 &&
+                  `, including ${duesSummary.notStarted} who ${
+                    duesSummary.notStarted === 1 ? "hasn't" : "haven't"
+                  } started paying`}
+              </span>
+            </span>
+            <span className="roster-action-cta">View player balances →</span>
+          </button>
         )}
       </div>
 
@@ -390,7 +402,6 @@ export function FundsInTab({ funds, dues }) {
     rows.push({ label: "Other", received: funds.other, goal: funds.otherGoal, goalWord: "goal" });
   }
 
-  const pct = (r, g) => (g > 0 ? Math.round((r / g) * 100) : null);
 
   return (
     <>
@@ -400,62 +411,53 @@ export function FundsInTab({ funds, dues }) {
         </div>
       </div>
 
-      <div className="card card-flush">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th>Received</th>
-              <th>Target</th>
-              <th className="fi-progress-col">Progress</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.label}>
-                <td>
-                  <span className="cell-name">{r.label}</span>
+      <div className="fi-list">
+        {rows.map((r) => {
+          const remaining = Math.max(0, (r.goal ?? 0) - r.received);
+          return (
+            <div key={r.label} className="fi-row">
+              <div className="fi-row-head">
+                <span className="fi-source">
+                  {r.label}
                   {r.derived && <span className="role-tag">From Player Payments</span>}
-                  {r.note && (
-                    <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{r.note}</div>
-                  )}
-                </td>
-                <td className="t-cost">{money(r.received)}</td>
-                <td className="t-cost">
-                  {r.goal > 0 ? (
-                    <>
-                      {money(r.goal)}
-                      <span className="fi-goal-word">{r.goalWord}</span>
-                    </>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td className="fi-progress-col">
-                  {r.goal > 0 ? <Meter value={r.received} total={r.goal} /> : <span className="muted">—</span>}
-                </td>
-              </tr>
-            ))}
-            <tr className="funds-total">
-              <td><span className="cell-name">Total money in</span></td>
-              <td className="t-cost">{money(funds.total)}</td>
-              <td className="t-cost">
-                {funds.totalGoal + dues.expected > 0
-                  ? money(funds.totalGoal + dues.expected)
-                  : <span className="muted">—</span>}
-              </td>
-              <td className="fi-progress-col">
-                <Meter value={funds.total} total={funds.totalGoal + dues.expected} />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </span>
+                <span className="fi-received">{money(r.received)}</span>
+              </div>
+
+              {r.goal > 0 ? (
+                <>
+                  <Meter value={r.received} total={r.goal} />
+                  <p className="fi-row-foot">
+                    {remaining > 0 ? (
+                      <>
+                        {money(remaining)}{" "}
+                        {r.goalWord === "expected" ? "still to collect" : "to goal"}
+                      </>
+                    ) : (
+                      <span className="fi-met">Target met</span>
+                    )}
+                    <span className="muted">
+                      {" · "}
+                      {money(r.goal)} {r.goalWord}
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <p className="fi-row-foot muted">No target set</p>
+              )}
+            </div>
+          );
+        })}
+
+        <div className="fi-row fi-row-total">
+          <div className="fi-row-head">
+            <span className="fi-source">Total money in</span>
+            <span className="fi-received">{money(funds.total)}</span>
+          </div>
+          <Meter value={funds.total} total={funds.totalGoal + dues.expected} />
+        </div>
       </div>
 
-      <p className="field-note">
-        Player dues are recorded in Player Payments and appear here automatically. They cannot be
-        entered as transactions, which keeps the same payment from being counted twice.
-      </p>
     </>
   );
 }
@@ -538,19 +540,14 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
               >
                 <span className={`group-caret${open ? "" : " collapsed"}`} aria-hidden="true">▾</span>
                 <span className="budget-cat-name">{g.category}</span>
-                <span className="budget-figs">
-                  <span><em>Planned</em>{money(g.budgeted)}</span>
-                  <span><em>Paid</em>{money(g.actual)}</span>
-                  <span className={g.committed > 0 ? "committed" : "empty"}>
-                    <em>Committed</em>
-                    {g.committed > 0 ? money(g.committed) : "—"}
+                <span className="budget-summary">
+                  <span className="budget-spent">
+                    {money(g.actual)} <span className="muted">of {money(g.budgeted)}</span>
                   </span>
-                  {/* Over replaces Remaining rather than sitting beside a
-                      negative number — it says the same thing more plainly. */}
-                  <span className={over ? "over" : ""}>
-                    <em>{over ? "Over" : "Remaining"}</em>
-                    {money(over ? Math.abs(g.remaining) : g.remaining)}
-                  </span>
+                  {g.committed > 0 && (
+                    <span className="budget-committed">{money(g.committed)} committed</span>
+                  )}
+                  {over && <span className="over">Over by {money(Math.abs(g.remaining))}</span>}
                 </span>
                 <span className="budget-bar" aria-hidden="true">
                   <span
@@ -721,7 +718,14 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
                       : <span className="muted">{t.category}</span>}
                   </td>
                   <td className="t-cost txn-amount">
-                    {money(t.actual_amount)}
+                    {t.actual_amount == null ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <span className={t.is_income ? "amt-in" : "amt-out"}>
+                        {t.is_income ? "+" : "−"}
+                        {money(Math.abs(Number(t.actual_amount)))}
+                      </span>
+                    )}
                     <span className={`txn-status ${statusClass(t.status)}`} title={t.status}>
                       {t.status}
                     </span>
@@ -970,13 +974,58 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
 
 /* ---------------- Player payments ---------------- */
 
+const PAYMENT_VIEWS = [
+  { key: "all", label: "All" },
+  { key: "owes", label: "Owes balance" },
+  { key: "none", label: "Not started" },
+  { key: "paid", label: "Paid" },
+];
+
+/**
+ * Answers "who still owes?" first.
+ *
+ * Progress replaces three numeric columns a coach had to compare. Exact
+ * amounts and payment history remain in the drawer.
+ */
 export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
+  const [view, setView] = useState("all");
+
+  const visible = payments.filter((p) => {
+    if (view === "owes") return p.balance > 0;
+    if (view === "none") return p.totalPaid === 0 && p.totalDue > 0;
+    if (view === "paid") return p.balance <= 0 && p.totalDue > 0;
+    return true;
+  });
+
+  const countFor = (key) =>
+    payments.filter((p) => {
+      if (key === "owes") return p.balance > 0;
+      if (key === "none") return p.totalPaid === 0 && p.totalDue > 0;
+      if (key === "paid") return p.balance <= 0 && p.totalDue > 0;
+      return true;
+    }).length;
+
   return (
     <>
       <div className="tab-head">
         <div className="page-sub">Amounts owed by each player for this season.</div>
         {canWrite && <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>}
       </div>
+
+      {payments.length > 0 && (
+        <div className="segmented pay-views" role="group" aria-label="Filter players">
+          {PAYMENT_VIEWS.map((v) => (
+            <button
+              key={v.key}
+              className={`seg${view === v.key ? " on" : ""}`}
+              onClick={() => setView(v.key)}
+              aria-pressed={view === v.key}
+            >
+              {v.label} <span className="seg-count">{countFor(v.key)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="card card-flush">
         {payments.length === 0 ? (
@@ -985,27 +1034,65 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen }) {
             <p>Set what each family owes for the season. Record payments as they arrive and Atlas keeps the balances for you.</p>
             {canWrite && <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>}
           </div>
+        ) : visible.length === 0 ? (
+          <div className="empty">
+            <h3>No players here</h3>
+            <p>Nobody matches this view right now.</p>
+          </div>
         ) : (
-          <table className="table">
+          <table className="table pay-table">
             <thead>
               <tr>
-                <th>Player</th>
-                <th>Total due</th>
-                <th>Paid</th>
-                <th>Balance</th>
-                <th>Status</th>
+                <th className="pay-player">Player</th>
+                <th className="pay-progress">Payment progress</th>
+                <th className="pay-balance">Balance</th>
               </tr>
             </thead>
             <tbody>
-              {payments.map((p) => (
-                <tr key={p.id} className="row-click" onClick={() => onOpen(p)}>
-                  <td className="cell-name">{p.player?.full_name ?? <span className="muted">Unlinked</span>}</td>
-                  <td>{money(p.totalDue)}</td>
-                  <td>{money(p.totalPaid)}</td>
-                  <td className="t-cost">{money(p.balance)}</td>
-                  <td><span className={`pill ${payClass(p.status)}`}>{p.status}</span></td>
-                </tr>
-              ))}
+              {visible.map((p) => {
+                const settled = p.totalDue > 0 && p.balance <= 0;
+                const nothing = p.totalPaid === 0;
+
+                return (
+                  <tr key={p.id} className="row-click" onClick={() => onOpen(p)}>
+                    <td className="pay-player">
+                      <span className="cell-name">
+                        {p.player?.full_name ?? <span className="muted">Unlinked</span>}
+                      </span>
+                      <span className="pay-sub">
+                        {settled
+                          ? "Paid in full"
+                          : nothing
+                            ? `Nothing paid of ${money(p.totalDue)}`
+                            : `${money(p.totalPaid)} of ${money(p.totalDue)}`}
+                      </span>
+                    </td>
+
+                    <td className="pay-progress">
+                      {settled ? (
+                        <span className="pay-settled">Paid in full ✓</span>
+                      ) : nothing ? (
+                        <span className="muted">Nothing paid</span>
+                      ) : (
+                        <>
+                          <span className="pay-amounts">
+                            {money(p.totalPaid)} <span className="muted">of {money(p.totalDue)}</span>
+                          </span>
+                          <Meter value={p.totalPaid} total={p.totalDue} />
+                        </>
+                      )}
+                    </td>
+
+                    <td className="pay-balance">
+                      {settled ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        <span className="pay-owed">{money(p.balance)}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

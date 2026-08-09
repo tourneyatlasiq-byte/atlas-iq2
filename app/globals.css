@@ -2141,3 +2141,96 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .budget-figs { gap: 10px; }
   .budget-figs > span { font-size: 12.5px; }
 }
+
+/* ===== Finance overview: one story, then the evidence ===== */
+
+.fin-lead {
+  display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(220px, 1fr);
+  gap: 20px; align-items: start;
+  padding-bottom: 16px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border); max-width: 1120px;
+}
+.fin-lead-hero {
+  font-family: var(--font-display); font-size: 42px; font-weight: 800;
+  line-height: 1; letter-spacing: -0.025em; color: var(--navy);
+  margin: 8px 0 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+}
+.fin-lead-hero-unit {
+  font-family: var(--font-body); font-size: 14px; font-weight: 500;
+  letter-spacing: 0; color: var(--slate);
+}
+.fin-lead-amounts { font-size: 13.5px; color: var(--navy); margin: 10px 0 8px; }
+.fin-lead-main .meter { max-width: 420px; }
+.fin-lead-rest { font-size: 13px; color: var(--slate); margin: 8px 0 0; }
+.fin-lead-rest.alert { color: var(--status-urgent); font-weight: 600; }
+
+.fin-lead-side { display: flex; flex-direction: column; gap: 8px; }
+.fin-mini {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-control); padding: 11px 14px; cursor: pointer;
+  font-family: var(--font-body); text-align: left; width: 100%;
+}
+.fin-mini:hover { border-color: var(--slate); }
+.fin-mini-label { font-size: 11.5px; font-weight: 600; color: var(--slate); }
+.fin-mini-value {
+  font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--navy);
+}
+.fin-mini-sub { font-size: 11.5px; color: var(--slate); }
+
+/* Consolidated action row */
+.roster-action-sub { display: block; font-size: 12.5px; color: var(--slate); margin-top: 2px; }
+.roster-action-cta { font-size: 12.5px; font-weight: 600; color: var(--blue); flex-shrink: 0; }
+.finance-actions .roster-action { align-items: flex-start; }
+
+/* Budget: collapsed answers one question */
+.budget-summary { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.budget-spent { font-family: var(--font-display); font-weight: 800; font-size: 14px; color: var(--navy); }
+.budget-committed { font-size: 12px; font-weight: 600; color: var(--status-wait); }
+
+/* Money In: progress-led */
+.fi-list { display: flex; flex-direction: column; }
+.fi-row { padding: 14px 2px; border-top: 1px solid var(--border); }
+.fi-row:first-child { border-top: none; }
+.fi-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.fi-source { font-size: 14px; font-weight: 600; color: var(--navy); }
+.fi-received { font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--navy); }
+.fi-row .meter { margin: 9px 0 6px; max-width: 460px; }
+.fi-row-foot { font-size: 12.5px; color: var(--navy); margin: 0; }
+.fi-met { color: var(--status-good); font-weight: 600; }
+.fi-row-total { border-top: 2px solid var(--border); margin-top: 4px; }
+
+/* Transactions: direction of cash */
+.amt-in { color: var(--status-good); font-weight: 700; }
+.amt-out { color: var(--navy); font-weight: 700; }
+
+/* Player Payments */
+.pay-views { margin-bottom: 12px; }
+.pay-table { table-layout: fixed; max-width: 1120px; }
+.pay-table .pay-player { width: 32%; }
+.pay-table .pay-progress { width: 44%; }
+.pay-table .pay-balance { width: 24%; text-align: right; }
+.pay-amounts { display: block; font-size: 13px; color: var(--navy); margin-bottom: 5px; }
+.pay-settled { font-size: 13.5px; font-weight: 600; color: var(--status-good); }
+.pay-owed { font-family: var(--font-display); font-size: 16px; font-weight: 800; color: var(--navy); }
+.pay-sub { display: none; }
+
+@media (max-width: 720px) {
+  .fin-lead { grid-template-columns: 1fr; gap: 14px; }
+  .fin-lead-hero { font-size: 34px; }
+  .fin-lead-side { flex-direction: row; }
+  .fin-mini { flex: 1; padding: 9px 11px; }
+  .fin-mini-value { font-size: 16px; }
+
+  .fi-row-head { flex-wrap: wrap; }
+  .fi-received { font-size: 16px; }
+
+  /* Two lines per player; progress and exact split fold into the sub-line. */
+  .pay-table thead { display: none; }
+  .pay-table tr { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .pay-table td { display: block; padding: 0; border: none; }
+  .pay-table .pay-progress { display: none; }
+  .pay-table .pay-player { width: auto; flex: 1; min-width: 0; }
+  .pay-table .pay-balance { width: auto; flex-shrink: 0; }
+  .pay-sub { display: block; font-size: 12.5px; color: var(--slate); margin-top: 2px; }
+}
