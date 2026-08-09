@@ -2274,3 +2274,22 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .files-views { display: flex; width: 100%; overflow-x: auto; }
   .files-views .segment { flex: 1; white-space: nowrap; min-height: 44px; }
 }
+
+/* --- Facility drawer: arrival first --- */
+.fac-arrival {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  padding: 14px 16px; margin-bottom: 4px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+.fac-address { font-size: 14px; font-weight: 600; color: var(--navy); margin: 0; line-height: 1.5; }
+.fac-directions { flex-shrink: 0; white-space: nowrap; }
+
+/* History reads as useful rather than as an absence. */
+.fc-first { font-size: 13px; color: var(--slate); }
+
+@media (max-width: 720px) {
+  .fac-arrival { flex-direction: column; align-items: stretch; }
+  .fac-directions { width: 100%; text-align: center; min-height: 44px; line-height: 26px; }
+}

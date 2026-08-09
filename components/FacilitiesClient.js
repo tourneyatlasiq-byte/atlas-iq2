@@ -62,7 +62,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
   const [amenityFilter, setAmenityFilter] = useState("all");
   const [countyFilter, setCountyFilter] = useState("all");
   // Default to whichever view actually has something in it. A new organization
-  // has no venues yet, and an empty tab makes the directory look empty too.
+  // has no facilities yet, and an empty tab makes the directory look empty too.
   const hasOwnVenues = facilities.some((f) => f.isOurs);
   const [view, setView] = useState(forceAllView || !hasOwnVenues ? "all" : "ours");
   const [openGroups, setOpenGroups] = useState({});
@@ -205,7 +205,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
 
       {ourCount === 0 && (
         <div className="card facility-prompt">
-          <strong>Search for a venue you've played, open it, then add your notes.</strong>
+          <strong>Search for a facility you've played, open it, then add your notes.</strong>
           <span>
             Your notes stay private to your team — parking, gate entry, concessions, anything
             you'll want to remember next time.
@@ -215,7 +215,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
 
       {view === "ours" && ourCount > 0 && (
         <p className="fac-context">
-          <strong>{ourCount}</strong> {ourCount === 1 ? "venue" : "venues"}
+          <strong>{ourCount}</strong> {ourCount === 1 ? "facility" : "facilities"}
           <span className="tiq-dot" aria-hidden="true">·</span>
           <strong>{facilities.filter((f) => f.isOurs && (f.upcoming ?? []).length > 0).length}</strong> with
           upcoming events
@@ -237,7 +237,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           onClick={() => setView("ours")}
           aria-pressed={view === "ours"}
         >
-          Our Venues <span className="seg-count">{ourCount}</span>
+          Our Facilities <span className="seg-count">{ourCount}</span>
         </button>
         <button
           className={`segment${view === "all" ? " on" : ""}`}
@@ -247,20 +247,20 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
           All facilities <span className="seg-count">{facilities.length}</span>
         </button>
       </div>
-      <HelpTip term="Our Venues" />
+      <HelpTip term="Our Facilities" />
       </div>
 
       <div className="toolbar">
         <input
           className="toolbar-search"
           type="search"
-          placeholder="Search name, city, county, address or Atlas ID"
+          placeholder="Search by facility, city, county, or address"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search facilities"
         />
         {/* Discovery filters belong with the 178-record directory, not with
-            seven venues you already know. */}
+            seven facilities you already know. */}
         {view === "all" && (
           <>
         <select
@@ -311,14 +311,14 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
               {facilities.length === 0
                 ? "No facilities yet"
                 : view === "ours" && ourCount === 0
-                  ? "No venues yet"
+                  ? "No facilities yet"
                   : "Nothing matches"}
             </h3>
             <p>
               {facilities.length === 0
-                ? "Add the first venue. Facilities are shared, so other organizations benefit too."
+                ? "Add the first facility. Facilities are shared, so other organizations benefit too."
                 : view === "ours" && ourCount === 0
-                  ? "Venues show up here once you play at one or save your own notes. Browse the full directory to find where you're playing."
+                  ? "Facilities show up here once you play at one or save your own notes. Browse the full directory to find where you're playing."
                   : "Try a different search or clear the filters."}
             </p>
             {view === "ours" && ourCount === 0 && facilities.length > 0 && (
@@ -465,7 +465,7 @@ export function FacilitiesClient({ facilities, organizationId, canWrite, isAdmin
  * a filter and appears in the drawer.
  */
 /**
- * The single most useful thing this team knows about a venue.
+ * The single most useful thing this team knows about a facility.
  *
  * Deliberately does NOT count populated fields — "6 notes saved" describes the
  * data model, not six occasions. One useful line is worth more.
@@ -502,7 +502,7 @@ function historyOf(f) {
 }
 
 /**
- * Our Venues — team operational memory.
+ * Our Facilities — team operational memory.
  *
  * Different columns from All Facilities on purpose: you have been to these
  * places, so field count and county are evaluation criteria you no longer
@@ -573,10 +573,10 @@ function OurVenuesTable({ rows, onOpen }) {
                     <span className="fc-visits">
                       {hist.count} {hist.count === 1 ? "visit" : "visits"}
                     </span>
-                    <span className="fc-last">Last: {hist.when}</span>
+                    <span className="fc-last">Last {hist.when}</span>
                   </>
                 ) : (
-                  <span className="muted">No previous visits</span>
+                  <span className="fc-first">First visit</span>
                 )}
               </td>
             </tr>
@@ -631,7 +631,7 @@ function FacilityTable({ rows, onOpen }) {
             <td className="fc-name">
               <span className="cell-name">{f.name}</span>
               {f.orgNotes ? (
-                <span className="role-tag" title="Your organization has notes on this venue">
+                <span className="role-tag" title="Your team has notes on this facility">
                   Notes
                 </span>
               ) : (
@@ -748,30 +748,18 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
         </div>
 
         <div className="drawer-body">
-          <Section title="Overview">
-            <Row label="Address" value={address || null} />
-            <Row label="County" value={f.county} />
-            <Row
-              label="Map"
-              value={
-                f.maps_link ? (
-                  <a className="link" href={f.maps_link} target="_blank" rel="noreferrer">Open in maps</a>
-                ) : null
-              }
-            />
-            <Row
-              label="Website"
-              value={
-                f.website ? (
-                  <a className="link" href={f.website} target="_blank" rel="noreferrer">{f.website}</a>
-                ) : null
-              }
-            />
-            <Row
-              label="Coordinates"
-              value={f.latitude != null && f.longitude != null ? `${f.latitude}, ${f.longitude}` : null}
-            />
-          </Section>
+          {/* Arrival first: where it is and how to get there. Everything else
+              is reference and can wait. */}
+          {(address || f.maps_link) && (
+            <div className="fac-arrival">
+              {address && <p className="fac-address">{address}</p>}
+              {f.maps_link && (
+                <a className="btn btn-secondary fac-directions" href={f.maps_link} target="_blank" rel="noreferrer">
+                  Open in maps
+                </a>
+              )}
+            </div>
+          )}
 
           <Section
             title="Our Notes"
@@ -805,6 +793,23 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
                 )}
               </div>
             )}
+          </Section>
+
+          <Section title="Location details">
+            <Row label="Address" value={address || null} />
+            <Row label="County" value={f.county} />
+            <Row
+              label="Website"
+              value={
+                f.website ? (
+                  <a className="link" href={f.website} target="_blank" rel="noreferrer">{f.website}</a>
+                ) : null
+              }
+            />
+            <Row
+              label="Coordinates"
+              value={f.latitude != null && f.longitude != null ? `${f.latitude}, ${f.longitude}` : null}
+            />
           </Section>
 
           <Section title="Facility Details">
@@ -843,7 +848,7 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           </Section>
 
           {f.description && (
-            <Section title="About this venue">
+            <Section title="About this facility">
               <p className="section-body">{f.description}</p>
               {f.data_source && <p className="field-note">Source: {f.data_source}</p>}
             </Section>
@@ -1132,7 +1137,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
           <div className="modal-head">
             <h2>Add facility</h2>
             <div className="page-sub">
-              Facilities are shared across Atlas. Search first — the venue may already exist.
+              Facilities are shared across Atlas. Search first — the facility may already exist.
             </div>
           </div>
 
@@ -1188,7 +1193,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                 }}
                 title={
                   externalEnabled
-                    ? "Look this venue up in an external place directory"
+                    ? "Look this facility up in an external place directory"
                     : "External place search isn't connected yet"
                 }
               >
@@ -1218,7 +1223,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
           <div className="modal-head">
             <h2>Search external places</h2>
             <div className="page-sub">
-              Look the venue up by name or address, then confirm before it becomes an Atlas facility.
+              Look the facility up by name or address, then confirm before it becomes an Atlas facility.
             </div>
           </div>
 
@@ -1449,7 +1454,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
             <div className="field">
               <label htmlFor="f-description">Description</label>
               <textarea id="f-description" name="description" rows={2}
-                        placeholder="Publicly true facts about the venue"
+                        placeholder="Publicly true facts about the facility"
                         defaultValue={row?.description ?? ""} />
             </div>
 
