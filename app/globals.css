@@ -2257,3 +2257,20 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* Player Payments filters use the same control as Team. */
 .pay-views .segment { padding: 8px 13px; }
+
+/* ===== Files =====
+   Answers "where is the document I need", so the views are the navigation and
+   the counts are context rather than headline figures. */
+
+.files-context { font-size: 13px; color: var(--slate); margin: 0 0 12px; padding-left: 2px; }
+.files-context strong {
+  color: var(--navy); font-family: var(--font-display); font-weight: 800; font-size: 15px;
+}
+.files-views { margin-bottom: 14px; }
+.files-views .segment { padding: 8px 14px; }
+
+@media (max-width: 720px) {
+  .files-context { font-size: 12.5px; }
+  .files-views { display: flex; width: 100%; overflow-x: auto; }
+  .files-views .segment { flex: 1; white-space: nowrap; min-height: 44px; }
+}

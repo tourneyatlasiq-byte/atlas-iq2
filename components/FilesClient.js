@@ -24,7 +24,7 @@ function relatedTo(doc) {
   if (doc.tournament) return { kind: "Tournament", label: doc.tournament.name };
   if (doc.facility) return { kind: "Facility", label: doc.facility.name };
   if (doc.season) return { kind: "Season", label: doc.season.name };
-  return { kind: "Organization", label: "Organization-wide" };
+  return { kind: "Team", label: "Team-wide" };
 }
 
 const catClass = (c) =>
@@ -33,10 +33,52 @@ const catClass = (c) =>
   : c === "Receipt" ? "pill-deposit"
   : "pill-unregistered";
 
+/**
+ * Where a document lives, which is how a coach looks for one — not how many
+ * records sit in each classification.
+ *
+ * "Team" rather than "Organization & team": a coach understands team files.
+ * The underlying scope is unchanged; only the label is plainer.
+ */
+const FILE_VIEWS = [
+  { key: "team", label: "Team" },
+  { key: "players", label: "Players" },
+  { key: "tournaments", label: "Tournaments" },
+  { key: "all", label: "All files" },
+];
+
+/** An empty view is not a failed search, so it says something different. */
+const EMPTY_VIEW = {
+  team: {
+    title: "No team files yet",
+    body: "Insurance, waivers, sanctioning forms — anything that belongs to the team rather than one player or event.",
+  },
+  players: {
+    title: "No player documents yet",
+    body: "Birth certificates, medical releases and waivers attached to a player show up here and on their record.",
+  },
+  tournaments: {
+    title: "No tournament documents yet",
+    body: "Schedules, field maps and receipts attached to an event show up here and in that tournament.",
+  },
+  all: { title: "Nothing here yet", body: "Upload a file to get started." },
+};
+
 export function FilesClient({ documents, summary, targets, seasonName, canWrite, isAdmin, autoOpen = false }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
-  const [scope, setScope] = useState("all");
+  // Team first: insurance, waivers and sanctioning forms are what a coach
+  // reaches for most often.
+  const [view, setView] = useState("team");
+
+  /** Counts ignore search and category so the tabs stay a stable map. */
+  const countFor = (key) =>
+    documents.filter((d) => {
+      if (key === "team") return !d.player_id && !d.tournament_id;
+      if (key === "players") return Boolean(d.player_id);
+      if (key === "tournaments") return Boolean(d.tournament_id);
+      return true;
+    }).length;
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null);
   // Opened directly from the help panel.
@@ -66,13 +108,14 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
     const q = query.trim().toLowerCase();
     return documents.filter((d) => {
       if (category !== "all" && d.category !== category) return false;
-      if (scope === "season" && !d.season_id) return false;
-      if (scope === "organization" && d.season_id) return false;
+      if (view === "team" && (d.player_id || d.tournament_id)) return false;
+      if (view === "players" && !d.player_id) return false;
+      if (view === "tournaments" && !d.tournament_id) return false;
       if (!q) return true;
       const r = relatedTo(d);
       return `${d.file_name} ${d.category} ${r.label} ${d.notes ?? ""}`.toLowerCase().includes(q);
     });
-  }, [documents, query, category, scope]);
+  }, [documents, query, category, view]);
 
   function run(action, arg, onDone) {
     setError(null);
@@ -113,27 +156,29 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
         )}
       </div>
 
-      <div className="stat-grid">
-        <div className="card">
-          <div className="stat-label">Total files</div>
-          <div className="stat-value">{summary.total}</div>
-          <div className="stat-foot">visible to you</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Player documents</div>
-          <div className="stat-value">{summary.player}</div>
-          <div className="stat-foot">attached to a player</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Tournament documents</div>
-          <div className="stat-value">{summary.tournament}</div>
-          <div className="stat-foot">attached to an event</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">Organization &amp; team</div>
-          <div className="stat-value">{summary.orgTeam}</div>
-          <div className="stat-foot">not entity-specific</div>
-        </div>
+      <p className="files-context">
+        <strong>{summary.total}</strong> {summary.total === 1 ? "file" : "files"}
+        <span className="tiq-dot" aria-hidden="true">·</span>
+        <strong>{summary.orgTeam}</strong> team
+        <span className="tiq-dot" aria-hidden="true">·</span>
+        <strong>{summary.player}</strong> player
+        <span className="tiq-dot" aria-hidden="true">·</span>
+        <strong>{summary.tournament}</strong> tournament
+      </p>
+
+      {/* Where the document lives, which is how a coach looks for one.
+          Team is the default: it holds the paperwork needed most often. */}
+      <div className="segmented files-views" role="group" aria-label="Which files to show">
+        {FILE_VIEWS.map((v) => (
+          <button
+            key={v.key}
+            className={`segment${view === v.key ? " on" : ""}`}
+            onClick={() => setView(v.key)}
+            aria-pressed={view === v.key}
+          >
+            {v.label} <span className="seg-count">{countFor(v.key)}</span>
+          </button>
+        ))}
       </div>
 
       <div className="toolbar">
@@ -154,26 +199,24 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
           <option value="all">All categories</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select
-          className="filter-select"
-          value={scope}
-          onChange={(e) => setScope(e.target.value)}
-          aria-label="Filter by scope"
-        >
-          <option value="all">All files</option>
-          <option value="season">This season</option>
-          <option value="organization">Organization-wide</option>
-        </select>
       </div>
 
       <div className="card card-flush">
         {visible.length === 0 ? (
           <div className="empty">
-            <h3>{documents.length === 0 ? "No files yet" : "Nothing matches"}</h3>
+            <h3>
+              {documents.length === 0
+                ? "No files yet"
+                : query || category !== "all"
+                  ? "Nothing matches"
+                  : EMPTY_VIEW[view].title}
+            </h3>
             <p>
               {documents.length === 0
                 ? "Insurance, waivers, birth certificates, sanctioning forms. Attach one to a player or tournament and it shows up there too."
-                : "Try a different search or clear the filters."}
+                : query || category !== "all"
+                  ? "Try a different search or clear the filters."
+                  : EMPTY_VIEW[view].body}
             </p>
             {documents.length === 0 && canWrite && (
               <button className="btn btn-primary" onClick={() => setUploading(true)}>Upload file</button>
@@ -289,7 +332,7 @@ export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDe
             <h3 className="detail-section-title">Details</h3>
             <Row label="Category" value={d.category} />
             <Row label="Related to" value={`${r.kind} · ${r.label}`} />
-            <Row label="Scope" value={d.season_id ? d.season?.name ?? "Season" : "Organization-wide"} />
+            <Row label="Applies to" value={d.season_id ? d.season?.name ?? "This season" : "All seasons"} />
             <Row label="File type" value={d.mime_type} />
             <Row label="Size" value={formatBytes(d.file_size)} />
             <Row label="Uploaded" value={fmtDate(d.uploaded_at)} />

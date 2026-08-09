@@ -185,7 +185,7 @@ export function UploadForm({ targets, isAdmin, seasonName, lockTo = null, onClos
                 <label htmlFor="up-scope">Scope</label>
                 <select id="up-scope" name="scope" defaultValue="season">
                   <option value="season">{seasonName} season</option>
-                  <option value="organization">Organization-wide</option>
+                  <option value="organization">All seasons</option>
                 </select>
               </div>
             </div>
