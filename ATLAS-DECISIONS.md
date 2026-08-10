@@ -163,6 +163,26 @@ details. A six-value recruiting status would be the start of a CRM nobody asked
 for. One column and one dropdown adds it later, by which point we will know
 which values coaches actually use.
 
+### Parents are not Season Tempo users in Beta
+Owners, admins, coaches and managers are the application users. Parent and
+guardian access is deferred to a future phase and must be deliberately designed
+before it is activated.
+
+`parent` stays in the `profiles` role list — removing it is migration risk for
+no benefit, and a reserved value costs nothing. It is absent from the `invites`
+role constraint, so no parent account can be provisioned.
+
+*Verified, not assumed:* a profile carrying `role = 'parent'` reads **zero rows**
+across players, payments, payment history, finance, documents, tournaments,
+games, roster, contacts, college interests, event rosters and player links, and
+cannot write. The only rows it sees are the shared facilities and tournament
+provider directories, which are public to every organization by design.
+
+`player_guardians` and `invites.player_id` exist in the schema but are empty and
+unreferenced by any application code. They are dormant, not active — left in
+place rather than dropped, because dropping is irreversible and they cost
+nothing while unused.
+
 ---
 
 ## Money

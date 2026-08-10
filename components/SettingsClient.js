@@ -413,7 +413,6 @@ function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
               <select id="i-role" name="role" required defaultValue="coach">
                 <option value="coach">Coach — full access to team and season</option>
                 <option value="manager">Manager — full access to team and season</option>
-                <option value="parent">Parent — limited access</option>
               </select>
               <p className="field-note">
                 Only an owner can grant owner or admin access, and not through an invitation.
