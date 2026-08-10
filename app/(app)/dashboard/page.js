@@ -55,7 +55,12 @@ export default async function DashboardPage() {
     listPlayerPayments(season.id),
   ]);
 
-  const budget = buildBudget(budgetItems, transactions);
+  const { data: seasonTournaments } = await createClient()
+    .from("tournaments")
+    .select("id, name, decision, total_cost, budget_item_id")
+    .eq("season_id", season.id);
+
+  const budget = buildBudget(budgetItems, transactions, seasonTournaments ?? []);
 
   // Getting started steps derive entirely from data that already exists.
   const supabase = createClient();

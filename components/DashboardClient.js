@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { money } from "../lib/finance-rules";
 import { plainLanguage } from "../lib/readiness/dashboard";
 import { TopoMotif } from "./TopoMotif";
 import { ModuleMark } from "./ModuleMark";
@@ -17,8 +18,6 @@ import { ModuleMark } from "./ModuleMark";
  * unmistakably the most important thing here, without a chart or a border.
  */
 
-const money = (n) =>
-  n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 function fmtRange(start, end) {
   if (!start) return "—";

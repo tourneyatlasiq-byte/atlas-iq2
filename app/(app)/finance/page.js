@@ -74,7 +74,14 @@ export default async function FinancePage({ searchParams }) {
     pickers(season.id, organization.id),
   ]);
 
-  const budget = buildBudget(budgetItems, transactions);
+  // Tournaments feed commitment: a committed event consumes its budget line
+  // before any payment is recorded.
+  const { data: seasonTournaments } = await createClient()
+    .from("tournaments")
+    .select("id, name, decision, total_cost, budget_item_id")
+    .eq("season_id", season.id);
+
+  const budget = buildBudget(budgetItems, transactions, seasonTournaments ?? []);
 
   // Awaited so this works whether searchParams is a plain object (Next 14) or
   // a promise (Next 15). Awaiting a non-promise simply returns it.

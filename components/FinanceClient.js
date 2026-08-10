@@ -7,7 +7,7 @@ import { NeedsAction, FilterChip } from "./NeedsAction";
 import { SearchPicker } from "./SearchPicker";
 import { setDuesForAll } from "../lib/actions/finance";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
-import { isActual, CATEGORIES, TXN_STATUSES } from "../lib/finance-rules";
+import { isActual, CATEGORIES, TXN_STATUSES , money } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
 import {
@@ -48,8 +48,6 @@ function financeActionText(a, dues) {
   return a.detail;
 }
 
-const money = (n) =>
-  n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -607,10 +605,10 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                     <tr>
                       <th>Line item</th>
                       <th>Planned</th>
-                      <th>{income ? "Received" : "Paid"}</th>
                       {!income && <th>Committed</th>}
-                      <th>Remaining</th>
-                      <th>% used</th>
+                      <th>{income ? "Received" : "Paid"}</th>
+                      {!income && <th>Available</th>}
+                      <th>{income ? "% received" : "% committed"}</th>
                       {canWrite && <th aria-label="Actions" />}
                     </tr>
                   </thead>
@@ -626,18 +624,25 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                           )}
                         </td>
                         <td>{money(r.budgeted)}</td>
-                        <td>{money(r.actual)}</td>
                         {!income && (
-                          <td className={r.committed > 0 ? "committed" : ""}>
-                            {r.committed > 0 ? money(r.committed) : <span className="muted">—</span>}
+                          <td className={r.committedTotal > 0 ? "committed" : ""}>
+                            {r.committedTotal > 0 ? money(r.committedTotal) : <span className="muted">—</span>}
                           </td>
                         )}
-                        <td className={r.remaining < 0 && !income ? "over" : ""}>
-                          {r.remaining < 0 && !income
-                            ? `Over ${money(Math.abs(r.remaining))}`
-                            : money(r.remaining)}
+                        {/* Paid sits inside Committed, never added to it. */}
+                        <td>{money(r.actual)}</td>
+                        {!income && (
+                          <td className={r.available < 0 ? "over" : ""}>
+                            {r.available < 0
+                              ? `Over by ${money(Math.abs(r.available))}`
+                              : money(r.available)}
+                          </td>
+                        )}
+                        <td>
+                          {income
+                            ? r.percentUsed == null ? "—" : `${r.percentUsed}%`
+                            : r.percentCommitted == null ? "—" : `${r.percentCommitted}%`}
                         </td>
-                        <td>{r.percentUsed == null ? "—" : `${r.percentUsed}%`}</td>
                         {canWrite && (
                           <td className="td-actions">
                             <button className="btn btn-ghost" onClick={() => onEdit(r)} disabled={pending}>Edit</button>

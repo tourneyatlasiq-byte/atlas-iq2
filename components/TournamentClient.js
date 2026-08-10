@@ -1,5 +1,6 @@
 "use client";
 
+import { money } from "../lib/finance-rules";
 import { useState, useTransition, useEffect } from "react";
 import { useOpenParam } from "./useOpenParam";
 import Link from "next/link";
@@ -31,8 +32,6 @@ const GROUP_ORDER = ["Committed", "Considering", "Declined"];
 const PAID_STATUSES = ["Not Registered", "Waitlisted", "Registered", "Deposit Paid", "Paid in Full"];
 const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay"];
 
-const money = (n) =>
-  n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 function dateRange(start, end) {
   if (!start) return "—";
@@ -97,7 +96,7 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [] }) {
+export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [] }) {
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
@@ -387,6 +386,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           seasonName={seasonName}
           participants={participants[detail.id] ?? []}
           contacts={contacts}
+          budgetContext={budgetLines.find((b) => b.id === detail.budget_item_id) ?? null}
           providerContactIds={
             // Contacts already used for other events by the same provider.
             // Suggested, never applied automatically.
@@ -457,7 +457,7 @@ function Row({ label, value }) {
   );
 }
 
-export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [] }) {
+export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -654,6 +654,49 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             open={isOpen("costs")}
             onToggle={() => toggle("costs")}
           >
+            {/* Compact budget context. Deliberately four short lines — the
+                drawer is not a Finance page. */}
+            {budgetContext && (
+              <div className="t-budget">
+                <p className="t-budget-line">
+                  <span>This event</span>
+                  <strong>{money(t.total_cost)}</strong>
+                </p>
+                <p className="t-budget-line">
+                  <span>{budgetContext.name}</span>
+                  <strong>
+                    {money(budgetContext.committed)} of {money(budgetContext.planned)} committed
+                  </strong>
+                </p>
+                <p className="t-budget-meter">
+                  <span
+                    className="t-budget-fill"
+                    style={{ width: `${Math.min(100, budgetContext.percentCommitted ?? 0)}%` }}
+                  />
+                </p>
+                <p className="t-budget-line">
+                  <span>{budgetContext.percentCommitted ?? 0}% committed</span>
+                  <strong className={budgetContext.available < 0 ? "over" : ""}>
+                    {budgetContext.available < 0
+                      ? `Over by ${money(Math.abs(budgetContext.available))}`
+                      : `${money(budgetContext.available)} available`}
+                  </strong>
+                </p>
+
+                {/* Considering events don't consume budget — show the effect
+                    of committing rather than pretending they already have. */}
+                {t.decision === "Considering" && (
+                  <p className="t-budget-projection">
+                    If committed,{" "}
+                    <strong>
+                      {money(budgetContext.available - Number(t.total_cost ?? 0))}
+                    </strong>{" "}
+                    would remain available.
+                  </p>
+                )}
+              </div>
+            )}
+
             <Row label="Entry fee" value={money(t.entry_fee)} />
             <Row label="Gate fee" value={money(t.gate_fee)} />
             <Row label="Total cost" value={money(t.total_cost)} />

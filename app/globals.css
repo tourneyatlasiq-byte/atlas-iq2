@@ -2861,3 +2861,27 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   font-family: var(--font-display); font-size: 19px; font-weight: 800;
   color: var(--navy); margin-left: 8px;
 }
+
+/* Compact budget context in the tournament drawer. Four short lines — this
+   is not a Finance page. */
+.t-budget {
+  padding: 12px 14px; margin-bottom: 14px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+.t-budget-line {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin: 0 0 5px; font-size: 13px; color: var(--slate);
+}
+.t-budget-line strong { color: var(--navy); font-weight: 600; }
+.t-budget-line strong.over { color: var(--status-urgent); }
+.t-budget-meter {
+  height: 5px; margin: 2px 0 7px; border-radius: 3px;
+  background: var(--border); overflow: hidden;
+}
+.t-budget-fill { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+.t-budget-projection {
+  margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--slate);
+}
+.t-budget-projection strong { color: var(--navy); }

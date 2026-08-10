@@ -10,6 +10,8 @@ import { documentsByEntity, documentTargets } from "../../../lib/queries/documen
 import { participantsBySeason, pickupCandidates } from "../../../lib/queries/participants";
 import { listSeasonRoster } from "../../../lib/queries/roster";
 import { listContacts } from "../../../lib/queries/contacts";
+import { listBudgetItems, listTransactions } from "../../../lib/queries/finance";
+import { budgetLineFinance } from "../../../lib/finance-rules";
 import { TournamentClient } from "../../../components/TournamentClient";
 
 import { createClient } from "../../../lib/supabase/server";
@@ -37,6 +39,29 @@ export default async function TournamentsPage({ searchParams }) {
     documentsByEntity("tournament_id"),
     documentTargets(season.id, organization.id),
   ]);
+
+  // Budget context for the drawer: each expense line with its committed and
+  // available figures, computed by the same rule Finance uses.
+  const [budgetItems, budgetTxns] = await Promise.all([
+    listBudgetItems(season.id),
+    listTransactions(season.id),
+  ]);
+
+  const budgetLines = budgetItems
+    .filter((b) => !b.is_income)
+    .map((b) => {
+      const fin = budgetLineFinance(b, budgetTxns, tournaments);
+      return {
+        id: b.id,
+        name: b.name,
+        category: b.category,
+        planned: fin.planned,
+        committed: fin.committed,
+        paid: fin.paid,
+        available: fin.available,
+        percentCommitted: fin.percentCommitted,
+      };
+    });
 
   const [participantMap, seasonRoster, candidates, playerDocs] = await Promise.all([
     participantsBySeason(season.id),
@@ -71,6 +96,7 @@ export default async function TournamentsPage({ searchParams }) {
       pickupCandidates={candidates}
       playerDocuments={playerDocs}
       contacts={await listContacts(organization.id)}
+      budgetLines={budgetLines}
       autoOpen={(await searchParams)?.add === "1"}
     />
     </>
