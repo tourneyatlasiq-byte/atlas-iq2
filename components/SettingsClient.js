@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { SUPPORT_EMAIL, PRIVACY_EMAIL } from "../lib/legal";
+import { PRIVACY_EMAIL } from "../lib/legal";
 import { ContactsDirectory } from "./ContactsDirectory";
 import { TeamBranding } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
@@ -110,6 +110,13 @@ export function SettingsClient({
           <p className="settings-meta">
             {people.length} {people.length === 1 ? "person" : "people"}
           </p>
+          {isOwner && (
+            <p className="settings-meta settings-danger">
+              To delete this organization and all of its information, email{" "}
+              <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
+              account.
+            </p>
+          )}
         </div>
 
         {/* Team */}
@@ -179,6 +186,10 @@ export function SettingsClient({
           )}
         </div>
 
+        <TeamBranding organization={organization} isOwner={isOwner} />
+
+        <ContactsDirectory contacts={contacts} canWrite={isAdmin} />
+
         {/* People & Access */}
         <div className="card settings-card settings-card-wide">
           <div className="settings-card-head">
@@ -242,24 +253,8 @@ export function SettingsClient({
         </div>
       </div>
 
-      <TeamBranding organization={organization} isOwner={isOwner} />
 
-      <ContactsDirectory contacts={contacts} canWrite={isAdmin} />
 
-      <div className="settings-legal">
-        <span className="section-eyebrow">Legal</span>
-        <p>
-          <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>
-          <span className="tiq-dot" aria-hidden="true">·</span>
-          <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a>
-        </p>
-        <p className="field-note">
-          Questions or help: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
-          <br />
-          To delete your account and your organization&rsquo;s information, email{" "}
-          <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your account.
-        </p>
-      </div>
 
 
       {editing === "organization" && (

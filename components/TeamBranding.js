@@ -36,30 +36,17 @@ export function TeamBranding({ organization, isOwner }) {
   }
 
   return (
-    <div className="settings-branding">
-      <div className="section-head">
-        <div>
-          <span className="section-eyebrow">Organization branding</span>
-          <p className="field-note">
-            Your logo appears beside your organization name throughout Season Tempo.
-          </p>
-        </div>
+    <div className="card settings-card settings-card-wide">
+      <div className="settings-card-head">
+        <span className="section-eyebrow">Organization branding</span>
       </div>
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="branding-row">
         <TeamMark name={organization?.name} logoUrl={shown} size={72} tone="navy" />
 
         <div className="branding-detail">
           <p className="branding-name">{organization?.name}</p>
-          <p className="field-note">
-            {shown
-              ? preview
-                ? "Preview — not saved yet."
-                : "Current logo."
-              : "No logo yet. Your initials are shown until you add one."}
-          </p>
+          {preview && <p className="field-note">Preview — not saved yet.</p>}
 
           {isOwner ? (
             <>
@@ -126,7 +113,7 @@ export function TeamBranding({ organization, isOwner }) {
                 )}
               </div>
 
-              <p className="field-note">PNG, JPG or WEBP, up to 2 MB. A square image works best.</p>
+              <p className="field-note">PNG, JPG or WEBP · 2 MB max · square works best</p>
             </>
           ) : (
             <p className="field-note">Only an owner can change the organization logo.</p>

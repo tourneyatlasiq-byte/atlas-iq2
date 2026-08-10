@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getContext } from "../../lib/context";
 import { NavSidebar } from "../../components/NavSidebar";
 import { HelpMenu } from "../../components/HelpMenu";
+import { AppFooter } from "../../components/AppFooter";
 import { SeasonPicker } from "../../components/SeasonPicker";
 import { SeasonBanner } from "../../components/SeasonBanner";
 
@@ -41,6 +42,7 @@ export default async function AppLayout({ children }) {
           />
           {children}
 
+          <AppFooter />
         </main>
       </div>
     </div>

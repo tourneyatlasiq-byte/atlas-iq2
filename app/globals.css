@@ -2632,14 +2632,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 }
 .sensitive-warning strong { display: block; margin-bottom: 2px; }
 
-/* Legal access from Settings */
-.settings-legal {
-  max-width: 1120px; margin-top: 24px; padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-.settings-legal p { font-size: 13.5px; margin: 6px 0 0; }
-.settings-legal a { font-weight: 600; color: var(--blue); }
-.settings-legal a:hover { text-decoration: underline; }
 
 /* Terms note under the sign-in form */
 .login-legal {
@@ -2707,11 +2699,17 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .contact-remove { margin-top: 6px; padding: 2px 0; font-size: 12.5px; }
 
 /* Settings directory */
-.settings-contacts { max-width: 1120px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+
 .contact-group { margin-top: 16px; }
 .contact-group-title {
   font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate); margin: 0 0 6px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate);
+  margin: 0; padding: 7px 10px; background: var(--surface-sunken);
+  border-radius: 6px 6px 0 0; border: 1px solid var(--border); border-bottom: none;
+}
+.contact-group { margin-top: 16px; }
+.contact-group .contact-list {
+  border: 1px solid var(--border); border-radius: 0 0 6px 6px; padding: 0 12px;
 }
 .contact-list { list-style: none; margin: 0; padding: 0; }
 .contact-row {
@@ -2947,11 +2945,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .user-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* Settings → Team branding */
-.settings-branding {
-  max-width: 1120px; margin-top: 24px; padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-.branding-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 14px; }
+.branding-row { display: flex; align-items: flex-start; gap: 20px; }
 .branding-row .team-mark { border: 1px solid var(--border); }
 .branding-detail { flex: 1; min-width: 0; }
 .branding-name {
@@ -2977,4 +2971,30 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ===== Authenticated app footer =====
+   Rendered once in the app shell, inside <main>, so it aligns with the content
+   column and never runs under the sidebar. Quiet by design — this is software,
+   not a landing page. */
+.app-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  max-width: 1120px; margin: 40px 0 0; padding: 16px 0 4px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--slate);
+}
+.app-footer-links { display: flex; gap: 18px; }
+.app-footer-links a { color: var(--slate); }
+.app-footer-links a:hover { color: var(--navy); text-decoration: underline; }
+
+/* Settings polish */
+.settings-danger { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.settings-danger a { color: var(--blue); font-weight: 600; }
+.contacts-intro { margin: 0 0 4px; max-width: 620px; }
+.contacts-search { margin: 12px 0 0; max-width: 380px; }
+
+@media (max-width: 720px) {
+  .app-footer { margin-top: 28px; gap: 10px; }
+  .app-footer-links { gap: 14px; }
 }

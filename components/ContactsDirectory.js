@@ -44,21 +44,20 @@ export function ContactsDirectory({ contacts, canWrite }) {
   })).filter((g) => g.rows.length > 0);
 
   return (
-    <div className="settings-contacts">
-      <div className="section-head">
-        <div>
-          <span className="section-eyebrow">Contacts</span>
-          <p className="field-note">
-            Club directors, tournament directors and college coaches. Used across tournaments
-            and player recruiting.
-          </p>
-        </div>
+    <div className="card settings-card settings-card-wide">
+      <div className="settings-card-head">
+        <span className="section-eyebrow">Contacts</span>
         {canWrite && (
-          <button className="btn btn-secondary" onClick={() => setEditing("new")}>
+          <button className="btn btn-ghost" onClick={() => setEditing("new")}>
             Add contact
           </button>
         )}
       </div>
+
+      <p className="settings-meta contacts-intro">
+        Club directors, tournament directors and college coaches. Used across tournaments and
+        player recruiting.
+      </p>
 
       {error && <div className="alert alert-error">{error}</div>}
 
