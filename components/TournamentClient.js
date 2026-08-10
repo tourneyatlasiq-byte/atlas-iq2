@@ -14,6 +14,7 @@ import { EventRoster } from "./EventRoster";
 import { SearchPicker } from "./SearchPicker";
 import { TournamentContact } from "./TournamentContact";
 import { Collapsible, tournamentPhase, gameRecord } from "./Collapsible";
+import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { TopoMotif } from "./TopoMotif";
 import { HelpTip } from "./HelpTip";
@@ -387,6 +388,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           participants={participants[detail.id] ?? []}
           contacts={contacts}
           budgetContext={budgetLines.find((b) => b.id === detail.budget_item_id) ?? null}
+          budgetLines={budgetLines}
           providerContactIds={
             // Contacts already used for other events by the same provider.
             // Suggested, never applied automatically.
@@ -457,10 +459,24 @@ function Row({ label, value }) {
   );
 }
 
-export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null }) {
+export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [] }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
+  const [pickingLine, setPickingLine] = useState(false);
+  const [linkError, setLinkError] = useState(null);
+  const [linking, startLinking] = useTransition();
+
+  function linkBudget(budgetItemId) {
+    setLinkError(null);
+    const fd = new FormData();
+    fd.set("tournament_id", t.id);
+    if (budgetItemId) fd.set("budget_item_id", budgetItemId);
+    startLinking(async () => {
+      const result = await setTournamentBudgetLine(fd);
+      if (!result?.ok) setLinkError(result?.error ?? "Something went wrong.");
+    });
+  }
 
   const games = t.games ?? [];
   const phase = tournamentPhase(t);
@@ -608,6 +624,34 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             canWrite={canWrite}
           />
 
+          {pickingLine && (
+            <SearchPicker
+              title="Budget line for this tournament"
+              hint="Its cost will count toward this line as soon as the tournament is committed."
+              placeholder="Search expense budget lines…"
+              items={budgetLines.map((b) => ({ ...b, searchText: `${b.name} ${b.category}` }))}
+              renderItem={(b) => (
+                <>
+                  <span className="picker-item-name">{b.name}</span>
+                  <span className="picker-item-meta">
+                    {b.category} · {money(b.available)} available
+                  </span>
+                </>
+              )}
+              emptyHint="Start typing to search your expense budget lines."
+              createLabel="Not linked"
+              onSelect={(b) => {
+                setPickingLine(false);
+                linkBudget(b.id);
+              }}
+              onCreate={() => {
+                setPickingLine(false);
+                linkBudget(null);
+              }}
+              onCancel={() => setPickingLine(false)}
+            />
+          )}
+
           <Collapsible
             id="section-games"
             title="Games"
@@ -656,6 +700,24 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           >
             {/* Compact budget context. Deliberately four short lines — the
                 drawer is not a Finance page. */}
+            {linkError && <div className="alert alert-error">{linkError}</div>}
+
+            {!budgetContext && t.decision === "Committed" && canWrite && (
+              <div className="t-budget t-budget-prompt">
+                <p className="t-budget-line">
+                  <span>This event</span>
+                  <strong>{money(t.total_cost)}</strong>
+                </p>
+                <p className="field-note">
+                  Link this to a budget line and its cost counts toward that budget straight
+                  away — before you&rsquo;ve paid anything.
+                </p>
+                <button className="btn btn-secondary" onClick={() => setPickingLine(true)}>
+                  Choose a budget line
+                </button>
+              </div>
+            )}
+
             {budgetContext && (
               <div className="t-budget">
                 <p className="t-budget-line">
@@ -685,6 +747,12 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
 
                 {/* Considering events don't consume budget — show the effect
                     of committing rather than pretending they already have. */}
+                {canWrite && (
+                  <button className="btn btn-ghost t-budget-change" onClick={() => setPickingLine(true)}>
+                    Change budget line
+                  </button>
+                )}
+
                 {t.decision === "Considering" && (
                   <p className="t-budget-projection">
                     If committed,{" "}

@@ -2885,3 +2885,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   font-size: 12.5px; color: var(--slate);
 }
 .t-budget-projection strong { color: var(--navy); }
+
+/* Prompt shown when a committed tournament has no budget line — the reason
+   tournament costs would otherwise never reach the budget. */
+.t-budget-prompt .btn { margin-top: 8px; }
+.t-budget-change {
+  margin-top: 6px; padding: 2px 0; font-size: 12.5px;
+}

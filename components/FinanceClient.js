@@ -583,19 +583,21 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 <span className="budget-cat-name">{g.category}</span>
                 <span className="budget-summary">
                   <span className="budget-spent">
-                    {money(g.actual)} <span className="muted">of {money(g.budgeted)}</span>
+                    {money(g.committedTotal)} <span className="muted">of {money(g.budgeted)} committed</span>
                   </span>
-                  {g.committed > 0 && (
-                    <span className="budget-committed">{money(g.committed)} committed</span>
+                  {g.paidTotal > 0 && (
+                    <span className="budget-committed">{money(g.paidTotal)} paid</span>
                   )}
-                  {over && <span className="over">Over by {money(Math.abs(g.remaining))}</span>}
+                  {g.available < 0 && (
+                    <span className="over">Over by {money(Math.abs(g.available))}</span>
+                  )}
                 </span>
                 <span className="budget-bar" aria-hidden="true">
                   <span
-                    className={`budget-bar-fill${over ? " over" : ""}`}
-                    style={{ width: `${Math.min(100, g.percentUsed ?? 0)}%` }}
+                    className={`budget-bar-fill${g.available < 0 ? " over" : ""}`}
+                    style={{ width: `${Math.min(100, g.percentCommitted ?? 0)}%` }}
                   />
-                  <em>{g.percentUsed == null ? "—" : `${g.percentUsed}%`}</em>
+                  <em>{g.percentCommitted == null ? "—" : `${g.percentCommitted}%`}</em>
                 </span>
               </button>
 
