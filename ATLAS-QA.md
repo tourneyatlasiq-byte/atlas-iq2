@@ -136,6 +136,14 @@ passed for a while.
 
 ---
 
+## Budget categories
+
+- [ ] Organization Dues, Subscriptions / Memberships, Insurance and Photography
+      appear in the category list
+- [ ] a line in a new category rolls into its own category total
+- [ ] quantity mode works in a new category
+- [ ] historical rows and totals unchanged
+
 ## Spreadsheet imports — Facilities and Roster
 
 Excel support must never be able to break CSV. The CSV parser is hand-written
