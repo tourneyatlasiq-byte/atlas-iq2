@@ -91,6 +91,8 @@ export default async function SettingsPage({ searchParams }) {
       teams={teamsRes.data ?? []}
       counts={{ roster: rosterCount.count ?? 0, tournaments: tournamentCount.count ?? 0 }}
       isAdmin={isOrgAdmin(profile)}
+      isOwner={profile?.role === "owner"}
+      contacts={await listContacts(organization.id)}
       currentUserId={user.id}
       autoOpen={openPanel}
     />

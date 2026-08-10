@@ -290,6 +290,46 @@ for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/
   }
 }
 
+/* ---- 4i. A required prop must actually be passed by its page ----------
+   isOwner was added to SettingsClient and never passed, so it defaulted to
+   false and every user — including the owner — was told they could not change
+   the logo. contacts was missing the same way, rendering an empty directory.
+   Neither threw; both silently produced a wrong screen. */
+
+{
+  const pairs = [
+    ["components/SettingsClient.js", "app/(app)/settings/page.js", "SettingsClient"],
+    ["components/RosterClient.js", "app/(app)/team/page.js", "RosterClient"],
+    ["components/TournamentClient.js", "app/(app)/tournaments/page.js", "TournamentClient"],
+    ["components/FinanceClient.js", "app/(app)/finance/page.js", "FinanceClient"],
+    ["components/DashboardClient.js", "app/(app)/dashboard/page.js", "DashboardClient"],
+  ];
+
+  for (const [comp, pagePath, name] of pairs) {
+    if (!fs.existsSync(comp) || !fs.existsSync(pagePath)) continue;
+    const src = fs.readFileSync(comp, "utf8");
+    const page = fs.readFileSync(pagePath, "utf8");
+
+    const sig = src.match(
+      new RegExp("export function " + name + String.raw`\(\{([\s\S]*?)\}\)\s*\{`)
+    );
+    if (!sig) continue;
+
+    // Only props without a default: an omitted default is intentional.
+    const required = sig[1]
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => /^[a-zA-Z]/.test(p) && !p.includes("="))
+      .map((p) => p.split(":")[0].trim());
+
+    for (const prop of required) {
+      if (!page.includes(prop + "={")) {
+        failures.push(`${pagePath}: does not pass required prop \`${prop}\` to ${name}`);
+      }
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [
