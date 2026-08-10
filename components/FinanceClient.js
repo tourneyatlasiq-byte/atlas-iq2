@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useMemo } from "react";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { NeedsAction, FilterChip } from "./NeedsAction";
+import { SearchPicker } from "./SearchPicker";
 import { setDuesForAll } from "../lib/actions/finance";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import { isActual, CATEGORIES, TXN_STATUSES } from "../lib/finance-rules";
@@ -93,6 +94,9 @@ export function FinanceClient({
   const [pending, startTransition] = useTransition();
 
   const [editBudget, setEditBudget] = useState(null);
+  // Create-and-link: a budget line created from inside the transaction form.
+  const [lineDraft, setLineDraft] = useState(null);
+  const [justCreatedLineId, setJustCreatedLineId] = useState(null);
   // Opened directly from the help panel, alongside the requested tab.
   const [editTxn, setEditTxn] = useState(autoOpen && initialTab === "transactions" ? "new" : null);
   const [detailTxn, setDetailTxn] = useState(null);
@@ -354,6 +358,34 @@ export function FinanceClient({
           pending={pending}
           onSubmit={(fd) => run(saveTransaction, fd, () => { setEditTxn(null); setDetailTxn(null); })}
           onCancel={() => setEditTxn(null)}
+          onCreateBudgetLine={(seed) => setLineDraft(seed)}
+          justCreatedLineId={justCreatedLineId}
+        />
+      )}
+
+      {/* Rendered alongside the transaction form, never in place of it, so
+          nothing the coach has typed is unmounted. */}
+      {lineDraft && (
+        <BudgetForm
+          row={null}
+          seedName={lineDraft.name}
+          seedIsIncome={lineDraft.isIncome}
+          pending={pending}
+          onCancel={() => setLineDraft(null)}
+          onSubmit={(fd) => {
+            setError(null);
+            startTransition(async () => {
+              const result = await saveBudgetItem(fd);
+              if (result?.ok && result.item?.id) {
+                setLineDraft(null);
+                // revalidatePath in the action refreshes budgetItems; the id
+                // is remembered so the form selects it when they arrive.
+                setJustCreatedLineId(result.item.id);
+              } else {
+                setError(result?.error ?? "Something went wrong.");
+              }
+            });
+          }}
         />
       )}
 
@@ -625,7 +657,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
   );
 }
 
-function BudgetForm({ row, pending, onSubmit, onCancel }) {
+function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsIncome = false }) {
   const isNew = !row;
 
   // An existing line already tells us which mode it was saved in.
@@ -650,7 +682,7 @@ function BudgetForm({ row, pending, onSubmit, onCancel }) {
             <div className="field">
               <label htmlFor="b-name">Line item</label>
               <input id="b-name" name="name" required placeholder="e.g. Game uniform set"
-                     defaultValue={row?.name ?? ""} />
+                     defaultValue={row?.name ?? seedName} />
             </div>
             <div className="field">
               <label htmlFor="b-cat">Category</label>
@@ -714,7 +746,8 @@ function BudgetForm({ row, pending, onSubmit, onCancel }) {
             )}
             <div className="field">
               <label htmlFor="b-income">Type</label>
-              <select id="b-income" name="is_income" defaultValue={row?.is_income ? "true" : "false"}>
+              <select id="b-income" name="is_income"
+                      defaultValue={(row?.is_income ?? seedIsIncome) ? "true" : "false"}>
                 <option value="false">Expense</option>
                 <option value="true">Income</option>
               </select>
@@ -902,13 +935,25 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete }) 
   );
 }
 
-function TransactionForm({ row, budgetItems, tournaments, players, facilities, pending, onSubmit, onCancel }) {
+function TransactionForm({ row, budgetItems, tournaments, players, facilities, pending, onSubmit, onCancel, onCreateBudgetLine, justCreatedLineId }) {
   const isNew = !row;
   const [budgetItemId, setBudgetItemId] = useState(row?.budget_item_id ?? "");
   const [amount, setAmount] = useState(row?.actual_amount ?? "");
   const [tournamentId, setTournamentId] = useState(row?.tournament_id ?? "");
+  const [isIncome, setIsIncome] = useState(Boolean(row?.is_income));
+  const [pickingLine, setPickingLine] = useState(false);
 
-  const linked = budgetItems.find((b) => b.id === budgetItemId) ?? null;
+  const chosenLine = budgetItems.find((b) => b.id === budgetItemId) ?? null;
+
+  // An expense can never be filed against an income line, or the category
+  // rollups would never reconcile.
+  const eligibleLines = budgetItems.filter((b) => Boolean(b.is_income) === isIncome);
+
+  // Create-and-link: a line created from inside this form is selected as soon
+  // as it exists. The form never unmounts, so no field is lost.
+  useEffect(() => {
+    if (justCreatedLineId) setBudgetItemId(justCreatedLineId);
+  }, [justCreatedLineId]);
 
   /** Picking a tournament pre-fills its committed cost. Always editable. */
   function pickTournament(id) {
@@ -945,41 +990,79 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
               </div>
             </div>
 
+            {/* Required. Without a budget line a transaction counts in the
+                Finance summary but appears in no category total, so the two
+                views disagree with nothing to explain it. */}
             <div className="field">
-              <label htmlFor="t-budget">Budget line</label>
-              <select id="t-budget" name="budget_item_id" value={budgetItemId}
-                      onChange={(e) => setBudgetItemId(e.target.value)}>
-                <option value="">Not linked</option>
-                {budgetItems.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.category} · {b.name}{b.is_income ? " (income)" : ""}
-                  </option>
-                ))}
-              </select>
-              {linked && (
-                <p className="field-note">
-                  Category and income type come from this budget line.
-                </p>
+              <label>Budget line</label>
+              <input type="hidden" name="budget_item_id" value={budgetItemId} />
+
+              {chosenLine ? (
+                <div className="picked">
+                  <span>
+                    <strong>{chosenLine.name}</strong>
+                    <span className="muted"> · {chosenLine.category}</span>
+                  </span>
+                  <span className="picked-actions">
+                    <button type="button" className="btn btn-ghost" onClick={() => setPickingLine(true)}>
+                      Change
+                    </button>
+                  </span>
+                </div>
+              ) : (
+                <button type="button" className="btn btn-secondary" onClick={() => setPickingLine(true)}>
+                  Choose a budget line
+                </button>
               )}
+              <p className="field-note">
+                Category and type come from the budget line, which is what keeps Budget and the
+                Finance summary in step.
+              </p>
             </div>
 
-            {!linked && (
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="t-cat">Category</label>
-                  <input id="t-cat" name="category" list="txn-categories" defaultValue={row?.category ?? ""} />
-                  <datalist id="txn-categories">
-                    {CATEGORIES.map((c) => <option key={c} value={c} />)}
-                  </datalist>
-                </div>
-                <div className="field">
-                  <label htmlFor="t-income">Type</label>
-                  <select id="t-income" name="is_income" defaultValue={row?.is_income ? "true" : "false"}>
-                    <option value="false">Expense</option>
-                    <option value="true">Income</option>
-                  </select>
-                </div>
-              </div>
+            <div className="field">
+              <label htmlFor="t-type">Type</label>
+              <select
+                id="t-type"
+                value={isIncome ? "true" : "false"}
+                onChange={(e) => {
+                  setIsIncome(e.target.value === "true");
+                  // A line of the other type can no longer apply.
+                  setBudgetItemId("");
+                }}
+              >
+                <option value="false">Expense</option>
+                <option value="true">Income</option>
+              </select>
+            </div>
+
+            {pickingLine && (
+              <SearchPicker
+                title={`Choose a budget line`}
+                hint={`Showing ${isIncome ? "income" : "expense"} lines. If the one you need doesn't exist, add it — it'll be selected straight away.`}
+                placeholder="Search budget lines…"
+                items={eligibleLines.map((b) => ({
+                  ...b,
+                  searchText: `${b.name} ${b.category}`,
+                }))}
+                renderItem={(b) => (
+                  <>
+                    <span className="picker-item-name">{b.name}</span>
+                    <span className="picker-item-meta">{b.category}</span>
+                  </>
+                )}
+                emptyHint="Start typing to search your budget lines."
+                createLabel="+ Add budget line"
+                onSelect={(b) => {
+                  setBudgetItemId(b.id);
+                  setPickingLine(false);
+                }}
+                onCreate={(typed) => {
+                  setPickingLine(false);
+                  onCreateBudgetLine?.({ name: typed, isIncome });
+                }}
+                onCancel={() => setPickingLine(false)}
+              />
             )}
 
             <div className="field-row">
