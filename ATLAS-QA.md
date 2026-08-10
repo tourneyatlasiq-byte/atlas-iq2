@@ -136,6 +136,26 @@ passed for a while.
 
 ---
 
+## Finance integrity — the standing rule
+
+**No Finance feature is complete until it reconciles bottom-up and top-down.**
+
+Bottom-up: individual rows sum to their line, lines sum to their category,
+categories sum to the Finance summary.
+Top-down: the summary figure can be decomposed back to the source rows that
+produced it.
+
+Both directions, to the cent, before a Finance change is called done.
+
+- [ ] deleting a dues obligation with payments is refused, with the amount named
+- [ ] deleting a budget line with transactions is refused
+- [ ] deleting a tournament with games is refused, with the count named
+- [ ] no budget line, transaction or payment is hidden by a missing season link
+- [ ] Planned / Committed / Paid / Available reconcile exactly
+- [ ] Paid never counted on top of the commitment it belongs to
+- [ ] negative Available is shown, never floored to zero
+- [ ] Home and Finance agree wherever they show the same concept
+
 ## Budget categories
 
 - [ ] Organization Dues, Subscriptions / Memberships, Insurance and Photography
