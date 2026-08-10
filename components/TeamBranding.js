@@ -39,7 +39,7 @@ export function TeamBranding({ organization, isOwner }) {
     <div className="settings-branding">
       <div className="section-head">
         <div>
-          <span className="section-eyebrow">Team branding</span>
+          <span className="section-eyebrow">Organization branding</span>
           <p className="field-note">
             Your logo appears beside your organization name throughout Season Tempo.
           </p>
@@ -67,12 +67,22 @@ export function TeamBranding({ organization, isOwner }) {
                 ref={inputRef}
                 id="logo-file"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={pick}
-                className="branding-input"
+                className="visually-hidden"
               />
 
               <div className="branding-actions">
+                {!file && (
+                  <button
+                    className={organization?.logo_url ? "btn btn-secondary" : "btn btn-primary"}
+                    disabled={pending}
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    {organization?.logo_url ? "Replace logo" : "Upload logo"}
+                  </button>
+                )}
+
                 {file && (
                   <>
                     <button
@@ -102,7 +112,7 @@ export function TeamBranding({ organization, isOwner }) {
                     className="btn btn-ghost"
                     disabled={pending}
                     onClick={() => {
-                      if (!confirm("Remove the team logo?\n\nYour initials will be shown instead.")) return;
+                      if (!confirm("Remove the organization logo?\n\nYour initials will be shown instead.")) return;
                       setError(null);
                       startTransition(async () => {
                         const result = await removeTeamLogo();
@@ -116,10 +126,10 @@ export function TeamBranding({ organization, isOwner }) {
                 )}
               </div>
 
-              <p className="field-note">PNG, JPG, WEBP or SVG, up to 2 MB. A square image works best.</p>
+              <p className="field-note">PNG, JPG or WEBP, up to 2 MB. A square image works best.</p>
             </>
           ) : (
-            <p className="field-note">Only an owner can change the team logo.</p>
+            <p className="field-note">Only an owner can change the organization logo.</p>
           )}
         </div>
       </div>
