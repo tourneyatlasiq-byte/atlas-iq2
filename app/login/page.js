@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 import { LogoLockup } from "../../components/SeasonTempoLogo";
+import { SUPPORT_EMAIL } from "../../lib/legal";
 
 /**
  * One magic-link flow, three framings.
@@ -150,6 +151,8 @@ function LoginForm() {
         <p className="login-legal">
           By continuing you agree to our{" "}
           <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.
+          <br />
+          Trouble signing in? <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
         </p>
 
         {copy.altText && (

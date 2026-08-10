@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { SUPPORT_EMAIL, PRIVACY_EMAIL } from "../lib/legal";
 import { ContactsDirectory } from "./ContactsDirectory";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
@@ -250,8 +251,10 @@ export function SettingsClient({
           <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a>
         </p>
         <p className="field-note">
-          To delete your account and your organization&rsquo;s information, email us from the
-          address on your account.
+          Questions or help: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+          <br />
+          To delete your account and your organization&rsquo;s information, email{" "}
+          <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your account.
         </p>
       </div>
 

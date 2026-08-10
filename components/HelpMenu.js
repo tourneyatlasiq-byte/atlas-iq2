@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { SUPPORT_EMAIL } from "../lib/legal";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HELP_GROUPS, tasksForPath, searchTasks } from "../lib/help";
@@ -111,6 +112,11 @@ export function HelpMenu() {
                 ))}
               </>
             )}
+
+            <p className="help-contact">
+              Still stuck?{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+            </p>
           </div>
         </div>
       )}

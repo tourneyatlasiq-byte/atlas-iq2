@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LogoLockup } from "../../components/SeasonTempoLogo";
 import {
   LEGAL_ENTITY, PRODUCT, TERMS_VERSION, EFFECTIVE_DATE,
-  PRIVACY_EMAIL, MAILING_ADDRESS,
+  PRIVACY_EMAIL, SUPPORT_EMAIL,
 } from "../../lib/legal";
 import "../home.css";
 
@@ -156,8 +156,8 @@ export default function TermsPage() {
         <h2>Contact</h2>
         <p>
           {LEGAL_ENTITY}<br />
-          {MAILING_ADDRESS}<br />
-          {PRIVACY_EMAIL}
+          General support: <strong>{SUPPORT_EMAIL}</strong><br />
+          Privacy and data requests: <strong>{PRIVACY_EMAIL}</strong>
         </p>
       </main>
 
