@@ -2,6 +2,7 @@ import Link from "next/link";
 import "./home.css";
 import { getViewer } from "../lib/context";
 import { LogoLockup } from "../components/SeasonTempoLogo";
+import { SUPPORT_EMAIL } from "../lib/legal";
 
 export const dynamic = "force-dynamic";
 
@@ -244,17 +245,37 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Columns rather than one strip. Every destination below is real —
+          #product and #about are sections on this page, /privacy and /terms
+          are pages. No link exists to fill out the shape. */}
       <footer className="mk-footer">
-        <div className="mk-wrap mk-footer-inner">
-          <LogoLockup size={30} tone="navy" wordSize={20} />
-          <nav className="mk-footer-nav">
-            <a href="#about">About</a>
-            <a href="mailto:support@seasontempo.com">Contact</a>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            {!signedIn && <Link href="/login">Sign in</Link>}
-          </nav>
-          <span className="mk-copyright">© {new Date().getFullYear()} Season Tempo</span>
+        <div className="mk-wrap">
+          <div className="mk-footer-grid">
+            <div className="mk-footer-brand">
+              <LogoLockup size={30} tone="navy" wordSize={20} />
+              <p className="mk-footer-line">Run your season smarter.</p>
+            </div>
+
+            <nav className="mk-footer-col" aria-label="Product">
+              <p className="mk-footer-heading">Product</p>
+              <a href="#product">Features</a>
+              <a href="#about">About</a>
+              {!signedIn && <Link href="/login">Sign in</Link>}
+            </nav>
+
+            <nav className="mk-footer-col" aria-label="Company">
+              <p className="mk-footer-heading">Company</p>
+              <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
+              <Link href="/privacy">Privacy Policy</Link>
+              <Link href="/terms">Terms of Service</Link>
+            </nav>
+          </div>
+
+          <div className="mk-footer-base">
+            <span className="mk-copyright">
+              © {new Date().getFullYear()} Season Tempo. All rights reserved.
+            </span>
+          </div>
         </div>
       </footer>
     </div>

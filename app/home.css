@@ -172,14 +172,38 @@
 .mk-final p { font-size: 16px; color: rgba(255,255,255,0.78); margin: 0 0 26px; }
 
 /* Footer */
-.mk-footer { padding: 34px 0; border-top: 1px solid var(--border); }
+/* Brand column carries more weight than the link columns, so the eye lands on
+   the logo first. Existing type scale, colors and spacing throughout. */
+.mk-footer { padding: 56px 0 28px; border-top: 1px solid var(--border); }
+.mk-footer-grid {
+  display: grid; grid-template-columns: 2fr 1fr 1fr;
+  gap: 40px; align-items: start;
+}
+.mk-footer-brand { max-width: 300px; }
+.mk-footer-line {
+  margin: 12px 0 0; font-size: 13.5px; line-height: 1.6; color: var(--slate);
+}
+.mk-footer-col { display: flex; flex-direction: column; gap: 10px; }
+.mk-footer-heading {
+  margin: 0 0 2px; font-family: var(--font-display);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--navy);
+}
+.mk-footer-col a { font-size: 13.5px; color: var(--slate); }
+.mk-footer-col a:hover { color: var(--navy); }
+
+.mk-footer-base {
+  margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+.mk-copyright { font-size: 12.5px; color: var(--slate); }
+
+/* Legal pages reuse this footer; their simpler markup keeps the old row. */
 .mk-footer-inner {
   display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
 }
-.mk-footer-nav { display: flex; gap: 20px; margin-left: 12px; }
+.mk-footer-nav { display: flex; gap: 20px; margin-left: auto; }
 .mk-footer-nav a { font-size: 13.5px; font-weight: 600; color: var(--slate); }
 .mk-footer-nav a:hover { color: var(--navy); }
-.mk-copyright { margin-left: auto; font-size: 12.5px; color: var(--slate); }
 
 /* Mobile: Sign in stays in the header, per the brief. */
 @media (max-width: 720px) {
@@ -191,6 +215,12 @@
   .mk-hero { padding: 52px 0 40px; }
   .mk-cta .btn { width: 100%; }
   .mk-section { padding: 48px 0; }
+  .mk-footer { padding: 40px 0 24px; }
+  .mk-footer-grid { grid-template-columns: 1fr; gap: 28px; }
+  .mk-footer-brand { max-width: none; }
+  /* Comfortable tap targets on a phone. */
+  .mk-footer-col a { min-height: 32px; display: inline-flex; align-items: center; }
+  .mk-footer-base { margin-top: 28px; }
   .mk-step { flex-direction: column; gap: 4px; }
   .mk-step-name { min-width: 0; }
   .mk-preview { padding: 12px; }
