@@ -730,7 +730,7 @@ function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsInc
                 <div className="field-row">
                   <div className="field">
                     <label htmlFor="b-qty">Quantity</label>
-                    <input id="b-qty" name="quantity" type="number" min="0" step="1"
+                    <input id="b-qty" name="quantity" type="number" min="0" step="any"
                            inputMode="decimal" value={qty}
                            onChange={(e) => setQty(e.target.value)} />
                   </div>
@@ -1073,7 +1073,7 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
             <div className="field-row">
               <div className="field">
                 <label htmlFor="t-amount">Amount</label>
-                <input id="t-amount" name="actual_amount" type="number" min="0" step="1"
+                <input id="t-amount" name="actual_amount" type="number" min="0" step="0.01" inputMode="decimal"
                        value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
               <div className="field">
@@ -1363,7 +1363,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
                 <div className="field-row">
                   <div className="field">
                     <label htmlFor="r-amount">Amount</label>
-                    <input id="r-amount" name="amount" type="number" min="1" step="1" required />
+                    <input id="r-amount" name="amount" type="number" min="0.01" step="0.01" inputMode="decimal" required />
                   </div>
                   <div className="field">
                     <label htmlFor="r-date">Date</label>
@@ -1433,7 +1433,7 @@ function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
               <label htmlFor="p-cost">Total due for the season</label>
               <div className="input-money">
                 <span aria-hidden="true">$</span>
-                <input id="p-cost" name="initial_cost" type="number" min="0" step="1" required
+                <input id="p-cost" name="initial_cost" type="number" min="0" step="0.01" inputMode="decimal" required
                        inputMode="decimal" placeholder="0"
                        defaultValue={row?.totalDue ?? ""} />
               </div>

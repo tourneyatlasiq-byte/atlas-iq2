@@ -260,6 +260,36 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4h. Money must never be truncated or blocked at entry -------------
+   Five money inputs shipped with step="1", which makes the browser reject
+   cents — a coach could not type 119.99 into a transaction amount. The value
+   never arrived, so nothing was corrupted; it simply could not be entered. */
+
+for (const f of componentFiles()) {
+  const src = read(f);
+
+  const inputs = src.match(/<input[^>]*type="number"[^>]*>/g) || [];
+  for (const tag of inputs) {
+    const isMoney = /name="(actual_amount|amount|initial_cost|budgeted|unit_cost|entry_fee|gate_fee|total_cost)"/.test(tag);
+    if (isMoney && /step="1"/.test(tag)) {
+      const name = (tag.match(/name="(\w+)"/) || [])[1];
+      failures.push(`${f}: money input "${name}" uses step="1" — cents cannot be entered`);
+    }
+  }
+
+  if (/maximumFractionDigits:\s*0/.test(src) && /money|amount|cost|owing|paid/i.test(src)) {
+    failures.push(`${f}: a currency value is formatted with maximumFractionDigits: 0`);
+  }
+}
+
+for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/finance.js"]) {
+  if (!fs.existsSync(f)) continue;
+  const src = fs.readFileSync(f, "utf8");
+  if (/Math\.floor|Math\.trunc/.test(src)) {
+    failures.push(`${f}: floors or truncates — money rounds to the nearest cent, never down`);
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [

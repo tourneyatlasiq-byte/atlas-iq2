@@ -999,12 +999,12 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
             <div className="field-row">
               <div className="field">
                 <label htmlFor="entry_fee">Entry fee</label>
-                <input id="entry_fee" name="entry_fee" type="number" min="0" step="1"
+                <input id="entry_fee" name="entry_fee" type="number" min="0" step="0.01" inputMode="decimal"
                        value={entry} onChange={(e) => setEntry(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="gate_fee">Gate fee</label>
-                <input id="gate_fee" name="gate_fee" type="number" min="0" step="1"
+                <input id="gate_fee" name="gate_fee" type="number" min="0" step="0.01" inputMode="decimal"
                        value={gate} onChange={(e) => setGate(e.target.value)} />
               </div>
             </div>
