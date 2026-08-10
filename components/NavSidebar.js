@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
+import { TeamIdentity, initialsOf } from "./TeamMark";
 
 /**
  * Approved top-level navigation. These labels are the product vocabulary —
@@ -19,14 +20,18 @@ const NAV = [
   { href: "/files", label: "Files" },
 ];
 
-export function NavSidebar({ email }) {
+export function NavSidebar({ email, organization, team, season }) {
   const pathname = usePathname();
 
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <LogoLockup size={34} tone="light" />
+        <LogoLockup size={30} tone="light" wordSize={17} />
       </div>
+
+      {/* The organization is what a coach should feel they are operating.
+          Season Tempo stays the platform brand above it. */}
+      <TeamIdentity organization={organization} team={team} season={season} size={36} />
 
       <nav className="nav" aria-label="Main">
         {NAV.map((item) => {
@@ -46,7 +51,8 @@ export function NavSidebar({ email }) {
 
       <div className="sidebar-foot">
         <div className="sidebar-user">
-          {email}
+          <span className="user-mark" aria-hidden="true">{initialsOf(email?.split("@")[0] ?? "?")}</span>
+          <span className="user-email">{email}</span>
           <br />
           <Link href="/settings" style={{ color: "#b9c9dc", textDecoration: "underline" }}>
             Settings

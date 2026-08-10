@@ -17,15 +17,16 @@ export default async function AppLayout({ children }) {
 
   return (
     <div className="shell">
-      <NavSidebar email={user.email} />
+      <NavSidebar
+        email={user.email}
+        organization={organization}
+        team={team}
+        season={season}
+      />
 
       <div className="main">
         <header className="topbar">
           <div className="context-chips">
-            <span className="crumb">{organization?.name ?? "Not linked"}</span>
-            <span className="crumb-sep" aria-hidden="true">/</span>
-            <span className="crumb">{team?.name ?? "No team"}</span>
-            <span className="crumb-sep" aria-hidden="true">/</span>
             <SeasonPicker seasons={seasons} season={season} phase={seasonPhase} />
           </div>
 

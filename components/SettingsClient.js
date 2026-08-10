@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { SUPPORT_EMAIL, PRIVACY_EMAIL } from "../lib/legal";
 import { ContactsDirectory } from "./ContactsDirectory";
+import { TeamBranding } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
   renameOrganization,
@@ -51,7 +52,7 @@ function fmtDate(d) {
 
 export function SettingsClient({
   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
-  counts, isAdmin, currentUserId, autoOpen = null, contacts = [],
+  counts, isAdmin, isOwner = false, currentUserId, autoOpen = null, contacts = [],
 }) {
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen);
@@ -240,6 +241,8 @@ export function SettingsClient({
           )}
         </div>
       </div>
+
+      <TeamBranding organization={organization} isOwner={isOwner} />
 
       <ContactsDirectory contacts={contacts} canWrite={isAdmin} />
 

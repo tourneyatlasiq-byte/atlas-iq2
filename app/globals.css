@@ -2900,3 +2900,74 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 }
 .help-contact a { color: var(--blue); font-weight: 600; }
 .help-contact a:hover { text-decoration: underline; }
+
+/* ===== Team identity ===== */
+
+/* Logo when one exists, initials when not. Never a broken image or an empty
+   square — an organization that hasn't uploaded anything still looks
+   deliberate. */
+.team-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; overflow: hidden; flex-shrink: 0;
+}
+.team-mark-image { background: #fff; }
+.team-mark-image img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.team-mark-initials {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em;
+}
+.team-mark-initials.tone-light { background: var(--navy-soft, #16365d); color: #fff; }
+.team-mark-initials.tone-navy { background: var(--navy); color: #fff; }
+
+/* Sits under the Season Tempo lockup: platform above, customer below. */
+.team-identity {
+  display: flex; align-items: center; gap: 11px;
+  padding: 14px 18px; margin: 0 0 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.team-identity-text { min-width: 0; }
+.team-identity-name {
+  display: block; font-family: var(--font-display);
+  font-size: 14.5px; font-weight: 800; color: #fff; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.team-identity-sub {
+  display: block; font-size: 11.5px; color: var(--brand-muted-on-navy, #8ba3c0);
+  margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Account area: initials, since avatars are deferred. */
+.sidebar-user { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.user-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--navy-soft, #16365d); color: #fff;
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+}
+.user-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Settings → Team branding */
+.settings-branding {
+  max-width: 1120px; margin-top: 24px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.branding-row { display: flex; align-items: flex-start; gap: 20px; margin-top: 14px; }
+.branding-row .team-mark { border: 1px solid var(--border); }
+.branding-detail { flex: 1; min-width: 0; }
+.branding-name {
+  margin: 0 0 2px; font-family: var(--font-display);
+  font-size: 16px; font-weight: 800; color: var(--navy);
+}
+.branding-input { margin: 12px 0 4px; font-size: 13px; }
+.branding-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
+
+@media (max-width: 720px) {
+  /* The identity block sits in the top bar strip on mobile, beside the brand. */
+  .team-identity {
+    padding: 8px 14px; margin: 0; border-top: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  }
+  .team-identity-name { font-size: 13.5px; }
+  .branding-row { flex-direction: column; gap: 14px; }
+  .branding-actions .btn { min-height: 44px; }
+}
