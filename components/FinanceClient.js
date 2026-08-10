@@ -410,7 +410,12 @@ export function FinanceClient({
           players={players}
           existing={payments}
           pending={pending}
-          onSubmit={(fd) => run(savePlayerPayment, fd, () => { setEditPay(null); closeDetail(); })}
+          onSubmit={(fd, scope) =>
+            run(scope === "all" ? setDuesForAll : savePlayerPayment, fd, () => {
+              setEditPay(null);
+              closeDetail();
+            })
+          }
           onCancel={() => setEditPay(null)}
         />
       )}
@@ -1219,7 +1224,7 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
                   <div className="input-money">
                     <span aria-hidden="true">$</span>
                     <input
-                      type="number" min="0" step="1" inputMode="decimal"
+                      type="number" min="0" step="0.01" inputMode="decimal"
                       placeholder="0" aria-label="Amount each player owes"
                       value={bulkAmount}
                       onChange={(e) => setBulkAmount(e.target.value)}
@@ -1397,6 +1402,8 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
 
 function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
   const isNew = !row;
+  const [scope, setScope] = useState("all");
+
   const taken = new Set(existing.map((p) => p.player_id));
   // Season fees are owed by players. Coaches and other staff are excluded.
   const available = players.filter(
@@ -1406,17 +1413,61 @@ function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <form action={onSubmit}>
+        <form action={(fd) => onSubmit(fd, isNew ? scope : "one")}>
           {row && <input type="hidden" name="id" value={row.id} />}
           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
           <div className="modal-head">
             <h2>{isNew ? "Set player dues" : `Edit ${row.player?.full_name}`}</h2>
             {isNew && (
-              <div className="page-sub">Set what this player owes for the season.</div>
+              <div className="page-sub">
+                Each player gets their own obligation, so balances and payment history stay
+                separate.
+              </div>
             )}
           </div>
           <div className="modal-body">
+            {/* Bulk assignment used to live only on the empty state, so once
+                one player had dues a coach could never reach it again. */}
             {isNew && (
+              <div className="field">
+                <label>Who owes this?</label>
+                <div className="segmented" role="group" aria-label="Who owes this">
+                  <button
+                    type="button"
+                    className={`segment${scope === "all" ? " on" : ""}`}
+                    aria-pressed={scope === "all"}
+                    onClick={() => setScope("all")}
+                  >
+                    All players
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment${scope === "one" ? " on" : ""}`}
+                    aria-pressed={scope === "one"}
+                    onClick={() => setScope("one")}
+                  >
+                    One player
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {isNew && scope === "all" && (
+              <p className="field-note dues-scope-note">
+                {available.length === 0 ? (
+                  <>Every active player already has dues set. Nothing would change.</>
+                ) : (
+                  <>
+                    Creates a separate obligation for each of the{" "}
+                    <strong>{available.length}</strong> active{" "}
+                    {available.length === 1 ? "player" : "players"} without dues. Players who
+                    already have an amount set are left exactly as they are.
+                  </>
+                )}
+              </p>
+            )}
+
+            {isNew && scope === "one" && (
               <div className="field">
                 <label htmlFor="p-player">Player</label>
                 <select id="p-player" name="player_id" required>
@@ -1444,7 +1495,13 @@ function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
           <div className="modal-foot">
             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={pending}>
-              {pending ? "Saving…" : isNew ? "Add" : "Save changes"}
+              {pending
+                ? "Saving…"
+                : !isNew
+                  ? "Save changes"
+                  : scope === "all"
+                    ? `Set dues for ${available.length} ${available.length === 1 ? "player" : "players"}`
+                    : "Add"}
             </button>
           </div>
         </form>
