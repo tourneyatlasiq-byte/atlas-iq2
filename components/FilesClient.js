@@ -217,7 +217,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
             </h3>
             <p>
               {documents.length === 0
-                ? "Insurance, waivers, birth certificates, sanctioning forms. Attach one to a player or tournament and it shows up there too."
+                ? "Waivers, schedules, team forms, insurance, and tournament documents. Attach one to a player or tournament and it shows up there too."
                 : query || category !== "all"
                   ? "Try a different search or clear the filters."
                   : EMPTY_VIEW[view].body}

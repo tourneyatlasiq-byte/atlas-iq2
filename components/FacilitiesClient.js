@@ -238,7 +238,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
       {view === "all" && isAdmin && (
         <button className="fac-import-link" onClick={() => setImporting(true)}>
-          Import facilities
+          Upload facilities
         </button>
       )}
 

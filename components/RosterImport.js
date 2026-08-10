@@ -2,10 +2,31 @@
 
 import { useState } from "react";
 import { importRoster } from "../lib/actions/roster";
-import { readSpreadsheet, downloadTemplate, csvTemplateHref } from "../lib/spreadsheet";
+import { readSpreadsheet } from "../lib/spreadsheet";
+import { TemplateDownload, UploadField } from "./TemplateDownload";
 
-const COLUMNS = ["name", "jersey", "grad_year", "positions", "parent_email"];
-const EXAMPLE_ROW = ["Ava Alpha", "2", "2028", "P;1B", "parent@example.com"];
+const COLUMNS = [
+  "name",
+  "jersey",
+  "grad_year",
+  "positions",
+  "throws",
+  "bats",
+  "jersey_size",
+  "pants_size",
+  "player_email",
+  "player_phone",
+  "parent_name",
+  "parent_email",
+  "parent_phone",
+  "notes",
+];
+const EXAMPLE_ROW = [
+  "Ava Alpha", "2", "2028", "P;1B", "R", "R", "M", "M",
+  "ava@example.com", "770-555-0100",
+  "Dana Alpha", "parent@example.com", "770-555-0101",
+  "Slap hitter",
+];
 
 /**
  * Roster import.
@@ -64,7 +85,7 @@ export function RosterImport({ pending, onImport, onCancel }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Import your roster</h2>
+          <h2>Upload roster</h2>
           <div className="page-sub">
             A spreadsheet with one player per row. Only a name is required.
           </div>
@@ -73,35 +94,19 @@ export function RosterImport({ pending, onImport, onCancel }) {
         <div className="modal-body">
           {error && <div className="alert alert-error">{error}</div>}
 
-          <div className="import-template">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={async () => {
-                const r = await downloadTemplate(COLUMNS, "season-tempo-roster", EXAMPLE_ROW);
-                if (!r.ok) setError("Couldn't build the Excel template. Use the CSV link instead.");
-              }}
-            >
-              Download Excel template
-            </button>
-            <a
-              className="link"
-              href={csvTemplateHref(COLUMNS, EXAMPLE_ROW)}
-              download="season-tempo-roster.csv"
-            >
-              or CSV
-            </a>
-          </div>
+          <TemplateDownload
+            columns={COLUMNS}
+            example={EXAMPLE_ROW}
+            filename="season-tempo-roster"
+            onError={setError}
+          />
 
-          <div className="field">
-            <label htmlFor="roster-file">Upload file</label>
-            <input id="roster-file" type="file" accept=".xlsx,.xls,.csv,text/csv" onChange={pick} />
-            <p className="field-note">Supports .xlsx and .csv</p>
-          </div>
+          <UploadField id="roster-file" onChange={pick} />
 
           <p className="field-note">
-            <strong>name</strong> is required. Players already on this roster will not be
-            duplicated. Separate positions with a semicolon, like P;1B.
+            <strong>name</strong> is the only required column — leave anything else blank.
+            Players already on this roster won&rsquo;t be duplicated. Separate positions with a
+            semicolon, like P;1B.
           </p>
 
           {rows && (

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { rowsFromGrid, IMPORT_COLUMNS } from "../lib/facility-import";
-import { readSpreadsheet, downloadTemplate, csvTemplateHref } from "../lib/spreadsheet";
+import { readSpreadsheet } from "../lib/spreadsheet";
+import { TemplateDownload, UploadField } from "./TemplateDownload";
 import { importFacilities } from "../lib/actions/facility-import";
 
 /**
@@ -86,7 +87,7 @@ export function FacilityImport({ onClose, onDone }) {
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Import facilities</h2>
+          <h2>Upload facilities</h2>
           <div className="page-sub">
             Upload a completed Season Tempo facility template to add multiple facilities at once.
           </div>
@@ -97,36 +98,14 @@ export function FacilityImport({ onClose, onDone }) {
 
           {stage === "pick" && (
             <>
-              <div className="import-template">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={async () => {
-                    const r = await downloadTemplate(IMPORT_COLUMNS, "season-tempo-facilities", EXAMPLE_ROW);
-                    if (!r.ok) setError("Couldn't build the Excel template. Use the CSV link instead.");
-                  }}
-                >
-                  Download Excel template
-                </button>
-                <a
-                  className="link"
-                  href={csvTemplateHref(IMPORT_COLUMNS, EXAMPLE_ROW)}
-                  download="season-tempo-facilities.csv"
-                >
-                  or CSV
-                </a>
-              </div>
+              <TemplateDownload
+                columns={IMPORT_COLUMNS}
+                example={EXAMPLE_ROW}
+                filename="season-tempo-facilities"
+                onError={setError}
+              />
 
-              <div className="field">
-                <label htmlFor="import-file">Upload file</label>
-                <input
-                  id="import-file"
-                  type="file"
-                  accept=".xlsx,.xls,.csv,text/csv"
-                  onChange={onFile}
-                />
-                <p className="field-note">Supports .xlsx and .csv</p>
-              </div>
+              <UploadField id="import-file" onChange={onFile} />
 
               <p className="field-note">
                 <strong>Facility Name</strong>, <strong>City</strong> and <strong>State</strong> are

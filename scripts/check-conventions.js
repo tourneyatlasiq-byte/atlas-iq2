@@ -223,6 +223,43 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4g. Import templates must offer only columns the importer reads ---
+   The roster template shipped 5 columns while the schema supported 14, so a
+   coach's spreadsheet data was silently discarded. A template offering a
+   column the importer ignores is worse than a missing column: it looks like
+   it worked. */
+
+{
+  const pairs = [
+    ["components/RosterImport.js", "lib/actions/roster.js"],
+  ];
+
+  for (const [templateFile, actionFile] of pairs) {
+    if (!fs.existsSync(templateFile) || !fs.existsSync(actionFile)) continue;
+    const t = fs.readFileSync(templateFile, "utf8");
+    const a = fs.readFileSync(actionFile, "utf8");
+
+    const block = t.match(/const COLUMNS = \[([\s\S]*?)\n\]/);
+    if (!block) continue;
+    const columns = [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+
+    for (const col of columns) {
+      if (!a.includes(`raw.${col}`)) {
+        failures.push(`${templateFile}: template offers "${col}" but ${actionFile} never reads it`);
+      }
+    }
+
+    // Example row must align, or every column after a gap shifts.
+    const ex = t.match(/const EXAMPLE_ROW = \[([\s\S]*?)\n\]/);
+    if (ex) {
+      const values = (ex[1].match(/"/g) || []).length / 2;
+      if (values !== columns.length) {
+        failures.push(`${templateFile}: example row has ${values} values for ${columns.length} columns`);
+      }
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [

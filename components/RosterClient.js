@@ -202,7 +202,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         {canWrite && (
           <div className="foot-actions">
             <button className="btn btn-ghost" onClick={() => setImporting(true)}>
-              Import CSV
+              Upload roster
             </button>
             <button className="btn btn-primary" onClick={() => setAdding(true)}>
               Add player or coach
@@ -364,7 +364,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             {rows.length === 0 && canWrite && (
               <div className="empty-actions">
                 <button className="btn btn-primary" onClick={() => setImporting(true)}>
-                  Import from a spreadsheet
+                  Upload roster
                 </button>
                 <button className="btn btn-secondary" onClick={() => setAdding(true)}>
                   Add player or coach
