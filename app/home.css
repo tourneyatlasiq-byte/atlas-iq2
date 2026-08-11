@@ -37,7 +37,7 @@
   font-size: clamp(16px, 2vw, 19px); line-height: 1.6; color: var(--slate);
 }
 .mk-cta { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
-.mk-btn-lg { padding: 13px 26px; font-size: 15px; }
+.mk-btn-lg { display: inline-flex; align-items: center; padding: 13px 26px; font-size: 15px; }
 .mk-note { margin-top: 16px; font-size: 13px; color: var(--slate); }
 
 /* Screenshot */
@@ -203,7 +203,9 @@
 
 .mk-page-hero { padding: 52px 0 60px; }
 .mk-page-hero h1 { margin: 0 0 16px; }
-.mk-page-hero .mk-lede { margin: 0; }
+.mk-page-hero .mk-lede { margin: 0 0 16px; }
+.mk-page-hero p:not(.mk-lede) { font-size: 16px; line-height: 1.7; color: var(--slate); margin: 0 0 16px; }
+.mk-page-hero p:last-child { margin-bottom: 0; }
 .mk-hero-cta { display: inline-flex; align-items: center; margin-top: 26px; }
 
 .mk-eyebrow {
