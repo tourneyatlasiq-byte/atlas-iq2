@@ -1,0 +1,323 @@
+/* ===== Public homepage =====
+   Scoped under .mk so nothing here can reach the authenticated application. */
+
+.mk { background: var(--surface); color: var(--navy); }
+.mk-wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+.mk-narrow { max-width: 680px; }
+
+/* Header */
+.mk-header {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.mk-header-inner {
+  display: flex; align-items: center; gap: 24px; height: 72px;
+}
+.mk-logo { display: flex; align-items: center; }
+/* Wordmark size is set at the call site via the lockup's wordSize prop —
+   inline styles beat class rules, so sizing here would silently do nothing. */
+.mk-nav { display: flex; gap: 22px; margin-left: 12px; }
+.mk-nav a {
+  font-size: 13.5px; font-weight: 600; color: var(--slate);
+}
+.mk-nav a:hover { color: var(--navy); }
+.mk-header-actions { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.mk-signin { font-size: 13.5px; font-weight: 600; color: var(--navy); white-space: nowrap; }
+.mk-signin:hover { color: var(--blue); }
+
+/* Hero */
+.mk-hero { padding: 84px 0 56px; text-align: center; }
+.mk-hero h1 {
+  font-size: clamp(34px, 5.4vw, 56px); line-height: 1.06;
+  letter-spacing: -0.02em; margin: 0;
+}
+.mk-lede {
+  max-width: 620px; margin: 20px auto 0;
+  font-size: clamp(16px, 2vw, 19px); line-height: 1.6; color: var(--slate);
+}
+.mk-cta { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+.mk-btn-lg { padding: 13px 26px; font-size: 15px; }
+.mk-note { margin-top: 16px; font-size: 13px; color: var(--slate); }
+
+/* Screenshot */
+.mk-shot { padding-bottom: 20px; }
+.mk-shot-frame {
+  border: 1px solid var(--border); border-radius: 14px;
+  background: var(--bg); overflow: hidden;
+  box-shadow: 0 18px 50px rgba(11,35,65,0.12);
+}
+.mk-shot-frame img { display: block; width: 100%; height: auto; }
+/* Product preview built from real Atlas surfaces — the same Next Up panel and
+   briefing rows the application renders. Nothing here depicts functionality
+   that does not exist. Replace with a screenshot by swapping this block for an
+   <img>; the frame keeps the styling. */
+.mk-preview { padding: 18px; background: var(--bg); }
+.mk-preview-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--slate); margin-bottom: 14px;
+}
+.mk-preview-bar strong { color: var(--navy); font-weight: 600; }
+.mk-preview-grid {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); gap: 14px;
+}
+.mk-preview-next {
+  background: linear-gradient(160deg, #0b2341 0%, #123055 100%);
+  border-radius: 12px; padding: 20px 22px; color: #fff;
+}
+.mk-preview-eyebrow {
+  font-family: var(--font-display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.62);
+}
+.mk-preview-days {
+  display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
+}
+.mk-preview-days b {
+  font-family: var(--font-display); font-size: 34px; font-weight: 800;
+  color: var(--gold); line-height: 1;
+}
+.mk-preview-days span {
+  font-family: var(--font-display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.72);
+}
+.mk-preview-name {
+  font-family: var(--font-display); font-size: 22px; font-weight: 800;
+  margin: 10px 0 6px; line-height: 1.15;
+}
+.mk-preview-line { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.5; }
+.mk-preview-flags { display: flex; gap: 14px; margin-top: 14px; font-size: 12.5px; font-weight: 600; }
+.mk-preview-flags .ok { color: #7fd992; }
+.mk-preview-flags .quiet { color: rgba(255,255,255,0.6); font-weight: 500; }
+
+.mk-preview-side { background: var(--surface); border-radius: 12px; padding: 16px 14px; }
+.mk-preview-side-title {
+  font-family: var(--font-display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate); margin: 0 0 10px;
+}
+.mk-preview-action { display: flex; gap: 10px; padding: 9px 0; align-items: flex-start; }
+.mk-preview-action + .mk-preview-action { border-top: 1px solid var(--border); }
+.mk-preview-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.mk-preview-dot.red { background: #c0392b; }
+.mk-preview-dot.amber { background: #b45309; }
+.mk-preview-action-text { font-size: 13px; color: var(--navy); font-weight: 600; line-height: 1.4; }
+.mk-preview-action-where { display: block; font-size: 12px; color: var(--blue); font-weight: 600; margin-top: 1px; }
+
+.mk-preview-snaps {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0; border-top: 1px solid var(--border); margin-top: 14px;
+}
+.mk-preview-snap { padding: 14px 16px; border-left: 1px solid var(--border); }
+.mk-preview-snap:first-child { border-left: none; padding-left: 2px; }
+.mk-preview-snap b {
+  display: block; font-family: var(--font-display); font-size: 22px;
+  font-weight: 800; color: var(--navy);
+}
+.mk-preview-snap span { display: block; font-size: 12px; color: var(--slate); margin-top: 2px; }
+.mk-preview-snap em {
+  display: block; font-family: var(--font-display); font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate);
+  font-style: normal; margin-bottom: 6px;
+}
+
+/* Who Atlas is for */
+.mk-who { text-align: center; }
+.mk-who p { max-width: 640px; margin: 0 auto; font-size: 16px; line-height: 1.7; }
+
+.mk-connect {
+  text-align: center; font-size: 15px; color: var(--navy); font-weight: 600;
+  max-width: 620px; margin: -18px auto 30px; line-height: 1.6;
+}
+
+/* Sections */
+.mk-section { padding: 68px 0; }
+.mk-alt { background: var(--bg); border-block: 1px solid var(--border); }
+.mk-section h2 {
+  font-size: clamp(24px, 3.4vw, 32px); line-height: 1.2;
+  letter-spacing: -0.01em; margin: 0 0 20px;
+}
+.mk-centered { text-align: center; margin-bottom: 34px; }
+.mk-section p { font-size: 16px; line-height: 1.7; color: var(--slate); margin: 0 0 16px; }
+.mk-emphasis { color: var(--navy); font-weight: 600; }
+
+/* Capabilities */
+.mk-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;
+}
+.mk-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-card); padding: 24px;
+}
+.mk-card h3 {
+  font-size: 17px; margin: 0 0 8px;
+  padding-left: 12px; border-left: 3px solid var(--gold);
+}
+.mk-card p { font-size: 14.5px; line-height: 1.6; margin: 0; }
+
+/* Season flow */
+.mk-flow { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.mk-step {
+  display: flex; gap: 18px; align-items: baseline;
+  padding: 16px 0; border-top: 1px solid var(--border);
+}
+.mk-step:first-child { border-top: none; }
+.mk-step-name {
+  font-family: var(--font-display); font-weight: 800; font-size: 15px;
+  min-width: 130px; flex-shrink: 0;
+}
+.mk-step-text { font-size: 15px; line-height: 1.6; color: var(--slate); }
+
+/* Final CTA */
+.mk-final { background: var(--navy); color: #fff; padding: 72px 0; text-align: center; }
+.mk-final h2 { font-size: clamp(24px, 3.4vw, 32px); margin: 0 0 12px; color: #fff; }
+.mk-final p { font-size: 16px; color: rgba(255,255,255,0.78); margin: 0 0 26px; }
+
+/* Footer */
+/* Brand column carries more weight than the link columns, so the eye lands on
+   the logo first. Existing type scale, colors and spacing throughout. */
+.mk-footer { padding: 56px 0 28px; border-top: 1px solid var(--border); }
+.mk-footer-grid {
+  display: grid; grid-template-columns: 2fr 1fr 1fr;
+  gap: 40px; align-items: start;
+}
+.mk-footer-brand { max-width: 300px; }
+.mk-footer-line {
+  margin: 12px 0 0; font-size: 13.5px; line-height: 1.6; color: var(--slate);
+}
+.mk-footer-col { display: flex; flex-direction: column; gap: 10px; }
+.mk-footer-heading {
+  margin: 0 0 2px; font-family: var(--font-display);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--navy);
+}
+.mk-footer-col a { font-size: 13.5px; color: var(--slate); }
+.mk-footer-col a:hover { color: var(--navy); }
+
+.mk-footer-base {
+  margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+.mk-copyright { font-size: 12.5px; color: var(--slate); }
+
+/* Legal pages reuse this footer; their simpler markup keeps the old row. */
+.mk-footer-inner {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.mk-footer-nav { display: flex; gap: 20px; margin-left: auto; }
+.mk-footer-nav a { font-size: 13.5px; font-weight: 600; color: var(--slate); }
+.mk-footer-nav a:hover { color: var(--navy); }
+
+/* Mobile: Sign in stays in the header, per the brief. */
+@media (max-width: 720px) {
+  .mk-nav { display: none; }
+  .mk-header-inner { height: 62px; gap: 10px; }
+
+  .mk-header-actions { gap: 10px; }
+  .mk-header-actions .btn { padding: 8px 14px; font-size: 13px; }
+  .mk-hero { padding: 52px 0 40px; }
+  .mk-cta .btn { width: 100%; }
+  .mk-section { padding: 48px 0; }
+  .mk-footer { padding: 40px 0 24px; }
+  .mk-footer-grid { grid-template-columns: 1fr; gap: 28px; }
+  .mk-footer-brand { max-width: none; }
+  /* Comfortable tap targets on a phone. */
+  .mk-footer-col a { min-height: 32px; display: inline-flex; align-items: center; }
+  .mk-footer-base { margin-top: 28px; }
+  .mk-step { flex-direction: column; gap: 4px; }
+  .mk-step-name { min-width: 0; }
+  .mk-preview { padding: 12px; }
+  .mk-preview-grid { grid-template-columns: 1fr; }
+  .mk-preview-days b { font-size: 28px; }
+  .mk-preview-name { font-size: 19px; }
+  .mk-preview-snaps { grid-template-columns: 1fr; }
+  .mk-preview-snap { border-left: none; border-top: 1px solid var(--border); padding: 12px 2px; }
+  .mk-preview-snap:first-child { border-top: none; }
+  .mk-connect { font-size: 14px; margin-bottom: 22px; }
+  .mk-footer-inner { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .mk-footer-nav { margin-left: 0; }
+  .mk-copyright { margin-left: 0; }
+}
+
+/* Legal documents — reading width, generous line height. */
+.legal-page { background: var(--surface); min-height: 100vh; }
+.legal-wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 64px; }
+.legal-wrap h1 {
+  font-family: var(--font-display); font-size: 32px; font-weight: 800;
+  color: var(--navy); margin: 0 0 6px; letter-spacing: -0.02em;
+}
+.legal-meta { font-size: 12.5px; color: var(--slate); margin: 0 0 28px; }
+.legal-lede { font-size: 16px; line-height: 1.7; color: var(--navy); margin: 0 0 32px; }
+.legal-wrap h2 {
+  font-family: var(--font-display); font-size: 19px; font-weight: 800;
+  color: var(--navy); margin: 36px 0 10px;
+}
+.legal-wrap h3 {
+  font-family: var(--font-display); font-size: 15px; font-weight: 800;
+  color: var(--navy); margin: 22px 0 6px;
+}
+.legal-wrap p { font-size: 15px; line-height: 1.75; color: var(--navy); margin: 0 0 14px; }
+.legal-list { margin: 0 0 16px; padding-left: 20px; }
+.legal-list li { font-size: 15px; line-height: 1.75; color: var(--navy); margin-bottom: 7px; }
+
+@media (max-width: 720px) {
+  .legal-wrap { padding: 32px 18px 48px; }
+  .legal-wrap h1 { font-size: 26px; }
+}
+
+/* ===== /product =====
+   Same wrap, sections and cards as the homepage — a second page in one
+   language, not a second design. */
+
+.mk-page-head { padding: 56px 0 8px; }
+.mk-page-head h1 { margin: 0 0 14px; }
+
+.mk-eyebrow {
+  display: block; font-family: var(--font-display);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 10px;
+}
+
+/* Text and screenshot side by side, alternating down the page so the eye
+   moves rather than scanning one column. */
+.mk-workflow {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 44px; align-items: center;
+}
+.mk-workflow-reverse .mk-workflow-text { order: 2; }
+.mk-workflow-text h2 { margin: 0 0 14px; }
+.mk-workflow-text p { margin: 0 0 12px; }
+.mk-workflow-text p:last-child { margin-bottom: 0; }
+
+.mk-shot-figure { margin: 0; }
+.mk-shot-figure .mk-shot-frame {
+  width: 100%; border: 1px solid var(--border);
+  border-radius: var(--radius-card); overflow: hidden;
+  background: var(--surface-sunken);
+  box-shadow: 0 12px 32px rgba(11, 35, 65, 0.09);
+}
+.mk-shot-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Honest placeholder. Never a drawing of the interface — a fabricated screen
+   on a page arguing "this is real software" undercuts its own argument. */
+.mk-shot-pending {
+  width: 100%; height: 100%; display: flex;
+  align-items: center; justify-content: center; padding: 24px;
+  background:
+    repeating-linear-gradient(135deg,
+      var(--surface-sunken) 0 10px, rgba(11, 35, 65, 0.035) 10px 20px);
+}
+.mk-shot-pending-label {
+  font-size: 12.5px; color: var(--slate); text-align: center;
+  max-width: 300px; line-height: 1.5;
+}
+.mk-shot-caption {
+  margin-top: 10px; font-family: var(--font-display);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--slate);
+}
+
+.mk-grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+@media (max-width: 860px) {
+  .mk-workflow { grid-template-columns: 1fr; gap: 24px; }
+  .mk-workflow-reverse .mk-workflow-text { order: 0; }
+  .mk-page-head { padding: 36px 0 4px; }
+}
