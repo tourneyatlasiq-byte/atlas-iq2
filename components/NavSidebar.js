@@ -20,7 +20,7 @@ const NAV = [
   { href: "/files", label: "Files" },
 ];
 
-export function NavSidebar({ email, organization, team, season }) {
+export function NavSidebar({ email, organization, team }) {
   const pathname = usePathname();
 
   return (
@@ -31,7 +31,7 @@ export function NavSidebar({ email, organization, team, season }) {
 
       {/* The organization is what a coach should feel they are operating.
           Season Tempo stays the platform brand above it. */}
-      <TeamIdentity organization={organization} team={team} season={season} size={36} />
+      <TeamIdentity organization={organization} team={team} size={36} />
 
       <nav className="nav" aria-label="Main">
         {NAV.map((item) => {

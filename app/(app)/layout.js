@@ -18,12 +18,7 @@ export default async function AppLayout({ children }) {
 
   return (
     <div className="shell">
-      <NavSidebar
-        email={user.email}
-        organization={organization}
-        team={team}
-        season={season}
-      />
+      <NavSidebar email={user.email} organization={organization} team={team} />
 
       <div className="main">
         <header className="topbar">

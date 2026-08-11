@@ -53,12 +53,16 @@ export function TeamMark({ name, logoUrl, size = 34, tone = "light" }) {
  * The identity block in the app shell.
  *
  * Season Tempo stays the platform brand above this; the organization is what a
- * coach should feel they are operating. Season is context, not a headline.
+ * coach should feel they are operating. The season lives in the topbar picker,
+ * so it is not repeated here.
  */
-export function TeamIdentity({ organization, team, season, size = 34 }) {
+export function TeamIdentity({ organization, team, size = 34 }) {
   if (!organization?.name) return null;
 
-  const secondary = [team?.name, season?.name].filter(Boolean).join(" · ");
+  // Season is deliberately omitted: the topbar already shows it as the season
+  // picker, and repeating it here was pushing a 28-character line into a
+  // ~147px column, which truncated both the team and the season.
+  const secondary = team?.name ?? null;
 
   return (
     <div className="team-identity">

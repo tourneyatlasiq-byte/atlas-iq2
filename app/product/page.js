@@ -89,7 +89,7 @@ export default async function ProductPage() {
             <ProductShot
               alt="A Season Tempo tournament — registration, contact, games, roster and costs"
               caption="Tournament"
-              ratio="4 / 3"
+              ratio="3 / 4"
             />
           </div>
         </div>
