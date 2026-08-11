@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "../../lib/supabase/server";
 import { MarketingHeader, MarketingFooter, PhotoSlot } from "../../components/MarketingChrome";
-import { LEGAL_ENTITY, PRODUCT, SUPPORT_EMAIL, PRIVACY_EMAIL } from "../../lib/legal";
+import { PRODUCT, SUPPORT_EMAIL, PRIVACY_EMAIL } from "../../lib/legal";
 import "../home.css";
 
 export const metadata = {
@@ -89,12 +89,7 @@ export default async function AboutPage() {
       {/* 5, 6, 7, 8 — the trust block */}
       <section className="mk-section mk-alt">
         <div className="mk-wrap mk-narrow">
-          <h2>Who operates it</h2>
-          <p>
-            {PRODUCT} is operated by {LEGAL_ENTITY}.
-          </p>
-
-          <h2 className="mk-h2-spaced">Early access</h2>
+          <h2>Early access</h2>
           <p>
             {PRODUCT} is in early access and free during this period. We&rsquo;ll give you
             advance notice before that changes. Early access is deliberately small so that real
