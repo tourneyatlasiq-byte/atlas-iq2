@@ -4,6 +4,9 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
 import { TeamIdentity, initialsOf } from "./TeamMark";
+import {
+  IconHome, IconTournaments, IconTeam, IconFacilities, IconFinance, IconFiles,
+} from "./NavIcons";
 
 /**
  * Approved top-level navigation. These labels are the product vocabulary —
@@ -12,15 +15,15 @@ import { TeamIdentity, initialsOf } from "./TeamMark";
  * Tournament IQ later.
  */
 const NAV = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/tournaments", label: "Tournaments" },
-  { href: "/team", label: "Team" },
-  { href: "/facilities", label: "Facilities" },
-  { href: "/finance", label: "Finance" },
-  { href: "/files", label: "Files" },
+  { href: "/dashboard", label: "Home", Icon: IconHome },
+  { href: "/tournaments", label: "Tournaments", Icon: IconTournaments },
+  { href: "/team", label: "Team", Icon: IconTeam },
+  { href: "/facilities", label: "Facilities", Icon: IconFacilities },
+  { href: "/finance", label: "Finance", Icon: IconFinance },
+  { href: "/files", label: "Files", Icon: IconFiles },
 ];
 
-export function NavSidebar({ email, organization, team }) {
+export function NavSidebar({ email, organization, team, season, seasons, seasonPhase }) {
   const pathname = usePathname();
 
   return (
@@ -31,7 +34,14 @@ export function NavSidebar({ email, organization, team }) {
 
       {/* The organization is what a coach should feel they are operating.
           Season Tempo stays the platform brand above it. */}
-      <TeamIdentity organization={organization} team={team} size={36} />
+      <TeamIdentity
+        organization={organization}
+        team={team}
+        season={season}
+        seasons={seasons}
+        seasonPhase={seasonPhase}
+        size={46}
+      />
 
       <nav className="nav" aria-label="Main">
         {NAV.map((item) => {
@@ -43,7 +53,8 @@ export function NavSidebar({ email, organization, team }) {
               className={`nav-item${active ? " active" : ""}`}
               aria-current={active ? "page" : undefined}
             >
-              {item.label}
+              <item.Icon />
+              <span>{item.label}</span>
             </Link>
           );
         })}

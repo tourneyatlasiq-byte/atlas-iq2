@@ -10,7 +10,7 @@ import { viewSeason } from "../lib/actions/seasons";
  * is a separate, admin-only action in Settings — a coach checking last year's
  * schedule should not be able to move everyone else's season by accident.
  */
-export function SeasonPicker({ seasons, season, phase }) {
+export function SeasonPicker({ seasons, season, phase, compact = false }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const ref = useRef(null);
@@ -48,7 +48,7 @@ export function SeasonPicker({ seasons, season, phase }) {
   }
 
   return (
-    <span className="crumb-picker" ref={ref}>
+    <span className={`crumb-picker${compact ? " crumb-picker-compact" : ""}`} ref={ref}>
       <button className="season-trigger" onClick={() => setOpen(!open)} aria-expanded={open}>
         <strong>{season?.name ?? "None"}</strong>
         {phase !== "current" && (

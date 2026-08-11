@@ -3,7 +3,6 @@ import { getContext } from "../../lib/context";
 import { NavSidebar } from "../../components/NavSidebar";
 import { HelpMenu } from "../../components/HelpMenu";
 import { AppFooter } from "../../components/AppFooter";
-import { SeasonPicker } from "../../components/SeasonPicker";
 import { SeasonBanner } from "../../components/SeasonBanner";
 
 // Reads cookies, so this subtree is dynamic. Nothing here is ever prerendered.
@@ -18,14 +17,19 @@ export default async function AppLayout({ children }) {
 
   return (
     <div className="shell">
-      <NavSidebar email={user.email} organization={organization} team={team} />
+      <NavSidebar
+        email={user.email}
+        organization={organization}
+        team={team}
+        season={season}
+        seasons={seasons}
+        seasonPhase={seasonPhase}
+      />
 
       <div className="main">
-        <header className="topbar">
-          <div className="context-chips">
-            <SeasonPicker seasons={seasons} season={season} phase={seasonPhase} />
-          </div>
-
+        {/* Season moved into the sidebar identity block, so this bar now holds
+            only Help and is sized accordingly. */}
+        <header className="topbar topbar-slim">
           <HelpMenu />
         </header>
 

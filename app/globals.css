@@ -133,7 +133,10 @@ a { color: inherit; text-decoration: none; }
 .crumb-picker .season-trigger:hover { border-color: var(--blue); }
 .crumb-picker .season-trigger strong { font-weight: 700; }
 
-.content { padding: 24px 28px 48px; }
+.content {
+  padding: 24px 28px 48px;
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
+}
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .page-sub { color: var(--slate); font-size: 13px; margin-top: 4px; }
 
@@ -1502,7 +1505,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 }
 .home-top {
   display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(290px, 1fr);
-  gap: 14px; align-items: stretch;
+  gap: 14px; align-items: start;
 }
 .home-band .briefing {
   background: var(--surface); border-radius: 12px; padding: 16px 14px;
@@ -1515,7 +1518,7 @@ a.help-task.featured:hover { background: #eef4fe; }
   background: var(--surface-brand);
   background-image: linear-gradient(160deg, #0b2341 0%, #123055 100%);
   border-radius: var(--radius-card); color: #fff;
-  padding: 20px 26px 18px; min-height: 0;
+  padding: 16px 24px 14px; min-height: 0;
   display: flex; flex-direction: column;
 }
 .nextup-motif { position: absolute; inset: 0; pointer-events: none; }
@@ -1542,17 +1545,17 @@ a.help-task.featured:hover { background: #eef4fe; }
 
 .nextup-name {
   font-family: var(--font-display); font-size: 29px; font-weight: 800;
-  line-height: 1.14; letter-spacing: -0.015em; margin: 10px 0 0; color: #fff;
+  line-height: 1.12; letter-spacing: -0.015em; margin: 6px 0 0; color: #fff;
   overflow-wrap: anywhere;
 }
 
-.nextup-lines { margin-top: 7px; display: flex; flex-direction: column; gap: 2px; }
+.nextup-lines { margin-top: 5px; display: flex; flex-direction: column; gap: 1px; }
 /* 85% rather than 70% — contrast on navy needs the lift to stay readable
    outdoors on a phone. */
-.nextup-line { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.5; overflow-wrap: anywhere; }
+.nextup-line { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.42; overflow-wrap: anywhere; }
 
 .nextup-foot {
-  margin-top: auto; padding-top: 16px;
+  margin-top: auto; padding-top: 12px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 14px; flex-wrap: wrap;
 }
@@ -1636,7 +1639,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 
 .snap-label {
   font-family: var(--font-display); font-size: 11px; font-weight: 800;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--navy);
 }
 /* The snapshot row states what is currently true. Needs Action owns what needs
    doing — so these read as facts, two type steps below the Next Up hero rather
@@ -2976,7 +2979,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .app-footer {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; flex-wrap: wrap;
-  max-width: 1120px; margin: 40px 0 0; padding: 16px 0 4px;
+  /* auto pins it to the bottom of a short page and flows normally on a long
+     one, so neither case produces a scrollbar with nothing to scroll to. */
+  max-width: 1120px; margin: 40px 0 0; margin-top: auto; padding: 16px 0 4px;
   border-top: 1px solid var(--border);
   font-size: 12.5px; color: var(--slate);
 }
@@ -3009,4 +3014,54 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 @media (max-width: 720px) {
   .login-sent-actions .btn { flex: 1; min-height: 44px; }
+}
+
+/* ===== Sidebar composition =====
+   Team identity, season and navigation reviewed as one block rather than
+   three separate changes. Sidebar width is unchanged. */
+
+.team-identity { align-items: flex-start; }
+.team-identity .team-mark { margin-top: 1px; }
+.team-identity-text { display: flex; flex-direction: column; gap: 1px; }
+
+/* Season is tertiary but deliberate: quieter than the team name, and still
+   the working selector rather than a label. */
+.crumb-picker-compact { display: block; margin-top: 3px; }
+.crumb-picker-compact .season-trigger {
+  padding: 0; background: none; border: none;
+  font-size: 11px; color: var(--brand-muted-on-navy, #8ba3c0);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.crumb-picker-compact .season-trigger strong { font-weight: 600; font-size: 11px; }
+.crumb-picker-compact .season-trigger:hover { color: #fff; }
+.crumb-picker-compact .season-caret { font-size: 8px; opacity: 0.75; }
+
+/* Icons sit on the text baseline so labels stay where they were. */
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+}
+.nav-item svg { flex-shrink: 0; opacity: 0.75; }
+.nav-item:hover svg, .nav-item.active svg { opacity: 1; }
+
+/* Only Help remains in the top bar. */
+.topbar-slim { padding: 9px 28px; justify-content: flex-end; }
+
+/* The whole snapshot is already a link; this makes that legible. Deliberately
+   small — it should say "clickable", not perform. */
+@media (hover: hover) and (pointer: fine) {
+  .snapshot {
+    transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  }
+  .snapshot:hover {
+    transform: translateY(-2px);
+    background: var(--surface);
+    box-shadow: 0 6px 16px rgba(11, 35, 65, 0.07);
+  }
+  .snapshot:hover .snap-value { color: var(--blue); }
+}
+
+/* No movement for anyone who has asked for less of it. */
+@media (prefers-reduced-motion: reduce) {
+  .snapshot { transition: none; }
+  .snapshot:hover { transform: none; }
 }

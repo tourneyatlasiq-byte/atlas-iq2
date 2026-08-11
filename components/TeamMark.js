@@ -1,3 +1,5 @@
+import { SeasonPicker } from "./SeasonPicker";
+
 /**
  * The organization's own mark.
  *
@@ -56,21 +58,23 @@ export function TeamMark({ name, logoUrl, size = 34, tone = "light" }) {
  * coach should feel they are operating. The season lives in the topbar picker,
  * so it is not repeated here.
  */
-export function TeamIdentity({ organization, team, size = 34 }) {
+export function TeamIdentity({ organization, team, season, seasons, seasonPhase, size = 46 }) {
   if (!organization?.name) return null;
-
-  // Season is deliberately omitted: the topbar already shows it as the season
-  // picker, and repeating it here was pushing a 28-character line into a
-  // ~147px column, which truncated both the team and the season.
-  const secondary = team?.name ?? null;
 
   return (
     <div className="team-identity">
       <TeamMark name={organization.name} logoUrl={organization.logo_url} size={size} />
-      <span className="team-identity-text">
+
+      <div className="team-identity-text">
         <span className="team-identity-name">{organization.name}</span>
-        {secondary && <span className="team-identity-sub">{secondary}</span>}
-      </span>
+        {team?.name && <span className="team-identity-sub">{team.name}</span>}
+
+        {/* The season selector itself, not a label — it changes what the user
+            is looking at, so moving it here had to move the control. */}
+        {season && (
+          <SeasonPicker seasons={seasons ?? []} season={season} phase={seasonPhase} compact />
+        )}
+      </div>
     </div>
   );
 }
