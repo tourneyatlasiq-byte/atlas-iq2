@@ -16,7 +16,7 @@ import {
 import { dashboardActions, nextUpTournament } from "../../../lib/readiness/dashboard";
 import { DashboardClient } from "../../../components/DashboardClient";
 import { GettingStarted } from "../../../components/GettingStarted";
-import { gettingStartedSteps } from "../../../lib/onboarding";
+import { gettingStartedSteps, setupComplete } from "../../../lib/onboarding";
 import { createClient } from "../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +80,7 @@ export default async function DashboardPage() {
     <>
       {!profile?.onboarding_hidden && <GettingStarted steps={steps} />}
       <DashboardClient
+      setupComplete={setupComplete(steps)}
       context={{
         organization: organization.name,
         team: team?.name ?? "No team",

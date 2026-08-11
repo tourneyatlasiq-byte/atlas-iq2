@@ -23,7 +23,7 @@ const COPY = {
   new: {
     title: "Start with Season Tempo",
     lede: "Enter your email and we'll send you a secure sign-in link. No password to remember.",
-    note: "Free while we're in early access.",
+    note: "Free during early access. We'll give you advance notice before that changes.",
     button: "Send my link",
     altText: "Already using Season Tempo?",
     altLabel: "Sign in",
@@ -100,17 +100,28 @@ function LoginForm() {
         <div className="card">
           {status === "sent" ? (
             <div>
-              <div className="alert alert-info" style={{ marginBottom: 0 }}>
-                Check <strong>{email}</strong> for your link. It opens Season Tempo directly — no
-                password needed.
+              {/* A new sending domain means links can be slow or spam-filed.
+                  Saying so up front costs nothing and prevents the coach
+                  concluding the product is broken. */}
+              <h2 className="login-sent-title">Check your email</h2>
+              <p className="login-sent-body">
+                We sent your Season Tempo sign-in link to <strong>{email}</strong>. It usually
+                arrives within a minute. If you don&rsquo;t see it, check your spam or junk
+                folder.
+              </p>
+
+              <div className="login-sent-actions">
+                <button
+                  className="btn btn-secondary"
+                  disabled={status === "sending"}
+                  onClick={() => sendLink({ preventDefault() {} })}
+                >
+                  Resend link
+                </button>
+                <button className="btn btn-ghost" onClick={() => setStatus("idle")}>
+                  Use a different email
+                </button>
               </div>
-              <button
-                className="btn btn-ghost"
-                style={{ marginTop: 12 }}
-                onClick={() => setStatus("idle")}
-              >
-                Use a different email
-              </button>
             </div>
           ) : (
             <form onSubmit={sendLink}>

@@ -39,8 +39,7 @@ function fmtRange(start, end) {
 const dotClass = (p) => (p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "dot-planning");
 
 export function DashboardClient({
-  nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current",
-}) {
+  nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current", setupComplete = true }) {
   return (
     <>
       <div className="page-head page-head-tight">
@@ -50,7 +49,7 @@ export function DashboardClient({
       <div className="home-band">
       <div className="home-top">
         <NextUp nextUp={nextUp} />
-        <Briefing actions={actions} seasonPhase={seasonPhase} />
+        <Briefing actions={actions} seasonPhase={seasonPhase} setupComplete={setupComplete} />
       </div>
       </div>
 
@@ -144,7 +143,7 @@ function NextUp({ nextUp }) {
 
 /* ---------------- Needs Action ---------------- */
 
-function Briefing({ actions, seasonPhase }) {
+function Briefing({ actions, seasonPhase, setupComplete = true }) {
   if (seasonPhase !== "current") {
     return (
       <section className="briefing briefing-is-clear">
@@ -164,6 +163,28 @@ function Briefing({ actions, seasonPhase }) {
   }
 
   if (!actions?.visible?.length) {
+    // "You're up to date" is only true once there is something to be up to
+    // date with. On a new account every readiness rule is silent for lack of
+    // data, so the old copy congratulated a user who had done nothing — while
+    // Getting Started, two inches above, said three steps remained.
+    //
+    // Getting Started still owns setup tasks; this deliberately does not
+    // repeat them.
+    if (!setupComplete) {
+      return (
+        <section className="briefing briefing-is-clear">
+          <p className="briefing-title">Needs action</p>
+          <div className="briefing-clear">
+            <p className="briefing-clear-title">Nothing urgent yet</p>
+            <p className="briefing-clear-sub">
+              Operational items that need your attention will appear here as you build your
+              season.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
     return (
       <section className="briefing briefing-is-clear">
         <p className="briefing-title">Needs action</p>

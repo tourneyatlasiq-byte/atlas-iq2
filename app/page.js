@@ -70,7 +70,7 @@ export default async function HomePage() {
             )}
           </div>
 
-          <p className="mk-note">Free while we&rsquo;re in early access.</p>
+          <p className="mk-note">Free during early access. We&rsquo;ll give you advance notice before that changes.</p>
         </div>
       </section>
 
@@ -242,6 +242,12 @@ export default async function HomePage() {
           <Link href={signedIn ? appHref : "/login?new=1"} className="btn btn-primary mk-btn-lg">
             {signedIn ? "Go to Season Tempo" : "Try Season Tempo"}
           </Link>
+          {/* The last thing a hesitant visitor reads before deciding. */}
+          {!signedIn && (
+            <p className="mk-note">
+              Free during early access. We&rsquo;ll give you advance notice before that changes.
+            </p>
+          )}
         </div>
       </section>
 

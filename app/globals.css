@@ -2996,3 +2996,16 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* Home's head no longer restates what the page shows immediately below it. */
 .page-head-tight { margin-bottom: 14px; }
+
+/* Magic-link confirmation: a new sending domain means links can be slow or
+   spam-filed, so the wait is explained rather than left silent. */
+.login-sent-title {
+  font-family: var(--font-display); font-size: 17px; font-weight: 800;
+  color: var(--navy); margin: 0 0 6px;
+}
+.login-sent-body { font-size: 13.5px; color: var(--slate); line-height: 1.6; margin: 0; }
+.login-sent-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+@media (max-width: 720px) {
+  .login-sent-actions .btn { flex: 1; min-height: 44px; }
+}
