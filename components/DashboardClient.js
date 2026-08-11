@@ -43,11 +43,8 @@ export function DashboardClient({
 }) {
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Home</h1>
-          <div className="page-sub">Here&rsquo;s what&rsquo;s coming up and what needs your attention.</div>
-        </div>
+      <div className="page-head page-head-tight">
+        <h1>Home</h1>
       </div>
 
       <div className="home-band">
@@ -305,10 +302,15 @@ function FinanceSnapshot({ finance, funds, dues }) {
   return (
     <Snapshot label="Finance" mark="finance" href="/finance" cta="Finance">
       <div className="snap-row-main">
-        <div className="snap-hero">{money(finance.remainingBudget)}</div>
-        <div className="snap-hero-label">Remaining budget</div>
+        {/* Available, not Remaining. Finance moved to Planned / Committed /
+            Paid / Available, and Available answers what can still be spent —
+            Remaining meant Planned minus Paid and reads higher than reality
+            once tournaments are committed. */}
+        <div className="snap-hero">{money(finance.availableBudget)}</div>
+        <div className="snap-hero-label">Available to spend</div>
         <div className="snap-support">
-          {money(dues.outstanding)} dues outstanding
+          {money(finance.committedExpenses)} committed
+          {finance.percentCommitted != null && ` · ${finance.percentCommitted}% of budget`}
         </div>
         <div className="snap-support snap-support-quiet">
           {money(funds.total)} received in dues and fundraising

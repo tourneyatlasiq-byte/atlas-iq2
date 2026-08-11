@@ -2994,3 +2994,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .app-footer { margin-top: 28px; gap: 10px; }
   .app-footer-links { gap: 14px; }
 }
+
+/* Home's head no longer restates what the page shows immediately below it. */
+.page-head-tight { margin-bottom: 14px; }
