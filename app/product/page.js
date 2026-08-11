@@ -21,29 +21,28 @@ export default async function ProductPage() {
     <div className="mk">
       <MarketingHeader signedIn={signedIn} appHref={appHref} />
 
-      {/* 1 — Header */}
-      <section className="mk-page-head">
-        <div className="mk-wrap mk-narrow">
-          <h1>Everything a travel season needs, in one place.</h1>
-          <p className="mk-lede">
-            Season Tempo follows a season the way you actually run one — from the events you&rsquo;re
-            weighing up to what the whole thing cost.
-          </p>
-        </div>
-      </section>
-
-      {/* 2 — The lifecycle, moved from the homepage where it sat sixth */}
-      <section className="mk-section mk-alt">
+      {/* 1 — Hero. Product before prose: this page argues the software is real,
+              so it shows the software before describing it. */}
+      <section className="mk-product-hero">
         <div className="mk-wrap">
-          <h2 className="mk-centered">A season, start to finish</h2>
-          <ol className="mk-flow">
-            <Step name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Step>
-            <Step name="Commit">Decide what you&rsquo;re playing. Costs start counting, and it shows up in Needs Action.</Step>
-            <Step name="Play">Record games and results as the event happens.</Step>
-            <Step name="Track">Watch the budget, dues and what still needs attention.</Step>
-            <Step name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Step>
-            <Step name="Next season">Carry your roster forward while keeping prior seasons preserved for reference.</Step>
-          </ol>
+          <div className="mk-workflow">
+            <div className="mk-workflow-text">
+              <h1>Everything a travel season needs, in one place.</h1>
+              <p className="mk-lede">
+                Season Tempo follows a season the way you actually run one — from the events
+                you&rsquo;re weighing up to what the whole thing cost.
+              </p>
+              {!signedIn && (
+                <Link href="/login?new=1" className="btn btn-primary mk-btn-lg mk-hero-cta">
+                  Try Season Tempo
+                </Link>
+              )}
+            </div>
+            <ProductShot
+              alt="Season Tempo Home — the next tournament, what needs attention, and where the season stands"
+              ratio="16 / 10"
+            />
+          </div>
         </div>
       </section>
 
@@ -61,10 +60,13 @@ export default async function ProductPage() {
                 record. Each one links to the screen where you fix it.
               </p>
             </div>
+            {/* A focused crop of the same Home capture — the next event and the
+                attention list only. Materially different from the hero, not the
+                same image twice. */}
             <ProductShot
-              alt="Season Tempo Home — Next Up, Needs Action and season snapshots"
+              alt="The next tournament and what needs attention"
               caption="Home"
-              ratio="16 / 10"
+              ratio="4 / 3"
             />
           </div>
         </div>
@@ -122,8 +124,24 @@ export default async function ProductPage() {
         </div>
       </section>
 
-      {/* 6 — Also included, relocated from the homepage capability grid */}
+      {/* Below the proof, not above it: a first-time visitor wants to see the
+          product before reading how the pieces fit together. */}
       <section className="mk-section mk-alt">
+        <div className="mk-wrap">
+          <h2 className="mk-centered">A season, start to finish</h2>
+          <ol className="mk-lifecycle">
+            <Phase n="1" name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Phase>
+            <Phase n="2" name="Commit">Decide what you&rsquo;re playing. Costs start counting straight away.</Phase>
+            <Phase n="3" name="Play">Record games and results as the event happens.</Phase>
+            <Phase n="4" name="Track">Watch the budget, dues and what still needs your attention.</Phase>
+            <Phase n="5" name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Phase>
+            <Phase n="6" name="Next season">Carry your roster forward. Prior seasons stay for reference.</Phase>
+          </ol>
+        </div>
+      </section>
+
+      {/* 6 — Also included, relocated from the homepage capability grid */}
+      <section className="mk-section">
         <div className="mk-wrap">
           <h2 className="mk-centered">Also included</h2>
           <div className="mk-grid mk-grid-3">
@@ -144,20 +162,31 @@ export default async function ProductPage() {
       </section>
 
       {/* 7 — CTA */}
-      <section className="mk-final">
-        <div className="mk-wrap">
-          <h2>Ready to run your season?</h2>
-          <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
-          <Link href={signedIn ? appHref : "/login?new=1"} className="btn btn-primary mk-btn-lg">
-            {signedIn ? "Go to Season Tempo" : "Try Season Tempo"}
-          </Link>
-          {!signedIn && (
+      {/* A signed-in reader is already a customer. Asking them to convert at the
+          bottom of a marketing page is a dead end, so they get a quiet way back
+          instead of a pitch. */}
+      {signedIn ? (
+        <section className="mk-section mk-return">
+          <div className="mk-wrap mk-narrow mk-centered">
+            <Link href={appHref} className="mk-return-link">
+              Back to Season Tempo &rarr;
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <section className="mk-final">
+          <div className="mk-wrap">
+            <h2>Ready to run your season?</h2>
+            <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
+            <Link href="/login?new=1" className="btn btn-primary mk-btn-lg">
+              Try Season Tempo
+            </Link>
             <p className="mk-note">
               Free during early access. We&rsquo;ll give you advance notice before that changes.
             </p>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       <MarketingFooter signedIn={signedIn} />
     </div>
@@ -173,11 +202,12 @@ function Capability({ title, children }) {
   );
 }
 
-function Step({ name, children }) {
+function Phase({ n, name, children }) {
   return (
-    <li className="mk-step">
-      <span className="mk-step-name">{name}</span>
-      <span className="mk-step-text">{children}</span>
+    <li className="mk-phase">
+      <span className="mk-phase-n">{n}</span>
+      <span className="mk-phase-name">{name}</span>
+      <span className="mk-phase-text">{children}</span>
     </li>
   );
 }

@@ -266,8 +266,10 @@
    Same wrap, sections and cards as the homepage — a second page in one
    language, not a second design. */
 
-.mk-page-head { padding: 56px 0 8px; }
-.mk-page-head h1 { margin: 0 0 14px; }
+.mk-product-hero { padding: 52px 0 60px; }
+.mk-product-hero h1 { margin: 0 0 16px; }
+.mk-product-hero .mk-lede { margin: 0; }
+.mk-hero-cta { margin-top: 24px; }
 
 .mk-eyebrow {
   display: block; font-family: var(--font-display);
@@ -319,5 +321,43 @@
 @media (max-width: 860px) {
   .mk-workflow { grid-template-columns: 1fr; gap: 24px; }
   .mk-workflow-reverse .mk-workflow-text { order: 0; }
-  .mk-page-head { padding: 36px 0 4px; }
+  .mk-product-hero { padding: 32px 0 40px; }
+  .mk-hero-cta { width: 100%; text-align: center; }
+}
+
+/* The lifecycle as a progression rather than a definition list.
+   Six equal cells read as a sequence; six full-width rows with top borders
+   read as documentation, which is what they were. */
+.mk-lifecycle {
+  list-style: none; margin: 32px 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.mk-phase {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 20px 16px 22px; background: var(--surface);
+}
+.mk-phase-n {
+  font-family: var(--font-display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.06em; color: var(--gold);
+}
+.mk-phase-name {
+  font-family: var(--font-display); font-size: 15px; font-weight: 800;
+  color: var(--navy); line-height: 1.2;
+}
+.mk-phase-text { font-size: 13px; color: var(--slate); line-height: 1.55; }
+
+/* A quiet way back for someone who already pays us. */
+.mk-return { padding: 44px 0; }
+.mk-return-link { font-size: 14px; font-weight: 600; color: var(--blue); }
+.mk-return-link:hover { text-decoration: underline; }
+
+@media (max-width: 1000px) {
+  .mk-lifecycle { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .mk-lifecycle { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mk-phase { padding: 16px 14px 18px; }
 }
