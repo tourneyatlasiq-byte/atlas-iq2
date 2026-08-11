@@ -7,7 +7,7 @@ import { NeedsAction, FilterChip } from "./NeedsAction";
 import { SearchPicker } from "./SearchPicker";
 import { setDuesForAll } from "../lib/actions/finance";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
-import { isActual, CATEGORIES, TXN_STATUSES , money } from "../lib/finance-rules";
+import { isActual, CATEGORIES, TXN_STATUSES, money, quantity } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
 import {
@@ -626,7 +626,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                           {r.name}
                           {r.quantity != null && r.unitCost != null && (
                             <span className="budget-calc">
-                              {r.quantity} &times; {money(r.unitCost)}
+                              {quantity(r.quantity)} &times; {money(r.unitCost)}
                             </span>
                           )}
                         </td>
