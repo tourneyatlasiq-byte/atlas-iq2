@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { NeedsAction, FilterChip } from "./NeedsAction";
@@ -171,6 +172,7 @@ export function FinanceClient({
           <h1>Finance</h1>
           <div className="page-sub">{MODULE_DESCRIPTIONS.finance}</div>
         </div>
+        <PageHelp />
       </div>
 
       {/*

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { createClient } from "../lib/supabase/client";
@@ -158,6 +159,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
             Upload file
           </button>
         )}
+        <PageHelp />
       </div>
 
       <p className="page-context">

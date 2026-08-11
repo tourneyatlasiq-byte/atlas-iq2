@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getContext } from "../../lib/context";
 import { NavSidebar } from "../../components/NavSidebar";
-import { HelpMenu } from "../../components/HelpMenu";
 import { AppFooter } from "../../components/AppFooter";
 import { SeasonBanner } from "../../components/SeasonBanner";
 
@@ -27,12 +26,6 @@ export default async function AppLayout({ children }) {
       />
 
       <div className="main">
-        {/* Season moved into the sidebar identity block, so this bar now holds
-            only Help and is sized accordingly. */}
-        <header className="topbar topbar-slim">
-          <HelpMenu />
-        </header>
-
         <main className="content">
           <SeasonBanner
             phase={seasonPhase}

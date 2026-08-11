@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
@@ -213,6 +214,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
             </button>
           </div>
         )}
+        <PageHelp />
       </div>
 
       {ourCount === 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { addPickupToRoster } from "../lib/actions/participants";
@@ -209,6 +210,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             </button>
           </div>
         )}
+        <PageHelp />
       </div>
 
       {/* Context, not headlines. This is a workspace — the roster is the point. */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { money } from "../lib/finance-rules";
+import { PageHelp } from "./PageHelp";
 import { useState, useTransition, useEffect } from "react";
 import { useOpenParam } from "./useOpenParam";
 import Link from "next/link";
@@ -203,6 +204,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
             Add tournament
           </button>
         )}
+        <PageHelp />
       </div>
 
       {/* 1. Season summary */}

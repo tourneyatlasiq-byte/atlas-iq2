@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PageHelp } from "./PageHelp";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { money } from "../lib/finance-rules";
 import { plainLanguage } from "../lib/readiness/dashboard";
@@ -44,6 +45,7 @@ export function DashboardClient({
     <>
       <div className="page-head page-head-tight">
         <h1>Home</h1>
+        <PageHelp />
       </div>
 
       <div className="home-band">

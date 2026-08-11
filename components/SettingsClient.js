@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { PageHelp } from "./PageHelp";
 import { PRIVACY_EMAIL } from "../lib/legal";
 import { ContactsDirectory } from "./ContactsDirectory";
 import { OrganizationIdentity } from "./TeamBranding";
@@ -95,6 +96,7 @@ export function SettingsClient({
           <h1>Settings</h1>
           <div className="page-sub">How Season Tempo is set up for your organization.</div>
         </div>
+        <PageHelp />
       </div>
 
       <div className="settings-grid">
