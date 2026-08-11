@@ -34,7 +34,7 @@ export default async function HomePage() {
           </Link>
 
           <nav className="mk-nav">
-            <a href="#product">Product</a>
+            <Link href="/product">Product</Link>
             <a href="#about">About</a>
           </nav>
 
@@ -252,8 +252,8 @@ export default async function HomePage() {
       </section>
 
       {/* Columns rather than one strip. Every destination below is real —
-          #product and #about are sections on this page, /privacy and /terms
-          are pages. No link exists to fill out the shape. */}
+          /product, /privacy and /terms are pages; #about is still a section on
+          this page. No link exists to fill out the shape. */}
       <footer className="mk-footer">
         <div className="mk-wrap">
           <div className="mk-footer-grid">
@@ -264,7 +264,7 @@ export default async function HomePage() {
 
             <nav className="mk-footer-col" aria-label="Product">
               <p className="mk-footer-heading">Product</p>
-              <a href="#product">Features</a>
+              <Link href="/product">Product</Link>
               <a href="#about">About</a>
               {!signedIn && <Link href="/login">Sign in</Link>}
             </nav>

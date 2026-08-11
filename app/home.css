@@ -261,3 +261,63 @@
   .legal-wrap { padding: 32px 18px 48px; }
   .legal-wrap h1 { font-size: 26px; }
 }
+
+/* ===== /product =====
+   Same wrap, sections and cards as the homepage — a second page in one
+   language, not a second design. */
+
+.mk-page-head { padding: 56px 0 8px; }
+.mk-page-head h1 { margin: 0 0 14px; }
+
+.mk-eyebrow {
+  display: block; font-family: var(--font-display);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 10px;
+}
+
+/* Text and screenshot side by side, alternating down the page so the eye
+   moves rather than scanning one column. */
+.mk-workflow {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 44px; align-items: center;
+}
+.mk-workflow-reverse .mk-workflow-text { order: 2; }
+.mk-workflow-text h2 { margin: 0 0 14px; }
+.mk-workflow-text p { margin: 0 0 12px; }
+.mk-workflow-text p:last-child { margin-bottom: 0; }
+
+.mk-shot-figure { margin: 0; }
+.mk-shot-figure .mk-shot-frame {
+  width: 100%; border: 1px solid var(--border);
+  border-radius: var(--radius-card); overflow: hidden;
+  background: var(--surface-sunken);
+  box-shadow: 0 12px 32px rgba(11, 35, 65, 0.09);
+}
+.mk-shot-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Honest placeholder. Never a drawing of the interface — a fabricated screen
+   on a page arguing "this is real software" undercuts its own argument. */
+.mk-shot-pending {
+  width: 100%; height: 100%; display: flex;
+  align-items: center; justify-content: center; padding: 24px;
+  background:
+    repeating-linear-gradient(135deg,
+      var(--surface-sunken) 0 10px, rgba(11, 35, 65, 0.035) 10px 20px);
+}
+.mk-shot-pending-label {
+  font-size: 12.5px; color: var(--slate); text-align: center;
+  max-width: 300px; line-height: 1.5;
+}
+.mk-shot-caption {
+  margin-top: 10px; font-family: var(--font-display);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--slate);
+}
+
+.mk-grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+@media (max-width: 860px) {
+  .mk-workflow { grid-template-columns: 1fr; gap: 24px; }
+  .mk-workflow-reverse .mk-workflow-text { order: 0; }
+  .mk-page-head { padding: 36px 0 4px; }
+}
