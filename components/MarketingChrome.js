@@ -21,8 +21,7 @@ export function MarketingHeader({ signedIn = false, appHref = "/dashboard" }) {
 
         <nav className="mk-nav">
           <Link href="/product">Product</Link>
-          {/* About remains a homepage anchor until /about exists. */}
-          <Link href="/#about">About</Link>
+          <Link href="/about">About</Link>
         </nav>
 
         <div className="mk-header-actions">
@@ -53,7 +52,7 @@ export function MarketingFooter({ signedIn = false }) {
           <nav className="mk-footer-col" aria-label="Product">
             <p className="mk-footer-heading">Product</p>
             <Link href="/product">Product</Link>
-            <Link href="/#about">About</Link>
+            <Link href="/about">About</Link>
             {!signedIn && <Link href="/login">Sign in</Link>}
           </nav>
 
@@ -97,5 +96,32 @@ export function ProductShot({ src, alt, caption, ratio = "16 / 10" }) {
       </div>
       {caption && <figcaption className="mk-shot-caption">{caption}</figcaption>}
     </figure>
+  );
+}
+
+
+/**
+ * A photograph slot.
+ *
+ * Separate from ProductShot on purpose. A screenshot proves the software is
+ * real; a photograph establishes the world the software is for. They carry
+ * different weight, so the placeholder says which is missing rather than
+ * pretending one can stand in for the other.
+ *
+ * Photography of identifiable people requires commercial rights or a release.
+ * Where that is not in hand, prefer adult subjects or compositions with no
+ * recognisable faces — travel softball means minors.
+ */
+export function PhotoSlot({ src, alt, ratio = "4 / 5" }) {
+  return (
+    <div className="mk-photo" style={{ aspectRatio: ratio }}>
+      {src ? (
+        <img src={src} alt={alt} className="mk-photo-image" />
+      ) : (
+        <div className="mk-photo-pending" role="img" aria-label={alt}>
+          <span className="mk-photo-pending-label">{alt}</span>
+        </div>
+      )}
+    </div>
   );
 }

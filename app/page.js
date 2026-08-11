@@ -3,6 +3,7 @@ import "./home.css";
 import { getViewer } from "../lib/context";
 import { LogoLockup } from "../components/SeasonTempoLogo";
 import { SUPPORT_EMAIL } from "../lib/legal";
+import { PhotoSlot } from "../components/MarketingChrome";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function HomePage() {
 
           <nav className="mk-nav">
             <Link href="/product">Product</Link>
-            <a href="#about">About</a>
+            <Link href="/about">About</Link>
           </nav>
 
           <div className="mk-header-actions">
@@ -75,66 +76,17 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* PLACEHOLDER — replace the inner block with:
-            <img src="/product-screenshot.png" alt="The Season Tempo dashboard" />
-          and drop the file into /public. Keep the frame; it carries the styling. */}
+      {/* The real product, not a drawing of it. Verified before publishing:
+          no player names, emails, phone numbers, test records or "Demo"
+          naming appear in this capture. */}
       <section className="mk-shot">
         <div className="mk-wrap">
           <div className="mk-shot-frame">
-            <div className="mk-preview" aria-label="A preview of the Season Tempo home screen">
-              <div className="mk-preview-bar">
-                <strong>Armor Elite</strong> / <strong>Armor Elite 16U</strong> / 2026-27
-              </div>
-
-              <div className="mk-preview-grid">
-                <div className="mk-preview-next">
-                  <span className="mk-preview-eyebrow">Next up</span>
-                  <div className="mk-preview-days">
-                    <b>12</b><span>days away</span>
-                  </div>
-                  <p className="mk-preview-name">Fall Kickoff Classic</p>
-                  <p className="mk-preview-line">Sep 12 &ndash; 13 &middot; Top Flight</p>
-                  <p className="mk-preview-line">Hobgood Park, Woodstock, GA</p>
-                  <div className="mk-preview-flags">
-                    <span className="ok">&#10003; Registered</span>
-                    <span className="ok">&#10003; Paid in full</span>
-                    <span className="quiet">3 games scheduled</span>
-                  </div>
-                </div>
-
-                <div className="mk-preview-side">
-                  <p className="mk-preview-side-title">Needs action</p>
-                  <div className="mk-preview-action">
-                    <span className="mk-preview-dot red" />
-                    <span>
-                      <span className="mk-preview-action-text">10 players still owe $19,900</span>
-                      <span className="mk-preview-action-where">Finance &rarr;</span>
-                    </span>
-                  </div>
-                  <div className="mk-preview-action">
-                    <span className="mk-preview-dot amber" />
-                    <span>
-                      <span className="mk-preview-action-text">
-                        1 tournament isn&rsquo;t registered yet
-                      </span>
-                      <span className="mk-preview-action-where">Tournaments &rarr;</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mk-preview-snaps">
-                <div className="mk-preview-snap">
-                  <em>Season</em><b>6</b><span>committed tournaments</span>
-                </div>
-                <div className="mk-preview-snap">
-                  <em>Team</em><b>12</b><span>active players</span>
-                </div>
-                <div className="mk-preview-snap">
-                  <em>Finance</em><b>$25,886</b><span>Remaining budget</span>
-                </div>
-              </div>
-            </div>
+            <img
+              src="/home-dashboard.png"
+              alt="Season Tempo Home — the next tournament, what needs attention, and where the season stands"
+              className="mk-shot-image"
+            />
           </div>
         </div>
       </section>
@@ -158,82 +110,56 @@ export default async function HomePage() {
 
       <section className="mk-section mk-alt" id="product">
         <div className="mk-wrap">
-          <h2 className="mk-centered">Six things, one place</h2>
-          <p className="mk-connect">
-            Your season stays connected, so information follows the players, tournaments and
-            facilities it belongs to.
-          </p>
-
-          <div className="mk-grid">
+          <h2 className="mk-centered">Three things that matter most</h2>
+          <div className="mk-grid mk-grid-3">
             <Capability title="Tournaments">
-              Plan your schedule, weigh up events you&rsquo;re considering, and track
-              registration, cost and results in one view.
+              Everything about a weekend in one place — dates, facility, entry and gate fees,
+              registration status, the tournament director, your event roster and results.
             </Capability>
             <Capability title="Team">
-              Your roster, uniforms, contacts and paperwork for the season. Players carry
-              across years, so you set them up once.
+              Your roster, uniforms, contacts and paperwork, carried forward season to season.
             </Capability>
             <Capability title="Finance">
-              What you budgeted, what you&rsquo;ve spent, what&rsquo;s come in, and who
-              still owes dues.
-            </Capability>
-            <Capability title="Facilities">
-              A shared directory of facilities, plus your own notes on parking, gates and
-              concessions for next time.
-            </Capability>
-            <Capability title="Games">
-              Schedule and results inside each tournament. Enter the score; Season Tempo works out
-              the record.
-            </Capability>
-            <Capability title="Files">
-              Player documents, waivers, insurance and schedules, attached to the player or
-              tournament they belong to.
+              Dues, budget and what you&rsquo;ve committed to — not just what has been paid.
             </Capability>
           </div>
+
+          <p className="mk-more">
+            <Link href="/product">See everything Season Tempo does &rarr;</Link>
+          </p>
         </div>
       </section>
 
       <section className="mk-section">
         <div className="mk-wrap">
-          <h2 className="mk-centered">How a season runs</h2>
-          <ol className="mk-flow">
-            <Step name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Step>
-            <Step name="Commit">Decide what you&rsquo;re playing. Costs start counting straight away.</Step>
-            <Step name="Play">Record pool play and bracket results as the weekend happens.</Step>
-            <Step name="Track">Watch the budget, dues and what still needs attention.</Step>
-            <Step name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Step>
-            <Step name="Next season">Carry your roster forward while keeping prior seasons preserved for reference.</Step>
-          </ol>
-        </div>
-      </section>
+          <div className="mk-who" id="about">
+            <div>
+              <span className="mk-eyebrow">Built for travel softball</span>
+              <h2>For the person holding all of it.</h2>
+              <p>
+                Coaches, team managers and club directors handling the roster, the tournament
+                schedule, dues, facilities and paperwork all at once &mdash; usually while
+                standing at a field.
+              </p>
+              <p>
+                Season Tempo is built around that reality: entry fees, facility details that are
+                hard to find, payments scattered across messages, and a schedule that keeps
+                changing.
+              </p>
+              <p className="mk-emphasis">
+                It isn&rsquo;t a league platform or an accounting package. It&rsquo;s the
+                operating layer for the person actually running the season.
+              </p>
+            </div>
 
-      <section className="mk-section">
-        <div className="mk-wrap mk-narrow mk-who">
-          <h2>Built for the people running travel softball</h2>
-          <p>
-            Coaches, team managers and club or organization directors &mdash; the person holding
-            the roster, the tournament schedule, the dues spreadsheet and the paperwork all at
-            once.
-          </p>
-        </div>
-      </section>
-
-      <section className="mk-section mk-alt" id="about">
-        <div className="mk-wrap mk-narrow">
-          <h2>Built around how travel teams actually operate</h2>
-          <p>
-            Season Tempo is built around the realities of running a travel season: entry fees,
-            facility details that are hard to find, payments scattered across messages, and a
-            schedule that keeps changing.
-          </p>
-          <p className="mk-emphasis">
-            It isn&rsquo;t a league platform or an accounting package. It&rsquo;s for the
-            person who ends up holding all of it.
-          </p>
-          <p>
-            We&rsquo;re building Season Tempo alongside the teams using it. Early access is
-            intentionally small so real coach and team feedback shapes what comes next.
-          </p>
+            {/* The human side of the season, beside software that proves itself
+                elsewhere on the page. */}
+            <PhotoSlot
+              src="/travel-softball-coach.webp"
+              alt="A coach talking with two players between innings at a travel softball tournament"
+              ratio="4 / 5"
+            />
+          </div>
         </div>
       </section>
 
@@ -267,7 +193,7 @@ export default async function HomePage() {
             <nav className="mk-footer-col" aria-label="Product">
               <p className="mk-footer-heading">Product</p>
               <Link href="/product">Product</Link>
-              <a href="#about">About</a>
+              <Link href="/about">About</Link>
               {!signedIn && <Link href="/login">Sign in</Link>}
             </nav>
 

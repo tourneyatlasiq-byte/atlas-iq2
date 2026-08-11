@@ -48,80 +48,15 @@
   box-shadow: 0 18px 50px rgba(11,35,65,0.12);
 }
 .mk-shot-frame img { display: block; width: 100%; height: auto; }
-/* Product preview built from real Atlas surfaces — the same Next Up panel and
-   briefing rows the application renders. Nothing here depicts functionality
-   that does not exist. Replace with a screenshot by swapping this block for an
-   <img>; the frame keeps the styling. */
-.mk-preview { padding: 18px; background: var(--bg); }
-.mk-preview-bar {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  font-size: 12.5px; color: var(--slate); margin-bottom: 14px;
-}
-.mk-preview-bar strong { color: var(--navy); font-weight: 600; }
-.mk-preview-grid {
-  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); gap: 14px;
-}
-.mk-preview-next {
-  background: linear-gradient(160deg, #0b2341 0%, #123055 100%);
-  border-radius: 12px; padding: 20px 22px; color: #fff;
-}
-.mk-preview-eyebrow {
-  font-family: var(--font-display); font-size: 10px; font-weight: 800;
-  letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.62);
-}
-.mk-preview-days {
-  display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
-}
-.mk-preview-days b {
-  font-family: var(--font-display); font-size: 34px; font-weight: 800;
-  color: var(--gold); line-height: 1;
-}
-.mk-preview-days span {
-  font-family: var(--font-display); font-size: 11px; font-weight: 800;
-  letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.72);
-}
-.mk-preview-name {
-  font-family: var(--font-display); font-size: 22px; font-weight: 800;
-  margin: 10px 0 6px; line-height: 1.15;
-}
-.mk-preview-line { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.5; }
-.mk-preview-flags { display: flex; gap: 14px; margin-top: 14px; font-size: 12.5px; font-weight: 600; }
-.mk-preview-flags .ok { color: #7fd992; }
-.mk-preview-flags .quiet { color: rgba(255,255,255,0.6); font-weight: 500; }
+/* Frames the real Home screenshot. */
 
-.mk-preview-side { background: var(--surface); border-radius: 12px; padding: 16px 14px; }
-.mk-preview-side-title {
-  font-family: var(--font-display); font-size: 10px; font-weight: 800;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate); margin: 0 0 10px;
+/* Who Season Tempo is for */
+.mk-who {
+  display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 48px; align-items: center;
 }
-.mk-preview-action { display: flex; gap: 10px; padding: 9px 0; align-items: flex-start; }
-.mk-preview-action + .mk-preview-action { border-top: 1px solid var(--border); }
-.mk-preview-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
-.mk-preview-dot.red { background: #c0392b; }
-.mk-preview-dot.amber { background: #b45309; }
-.mk-preview-action-text { font-size: 13px; color: var(--navy); font-weight: 600; line-height: 1.4; }
-.mk-preview-action-where { display: block; font-size: 12px; color: var(--blue); font-weight: 600; margin-top: 1px; }
-
-.mk-preview-snaps {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 0; border-top: 1px solid var(--border); margin-top: 14px;
-}
-.mk-preview-snap { padding: 14px 16px; border-left: 1px solid var(--border); }
-.mk-preview-snap:first-child { border-left: none; padding-left: 2px; }
-.mk-preview-snap b {
-  display: block; font-family: var(--font-display); font-size: 22px;
-  font-weight: 800; color: var(--navy);
-}
-.mk-preview-snap span { display: block; font-size: 12px; color: var(--slate); margin-top: 2px; }
-.mk-preview-snap em {
-  display: block; font-family: var(--font-display); font-size: 9.5px; font-weight: 800;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate);
-  font-style: normal; margin-bottom: 6px;
-}
-
-/* Who Atlas is for */
-.mk-who { text-align: center; }
-.mk-who p { max-width: 640px; margin: 0 auto; font-size: 16px; line-height: 1.7; }
+.mk-who h2 { margin: 0 0 14px; }
+.mk-who p { font-size: 16px; line-height: 1.7; margin: 0; }
 
 .mk-connect {
   text-align: center; font-size: 15px; color: var(--navy); font-weight: 600;
@@ -223,14 +158,7 @@
   .mk-footer-base { margin-top: 28px; }
   .mk-step { flex-direction: column; gap: 4px; }
   .mk-step-name { min-width: 0; }
-  .mk-preview { padding: 12px; }
-  .mk-preview-grid { grid-template-columns: 1fr; }
-  .mk-preview-days b { font-size: 28px; }
-  .mk-preview-name { font-size: 19px; }
-  .mk-preview-snaps { grid-template-columns: 1fr; }
-  .mk-preview-snap { border-left: none; border-top: 1px solid var(--border); padding: 12px 2px; }
-  .mk-preview-snap:first-child { border-top: none; }
-  .mk-connect { font-size: 14px; margin-bottom: 22px; }
+                .mk-connect { font-size: 14px; margin-bottom: 22px; }
   .mk-footer-inner { flex-direction: column; align-items: flex-start; gap: 14px; }
   .mk-footer-nav { margin-left: 0; }
   .mk-copyright { margin-left: 0; }
@@ -364,3 +292,47 @@
   .mk-lifecycle { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mk-phase { padding: 16px 14px 18px; }
 }
+
+/* Photography. Framed exactly like a screenshot so the two read as one visual
+   system rather than a software site with pictures bolted on. */
+.mk-photo {
+  width: 100%; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+  box-shadow: 0 12px 32px rgba(11, 35, 65, 0.09);
+}
+.mk-photo-image {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  /* Pulled back slightly so a photograph sits with navy and gold rather than
+     competing with them. No duotone, no scrim, no overlay. */
+  filter: saturate(0.88);
+}
+.mk-photo-pending {
+  width: 100%; height: 100%; display: flex;
+  align-items: center; justify-content: center; padding: 24px;
+  background:
+    repeating-linear-gradient(135deg,
+      var(--surface-sunken) 0 10px, rgba(11, 35, 65, 0.035) 10px 20px);
+}
+.mk-photo-pending-label {
+  font-size: 12.5px; color: var(--slate); text-align: center;
+  max-width: 240px; line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+  .mk-who { grid-template-columns: 1fr; gap: 26px; }
+  .mk-photo { max-width: 420px; }
+}
+
+/* Route to the deeper story, after the three headline capabilities. */
+.mk-more { margin: 30px 0 0; text-align: center; }
+.mk-more a { font-size: 14.5px; font-weight: 600; color: var(--blue); }
+.mk-more a:hover { text-decoration: underline; }
+
+/* Successive h2s inside one prose block need air above them. */
+.mk-h2-spaced { margin-top: 40px; }
+
+/* The homepage editorial section leads with an eyebrow, so its h2 sits
+   tighter to the label than a standalone section heading would. */
+.mk-who .mk-eyebrow { margin-bottom: 8px; }
+.mk-who p + p { margin-top: 14px; }
