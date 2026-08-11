@@ -13,7 +13,6 @@ import {
   fundsIn,
   duesSummary,
 } from "../../../lib/queries/finance";
-import { teamActions } from "../../../lib/readiness/team";
 import { dashboardActions, nextUpTournament } from "../../../lib/readiness/dashboard";
 import { DashboardClient } from "../../../components/DashboardClient";
 import { GettingStarted } from "../../../components/GettingStarted";
@@ -98,7 +97,7 @@ export default async function DashboardPage() {
       finance={financeSummary(budget, transactions, payments)}
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
-      team={{ ...team_, actionCount: teamActions(roster).length }}
+      team={team_}
       seasonSummary={tournamentSummary(tournaments)}
       />
     </>

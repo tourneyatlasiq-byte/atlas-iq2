@@ -230,22 +230,17 @@ function SeasonSnapshot({ summary }) {
 
   return (
     <Snapshot label="Season" mark="season" href="/tournaments" cta="Tournaments">
-      <div className="snap-row-main">
-        <div className="snap-hero">{summary.committedCount}</div>
-        <div className="snap-hero-label">
+      <p className="snap-fact">
+        <span className="snap-value">{summary.committedCount}</span>{" "}
+        <span className="snap-descriptor">
           committed {summary.committedCount === 1 ? "tournament" : "tournaments"}
-        </div>
-        <div className="snap-support">
-          {summary.next ? (
-            <><span className="muted">Next:</span> {fmtRange(summary.next.start_date, summary.next.end_date)}</>
-          ) : (
-            <span className="muted">No upcoming events</span>
-          )}
-        </div>
-        <div className="snap-support snap-support-quiet">
-          {money(summary.committedCost)} committed
-        </div>
-      </div>
+        </span>
+      </p>
+      <p className="snap-meta">
+        {summary.next
+          ? `Next ${fmtRange(summary.next.start_date, summary.next.end_date)} · ${money(summary.committedCost)} committed`
+          : `No upcoming events · ${money(summary.committedCost)} committed`}
+      </p>
     </Snapshot>
   );
 }
@@ -261,24 +256,28 @@ function TeamSnapshot({ team }) {
     );
   }
 
+  // Total roster, then how it breaks down. Pickups are not included: they live
+  // in tournament_participants, which Home does not load, and adding that
+  // query is outside this pass.
+  const totalPlayers = team.playerCount + (team.inactivePlayerCount ?? 0);
+
+  const composition = [
+    team.playerCount > 0 && `${team.playerCount} active`,
+    (team.inactivePlayerCount ?? 0) > 0 && `${team.inactivePlayerCount} inactive`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <Snapshot label="Team" mark="team" href="/team" cta="Team">
-      <div className="snap-row-main">
-        <div className="snap-hero">{team.playerCount}</div>
-        <div className="snap-hero-label">
-          active {team.playerCount === 1 ? "player" : "players"}
-        </div>
-        <div className="snap-support">
-          {team.actionCount > 0 ? (
-            <>{team.actionCount} {team.actionCount === 1 ? "item needs" : "items need"} attention</>
-          ) : (
-            <span className="muted">Everyone&rsquo;s set up</span>
-          )}
-        </div>
-        <div className="snap-support snap-support-quiet">
-          {team.staffCount} {team.staffCount === 1 ? "coach" : "coaches"}
-        </div>
-      </div>
+      <p className="snap-fact">
+        <span className="snap-value">{totalPlayers}</span>{" "}
+        <span className="snap-descriptor">{totalPlayers === 1 ? "player" : "players"}</span>
+      </p>
+      {/* What the roster looks like — not what needs doing. Needs Action owns
+          that, and repeating it here said the same thing twice on one screen.
+          Empty categories are omitted rather than shown as "0 inactive". */}
+      <p className="snap-meta">{composition}</p>
     </Snapshot>
   );
 }
@@ -301,21 +300,18 @@ function FinanceSnapshot({ finance, funds, dues }) {
 
   return (
     <Snapshot label="Finance" mark="finance" href="/finance" cta="Finance">
-      <div className="snap-row-main">
         {/* Available, not Remaining. Finance moved to Planned / Committed /
             Paid / Available, and Available answers what can still be spent —
             Remaining meant Planned minus Paid and reads higher than reality
             once tournaments are committed. */}
-        <div className="snap-hero">{money(finance.availableBudget)}</div>
-        <div className="snap-hero-label">Available to spend</div>
-        <div className="snap-support">
-          {money(finance.committedExpenses)} committed
-          {finance.percentCommitted != null && ` · ${finance.percentCommitted}% of budget`}
-        </div>
-        <div className="snap-support snap-support-quiet">
-          {money(funds.total)} received in dues and fundraising
-        </div>
-      </div>
+      <p className="snap-fact">
+        <span className="snap-value">{money(finance.availableBudget)}</span>{" "}
+        <span className="snap-descriptor">available</span>
+      </p>
+      <p className="snap-meta">
+        {money(finance.committedExpenses)} committed
+        {finance.percentCommitted != null && ` · ${finance.percentCommitted}% of budget`}
+      </p>
     </Snapshot>
   );
 }

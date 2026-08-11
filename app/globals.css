@@ -1613,9 +1613,11 @@ a.help-task.featured:hover { background: #eef4fe; }
 .snapshots {
   position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0; border-top: 1px solid var(--border);
+  background: var(--surface-sunken); border-radius: var(--radius-card);
+  overflow: hidden;
 }
 .snapshot {
-  position: relative; padding: 20px 26px 18px; display: flex; flex-direction: column;
+  position: relative; padding: 16px 22px 15px; display: flex; flex-direction: column;
   border-left: 1px solid var(--border); color: inherit;
 }
 .snapshot:first-child { border-left: none; padding-left: 2px; }
@@ -1633,17 +1635,19 @@ a.help-task.featured:hover { background: #eef4fe; }
 .snapshot:hover .snap-link { color: var(--blue-dark); text-decoration: underline; }
 
 .snap-label {
-  font-family: var(--font-display); font-size: 11.5px; font-weight: 800;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--navy);
+  font-family: var(--font-display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate);
 }
-.snap-hero {
-  font-family: var(--font-display); font-size: var(--num-major); font-weight: 800;
-  line-height: 1.05; letter-spacing: -0.02em; color: var(--navy); margin-top: 12px;
+/* The snapshot row states what is currently true. Needs Action owns what needs
+   doing — so these read as facts, two type steps below the Next Up hero rather
+   than one, on a recessed surface. */
+.snap-fact { margin: 8px 0 0; line-height: 1.15; }
+.snap-value {
+  font-family: var(--font-display); font-size: 22px; font-weight: 800;
+  letter-spacing: -0.02em; color: var(--navy);
 }
-.snap-hero-label { font-size: 13px; color: var(--slate); margin-top: 3px; }
-.snap-support { margin-top: 12px; font-size: 13.5px; color: var(--navy); line-height: 1.5; }
-.snap-support-quiet { margin-top: 3px; font-size: 12.5px; color: var(--slate); }
-.snap-support .muted { color: var(--slate); }
+.snap-descriptor { font-size: 13px; color: var(--slate); }
+.snap-meta { margin: 8px 0 0; font-size: 13px; color: var(--slate); line-height: 1.5; }
 .snap-link { margin-top: auto; padding-top: 14px; font-size: 13px; font-weight: 600; color: var(--blue); }
 
 .snap-empty { margin-top: 12px; }
@@ -1663,8 +1667,6 @@ a.help-task.featured:hover { background: #eef4fe; }
   }
   .snapshot::before { left: 2px; right: 2px; }
   .snap-head { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 96px; flex-shrink: 0; }
-  .snap-hero { font-size: 24px; margin-top: 0; }
-  .snap-hero-label, .snap-support { margin-top: 2px; }
   .snap-link { margin: 0; padding: 0; flex-shrink: 0; }
 }
 
@@ -1688,9 +1690,6 @@ a.help-task.featured:hover { background: #eef4fe; }
   .snapshot:first-child { padding-left: 2px; }
   .snap-head { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 78px; flex-shrink: 0; }
   .snap-label { font-size: 10.5px; }
-  .snap-hero { font-size: 22px; margin-top: 0; }
-  .snap-row-main { flex: 1; min-width: 0; }
-  .snap-hero-label, .snap-support { margin-top: 2px; font-size: 12.5px; }
   .snap-link { margin: 0; padding: 0; flex-shrink: 0; }
 }
 
