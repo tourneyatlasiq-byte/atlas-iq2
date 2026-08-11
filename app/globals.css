@@ -137,8 +137,20 @@ a { color: inherit; text-decoration: none; }
   padding: 24px 28px 48px;
   flex: 1; display: flex; flex-direction: column; min-width: 0;
 }
+/* Without this, a flex child cannot shrink below its intrinsic width and the
+   page scrolls horizontally. Not overflow: hidden — the content still fits. */
+.content > * { min-width: 0; max-width: 100%; }
+
+/* ---------- One page shell across every module ----------
+   Modules declared their own max-width independently, so headers began at
+   different horizontal positions. One token, one place. */
+:root { --page-w: 1180px; }
+.page-head,
+.content > .card,
+.content > .settings-grid,
+.content > .tabs { max-width: var(--page-w); }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.page-sub { color: var(--slate); font-size: 13px; margin-top: 4px; }
+.page-sub { color: var(--slate); font-size: 13px; line-height: 1.5; margin-top: 2px; max-width: 62ch; }
 
 /* ---------- Surfaces ---------- */
 
@@ -1755,7 +1767,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 }
 .tiq-band .briefing-clear-good::before { margin-bottom: 8px; }
 
-.tiq-list { max-width: 1120px; }
+.tiq-list { max-width: var(--page-w); }
 /* Toolbar and filter chip align to the same edge as the list. */
 .tiq-band, .tiq-band-grid { max-width: none; }
 
@@ -1860,12 +1872,17 @@ a.help-task.featured:hover { background: #eef4fe; }
 
 
 /* Grows with its content instead of reserving a card. */
-.roster-actions { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
-.roster-clear { font-size: 13px; color: var(--slate); margin: 0; padding: 4px 2px; }
+.roster-actions {
+  display: flex; flex-direction: column; gap: 2px;
+  margin: 0 0 14px; padding: 10px 12px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+}
+.roster-clear { font-size: 13px; color: var(--slate); margin: 0; padding: 2px 0; }
 .roster-action {
   display: flex; align-items: center; gap: 10px; width: 100%;
   background: none; border: 1px solid transparent; border-radius: 8px;
-  padding: 9px 10px; cursor: pointer; text-align: left;
+  padding: 6px 8px; cursor: pointer; text-align: left;
   font-family: var(--font-body); font-size: 13.5px; color: var(--navy);
 }
 .roster-action:hover { background: var(--surface-sunken); }
@@ -1924,8 +1941,6 @@ a.help-task.featured:hover { background: #eef4fe; }
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--slate);
   margin: 0 0 2px; padding-left: 2px;
 }
-/* 5. Less air between this and the controls below. */
-.roster-actions { margin-bottom: 10px; gap: 2px; }
 .roster-action { padding: 7px 8px; }
 .roster-clear { padding: 3px 2px; }
 
@@ -1934,7 +1949,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 .roster-table { table-layout: fixed; }
 /* Same cap as the Tournament IQ list, so wide monitors get margin rather than
    ever-widening columns. */
-.roster-card, .roster-context, .roster-actions, .roster-toolbar { max-width: 1120px; }
+.roster-card, .roster-context, .roster-actions, .roster-toolbar { max-width: var(--page-w); }
 .roster-table th.col-num,
 .roster-table td.col-num {
   width: 44px; padding-right: 0; text-align: left;
@@ -1973,7 +1988,7 @@ a.help-task.featured:hover { background: #eef4fe; }
 }
 .fac-import-link:hover { color: var(--blue-dark); text-decoration: underline; }
 
-.facility-table { table-layout: fixed; max-width: 1120px; }
+.facility-table { table-layout: fixed; max-width: var(--page-w); }
 
 /* Our Venues */
 .ours-table .fc-name { width: 26%; }
@@ -2039,7 +2054,7 @@ a.help-task.featured:hover { background: #eef4fe; }
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0; border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  margin-bottom: 16px; max-width: 1120px;
+  margin-bottom: 16px; max-width: var(--page-w);
 }
 .fin-panel {
   padding: 18px 24px 16px; border-left: 1px solid var(--border);
@@ -2088,7 +2103,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .reconcile {
   background: var(--surface-sunken); border: 1px solid var(--border);
   border-radius: var(--radius-control); padding: 14px 16px; margin-bottom: 16px;
-  max-width: 1120px;
+  max-width: var(--page-w);
 }
 .reconcile-title {
   font-family: var(--font-display); font-size: 11px; font-weight: 800;
@@ -2164,7 +2179,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(220px, 1fr);
   gap: 20px; align-items: start;
   padding-bottom: 16px; margin-bottom: 12px;
-  border-bottom: 1px solid var(--border); max-width: 1120px;
+  border-bottom: 1px solid var(--border); max-width: var(--page-w);
 }
 .fin-lead-hero {
   font-family: var(--font-display); font-size: 42px; font-weight: 800;
@@ -2220,7 +2235,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* Player Payments */
 .pay-views { margin-bottom: 12px; }
-.pay-table { table-layout: fixed; max-width: 1120px; }
+.pay-table { table-layout: fixed; max-width: var(--page-w); }
 .pay-table .pay-player { width: 32%; }
 .pay-table .pay-progress { width: 44%; }
 .pay-table .pay-balance { width: 24%; text-align: right; }
@@ -2486,7 +2501,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   padding: 11px 16px; margin-bottom: 16px;
   background: #f0f6fe; border: 1px solid #cfe0f7;
-  border-radius: var(--radius-control); max-width: 1120px;
+  border-radius: var(--radius-control); max-width: var(--page-w);
 }
 .setup-next-progress {
   font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
@@ -2979,7 +2994,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   gap: 16px; flex-wrap: wrap;
   /* auto pins it to the bottom of a short page and flows normally on a long
      one, so neither case produces a scrollbar with nothing to scroll to. */
-  max-width: 1120px; margin: 40px 0 0; margin-top: auto; padding: 16px 0 4px;
+  max-width: var(--page-w); margin: 40px 0 0; margin-top: auto; padding: 16px 0 4px;
   border-top: 1px solid var(--border);
   font-size: 12.5px; color: var(--slate);
 }
@@ -2988,8 +3003,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .app-footer-links a:hover { color: var(--navy); text-decoration: underline; }
 
 /* Settings polish */
-.settings-danger { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-.settings-danger a { color: var(--blue); font-weight: 600; }
 .contacts-intro { margin: 0 0 4px; max-width: 620px; }
 .contacts-search { margin: 12px 0 0; max-width: 380px; }
 
@@ -3102,4 +3115,31 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   .coming-up-meta { display: none; }
   .coming-up-row { padding: 9px 8px; }
+}
+
+/* One organization identity card: mark, name, people count and the logo
+   controls together, rather than two cards describing the same organization. */
+.org-identity { display: flex; align-items: flex-start; gap: 18px; }
+.org-identity .team-mark { border: 1px solid var(--border); flex-shrink: 0; }
+.org-identity .branding-detail { flex: 1; min-width: 0; }
+.org-identity .branding-name { margin: 0 0 2px; }
+.org-identity .settings-meta { margin: 0 0 10px; }
+
+/* Danger zone: separated and understated. Destructive instructions do not
+   belong in the card that establishes the organization's identity. */
+.settings-danger-zone { max-width: var(--page-w); margin-top: 34px; }
+.settings-danger-title {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--status-urgent, #b4423a);
+  margin: 0 0 8px;
+}
+.settings-danger-card { border-color: rgba(180, 66, 58, 0.28); }
+.settings-danger-card a { color: var(--blue); font-weight: 600; }
+.settings-danger-name {
+  font-family: var(--font-display); font-size: 14.5px; font-weight: 800;
+  color: var(--navy); margin: 0 0 4px;
+}
+
+@media (max-width: 720px) {
+  .org-identity { flex-direction: column; gap: 14px; }
 }

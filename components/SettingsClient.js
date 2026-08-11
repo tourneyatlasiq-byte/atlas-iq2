@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { PRIVACY_EMAIL } from "../lib/legal";
 import { ContactsDirectory } from "./ContactsDirectory";
-import { TeamBranding } from "./TeamBranding";
+import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
   renameOrganization,
@@ -99,24 +99,15 @@ export function SettingsClient({
 
       <div className="settings-grid">
         {/* Organization */}
-        <div className="card settings-card">
+        <div className="card settings-card settings-card-wide">
           <div className="settings-card-head">
             <span className="section-eyebrow">Organization</span>
             {isAdmin && (
               <button className="btn btn-ghost" onClick={() => setEditing("organization")}>Edit</button>
             )}
           </div>
-          <p className="settings-value">{organization.name}</p>
-          <p className="settings-meta">
-            {people.length} {people.length === 1 ? "person" : "people"}
-          </p>
-          {isOwner && (
-            <p className="settings-meta settings-danger">
-              To delete this organization and all of its information, email{" "}
-              <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
-              account.
-            </p>
-          )}
+
+          <OrganizationIdentity organization={organization} isOwner={isOwner} peopleCount={people.length} />
         </div>
 
         {/* Team */}
@@ -186,9 +177,21 @@ export function SettingsClient({
           )}
         </div>
 
-        <TeamBranding organization={organization} isOwner={isOwner} />
-
         <ContactsDirectory contacts={contacts} canWrite={isAdmin} />
+
+      {isOwner && (
+        <section className="settings-danger-zone">
+          <p className="settings-danger-title">Danger zone</p>
+          <div className="card settings-danger-card">
+            <p className="settings-danger-name">Delete organization</p>
+            <p className="settings-meta">
+              Permanently delete this organization and its information. Email{" "}
+              <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
+              account.
+            </p>
+          </div>
+        </section>
+      )}
 
         {/* People & Access */}
         <div className="card settings-card settings-card-wide">

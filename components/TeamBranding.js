@@ -11,7 +11,7 @@ import { uploadTeamLogo, removeTeamLogo } from "../lib/actions/branding";
  * owner's to set. The storage policy enforces the same rule, so this control
  * being hidden is convenience rather than the security boundary.
  */
-export function TeamBranding({ organization, isOwner }) {
+export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 }) {
   const [preview, setPreview] = useState(null);
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
@@ -36,16 +36,15 @@ export function TeamBranding({ organization, isOwner }) {
   }
 
   return (
-    <div className="card settings-card settings-card-wide">
-      <div className="settings-card-head">
-        <span className="section-eyebrow">Organization branding</span>
-      </div>
-
+    <div className="org-identity">
       <div className="branding-row">
-        <TeamMark name={organization?.name} logoUrl={shown} size={72} tone="navy" />
+        <TeamMark name={organization?.name} logoUrl={shown} size={64} tone="navy" />
 
         <div className="branding-detail">
           <p className="branding-name">{organization?.name}</p>
+          <p className="settings-meta">
+            {peopleCount} {peopleCount === 1 ? "person" : "people"}
+          </p>
           {preview && <p className="field-note">Preview — not saved yet.</p>}
 
           {isOwner ? (
