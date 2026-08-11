@@ -55,8 +55,9 @@ export default async function HomePage() {
         <div className="mk-wrap">
           <h1>Run your team from one place.</h1>
           <p className="mk-lede">
-            Tournaments, roster, money, facilities and games — without the spreadsheets,
-            group texts and screenshots you&rsquo;re using now.
+            Everything a travel softball team runs on — tournaments, roster, dues, facilities
+            and games — without the spreadsheets, group texts and screenshots you&rsquo;re
+            using now.
           </p>
 
           <div className="mk-cta">
@@ -198,7 +199,7 @@ export default async function HomePage() {
           <ol className="mk-flow">
             <Step name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Step>
             <Step name="Commit">Decide what you&rsquo;re playing. Costs start counting straight away.</Step>
-            <Step name="Play">Record games and results as the event happens.</Step>
+            <Step name="Play">Record pool play and bracket results as the weekend happens.</Step>
             <Step name="Track">Watch the budget, dues and what still needs attention.</Step>
             <Step name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Step>
             <Step name="Next season">Carry your roster forward while keeping prior seasons preserved for reference.</Step>
@@ -208,10 +209,11 @@ export default async function HomePage() {
 
       <section className="mk-section">
         <div className="mk-wrap mk-narrow mk-who">
-          <h2>Built for the people running travel teams</h2>
+          <h2>Built for the people running travel softball</h2>
           <p>
-            Coaches, team managers and organization leaders who are juggling schedules,
-            tournaments, player information, payments, facilities and everything in between.
+            Coaches, team managers and club or organization directors &mdash; the person holding
+            the roster, the tournament schedule, the dues spreadsheet and the paperwork all at
+            once.
           </p>
         </div>
       </section>

@@ -6,7 +6,7 @@ import "../home.css";
 export const metadata = {
   title: "Product — Season Tempo",
   description:
-    "Tournaments, roster, money, facilities and games for a travel sports season, in one place.",
+    "Tournaments, roster, dues, facilities and games for a travel softball season, in one place.",
 };
 
 export const dynamic = "force-dynamic";
@@ -27,10 +27,10 @@ export default async function ProductPage() {
         <div className="mk-wrap">
           <div className="mk-workflow">
             <div className="mk-workflow-text">
-              <h1>Everything a travel season needs, in one place.</h1>
+              <h1>Everything you need to run a travel softball season, in one place.</h1>
               <p className="mk-lede">
-                Season Tempo follows a season the way you actually run one — from the events
-                you&rsquo;re weighing up to what the whole thing cost.
+                Season Tempo follows a season the way you actually run one — from the
+                tournaments and showcases you&rsquo;re weighing up to what the whole thing cost.
               </p>
               {!signedIn && (
                 <Link href="/login?new=1" className="btn btn-primary mk-btn-lg mk-hero-cta">
@@ -84,7 +84,7 @@ export default async function ProductPage() {
               <p>
                 Dates, facility and entry cost at the top. Registration status you can update as
                 you go, and the tournament director&rsquo;s number so you can call from the
-                parking lot. Underneath: the games, who&rsquo;s playing including pickups, what it
+                parking lot when the bracket changes. Underneath: the games, who&rsquo;s playing including pickups, what it
                 cost, and the paperwork for that event.
               </p>
             </div>
@@ -136,7 +136,7 @@ export default async function ProductPage() {
           <ol className="mk-lifecycle">
             <Phase n="1" name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Phase>
             <Phase n="2" name="Commit">Decide what you&rsquo;re playing. Costs start counting straight away.</Phase>
-            <Phase n="3" name="Play">Record games and results as the event happens.</Phase>
+            <Phase n="3" name="Play">Record pool play and bracket results as the weekend happens.</Phase>
             <Phase n="4" name="Track">Watch the budget, dues and what still needs your attention.</Phase>
             <Phase n="5" name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Phase>
             <Phase n="6" name="Next season">Carry your roster forward. Prior seasons stay for reference.</Phase>
