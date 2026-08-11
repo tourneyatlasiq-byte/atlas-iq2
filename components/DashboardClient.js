@@ -48,7 +48,10 @@ export function DashboardClient({
 
       <div className="home-band">
       <div className="home-top">
-        <NextUp nextUp={nextUp} />
+        <div className="home-left">
+          <NextUp nextUp={nextUp} />
+          <ComingUp upcoming={seasonSummary?.upcoming} />
+        </div>
         <Briefing actions={actions} seasonPhase={seasonPhase} setupComplete={setupComplete} />
       </div>
       </div>
@@ -142,6 +145,35 @@ function NextUp({ nextUp }) {
 }
 
 /* ---------------- Needs Action ---------------- */
+
+/**
+ * The two events after the one in Next Up.
+ *
+ * Quiet supporting context, not a second hero: it fills the left column when
+ * Needs Action runs long, and disappears entirely when there is nothing after
+ * the next event rather than leaving an empty shell.
+ */
+function ComingUp({ upcoming }) {
+  const rest = (upcoming ?? []).slice(1, 3);
+  if (rest.length === 0) return null;
+
+  return (
+    <section className="coming-up">
+      <p className="coming-up-title">Coming up</p>
+      <ul className="coming-up-list">
+        {rest.map((t) => (
+          <li key={t.id}>
+            <Link href={`/tournaments?open=${t.id}`} className="coming-up-row">
+              <span className="coming-up-date">{fmtRange(t.start_date, t.end_date)}</span>
+              <span className="coming-up-name">{t.name}</span>
+              {t.paid_status && <span className="coming-up-meta">{t.paid_status}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 function Briefing({ actions, seasonPhase, setupComplete = true }) {
   if (seasonPhase !== "current") {
