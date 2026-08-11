@@ -269,7 +269,7 @@
 .mk-product-hero { padding: 52px 0 60px; }
 .mk-product-hero h1 { margin: 0 0 16px; }
 .mk-product-hero .mk-lede { margin: 0; }
-.mk-hero-cta { margin-top: 24px; }
+.mk-hero-cta { display: inline-flex; align-items: center; margin-top: 26px; }
 
 .mk-eyebrow {
   display: block; font-family: var(--font-display);
@@ -283,6 +283,9 @@
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   gap: 44px; align-items: center;
 }
+/* A portrait capture is far taller than its caption, so centring leaves a
+   void under the text. Align to the top when the image is tall. */
+.mk-workflow-tall { align-items: start; }
 .mk-workflow-reverse .mk-workflow-text { order: 2; }
 .mk-workflow-text h2 { margin: 0 0 14px; }
 .mk-workflow-text p { margin: 0 0 12px; }
@@ -322,7 +325,7 @@
   .mk-workflow { grid-template-columns: 1fr; gap: 24px; }
   .mk-workflow-reverse .mk-workflow-text { order: 0; }
   .mk-product-hero { padding: 32px 0 40px; }
-  .mk-hero-cta { width: 100%; text-align: center; }
+  .mk-hero-cta { display: flex; width: 100%; justify-content: center; }
 }
 
 /* The lifecycle as a progression rather than a definition list.

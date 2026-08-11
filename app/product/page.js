@@ -77,7 +77,7 @@ export default async function ProductPage() {
       {/* 4 — Tournament operations */}
       <section className="mk-section mk-alt">
         <div className="mk-wrap">
-          <div className="mk-workflow mk-workflow-reverse">
+          <div className="mk-workflow mk-workflow-reverse mk-workflow-tall">
             <div className="mk-workflow-text">
               <span className="mk-eyebrow">Run the weekend</span>
               <h2>One tournament, everything about it.</h2>
