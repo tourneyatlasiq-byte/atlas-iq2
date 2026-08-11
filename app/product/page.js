@@ -39,8 +39,9 @@ export default async function ProductPage() {
               )}
             </div>
             <ProductShot
+              src="/home-dashboard.png"
               alt="Season Tempo Home — the next tournament, what needs attention, and where the season stands"
-              ratio="16 / 10"
+              ratio="2461 / 1297"
             />
           </div>
         </div>
@@ -64,9 +65,10 @@ export default async function ProductPage() {
                 attention list only. Materially different from the hero, not the
                 same image twice. */}
             <ProductShot
+              src="/home-focus.png"
               alt="The next tournament and what needs attention"
               caption="Home"
-              ratio="4 / 3"
+              ratio="1798 / 808"
             />
           </div>
         </div>
@@ -87,9 +89,10 @@ export default async function ProductPage() {
               </p>
             </div>
             <ProductShot
+              src="/tournament-drawer.png"
               alt="A Season Tempo tournament — registration, contact, games, roster and costs"
               caption="Tournament"
-              ratio="3 / 4"
+              ratio="928 / 1306"
             />
           </div>
         </div>
@@ -116,9 +119,10 @@ export default async function ProductPage() {
               </p>
             </div>
             <ProductShot
+              src="/finance-budget.png"
               alt="Season Tempo Finance — Planned, Committed, Paid and Available by category"
               caption="Finance"
-              ratio="16 / 9"
+              ratio="1981 / 1125"
             />
           </div>
         </div>
