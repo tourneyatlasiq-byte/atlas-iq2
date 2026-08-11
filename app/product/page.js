@@ -23,7 +23,7 @@ export default async function ProductPage() {
 
       {/* 1 — Hero. Product before prose: this page argues the software is real,
               so it shows the software before describing it. */}
-      <section className="mk-product-hero">
+      <section className="mk-page-hero">
         <div className="mk-wrap">
           <div className="mk-workflow">
             <div className="mk-workflow-text">

@@ -22,7 +22,7 @@ export default async function AboutPage() {
       <MarketingHeader signedIn={signedIn} appHref="/dashboard" />
 
       {/* 1 — Why it exists, beside the photograph */}
-      <section className="mk-product-hero">
+      <section className="mk-page-hero">
         <div className="mk-wrap">
           <div className="mk-workflow">
             <div className="mk-workflow-text">

@@ -41,19 +41,26 @@
 .mk-note { margin-top: 16px; font-size: 13px; color: var(--slate); }
 
 /* Screenshot */
-.mk-shot { padding-bottom: 20px; }
+.mk-shot { padding: 8px 0 56px; }
 .mk-shot-frame {
   border: 1px solid var(--border); border-radius: 14px;
   background: var(--bg); overflow: hidden;
   box-shadow: 0 18px 50px rgba(11,35,65,0.12);
 }
 .mk-shot-frame img { display: block; width: 100%; height: auto; }
+
+/* The screenshot is the one element that earns extra width — a dashboard at
+   1060px reads as a picture of a screen. Only above 1360px, where 1200px still
+   leaves a comfortable margin; the rest of the page stays at 1060px. */
+@media (min-width: 1360px) {
+  .mk-shot .mk-wrap { max-width: 1200px; }
+}
 /* Frames the real Home screenshot. */
 
 /* Who Season Tempo is for */
 .mk-who {
   display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 48px; align-items: center;
+  gap: 48px; align-items: start;
 }
 .mk-who h2 { margin: 0 0 14px; }
 .mk-who p { font-size: 16px; line-height: 1.7; margin: 0; }
@@ -194,9 +201,9 @@
    Same wrap, sections and cards as the homepage — a second page in one
    language, not a second design. */
 
-.mk-product-hero { padding: 52px 0 60px; }
-.mk-product-hero h1 { margin: 0 0 16px; }
-.mk-product-hero .mk-lede { margin: 0; }
+.mk-page-hero { padding: 52px 0 60px; }
+.mk-page-hero h1 { margin: 0 0 16px; }
+.mk-page-hero .mk-lede { margin: 0; }
 .mk-hero-cta { display: inline-flex; align-items: center; margin-top: 26px; }
 
 .mk-eyebrow {
@@ -252,7 +259,7 @@
 @media (max-width: 860px) {
   .mk-workflow { grid-template-columns: 1fr; gap: 24px; }
   .mk-workflow-reverse .mk-workflow-text { order: 0; }
-  .mk-product-hero { padding: 32px 0 40px; }
+  .mk-page-hero { padding: 32px 0 40px; }
   .mk-hero-cta { display: flex; width: 100%; justify-content: center; }
 }
 

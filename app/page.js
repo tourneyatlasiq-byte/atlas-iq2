@@ -110,7 +110,7 @@ export default async function HomePage() {
 
       <section className="mk-section mk-alt" id="product">
         <div className="mk-wrap">
-          <h2 className="mk-centered">Three things that matter most</h2>
+          <h2 className="mk-centered">Where a season actually gets run</h2>
           <div className="mk-grid mk-grid-3">
             <Capability title="Tournaments">
               Everything about a weekend in one place — dates, facility, entry and gate fees,
@@ -147,8 +147,8 @@ export default async function HomePage() {
                 changing.
               </p>
               <p className="mk-emphasis">
-                It isn&rsquo;t a league platform or an accounting package. It&rsquo;s the
-                operating layer for the person actually running the season.
+                It isn&rsquo;t a league platform or an accounting package. It&rsquo;s for the
+                person actually running the season.
               </p>
             </div>
 
