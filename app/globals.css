@@ -724,11 +724,6 @@ a { color: inherit; text-decoration: none; }
 .budget-cat-name {
   flex: 1; min-width: 120px; font-weight: 600; font-size: 14px; color: var(--navy);
 }
-.budget-bar-fill {
-  position: absolute; inset: 0 auto 0 0; background: var(--green);
-  border-radius: 999px;
-}
-.budget-bar-fill.over { background: var(--danger); }
 
 .unlinked-note { font-size: 13px; color: var(--slate); margin-top: 16px; }
 .field-note { font-size: 12px; color: var(--slate); margin: 6px 0 0; line-height: 1.5; }
@@ -3115,20 +3110,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    up down the whole page instead of restarting per category. */
 .budget-board { padding: 0; }
 
-.budget-row {
-  display: grid;
-  grid-template-columns:
-    18px                    /* caret */
-    minmax(150px, 1.5fr)    /* name */
-    minmax(140px, 1fr)      /* used / budget */
-    minmax(84px, 0.6fr)     /* left */
-    minmax(150px, 1fr)      /* payment */
-    108px                   /* progress */
-    minmax(0, auto);        /* actions */
-  align-items: center; gap: 12px;
-  width: 100%; padding: 9px 16px; text-align: left;
-}
-
 /* Column labels once, quietly, at the top of the area. */
 .budget-colhead {
   padding-top: 10px; padding-bottom: 8px;
@@ -3144,8 +3125,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   padding-top: 11px; padding-bottom: 11px;
   cursor: pointer; font: inherit; color: inherit;
 }
-.budget-group:first-of-type .budget-cat { border-top: none; }
-.budget-cat:hover { background: #eef2f7; }
 .budget-cat-name {
   font-family: var(--font-display); font-size: 13.5px; font-weight: 800;
   color: var(--navy); min-width: 0;
@@ -3164,36 +3143,96 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* One colour for financial values. Green means Paid, never a dollar amount. */
 .budget-num { font-size: 13px; color: var(--navy); font-variant-numeric: tabular-nums; }
-.budget-num strong { font-weight: 700; }
-.budget-of { color: var(--slate); font-weight: 400; }
-.budget-num.over, .budget-num.over strong { color: var(--danger); }
-
-.budget-pay { font-size: 12px; color: var(--slate); min-width: 0; }
-.pay-done { color: #2f7d59; font-weight: 600; }
-.pay-part { color: var(--slate); }
 
 /* Budget utilisation is not a positive status, so the bar is neutral. */
-.budget-bar {
-  position: relative; height: 5px; border-radius: 3px;
-  background: var(--border);
-}
-.budget-bar-fill { display: block; height: 100%; border-radius: 3px; background: #16365d; }
-.budget-bar-fill.over { background: var(--danger); }
-.budget-bar em {
-  position: absolute; right: 0; top: 9px;
-  font-style: normal; font-size: 10.5px; color: var(--slate);
-  font-variant-numeric: tabular-nums;
+
+@media (max-width: 900px) {
+  .budget-line-actions { grid-column: 2 / -1; justify-content: flex-start; padding-left: 10px; }
 }
 
-.budget-calc { display: block; font-size: 11.5px; color: var(--slate); margin-top: 1px; }
+/* ===== Budget board =====
+   ONE grid definition. The header, every category row and every line item use
+   it, so a detail figure always sits directly beneath the same figure in its
+   parent. Each money value has its own column — combining Used and Budget in
+   one cell is what made large values wrap. */
+.budget-board { padding: 0; }
+
+.budget-row {
+  display: grid;
+  grid-template-columns:
+    18px                  /* caret */
+    minmax(160px, 1fr)    /* name + secondary detail */
+    112px                 /* budget */
+    112px                 /* used */
+    112px                 /* left */
+    96px                  /* status */
+    minmax(0, auto);      /* actions */
+  align-items: baseline; gap: 14px;
+  width: 100%; padding: 9px 16px; text-align: left;
+}
+
+.budget-colhead {
+  padding-top: 10px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--slate);
+}
+
+/* Category rows are the structural divider. */
+.budget-cat {
+  background: var(--surface-sunken);
+  border: none; border-top: 1px solid var(--border);
+  padding-top: 11px; padding-bottom: 11px;
+  cursor: pointer; font: inherit; color: inherit;
+}
+.budget-group:first-of-type .budget-cat { border-top: none; }
+.budget-cat:hover { background: #eef2f7; }
+
+.budget-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.budget-name-indent { padding-left: 18px; }
+.budget-cat-name {
+  font-family: var(--font-display); font-size: 13.5px; font-weight: 800;
+  color: var(--navy);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.budget-line-name {
+  font-size: 13px; color: var(--navy);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Payment detail and quantity working sit under the name, never in a column. */
+.budget-sub { font-size: 11.5px; color: var(--slate); line-height: 1.4; }
+.pay-done { color: #2f7d59; font-weight: 600; }
+
+.budget-line {
+  background: var(--surface);
+  padding-top: 6px; padding-bottom: 6px;
+  border-top: 1px solid rgba(11, 35, 65, 0.06);
+}
+.budget-line-actions { display: flex; gap: 2px; justify-content: flex-end; }
+.budget-line-actions .btn { padding: 3px 8px; font-size: 12px; }
+
+/* Money: one colour, tabular figures, never wrapping. */
+.budget-num {
+  font-size: 13px; color: var(--navy);
+  font-variant-numeric: tabular-nums; text-align: right;
+  white-space: nowrap;
+}
+.budget-num.strong { font-weight: 700; }
+.budget-num.over { color: var(--danger); }
+.budget-colhead .budget-num { color: var(--slate); }
+
+.budget-status {
+  font-size: 12px; color: var(--slate);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 
 @media (max-width: 900px) {
   .budget-colhead { display: none; }
   .budget-row {
-    grid-template-columns: 18px minmax(0, 1.4fr) minmax(110px, 1fr) minmax(76px, 0.6fr);
+    grid-template-columns: 18px minmax(0, 1fr) 96px 96px;
     row-gap: 2px;
   }
-  .budget-row > .budget-bar { display: none; }
-  .budget-pay { grid-column: 2 / -1; padding-left: 10px; }
-  .budget-line-actions { grid-column: 2 / -1; justify-content: flex-start; padding-left: 10px; }
+  .budget-row > :nth-child(6) { display: none; }
+  .budget-line-actions { grid-column: 2 / -1; justify-content: flex-start; padding-left: 18px; }
 }

@@ -576,12 +576,28 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
 function PaymentNote({ used, paid }) {
   if (!used || used <= 0) return null;
   const toPay = used - paid;
-  if (toPay <= 0) return <span className="pay-done">Paid</span>;
+  if (toPay <= 0) return <span className="budget-sub pay-done">Paid</span>;
+  if (paid <= 0) return <span className="budget-sub">{money(toPay)} to pay</span>;
   return (
-    <span className="pay-part">
+    <span className="budget-sub">
       {money(paid)} paid &middot; {money(toPay)} to pay
     </span>
   );
+}
+
+/**
+ * Whole dollars at summary level, cents when they matter.
+ *
+ * A column of $22,000.00 / $5,050.00 / $16,950.00 is four characters of
+ * trailing zeros the reader has to skip. Detail rows keep exact cents, and
+ * nothing about stored precision changes.
+ */
+function summaryMoney(n) {
+  if (n == null) return "—";
+  const v = Number(n);
+  return Number.isInteger(v)
+    ? `$${v.toLocaleString("en-US")}`
+    : money(v);
 }
 
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income }) {
@@ -596,20 +612,23 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
       {/* One header for the whole area, not one per category. Every category
           and line item shares the same grid, so figures line up down the page
           instead of restarting as a separate spreadsheet each time. */}
+      {/* One grid definition drives the header, every category row and every
+          line item, so a value in a detail row sits directly beneath the same
+          value in its parent. Each figure gets its own column — combining Used
+          and Budget in one cell is what caused the wrapping. */}
       <div className="card card-flush budget-board">
         <div className="budget-row budget-colhead" aria-hidden="true">
           <span />
           <span>Category</span>
-          <span>Used / Budget</span>
-          <span>Left</span>
-          <span>Payment</span>
-          <span>Used</span>
+          <span className="budget-num">Budget</span>
+          <span className="budget-num">Used</span>
+          <span className="budget-num">Left</span>
+          <span>Status</span>
           <span />
         </div>
 
         {groups.map((g) => {
           const open = openCats[g.category] ?? false;
-          const toPay = g.committedTotal - g.paidTotal;
 
           return (
             <div key={g.category} className={`budget-group${open ? " is-open" : ""}`}>
@@ -620,29 +639,21 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
               >
                 <span className={`group-caret${open ? "" : " collapsed"}`} aria-hidden="true">▾</span>
 
-                <span className="budget-cat-name">{g.category}</span>
-
-                <span className="budget-num">
-                  <strong>{money(g.committedTotal)}</strong>
-                  <span className="budget-of"> / {money(g.budgeted)}</span>
-                </span>
-
-                <span className={`budget-num${g.available < 0 ? " over" : ""}`}>
-                  <strong>
-                    {g.available < 0 ? `Over ${money(Math.abs(g.available))}` : money(g.available)}
-                  </strong>
-                </span>
-
-                <span className="budget-pay">
+                <span className="budget-name">
+                  <span className="budget-cat-name">{g.category}</span>
                   <PaymentNote used={g.committedTotal} paid={g.paidTotal} />
                 </span>
 
-                <span className="budget-bar" aria-hidden="true">
-                  <span
-                    className={`budget-bar-fill${g.available < 0 ? " over" : ""}`}
-                    style={{ width: `${Math.min(100, g.percentCommitted ?? 0)}%` }}
-                  />
-                  <em>{g.percentCommitted == null ? "—" : `${g.percentCommitted}%`}</em>
+                <span className="budget-num">{summaryMoney(g.budgeted)}</span>
+                <span className="budget-num strong">{summaryMoney(g.committedTotal)}</span>
+                <span className={`budget-num strong${g.available < 0 ? " over" : ""}`}>
+                  {g.available < 0
+                    ? `Over ${summaryMoney(Math.abs(g.available))}`
+                    : summaryMoney(g.available)}
+                </span>
+
+                <span className="budget-status">
+                  {g.percentCommitted == null ? "—" : `${g.percentCommitted}% used`}
                 </span>
 
                 <span />
@@ -653,26 +664,24 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   <div key={r.id} className="budget-row budget-line">
                     <span />
 
-                    <span className="budget-line-name">
-                      {r.name}
+                    <span className="budget-name budget-name-indent">
+                      <span className="budget-line-name">{r.name}</span>
                       {r.quantity != null && r.unitCost != null && (
-                        <span className="budget-calc">
+                        <span className="budget-sub">
                           {quantity(r.quantity)} &times; {money(r.unitCost)}
                         </span>
                       )}
+                      {!income && <PaymentNote used={r.committedTotal} paid={r.actual} />}
                     </span>
 
+                    <span className="budget-num">{money(r.budgeted)}</span>
                     <span className="budget-num">
                       {income ? money(r.actual) : money(r.committedTotal)}
-                      <span className="budget-of"> / {money(r.budgeted)}</span>
                     </span>
-
                     <span className={`budget-num${r.available < 0 ? " over" : ""}`}>
-                      {r.available < 0 ? `Over ${money(Math.abs(r.available))}` : money(r.available)}
-                    </span>
-
-                    <span className="budget-pay">
-                      {!income && <PaymentNote used={r.committedTotal} paid={r.actual} />}
+                      {r.available < 0
+                        ? `Over ${money(Math.abs(r.available))}`
+                        : money(r.available)}
                     </span>
 
                     <span />
