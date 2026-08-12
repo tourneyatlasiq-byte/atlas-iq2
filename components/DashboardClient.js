@@ -41,6 +41,24 @@ const dotClass = (p) => (p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "d
 
 export function DashboardClient({
   nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current", setupComplete = true }) {
+  // Reveal conditions. Every one reads a prop the page already passes — no
+  // new query, no schema, no new prop.
+  const hasTournaments = (seasonSummary?.committedCount ?? 0) > 0;
+  const hasRoster =
+    (team?.playerCount ?? 0) > 0 || (team?.inactivePlayerCount ?? 0) > 0;
+  const hasFinance =
+    (finance?.budgetedExpenses ?? 0) > 0 || (dues?.expected ?? 0) > 0;
+
+  // Next Up appears as soon as there is an event to show, whether or not the
+  // rest of setup is done — that payoff should not wait.
+  const showNextUp = Boolean(nextUp) || setupComplete;
+
+  // Never "Nothing urgent yet" during onboarding: an empty briefing beside an
+  // unfinished checklist tells the coach two contradictory things.
+  const showBriefing = setupComplete || (actions?.visible?.length ?? 0) > 0;
+
+  const showSnapshots = setupComplete || hasTournaments || hasRoster || hasFinance;
+
   return (
     <>
       <div className="page-head page-head-tight">
@@ -48,21 +66,45 @@ export function DashboardClient({
         <PageHelp />
       </div>
 
-      <div className="home-band">
-      <div className="home-top">
-        <div className="home-left">
-          <NextUp nextUp={nextUp} />
-          <ComingUp upcoming={seasonSummary?.upcoming} />
-        </div>
-        <Briefing actions={actions} seasonPhase={seasonPhase} setupComplete={setupComplete} />
-      </div>
-      </div>
+      {/* Home grows with the account rather than showing empty furniture.
+          Each condition is a fact about the data, not a step in an assumed
+          sequence: a Considering tournament and a Committed one reveal
+          different sections, and that is correct.
 
-      <div className="snapshots">
-        <SeasonSnapshot summary={seasonSummary} />
-        <TeamSnapshot team={team} />
-        <FinanceSnapshot finance={finance} funds={funds} dues={dues} />
-      </div>
+          Once setup is complete every condition below is true, so the
+          established Home renders exactly as before. */}
+      {(showNextUp || showBriefing) && (
+        <div className="home-band">
+          <div className={`home-top${showNextUp && showBriefing ? "" : " home-top-single"}`}>
+            {showNextUp && (
+              <div className="home-left">
+                <NextUp nextUp={nextUp} />
+                <ComingUp upcoming={seasonSummary?.upcoming} />
+              </div>
+            )}
+            {showBriefing && (
+              <Briefing
+                actions={actions}
+                seasonPhase={seasonPhase}
+                setupComplete={setupComplete}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Each card appears when it has something to report. The existing
+          empty-state branches inside them still handle a populated account
+          whose one module is genuinely empty. */}
+      {showSnapshots && (
+        <div className="snapshots">
+          {(setupComplete || hasTournaments) && <SeasonSnapshot summary={seasonSummary} />}
+          {(setupComplete || hasRoster) && <TeamSnapshot team={team} />}
+          {(setupComplete || hasFinance) && (
+            <FinanceSnapshot finance={finance} funds={funds} dues={dues} />
+          )}
+        </div>
+      )}
     </>
   );
 }

@@ -3192,3 +3192,55 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .budget-row > :nth-child(6) { grid-column: 2 / -1; }
   .budget-line-actions { justify-content: flex-start; padding-left: 18px; }
 }
+
+/* During onboarding only one of Next Up / Needs Action may be present, so the
+   two-column band would otherwise leave half its width empty. */
+.home-top-single { grid-template-columns: minmax(0, 1fr); }
+
+/* Success notices sit where errors already appear, so feedback has one home. */
+.notice {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; margin-bottom: 14px;
+  background: rgba(47, 125, 89, 0.08);
+  border: 1px solid rgba(47, 125, 89, 0.24);
+  border-radius: var(--radius-control);
+  font-size: 13px; color: #2f7d59;
+}
+
+/* ===== Player Payments on a phone =====
+   The desktop row already carries the name, a paid-of-total sub-line and the
+   balance, so this is a reflow rather than a second markup path. The progress
+   column is the one thing that cannot survive 375px — a bar that narrow shows
+   nothing a number does not. */
+@media (max-width: 720px) {
+  .pay-table thead { display: none; }
+  .pay-table, .pay-table tbody, .pay-table tr, .pay-table td { display: block; width: 100%; }
+
+  .pay-table tr {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pay-table tr:last-child { border-bottom: none; }
+
+  .pay-table td { padding: 0; border: none; }
+
+  /* Name and balance read as one line; the detail sits beneath. */
+  .pay-table .pay-player { display: flex; flex-direction: column; gap: 2px; }
+  .pay-table .pay-progress { display: none; }
+  .pay-table .pay-balance {
+    margin-top: 4px; text-align: left; font-size: 13px;
+  }
+
+  .pay-table .cell-name { font-size: 14px; font-weight: 600; }
+  .pay-table .pay-sub { font-size: 12px; color: var(--slate); }
+
+  /* Comfortable tap target for the whole row. */
+  .pay-table tr.row-click { min-height: 56px; }
+}
+
+/* Transactions: category is implied by the screen you are on, so it is the
+   column to lose first. Date, what it was, and how much all remain. */
+@media (max-width: 720px) {
+  .txn-table th:nth-child(3),
+  .txn-table td:nth-child(3) { display: none; }
+}

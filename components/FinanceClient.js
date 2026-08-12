@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { useActionFeedback } from "../lib/useActionFeedback";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
@@ -89,8 +90,7 @@ export function FinanceClient({
     ? tournaments.find((t) => t.id === tournamentFilter) ?? null
     : null;
   const [actionId, setActionId] = useState(null);
-  const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  const { error, setError, notice, pending, run } = useActionFeedback();
 
   const [editBudget, setEditBudget] = useState(null);
   // Create-and-link: a budget line created from inside the transaction form.
@@ -145,14 +145,6 @@ export function FinanceClient({
     };
   }, [overlayOpen, editBudget, editTxn, editPay, detailTxn]);
 
-  function run(action, fd, onDone) {
-    setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.();
-      else setError(result?.error ?? "Something went wrong. Try again.");
-    });
-  }
 
   function selectAction(id) {
     setActionId(id);
@@ -166,6 +158,7 @@ export function FinanceClient({
   return (
     <>
       {error && <div className="alert alert-error">{error}</div>}
+      {notice && <div className="notice">{notice}</div>}
 
       <div className="page-head">
         <div>
@@ -318,7 +311,7 @@ export function FinanceClient({
           canWrite={canWrite}
           onAdd={() => setEditPay("new")}
           onOpen={(p) => openDetail(p)}
-          onBulk={(fd) => run(setDuesForAll, fd)}
+          onBulk={(fd) => run(setDuesForAll, fd, { success: "Dues set for the players who needed them" })}
           pending={pending}
         />
       )}
@@ -372,20 +365,15 @@ export function FinanceClient({
           seedIsIncome={lineDraft.isIncome}
           pending={pending}
           onCancel={() => setLineDraft(null)}
-          onSubmit={(fd) => {
-            setError(null);
-            startTransition(async () => {
-              const result = await saveBudgetItem(fd);
-              if (result?.ok && result.item?.id) {
-                setLineDraft(null);
-                // revalidatePath in the action refreshes budgetItems; the id
-                // is remembered so the form selects it when they arrive.
-                setJustCreatedLineId(result.item.id);
-              } else {
-                setError(result?.error ?? "Something went wrong.");
-              }
-            });
-          }}
+          onSubmit={(fd) =>
+            run(saveBudgetItem, fd, (result) => {
+              if (!result.item?.id) return;
+              setLineDraft(null);
+              // revalidatePath in the action refreshes budgetItems; the id is
+              // remembered so the form selects it when they arrive.
+              setJustCreatedLineId(result.item.id);
+            })
+          }
         />
       )}
 
@@ -395,7 +383,7 @@ export function FinanceClient({
           canWrite={canWrite}
           pending={pending}
           onClose={() => { closeDetail(); }}
-          onRecord={(fd) => run(recordPayment, fd, () => closeDetail())}
+          onRecord={(fd) => run(recordPayment, fd, { onDone: () => closeDetail(), success: "Payment recorded" })}
           onDeleteEntry={(entryId) => {
             if (!confirm("Remove this payment entry?")) return;
             const fd = new FormData();
@@ -845,7 +833,7 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
             )}
           </div>
         ) : (
-          <table className="table">
+          <table className="table txn-table">
             <thead>
               <tr>
                 <th>Date</th>
