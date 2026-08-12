@@ -566,6 +566,24 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
   );
 }
 
+/**
+ * Payment status, stated one way everywhere.
+ *
+ * Budget usage and cash paid answer different questions, so this stays quiet
+ * and appears only when it says something: nothing on an untouched line, a
+ * single "Paid" when settled.
+ */
+function PaymentNote({ used, paid }) {
+  if (!used || used <= 0) return null;
+  const toPay = used - paid;
+  if (toPay <= 0) return <span className="pay-done">Paid</span>;
+  return (
+    <span className="pay-part">
+      {money(paid)} paid &middot; {money(toPay)} to pay
+    </span>
+  );
+}
+
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income }) {
   if (groups.length === 0) return null;
 

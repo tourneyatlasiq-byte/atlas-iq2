@@ -330,6 +330,25 @@ for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/
   }
 }
 
+/* ---- 4j. A JSX component must be defined or imported -----------------
+   <PaymentNote /> was referenced twice and defined nowhere: the insert anchored
+   on a function name that did not exist, matched nothing, and the file still
+   parsed. Valid syntax, guaranteed runtime crash. */
+
+for (const f of componentFiles()) {
+  const src = read(f);
+  const used = [...new Set([...src.matchAll(/<([A-Z][A-Za-z0-9]*)[\s/>]/g)].map((m) => m[1]))];
+
+  for (const name of used) {
+    const defined = new RegExp("function " + name + "\\b").test(src);
+    const imported = new RegExp("import[^;]*\\b" + name + "\\b[^;]*from").test(src);
+    const assigned = new RegExp("const " + name + "\\s*=").test(src);
+    if (!defined && !imported && !assigned) {
+      failures.push(`${f}: <${name}> is used but never defined or imported`);
+    }
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [
