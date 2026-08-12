@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { PageHelp } from "./PageHelp";
+import { DocumentSection } from "./DocumentSection";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
@@ -58,7 +59,7 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false }) {
+export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = [], documentTargets, seasonName }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
@@ -384,6 +385,10 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
       {detail && !editing && !editingNotes && (
         <FacilityDetail
+          documents={facilityDocs.filter((d) => d.facility_id === detail.id)}
+          documentTargets={documentTargets}
+          isAdmin={isAdmin}
+          seasonName={seasonName}
           f={detail}
           historyTarget={historyTarget}
           canWrite={canWrite}
@@ -735,7 +740,7 @@ function Row({ label, value }) {
   );
 }
 
-export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject }) {
+export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject, documents = [], documentTargets, isAdmin = false, seasonName }) {
   // Arriving from a count click, scroll straight to that block rather than
   // leaving the user to find it.
   useEffect(() => {
@@ -820,6 +825,14 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           <Section title="Location details">
             <Row label="Address" value={address || null} />
             <Row label="County" value={f.county} />
+            <Row
+              label="Phone"
+              value={
+                f.phone ? (
+                  <a className="link" href={`tel:${f.phone.replace(/[^\d+]/g, "")}`}>{f.phone}</a>
+                ) : null
+              }
+            />
             <Row
               label="Website"
               value={
@@ -919,6 +932,17 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
               ))}
             </Section>
           )}
+
+          {/* Field maps and site paperwork. documents.facility_id and the
+              facilities target list already existed; nothing consumed them. */}
+          <DocumentSection
+            documents={documents}
+            lockTo={{ kind: "facility", id: f.id, label: f.name }}
+            targets={documentTargets}
+            canWrite={canWrite}
+            isAdmin={isAdmin}
+            seasonName={seasonName}
+          />
         </div>
 
         {canWrite && (
