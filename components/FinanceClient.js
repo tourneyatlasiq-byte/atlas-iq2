@@ -624,7 +624,6 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           <span className="budget-num">Used</span>
           <span className="budget-num">Left</span>
           <span>Status</span>
-          <span />
         </div>
 
         {groups.map((g) => {
@@ -655,8 +654,6 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 <span className="budget-status">
                   {g.percentCommitted == null ? "—" : `${g.percentCommitted}% used`}
                 </span>
-
-                <span />
               </button>
 
               {open &&
@@ -683,8 +680,6 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                         ? `Over ${money(Math.abs(r.available))}`
                         : money(r.available)}
                     </span>
-
-                    <span />
 
                     <span className="budget-line-actions">
                       {canWrite && (
