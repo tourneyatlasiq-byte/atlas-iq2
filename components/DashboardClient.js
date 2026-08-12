@@ -355,16 +355,14 @@ function FinanceSnapshot({ finance, funds, dues }) {
 
   return (
     <Snapshot label="Finance" mark="finance" href="/finance" cta="Finance">
-        {/* Available, not Remaining. Finance moved to Planned / Committed /
-            Paid / Available, and Available answers what can still be spent —
-            Remaining meant Planned minus Paid and reads higher than reality
-            once tournaments are committed. */}
+        {/* "Left", matching the Budget tab. The underlying figure is
+            unchanged — budget minus what is already spoken for. */}
       <p className="snap-fact">
         <span className="snap-value">{money(finance.availableBudget)}</span>{" "}
-        <span className="snap-descriptor">available</span>
+        <span className="snap-descriptor">left</span>
       </p>
       <p className="snap-meta">
-        {money(finance.committedExpenses)} committed
+        {money(finance.committedExpenses)} used
         {finance.percentCommitted != null && ` · ${finance.percentCommitted}% of budget`}
       </p>
     </Snapshot>

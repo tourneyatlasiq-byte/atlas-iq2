@@ -729,7 +729,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                 <p className="t-budget-line">
                   <span>{budgetContext.name}</span>
                   <strong>
-                    {money(budgetContext.committed)} of {money(budgetContext.planned)} committed
+                    {money(budgetContext.committed)} used of {money(budgetContext.planned)} budget
                   </strong>
                 </p>
                 <p className="t-budget-meter">
@@ -739,11 +739,11 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                   />
                 </p>
                 <p className="t-budget-line">
-                  <span>{budgetContext.percentCommitted ?? 0}% committed</span>
+                  <span>{budgetContext.percentCommitted ?? 0}% of budget used</span>
                   <strong className={budgetContext.available < 0 ? "over" : ""}>
                     {budgetContext.available < 0
                       ? `Over by ${money(Math.abs(budgetContext.available))}`
-                      : `${money(budgetContext.available)} available`}
+                      : `${money(budgetContext.available)} left`}
                   </strong>
                 </p>
 
@@ -761,7 +761,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                     <strong>
                       {money(budgetContext.available - Number(t.total_cost ?? 0))}
                     </strong>{" "}
-                    would remain available.
+                    would be left.
                   </p>
                 )}
               </div>

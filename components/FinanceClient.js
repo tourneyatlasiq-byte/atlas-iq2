@@ -590,13 +590,22 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 <span className="budget-cat-name">{g.category}</span>
                 <span className="budget-summary">
                   <span className="budget-spent">
-                    {money(g.committedTotal)} <span className="muted">of {money(g.budgeted)} committed</span>
+                    {money(g.committedTotal)}{" "}
+                    <span className="muted">used of {money(g.budgeted)} budget</span>
                   </span>
-                  {g.paidTotal > 0 && (
-                    <span className="budget-committed">{money(g.paidTotal)} paid</span>
-                  )}
-                  {g.available < 0 && (
+                  {g.available < 0 ? (
                     <span className="over">Over by {money(Math.abs(g.available))}</span>
+                  ) : (
+                    <span className="budget-left">{money(g.available)} left</span>
+                  )}
+                  {/* Payment status is a separate question from budget usage,
+                      so it sits quieter and only when it says something. */}
+                  {g.committedTotal > 0 && (
+                    <span className="budget-pay-note">
+                      {money(g.paidTotal)} paid
+                      {g.committedTotal - g.paidTotal > 0 &&
+                        ` · ${money(g.committedTotal - g.paidTotal)} still to pay`}
+                    </span>
                   )}
                 </span>
                 <span className="budget-bar" aria-hidden="true">
@@ -613,11 +622,9 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   <thead>
                     <tr>
                       <th>Line item</th>
-                      <th>Planned</th>
-                      {!income && <th>Committed</th>}
-                      <th>{income ? "Received" : "Paid"}</th>
-                      {!income && <th>Available</th>}
-                      <th>{income ? "% received" : "% committed"}</th>
+                      <th>Budget</th>
+                      <th>{income ? "Received" : "Used"}</th>
+                      {!income && <th>Left</th>}
                       {canWrite && <th aria-label="Actions" />}
                     </tr>
                   </thead>
@@ -633,13 +640,26 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                           )}
                         </td>
                         <td>{money(r.budgeted)}</td>
-                        {!income && (
-                          <td className={r.committedTotal > 0 ? "committed" : ""}>
-                            {r.committedTotal > 0 ? money(r.committedTotal) : <span className="muted">—</span>}
-                          </td>
-                        )}
-                        {/* Paid sits inside Committed, never added to it. */}
-                        <td>{money(r.actual)}</td>
+
+                        {/* Used, with payment status beneath only when it says
+                            something. Paid is inside Used, never added to it. */}
+                        <td>
+                          {income ? (
+                            money(r.actual)
+                          ) : r.committedTotal > 0 ? (
+                            <>
+                              {money(r.committedTotal)}
+                              <span className="budget-pay-sub">
+                                {r.committedTotal - r.actual > 0
+                                  ? `${money(r.actual)} paid · ${money(r.committedTotal - r.actual)} still to pay`
+                                  : "Paid"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+
                         {!income && (
                           <td className={r.available < 0 ? "over" : ""}>
                             {r.available < 0
@@ -647,11 +667,6 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                               : money(r.available)}
                           </td>
                         )}
-                        <td>
-                          {income
-                            ? r.percentUsed == null ? "—" : `${r.percentUsed}%`
-                            : r.percentCommitted == null ? "—" : `${r.percentCommitted}%`}
-                        </td>
                         {canWrite && (
                           <td className="td-actions">
                             <button className="btn btn-ghost" onClick={() => onEdit(r)} disabled={pending}>Edit</button>

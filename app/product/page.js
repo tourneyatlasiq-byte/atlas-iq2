@@ -104,13 +104,13 @@ export default async function ProductPage() {
           <div className="mk-workflow">
             <div className="mk-workflow-text">
               <span className="mk-eyebrow">Know where the money stands</span>
-              <h2>What you&rsquo;ve committed to — not just what you&rsquo;ve paid.</h2>
+              <h2>What your budget has already gone on — not just what you&rsquo;ve paid.</h2>
               <p>
-                Every budget line shows four figures. <strong>Planned</strong> is what you set
-                aside. <strong>Paid</strong> is what has actually left the account.{" "}
-                <strong>Committed</strong> is everything you&rsquo;ve agreed to, including
+                Every budget line shows three figures. <strong>Budget</strong> is what you set
+                aside. <strong>Used</strong> is everything you&rsquo;ve agreed to, including
                 tournaments you&rsquo;ve said yes to but haven&rsquo;t been invoiced for yet.{" "}
-                <strong>Available</strong> is what&rsquo;s genuinely left to spend.
+                <strong>Left</strong> is what&rsquo;s genuinely still available. Underneath,
+                quietly: how much of that you&rsquo;ve actually paid, and how much you still owe.
               </p>
               <p>
                 A budget that only counts cheques already written looks healthier than it is.
@@ -120,7 +120,7 @@ export default async function ProductPage() {
             </div>
             <ProductShot
               src="/finance-budget.png"
-              alt="Season Tempo Finance — Planned, Committed, Paid and Available by category"
+              alt="Season Tempo Finance — budget, used and left by category"
               caption="Finance"
               ratio="1981 / 1125"
             />
