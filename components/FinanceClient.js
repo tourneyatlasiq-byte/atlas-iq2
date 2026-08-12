@@ -575,39 +575,50 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
         <span className={`group-title ${income ? "decision-committed" : "decision-considering"}`}>{title}</span>
       </div>
 
-      <div className="card card-flush">
+      {/* One header for the whole area, not one per category. Every category
+          and line item shares the same grid, so figures line up down the page
+          instead of restarting as a separate spreadsheet each time. */}
+      <div className="card card-flush budget-board">
+        <div className="budget-row budget-colhead" aria-hidden="true">
+          <span />
+          <span>Category</span>
+          <span>Used / Budget</span>
+          <span>Left</span>
+          <span>Payment</span>
+          <span>Used</span>
+          <span />
+        </div>
+
         {groups.map((g) => {
           const open = openCats[g.category] ?? false;
-          const over = g.variance > 0 && !income;
+          const toPay = g.committedTotal - g.paidTotal;
+
           return (
-            <div key={g.category}>
+            <div key={g.category} className={`budget-group${open ? " is-open" : ""}`}>
               <button
-                className="budget-cat"
+                className="budget-row budget-cat"
                 onClick={() => setOpenCats({ ...openCats, [g.category]: !open })}
                 aria-expanded={open}
               >
                 <span className={`group-caret${open ? "" : " collapsed"}`} aria-hidden="true">▾</span>
+
                 <span className="budget-cat-name">{g.category}</span>
-                <span className="budget-summary">
-                  <span className="budget-spent">
-                    {money(g.committedTotal)}{" "}
-                    <span className="muted">used of {money(g.budgeted)} budget</span>
-                  </span>
-                  {g.available < 0 ? (
-                    <span className="over">Over by {money(Math.abs(g.available))}</span>
-                  ) : (
-                    <span className="budget-left">{money(g.available)} left</span>
-                  )}
-                  {/* Payment status is a separate question from budget usage,
-                      so it sits quieter and only when it says something. */}
-                  {g.committedTotal > 0 && (
-                    <span className="budget-pay-note">
-                      {money(g.paidTotal)} paid
-                      {g.committedTotal - g.paidTotal > 0 &&
-                        ` · ${money(g.committedTotal - g.paidTotal)} still to pay`}
-                    </span>
-                  )}
+
+                <span className="budget-num">
+                  <strong>{money(g.committedTotal)}</strong>
+                  <span className="budget-of"> / {money(g.budgeted)}</span>
                 </span>
+
+                <span className={`budget-num${g.available < 0 ? " over" : ""}`}>
+                  <strong>
+                    {g.available < 0 ? `Over ${money(Math.abs(g.available))}` : money(g.available)}
+                  </strong>
+                </span>
+
+                <span className="budget-pay">
+                  <PaymentNote used={g.committedTotal} paid={g.paidTotal} />
+                </span>
+
                 <span className="budget-bar" aria-hidden="true">
                   <span
                     className={`budget-bar-fill${g.available < 0 ? " over" : ""}`}
@@ -615,69 +626,49 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   />
                   <em>{g.percentCommitted == null ? "—" : `${g.percentCommitted}%`}</em>
                 </span>
+
+                <span />
               </button>
 
-              {open && (
-                <table className="table budget-lines">
-                  <thead>
-                    <tr>
-                      <th>Line item</th>
-                      <th>Budget</th>
-                      <th>{income ? "Received" : "Used"}</th>
-                      {!income && <th>Left</th>}
-                      {canWrite && <th aria-label="Actions" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td>
-                          {r.name}
-                          {r.quantity != null && r.unitCost != null && (
-                            <span className="budget-calc">
-                              {quantity(r.quantity)} &times; {money(r.unitCost)}
-                            </span>
-                          )}
-                        </td>
-                        <td>{money(r.budgeted)}</td>
+              {open &&
+                g.rows.map((r) => (
+                  <div key={r.id} className="budget-row budget-line">
+                    <span />
 
-                        {/* Used, with payment status beneath only when it says
-                            something. Paid is inside Used, never added to it. */}
-                        <td>
-                          {income ? (
-                            money(r.actual)
-                          ) : r.committedTotal > 0 ? (
-                            <>
-                              {money(r.committedTotal)}
-                              <span className="budget-pay-sub">
-                                {r.committedTotal - r.actual > 0
-                                  ? `${money(r.actual)} paid · ${money(r.committedTotal - r.actual)} still to pay`
-                                  : "Paid"}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="muted">—</span>
-                          )}
-                        </td>
+                    <span className="budget-line-name">
+                      {r.name}
+                      {r.quantity != null && r.unitCost != null && (
+                        <span className="budget-calc">
+                          {quantity(r.quantity)} &times; {money(r.unitCost)}
+                        </span>
+                      )}
+                    </span>
 
-                        {!income && (
-                          <td className={r.available < 0 ? "over" : ""}>
-                            {r.available < 0
-                              ? `Over by ${money(Math.abs(r.available))}`
-                              : money(r.available)}
-                          </td>
-                        )}
-                        {canWrite && (
-                          <td className="td-actions">
-                            <button className="btn btn-ghost" onClick={() => onEdit(r)} disabled={pending}>Edit</button>
-                            <button className="btn btn-danger-ghost" onClick={() => onDelete(r)} disabled={pending}>Delete</button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                    <span className="budget-num">
+                      {income ? money(r.actual) : money(r.committedTotal)}
+                      <span className="budget-of"> / {money(r.budgeted)}</span>
+                    </span>
+
+                    <span className={`budget-num${r.available < 0 ? " over" : ""}`}>
+                      {r.available < 0 ? `Over ${money(Math.abs(r.available))}` : money(r.available)}
+                    </span>
+
+                    <span className="budget-pay">
+                      {!income && <PaymentNote used={r.committedTotal} paid={r.actual} />}
+                    </span>
+
+                    <span />
+
+                    <span className="budget-line-actions">
+                      {canWrite && (
+                        <>
+                          <button className="btn btn-ghost" onClick={() => onEdit(r)} disabled={pending}>Edit</button>
+                          <button className="btn btn-danger-ghost" onClick={() => onDelete(r)} disabled={pending}>Delete</button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                ))}
             </div>
           );
         })}
