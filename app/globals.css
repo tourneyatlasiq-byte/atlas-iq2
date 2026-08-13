@@ -2647,7 +2647,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .contact-row:first-child { border-top: none; }
 .contact-row-main { flex: 1; min-width: 0; }
 .contact-row-sub { display: block; font-size: 12.5px; color: var(--slate); margin-top: 1px; }
-.contact-row-reach { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
+.contact-row-reach {
+  display: flex; flex-direction: column; gap: 1px; font-size: 12.5px;
+  min-width: 0; flex-shrink: 1;
+}
+.contact-row-reach a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-row-reach a { color: var(--blue); font-weight: 600; }
 .contact-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
 .contact-row-actions .btn { padding: 4px 8px; font-size: 12.5px; }
@@ -3280,4 +3284,33 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   /* One tap target, full width, thumb-reachable. */
   .at-field-go { width: 100%; justify-content: center; min-height: 44px; }
+}
+
+/* ===== Contacts module ===== */
+.contacts-toolbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.contacts-toolbar .contacts-search { margin: 0; flex: 1; min-width: 220px; max-width: 380px; }
+.contacts-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* Name and its relationships take the space; type and contact details sit
+   right and shrink rather than forcing the row wider. */
+.contact-row { align-items: flex-start; }
+.contact-row-type {
+  font-size: 12px; color: var(--slate); white-space: nowrap;
+  flex-shrink: 0; min-width: 132px;
+}
+.contact-row-links {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 3px;
+}
+.contact-row-links a { font-size: 12px; color: var(--blue); }
+.contact-row-links a:hover { text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .contact-row { flex-wrap: wrap; gap: 6px 12px; }
+  .contact-row-main { flex-basis: 100%; }
+  .contact-row-type { min-width: 0; }
+  .contact-row-reach { flex-direction: row; gap: 12px; }
+  .contact-row-actions { margin-left: auto; }
 }

@@ -1,6 +1,5 @@
 import { getContext, isOrgAdmin } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
-import { listContacts } from "../../../lib/queries/contacts";
 import { SettingsClient } from "../../../components/SettingsClient";
 
 export const dynamic = "force-dynamic";
@@ -92,7 +91,6 @@ export default async function SettingsPage({ searchParams }) {
       counts={{ roster: rosterCount.count ?? 0, tournaments: tournamentCount.count ?? 0 }}
       isAdmin={isOrgAdmin(profile)}
       isOwner={profile?.role === "owner"}
-      contacts={await listContacts(organization.id)}
       currentUserId={user.id}
       autoOpen={openPanel}
     />

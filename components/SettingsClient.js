@@ -3,7 +3,6 @@
 import { useState, useTransition, useEffect } from "react";
 import { PageHelp } from "./PageHelp";
 import { PRIVACY_EMAIL } from "../lib/legal";
-import { ContactsDirectory } from "./ContactsDirectory";
 import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
@@ -53,7 +52,7 @@ function fmtDate(d) {
 
 export function SettingsClient({
   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
-  counts, isAdmin, isOwner = false, currentUserId, autoOpen = null, contacts = [],
+  counts, isAdmin, isOwner = false, currentUserId, autoOpen = null,
 }) {
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen);
@@ -178,8 +177,6 @@ export function SettingsClient({
             </button>
           )}
         </div>
-
-        <ContactsDirectory contacts={contacts} canWrite={isAdmin} />
 
       {isOwner && (
         <section className="settings-danger-zone">

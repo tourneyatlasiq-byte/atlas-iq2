@@ -74,3 +74,13 @@ export function IconFiles() {
     </svg>
   );
 }
+
+export function IconContacts() {
+  return (
+    <svg {...base}>
+      <circle cx="6.25" cy="5.75" r="2.4" />
+      <path d="M2.25 13.5c0-2.3 1.8-3.9 4-3.9s4 1.6 4 3.9" />
+      <path d="M11.5 6.25h2.25M11.5 8.75h2.25" />
+    </svg>
+  );
+}

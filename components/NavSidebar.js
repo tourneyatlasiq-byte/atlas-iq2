@@ -5,7 +5,7 @@ import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
 import { TeamIdentity, initialsOf } from "./TeamMark";
 import {
-  IconHome, IconTournaments, IconTeam, IconFacilities, IconFinance, IconFiles,
+  IconHome, IconTournaments, IconTeam, IconFacilities, IconFinance, IconFiles, IconContacts,
 } from "./NavIcons";
 
 /**
@@ -21,6 +21,7 @@ const NAV = [
   { href: "/facilities", label: "Facilities", Icon: IconFacilities },
   { href: "/finance", label: "Finance", Icon: IconFinance },
   { href: "/files", label: "Files", Icon: IconFiles },
+  { href: "/contacts", label: "Contacts", Icon: IconContacts },
 ];
 
 export function NavSidebar({ email, organization, team, season, seasons, seasonPhase }) {
