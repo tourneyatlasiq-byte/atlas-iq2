@@ -59,7 +59,7 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = [], documentTargets, seasonName }) {
+export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = new Map(), documentTargets, seasonName }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
@@ -385,7 +385,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
       {detail && !editing && !editingNotes && (
         <FacilityDetail
-          documents={facilityDocs.filter((d) => d.facility_id === detail.id)}
+          documents={facilityDocs?.get?.(detail.id) ?? []}
           documentTargets={documentTargets}
           isAdmin={isAdmin}
           seasonName={seasonName}

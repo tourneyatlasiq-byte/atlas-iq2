@@ -349,6 +349,31 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- 4k. documentsByEntity returns a Map, not an array -----------------
+   Calling .filter() on it threw on every facility click. It parsed, passed the
+   syntax check and passed a prop-wiring check — nothing verified the shape of
+   what the query returns. */
+
+for (const f of ["app/(app)/facilities/page.js", "app/(app)/team/page.js",
+                 "app/(app)/tournaments/page.js"]) {
+  if (!fs.existsSync(f)) continue;
+  const src = fs.readFileSync(f, "utf8");
+  if (!src.includes("documentsByEntity")) continue;
+
+  const binding = (src.match(/(\w+)\s*\]\s*=\s*await Promise\.all/) || [])[1];
+  if (!binding) continue;
+}
+
+/* Any component receiving a documents map must read it with .get(), never
+   .filter() or .map(). */
+for (const f of componentFiles()) {
+  const src = read(f);
+  const misuse = src.match(/(\w*[Dd]ocs)\s*\.\s*(filter|map)\(/);
+  if (misuse && /Docs\s*=\s*new Map|Docs\?\.\s*get/.test(src)) {
+    failures.push(`${f}: ${misuse[1]}.${misuse[2]}() — documentsByEntity returns a Map, use .get(id)`);
+  }
+}
+
 /* ---- 5. Deprecated terminology ----------------------------------------- */
 
 const RETIRED = [
