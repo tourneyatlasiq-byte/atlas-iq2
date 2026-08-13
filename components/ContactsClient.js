@@ -22,9 +22,9 @@ import { saveContact, deleteContact } from "../lib/actions/contacts";
 const CATEGORIES = ["Tournament", "College", "Organization", "Other"];
 
 const CATEGORY_LABELS = {
-  Tournament: "Tournament directors",
-  College: "College coaches",
-  Organization: "Club and organization",
+  Tournament: "Tournament",
+  College: "College",
+  Organization: "Organization",
   Other: "Other",
 };
 
@@ -57,8 +57,7 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
         <div>
           <h1>Contacts</h1>
           <div className="page-sub">
-            The people you work with through the season — tournament directors, college coaches
-            and club contacts.
+            Keep tournament directors, college coaches and other season contacts in one place.
           </div>
         </div>
         {canWrite && (
@@ -129,10 +128,20 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
             <p className="field-note">Nobody matches that search.</p>
           ) : (
             <div className="card card-flush">
-              <ul className="contact-list">
-                {visible.map((c) => (
-                  <li key={c.id}>
+              <table className="table contacts-table">
+                <thead>
+                  <tr>
+                    <th className="cc-name">Contact</th>
+                    <th className="cc-role">Role / Organization</th>
+                    <th className="cc-type">Type</th>
+                    <th className="cc-reach">Contact info</th>
+                    <th className="cc-actions" aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((c) => (
                     <ContactRow
+                      key={c.id}
                       c={c}
                       links={usedBy[c.id] ?? []}
                       canWrite={canWrite}
@@ -145,9 +154,9 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
                         run(deleteContact, fd);
                       }}
                     />
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </>
@@ -171,39 +180,52 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
 }
 
 function ContactRow({ c, links, canWrite, pending, onEdit, onDelete }) {
-  const meta = [c.title, c.organization_or_school].filter(Boolean).join(" · ");
+  const role = [c.title, c.organization_or_school].filter(Boolean).join(" \u00b7 ");
 
   return (
-    <div className="contact-row">
-      <div className="contact-row-main">
+    <tr>
+      <td className="cc-name">
         <span className="cell-name">{c.full_name}</span>
-        {meta && <span className="contact-row-sub">{meta}</span>}
+      </td>
 
-        {/* Only the relationships the schema supports. */}
+      <td className="cc-role">
+        {role || <span className="muted">&mdash;</span>}
+
+        {/* The tournament is context for the role, not part of the person's
+            name — so it sits under the organization, quieter. */}
         {links.length > 0 && (
-          <span className="contact-row-links">
+          <span className="cc-links">
             {links.map((l) => (
-              <a key={`${l.kind}-${l.id}`} href={l.href}>
-                {l.label}
-              </a>
+              <a key={`${l.kind}-${l.id}`} href={l.href}>{l.label}</a>
             ))}
           </span>
         )}
-      </div>
+      </td>
 
-      <span className="contact-row-type">{CATEGORY_LABELS[c.contact_category] ?? c.contact_category}</span>
+      <td className="cc-type">
+        <span className="cc-badge">{CATEGORY_LABELS[c.contact_category] ?? c.contact_category}</span>
+      </td>
 
-      <div className="contact-row-reach">
-        {c.phone && <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a>}
-        {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
-      </div>
+      <td className="cc-reach">
+        {c.phone || c.email ? (
+          <>
+            {c.phone && <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a>}
+            {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
+          </>
+        ) : (
+          /* Keeps the column aligned when a contact has neither. */
+          <span className="muted">&mdash;</span>
+        )}
+      </td>
 
-      {canWrite && (
-        <div className="contact-row-actions">
-          <button className="btn btn-ghost" onClick={onEdit} disabled={pending}>Edit</button>
-          <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Remove</button>
-        </div>
-      )}
-    </div>
+      <td className="cc-actions">
+        {canWrite && (
+          <div className="cc-action-row">
+            <button className="btn btn-ghost" onClick={onEdit} disabled={pending}>Edit</button>
+            <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Remove</button>
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
