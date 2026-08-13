@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { QAB_REASONS, reasonLabel, formatQab, tallyPlateAppearances } from "../lib/qab-rules";
+import { QAB_REASONS, reasonLabel, tallyPlateAppearances } from "../lib/qab-rules";
 import {
   recordPlateAppearance,
   voidPlateAppearance,
@@ -28,6 +28,14 @@ import { enqueue, flushQueue, queueStatus, newPaId } from "../lib/offline-queue"
  */
 
 const SYNCED = { tone: "ok", text: "All saved" };
+
+/** 1st, 2nd, 3rd… for the batting position line. */
+function ordinal(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
 
 export function TrackerClient({ game, lineup, initialRows, canWrite }) {
   const [rows, setRows] = useState(initialRows ?? []);
@@ -196,70 +204,85 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
         <span className="trk-game">
           vs {game.opponent_name ?? "Opponent"} · {game.tournament?.name ?? "Tournament"}
         </span>
-        <span className="trk-tally">{formatQab(totals.qab, totals.pa)}</span>
+        <span className="trk-tally">
+          <strong>{totals.qabPct == null ? "—" : `${totals.qabPct}%`} QAB</strong>
+          <em>
+            {totals.qab} of {totals.pa} PA
+          </em>
+        </span>
       </header>
 
       <div className="trk-batter">
-        <div className="trk-batter-top">
-          <span className="trk-slot">{cursor + 1}</span>
-          <span className="trk-name">{batter.full_name}</span>
-        </div>
-        <div className="trk-batter-meta">
-          <span className="trk-jersey">
-            {batter.jersey_number != null ? `#${batter.jersey_number}` : "#—"}
-          </span>
+        <p className="trk-batter-eyebrow">Now batting</p>
+        <p className="trk-name">{batter.full_name}</p>
+        <p className="trk-batter-meta">
+          <span>{batter.jersey_number != null ? `#${batter.jersey_number}` : "#—"}</span>
+          <span aria-hidden="true">•</span>
+          <span>Batting {ordinal(cursor + 1)}</span>
+          <span aria-hidden="true">•</span>
+          <span>PA {paNumberFor(batter.player_id)}</span>
           {batter.participation === "pickup" && <span className="tag-pickup">Pickup</span>}
-          <span className="trk-pa">Plate appearance {paNumberFor(batter.player_id)}</span>
+        </p>
+      </div>
+
+      <section className="trk-card">
+        <h2 className="trk-card-h">What made this a Quality At-Bat?</h2>
+        <p className="trk-card-s">Select all that apply.</p>
+
+        <div className="trk-reasons">
+          {QAB_REASONS.map((r) => {
+            const on = selected.includes(r.key);
+            return (
+              <button
+                key={r.key}
+                type="button"
+                className={`trk-reason${on ? " on" : ""}`}
+                aria-pressed={on}
+                onClick={() => toggle(r.key)}
+                disabled={!canWrite}
+              >
+                <span className="trk-reason-check" aria-hidden="true">
+                  {on ? "✓" : ""}
+                </span>
+                <span className="trk-reason-label">{r.label}</span>
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      <div className="trk-prompt">
-        <p className="trk-prompt-q">What made this a Quality At-Bat?</p>
-        <p className="trk-prompt-s">Select all that apply.</p>
-      </div>
-
-      <div className="trk-reasons">
-        {QAB_REASONS.map((r) => (
+        <div className="trk-commit">
           <button
-            key={r.key}
             type="button"
-            className={`trk-reason${selected.includes(r.key) ? " on" : ""}`}
-            aria-pressed={selected.includes(r.key)}
-            onClick={() => toggle(r.key)}
+            className="trk-save"
+            onClick={() => commit(selected)}
+            disabled={!canWrite || selected.length === 0}
+          >
+            Record QAB
+          </button>
+          <button
+            type="button"
+            className="trk-noqab"
+            onClick={() => commit([])}
             disabled={!canWrite}
           >
-            {r.label}
+            No QAB
           </button>
-        ))}
-      </div>
+        </div>
+      </section>
 
-      <div className="trk-commit">
-        <button
-          type="button"
-          className="trk-noqab"
-          onClick={() => commit([])}
-          disabled={!canWrite}
-        >
-          No QAB
-        </button>
-        <button
-          type="button"
-          className="trk-save"
-          onClick={() => commit(selected)}
-          disabled={!canWrite || selected.length === 0}
-        >
-          Record QAB
-        </button>
-      </div>
-
-      <div className="trk-undo">
-        <button type="button" onClick={undo} disabled={!lastLive || !canWrite}>
-          {lastLive ? `Undo ${nameOf(lastLive.player_id)} PA ${lastLive.pa_number}` : "Nothing to undo"}
-        </button>
-      </div>
+      {lastLive && (
+        <div className="trk-last">
+          <span className="trk-last-text">
+            Last recorded: <strong>{nameOf(lastLive.player_id)}</strong> • PA {lastLive.pa_number}
+          </span>
+          <button type="button" className="trk-last-undo" onClick={undo} disabled={!canWrite}>
+            Undo
+          </button>
+        </div>
+      )}
 
       <section className="trk-history">
-        <h2>This game ({live.length} PA)</h2>
+        <h2 className="trk-history-h">This game <span>({live.length} PA)</span></h2>
         {live.length === 0 ? (
           <p className="trk-none">No plate appearances recorded yet.</p>
         ) : (
@@ -274,16 +297,20 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
                     onClick={() => setCorrecting(r)}
                     disabled={!canWrite}
                   >
-                    <span className="trk-hist-name">
-                      {nameOf(r.player_id)} · PA {r.pa_number}
+                    <span className="trk-hist-top">
+                      <span className="trk-hist-name">{nameOf(r.player_id)}</span>
+                      <span className="trk-hist-pa">PA {r.pa_number}</span>
+                      <span className={`trk-badge${r.is_qab ? " qab" : ""}`}>
+                        {r.is_qab ? "QAB" : "No QAB"}
+                      </span>
                     </span>
-                    <span className={`trk-hist-tag${r.is_qab ? " qab" : ""}`}>
-                      {/* Reason names, never a count. Several reasons describe one
-                          quality at bat; a number here read as several QABs. */}
-                      {r.is_qab
-                        ? `QAB • ${r.qab_reasons.map(reasonLabel).join(", ")}`
-                        : "No QAB"}
-                    </span>
+                    {/* Reason names, never a count. Several reasons describe one
+                        quality at bat; a number here read as several QABs. */}
+                    {r.is_qab && (
+                      <span className="trk-hist-reasons">
+                        {r.qab_reasons.map(reasonLabel).join(" • ")}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -313,30 +340,36 @@ function CorrectionPanel({ row, name, onCancel, onApply }) {
     setReasons((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
 
   return (
-    <section className="trk-correct">
-      <h2>
+    <section className="trk-card trk-correct">
+      <h2 className="trk-card-h">
         Correct {name} · PA {row.pa_number}
       </h2>
       <p className="trk-prompt-s">Select all that apply. Several reasons still count as one QAB.</p>
       <div className="trk-reasons">
-        {QAB_REASONS.map((r) => (
-          <button
-            key={r.key}
-            type="button"
-            className={`trk-reason${reasons.includes(r.key) ? " on" : ""}`}
-            aria-pressed={reasons.includes(r.key)}
-            onClick={() => toggle(r.key)}
-          >
-            {r.label}
-          </button>
-        ))}
+        {QAB_REASONS.map((r) => {
+          const on = reasons.includes(r.key);
+          return (
+            <button
+              key={r.key}
+              type="button"
+              className={`trk-reason${on ? " on" : ""}`}
+              aria-pressed={on}
+              onClick={() => toggle(r.key)}
+            >
+              <span className="trk-reason-check" aria-hidden="true">
+                {on ? "✓" : ""}
+              </span>
+              <span className="trk-reason-label">{r.label}</span>
+            </button>
+          );
+        })}
       </div>
       <div className="trk-commit">
-        <button type="button" className="trk-noqab" onClick={onCancel}>
-          Cancel
-        </button>
         <button type="button" className="trk-save" onClick={() => onApply(reasons)}>
           Save correction
+        </button>
+        <button type="button" className="trk-noqab" onClick={onCancel}>
+          Cancel
         </button>
       </div>
       <p className="trk-hint">
