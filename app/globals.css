@@ -3244,3 +3244,40 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .txn-table th:nth-child(3),
   .txn-table td:nth-child(3) { display: none; }
 }
+
+/* ===== At the field =====
+   What a coach needs between pulling into the complex and reaching the right
+   field. Renders only while an event is happening or imminent, so the drawer
+   is unchanged on every other day. Deliberately not a card — it is the first
+   thing read on arrival, not a panel to scan. */
+.at-field {
+  padding: 12px 14px; margin-bottom: 14px;
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+.at-field-label {
+  font-family: var(--font-display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate);
+  margin: 0 0 6px;
+}
+.at-field-name {
+  font-family: var(--font-display); font-size: 15px; font-weight: 800;
+  color: var(--navy); margin: 0;
+}
+.at-field-address { font-size: 13px; color: var(--slate); margin: 2px 0 0; line-height: 1.45; }
+.at-field-go { margin-top: 10px; display: inline-flex; align-items: center; }
+
+.at-field-note {
+  margin: 10px 0 0; font-size: 13px; color: var(--navy); line-height: 1.5;
+}
+.at-field-note span {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--slate);
+  display: block;
+}
+
+@media (max-width: 720px) {
+  /* One tap target, full width, thumb-reachable. */
+  .at-field-go { width: 100%; justify-content: center; min-height: 44px; }
+}

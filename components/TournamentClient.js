@@ -98,7 +98,7 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [] }) {
+export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {} }) {
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
@@ -391,6 +391,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
           contacts={contacts}
           budgetContext={budgetLines.find((b) => b.id === detail.budget_item_id) ?? null}
           budgetLines={budgetLines}
+          arrivalNotes={arrivalNotes}
           providerContactIds={
             // Contacts already used for other events by the same provider.
             // Suggested, never applied automatically.
@@ -461,7 +462,67 @@ function Row({ label, value }) {
   );
 }
 
-export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [] }) {
+/**
+ * A directions URL for a facility.
+ *
+ * maps_link when the facility has one — 51 of 179 do. Otherwise a maps search
+ * built from the address, which is better than nothing and correct for the
+ * other 128. Neither available means no button rather than a dead one.
+ */
+function directionsUrl(f) {
+  if (!f) return null;
+  if (f.maps_link) return f.maps_link;
+
+  const parts = [f.street_address, f.city, f.state, f.zip].filter(Boolean);
+  if (parts.length === 0) return null;
+
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(parts.join(", "))}`;
+}
+
+/**
+ * What a coach needs between pulling into the complex and reaching the right
+ * field. Nothing else — concessions, restrooms and surface stay in Facility
+ * details.
+ *
+ * Renders only while the event is happening or imminent, so the drawer is
+ * unchanged on every other day of a tournament's life.
+ */
+function AtTheField({ facility, notes, phase, startsInDays }) {
+  const imminent = phase === "during" || (phase === "upcoming" && startsInDays != null && startsInDays <= 2);
+  if (!imminent || !facility) return null;
+
+  const url = directionsUrl(facility);
+  const address = [facility.street_address, facility.city, facility.state, facility.zip]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <section className="at-field">
+      <p className="at-field-label">At the field</p>
+      <p className="at-field-name">{facility.name}</p>
+      {address && <p className="at-field-address">{address}</p>}
+
+      {url && (
+        <a className="btn btn-primary at-field-go" href={url} target="_blank" rel="noreferrer">
+          Directions
+        </a>
+      )}
+
+      {notes?.parking && (
+        <p className="at-field-note">
+          <span>Parking</span> {notes.parking}
+        </p>
+      )}
+      {notes?.entry && (
+        <p className="at-field-note">
+          <span>Entry</span> {notes.entry}
+        </p>
+      )}
+    </section>
+  );
+}
+
+export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -702,6 +763,13 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
           >
             {/* Compact budget context. Deliberately four short lines — the
                 drawer is not a Finance page. */}
+            <AtTheField
+              facility={t.facility}
+              notes={arrivalNotes?.[t.facility?.id]}
+              phase={phase}
+              startsInDays={daysUntil(t.start_date)}
+            />
+
             {linkError && <div className="alert alert-error">{linkError}</div>}
 
             {!budgetContext && t.decision === "Committed" && canWrite && (

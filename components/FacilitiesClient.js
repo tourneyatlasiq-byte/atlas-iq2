@@ -826,14 +826,6 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
             <Row label="Address" value={address || null} />
             <Row label="County" value={f.county} />
             <Row
-              label="Phone"
-              value={
-                f.phone ? (
-                  <a className="link" href={`tel:${f.phone.replace(/[^\d+]/g, "")}`}>{f.phone}</a>
-                ) : null
-              }
-            />
-            <Row
               label="Website"
               value={
                 f.website ? (

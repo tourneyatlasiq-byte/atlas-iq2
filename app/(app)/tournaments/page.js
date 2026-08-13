@@ -10,6 +10,7 @@ import { documentsByEntity, documentTargets } from "../../../lib/queries/documen
 import { participantsBySeason, pickupCandidates } from "../../../lib/queries/participants";
 import { listSeasonRoster } from "../../../lib/queries/roster";
 import { listContacts } from "../../../lib/queries/contacts";
+import { arrivalNotesByFacility } from "../../../lib/queries/facilities";
 import { listBudgetItems, listTransactions } from "../../../lib/queries/finance";
 import { budgetLineFinance } from "../../../lib/finance-rules";
 import { TournamentClient } from "../../../components/TournamentClient";
@@ -42,7 +43,8 @@ export default async function TournamentsPage({ searchParams }) {
 
   // Budget context for the drawer: each expense line with its committed and
   // available figures, computed by the same rule Finance uses.
-  const [budgetItems, budgetTxns] = await Promise.all([
+  const [arrivalNotes, budgetItems, budgetTxns] = await Promise.all([
+    arrivalNotesByFacility(organization.id),
     listBudgetItems(season.id),
     listTransactions(season.id),
   ]);
@@ -97,6 +99,7 @@ export default async function TournamentsPage({ searchParams }) {
       playerDocuments={playerDocs}
       contacts={await listContacts(organization.id)}
       budgetLines={budgetLines}
+      arrivalNotes={arrivalNotes}
       autoOpen={(await searchParams)?.add === "1"}
     />
     </>
