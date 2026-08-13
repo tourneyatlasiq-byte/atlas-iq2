@@ -25,10 +25,36 @@ const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "UTIL", "
 const SIZES = ["YS", "YM", "YL", "AS", "AM", "AL", "AXL"];
 const PERSON_TYPES = [
   { value: "player", label: "Player" },
-  { value: "coach", label: "Coach" },
-  { value: "manager", label: "Manager" },
-  { value: "other", label: "Other" },
+  { value: "staff", label: "Staff" },
 ];
+
+/**
+ * Travel-team staff roles, stored with the existing columns.
+ *
+ * person_type stays structural — it is what every query and permission check
+ * already reads. other_role_label carries the specific title, which is the
+ * field that was in the schema and never editable.
+ *
+ * Team role is not application access. A Team Parent listed here gets no
+ * Season Tempo login; that lives on profiles.role.
+ */
+const STAFF_ROLES = [
+  { value: "Head Coach", type: "coach" },
+  { value: "Assistant Coach", type: "coach" },
+  { value: "Team Manager", type: "manager" },
+  { value: "Team Parent", type: "other" },
+  { value: "Treasurer", type: "other" },
+  { value: "Recruiting Coordinator", type: "other" },
+  { value: "Other", type: "other" },
+];
+
+/** The role to show for any non-player, most specific first. */
+function staffRole(p) {
+  if (p?.other_role_label) return p.other_role_label;
+  if (p?.person_type === "manager") return "Team Manager";
+  if (p?.person_type === "coach") return "Coach";
+  return "Staff";
+}
 const THROWS = ["R", "L"];
 const BATS = ["R", "L", "S"];
 
@@ -395,9 +421,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
               {visible.map((row) => {
                 const p = row.player ?? {};
                 const isStaff = (p.person_type ?? "player") !== "player";
-                const roleName = p.person_type === "other"
-                  ? p.other_role_label ?? "Staff"
-                  : typeLabel(p.person_type);
+                const roleName = staffRole(p);
                 return (
                   <tr
                     key={row.id}
@@ -582,9 +606,15 @@ function Row({ label, value }) {
 export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
   const p = row.player ?? {};
 
+  // One record type, two very different people. A coach has no jersey number,
+  // no guardian and no college interest, so the drawer asks what kind of
+  // member this is rather than showing athlete fields to everyone.
+  const isPlayer = (p.person_type ?? "player") === "player";
+  const memberNoun = isPlayer ? "player" : p.person_type === "manager" ? "manager" : "coach";
+
   // A section with nothing in it is noise. These stay editable either way.
   const hasContact = Boolean(
-    p.player_email || p.player_phone || p.parent_name || p.parent_email || p.parent_phone
+    p.player_email || p.player_phone || (isPlayer && (p.parent_name || p.parent_email || p.parent_phone))
   );
   const hasUniform = Boolean(row.jersey_size || row.pants_size);
 
@@ -642,6 +672,14 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
 
           {/* Player Information — empty read-only fields are suppressed
               rather than shown as em-dashes. They stay available in Edit. */}
+          {!isPlayer && (
+            <Section title="Team Role">
+              <Row label="Name" value={p.full_name} />
+              <Row label="Role" value={staffRole(p)} />
+            </Section>
+          )}
+
+          {isPlayer && (
           <Section title="Player Information">
             <Row label="Name" value={p.full_name} />
             {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
@@ -657,17 +695,51 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             {p.throws && <Row label="Throws" value={p.throws} />}
             {p.bats && <Row label="Bats" value={p.bats} />}
           </Section>
+          )}
 
           {hasContact && (
             <Section title="Contact Information">
-              {p.player_email && <Row label="Player email" value={p.player_email} />}
-              {p.player_phone && <Row label="Player phone" value={p.player_phone} />}
-              {p.parent_name && <Row label="Parent / guardian" value={p.parent_name} />}
-              {p.parent_email && <Row label="Parent email" value={p.parent_email} />}
-              {p.parent_phone && <Row label="Parent phone" value={p.parent_phone} />}
+              {/* Reachable, not just readable — a coach standing at a field
+                  should be able to tap rather than transcribe. */}
+              {p.player_email && (
+                <Row
+                  label={isPlayer ? "Player email" : "Email"}
+                  value={<a className="link" href={`mailto:${p.player_email}`}>{p.player_email}</a>}
+                />
+              )}
+              {p.player_phone && (
+                <Row
+                  label={isPlayer ? "Player phone" : "Phone"}
+                  value={
+                    <a className="link" href={`tel:${p.player_phone.replace(/[^\d+]/g, "")}`}>
+                      {p.player_phone}
+                    </a>
+                  }
+                />
+              )}
+
+              {/* Guardian details belong to a minor, never to staff. */}
+              {isPlayer && p.parent_name && <Row label="Parent / guardian" value={p.parent_name} />}
+              {isPlayer && p.parent_email && (
+                <Row
+                  label="Parent email"
+                  value={<a className="link" href={`mailto:${p.parent_email}`}>{p.parent_email}</a>}
+                />
+              )}
+              {isPlayer && p.parent_phone && (
+                <Row
+                  label="Parent phone"
+                  value={
+                    <a className="link" href={`tel:${p.parent_phone.replace(/[^\d+]/g, "")}`}>
+                      {p.parent_phone}
+                    </a>
+                  }
+                />
+              )}
             </Section>
           )}
 
+          {isPlayer && (
           <PlayerRecruiting
             playerId={playerId ?? row.player_id ?? row.id}
             links={recruiting.links}
@@ -675,8 +747,9 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             contacts={contacts}
             canWrite={canWrite}
           />
+          )}
 
-          {hasUniform && (
+          {isPlayer && hasUniform && (
             <Section title="Uniform">
               {row.jersey_size && <Row label="Jersey size" value={row.jersey_size} />}
               {row.pants_size && <Row label="Pants size" value={row.pants_size} />}
@@ -689,6 +762,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </Section>
           )}
 
+          {isPlayer && (
           <DocumentSection
             documents={row.documents ?? []}
             lockTo={{ kind: "player", id: p.id, label: p.full_name }}
@@ -697,6 +771,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             isAdmin={isAdmin}
             seasonName={seasonName}
           />
+          )}
 
           {/* Roster status sits last: active/inactive is already in the header,
               so this is where you act on it, not where you learn it. */}
@@ -739,7 +814,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               </button>
             </div>
             <button className="btn btn-danger-ghost btn-block" onClick={onDeleteForever} disabled={pending}>
-              Delete player permanently
+              Delete permanently
             </button>
           </div>
         )}
@@ -840,8 +915,19 @@ function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, on
 export function PlayerForm({ row, pending, onSubmit, onCancel }) {
   const p = row?.player ?? {};
   const isNew = !row;
-  const [type, setType] = useState(p.person_type ?? "player");
+  const [type, setType] = useState((p.person_type ?? "player") === "player" ? "player" : "staff");
   const isPlayer = type === "player";
+
+  // Which of the seven roles is selected. An existing custom title falls back
+  // to "Other" so it stays editable.
+  const [staffRoleChoice, setStaffRoleChoice] = useState(() => {
+    const existing = p.other_role_label;
+    if (existing && STAFF_ROLES.some((r) => r.value === existing)) return existing;
+    if (existing) return "Other";
+    if (p.person_type === "manager") return "Team Manager";
+    if (p.person_type === "coach") return "Head Coach";
+    return "Head Coach";
+  });
   const [positions, setPositions] = useState(row?.positions ?? []);
 
   function togglePosition(pos) {
@@ -872,18 +958,59 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
               <div className="field field-narrow">
                 <label htmlFor="person_type">Type</label>
-                <select id="person_type" name="person_type" value={type} onChange={(e) => setType(e.target.value)}>
+                <select id="person_type" value={type} onChange={(e) => setType(e.target.value)}>
                   {PERSON_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+
+                {/* The structural value the schema stores. Derived from the
+                    role so the CHECK constraint never sees anything new. */}
+                <input
+                  type="hidden"
+                  name="person_type"
+                  value={
+                    isPlayer
+                      ? "player"
+                      : STAFF_ROLES.find((r) => r.value === staffRoleChoice)?.type ?? "other"
+                  }
+                />
+                {!isPlayer && staffRoleChoice !== "Other" && (
+                  <input type="hidden" name="other_role_label" value={staffRoleChoice} />
+                )}
               </div>
             </div>
 
-            {type === "other" && (
-              <div className="field">
-                <label htmlFor="other_role_label">Role</label>
-                <input id="other_role_label" name="other_role_label" placeholder="e.g. Team parent"
-                       defaultValue={p.other_role_label ?? ""} />
-              </div>
+            {!isPlayer && (
+              <>
+                <div className="field">
+                  <label htmlFor="staff_role">Role</label>
+                  <select
+                    id="staff_role"
+                    name="staff_role"
+                    value={staffRoleChoice}
+                    onChange={(e) => setStaffRoleChoice(e.target.value)}
+                  >
+                    {STAFF_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.value}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {staffRoleChoice === "Other" && (
+                  <div className="field">
+                    <label htmlFor="other_role_label">Role title</label>
+                    <input
+                      id="other_role_label"
+                      name="custom_role"
+                      placeholder="e.g. Equipment Manager"
+                      defaultValue={
+                        STAFF_ROLES.some((r) => r.value === p.other_role_label)
+                          ? ""
+                          : p.other_role_label ?? ""
+                      }
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {/* Player-only fields. A coach has no jersey number, grad year or
