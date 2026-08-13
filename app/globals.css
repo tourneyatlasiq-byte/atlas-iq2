@@ -3509,3 +3509,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .lineup-panel { padding: 14px 16px; }
   .lineup-track { display: inline-block; padding: 0 28px; }
 }
+
+/* Previous-lineup offer. The common case is four or five games a weekend with
+   one to three changes each, so this is the loudest thing on an empty order. */
+.lineup-copy { border: 2px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 18px; }
+.lineup-copy-h { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+.lineup-copy-src { font-size: 14px; color: var(--muted); margin: 0 0 14px; }
+.lineup-copy .btn-lg { width: 100%; min-height: 56px; font-size: 17px; }
+@media (min-width: 900px) { .lineup-copy .btn-lg { width: auto; min-width: 260px; } }

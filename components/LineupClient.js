@@ -45,9 +45,15 @@ export function LineupClient({
 }) {
   const [order, setOrder] = useState(() => initialLineup.map((s) => s.player_id));
   const [dirty, setDirty] = useState(false);
+  // Display data for players copied from a previous game who are not
+  // participants in this tournament, so their names still render.
+  const [copiedMeta, setCopiedMeta] = useState([]);
   const { error, notice, pending, run, setError } = useActionFeedback();
 
   const byId = new Map(availablePlayers.map((p) => [p.player_id, p]));
+  for (const s of copiedMeta) {
+    if (!byId.has(s.player_id)) byId.set(s.player_id, s);
+  }
   for (const s of initialLineup) {
     if (!byId.has(s.player_id)) {
       byId.set(s.player_id, {
@@ -84,10 +90,17 @@ export function LineupClient({
       success: (r) => r.notice,
     });
 
+  // Copying writes the rows server-side, so the page shows the populated order
+  // straight away with nothing pending. The coach then makes the usual one to
+  // three changes, which is what marks it dirty and brings Save back.
   const copy = () =>
     run(() => copyPreviousLineup(game.id), null, {
       onDone: (r) => {
-        if (r.copied > 0) window.location.reload();
+        if (r.copied > 0) {
+          setCopiedMeta(r.order ?? []);
+          setOrder((r.order ?? []).map((s) => s.player_id));
+          setDirty(false);
+        }
       },
       success: (r) => r.notice,
     });
@@ -126,16 +139,18 @@ export function LineupClient({
 
       {order.length === 0 && previousLineup && canWrite && (
         <div className="lineup-copy">
-          <p>
-            The most recent lineup was <strong>vs {previousLineup.opponent_name}</strong>
-            {previousLineup.game_date && ` on ${fmtDate(previousLineup.game_date)}`}.
+          <h2 className="lineup-copy-h">Start from previous lineup?</h2>
+          <p className="lineup-copy-src">
+            vs {previousLineup.opponent_name}
+            {previousLineup.game_date && ` · ${fmtDate(previousLineup.game_date)}`}
+            {previousLineup.batters ? ` · ${previousLineup.batters} batters` : ""}
           </p>
           <button type="button" className="btn-primary btn-lg" onClick={copy} disabled={pending}>
             Use Previous Lineup
           </button>
           <p className="lineup-hint">
-            Copies the players and order only. Jersey numbers come from this tournament, and you
-            can make changes before saving.
+            Copies players and order only — jersey numbers come from this tournament. Archived
+            players are left out. You can make changes before saving.
           </p>
         </div>
       )}
