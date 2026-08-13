@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import Link from "next/link";
 import { saveGame, deleteGame } from "../lib/actions/games";
 import { GAME_TYPES, isFutureGame, recordFrom } from "../lib/game-rules";
 
@@ -146,6 +147,12 @@ export function GamesSection({ tournament, games, canWrite, onChanged, openSigna
 
                   {canWrite && (
                     <span className="game-actions">
+                      <Link
+                        className="btn btn-ghost"
+                        href={`/tournaments/${tournament.id}/games/${g.id}/lineup`}
+                      >
+                        Set lineup
+                      </Link>
                       <button className="btn btn-ghost" onClick={() => setEditing(g)} disabled={pending}>
                         Edit
                       </button>

@@ -3361,3 +3361,50 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .cc-action-row { justify-content: flex-start; margin-top: 8px; }
   .cc-action-row .btn { min-height: 36px; padding: 6px 12px; }
 }
+
+/* ---------------------------------------------------------------------------
+   QAB batting order
+   One component, two form factors. Below 900px the panels stack and the
+   controls are sized for a thumb outdoors; above it they sit side by side so a
+   coach entering games retrospectively can see the roster and the order at
+   once. Tap targets stay 52px in both — a desktop mouse is not harmed by a
+   generous target, and shrinking them would mean two behaviours to maintain.
+--------------------------------------------------------------------------- */
+
+.lineup { max-width: var(--page-max); margin: 0 auto; }
+.lineup-head { margin-bottom: 16px; }
+.lineup-eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 2px; }
+.lineup-head h1 { font-size: 22px; margin: 0 0 4px; }
+.lineup-context { font-size: 14px; color: var(--muted); margin: 0; }
+
+.lineup-copy { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.lineup-copy p { margin: 0 0 12px; font-size: 14px; }
+.lineup-hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+
+.lineup-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.lineup-panel { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.lineup-panel h2 { font-size: 15px; margin: 0 0 10px; }
+.lineup-empty { font-size: 14px; color: var(--muted); margin: 4px 0; }
+
+.lineup-slots { list-style: none; margin: 0; padding: 0; }
+.slot { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.slot:last-child { border-bottom: 0; }
+.slot-num { flex: 0 0 34px; height: 34px; border-radius: 8px; background: var(--chip); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; }
+.slot-name { flex: 1 1 auto; font-size: 16px; }
+.slot-controls { display: flex; gap: 6px; }
+.slot-controls button { min-width: 52px; min-height: 52px; font-size: 17px; border: 1px solid var(--line); border-radius: 10px; background: transparent; cursor: pointer; }
+.slot-controls button:disabled { opacity: .35; cursor: default; }
+
+.lineup-bench { list-style: none; margin: 0; padding: 0; }
+.lineup-bench li { margin-bottom: 8px; }
+.bench-add { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; font-size: 16px; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: transparent; cursor: pointer; }
+.bench-add:disabled { opacity: .5; cursor: default; }
+.bench-plus { font-size: 20px; color: var(--muted); }
+
+.lineup-actions { margin-top: 18px; }
+.lineup-actions .btn-lg { width: 100%; min-height: 52px; font-size: 16px; }
+
+@media (min-width: 900px) {
+  .lineup-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .lineup-actions .btn-lg { width: auto; min-width: 220px; }
+}
