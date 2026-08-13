@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { QAB_REASONS, formatQab, tallyPlateAppearances } from "../lib/qab-rules";
+import { QAB_REASONS, reasonLabel, formatQab, tallyPlateAppearances } from "../lib/qab-rules";
 import {
   recordPlateAppearance,
   voidPlateAppearance,
@@ -200,12 +200,22 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
       </header>
 
       <div className="trk-batter">
-        <span className="trk-slot">{cursor + 1}</span>
-        <span className="trk-name">
-          {batter.jersey_number != null ? `#${batter.jersey_number} ` : ""}
-          {batter.full_name}
-        </span>
-        <span className="trk-pa">PA {paNumberFor(batter.player_id)}</span>
+        <div className="trk-batter-top">
+          <span className="trk-slot">{cursor + 1}</span>
+          <span className="trk-name">{batter.full_name}</span>
+        </div>
+        <div className="trk-batter-meta">
+          <span className="trk-jersey">
+            {batter.jersey_number != null ? `#${batter.jersey_number}` : "#—"}
+          </span>
+          {batter.participation === "pickup" && <span className="tag-pickup">Pickup</span>}
+          <span className="trk-pa">Plate appearance {paNumberFor(batter.player_id)}</span>
+        </div>
+      </div>
+
+      <div className="trk-prompt">
+        <p className="trk-prompt-q">What made this a Quality At-Bat?</p>
+        <p className="trk-prompt-s">Select all that apply.</p>
       </div>
 
       <div className="trk-reasons">
@@ -238,7 +248,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           onClick={() => commit(selected)}
           disabled={!canWrite || selected.length === 0}
         >
-          Save PA
+          Record QAB
         </button>
       </div>
 
@@ -268,7 +278,11 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
                       {nameOf(r.player_id)} · PA {r.pa_number}
                     </span>
                     <span className={`trk-hist-tag${r.is_qab ? " qab" : ""}`}>
-                      {r.is_qab ? `QAB · ${r.qab_reasons.length}` : "No QAB"}
+                      {/* Reason names, never a count. Several reasons describe one
+                          quality at bat; a number here read as several QABs. */}
+                      {r.is_qab
+                        ? `QAB • ${r.qab_reasons.map(reasonLabel).join(", ")}`
+                        : "No QAB"}
                     </span>
                   </button>
                 </li>
@@ -303,6 +317,7 @@ function CorrectionPanel({ row, name, onCancel, onApply }) {
       <h2>
         Correct {name} · PA {row.pa_number}
       </h2>
+      <p className="trk-prompt-s">Select all that apply. Several reasons still count as one QAB.</p>
       <div className="trk-reasons">
         {QAB_REASONS.map((r) => (
           <button

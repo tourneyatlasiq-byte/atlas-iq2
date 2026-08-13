@@ -3468,3 +3468,44 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .trk { max-width: 640px; }
   .trk-reasons { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* --- QAB UX patch: batting order + tracker hierarchy ---------------------- */
+
+.lineup-head h1 { font-size: 24px; margin: 0 0 6px; }
+.lineup-intro { font-size: 14px; line-height: 1.5; margin: 0 0 6px; max-width: 46em; }
+.lineup-h2 { display: flex; align-items: center; gap: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 8px; margin: 0 0 10px; }
+.lineup-h2 span { font-size: 12px; background: var(--chip); border-radius: 999px; padding: 2px 8px; letter-spacing: 0; }
+
+/* Order number, identity and controls read as one row. */
+.slot { gap: 8px; padding: 4px 0; }
+.slot-id { flex: 1 1 auto; display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.slot-jersey { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); min-width: 3.1em; }
+.slot-name { flex: 1 1 auto; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-controls { gap: 0; }
+.slot-controls button { border-radius: 0; margin-left: -1px; }
+.slot-controls button:first-child { border-radius: 10px 0 0 10px; margin-left: 0; }
+.slot-controls button:last-child { border-radius: 0 10px 10px 0; }
+
+.tag-pickup { flex: 0 0 auto; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: #7a5200; background: #fff4d9; border-radius: 999px; padding: 2px 7px; }
+
+.lineup-saved { font-size: 14px; font-weight: 600; color: #1b5e34; margin: 0 0 10px; }
+.lineup-track { display: block; text-align: center; text-decoration: none; min-height: 56px; line-height: 56px; font-size: 17px; font-weight: 700; border-radius: 12px; background: #0b2341; color: #fff; }
+
+/* Tracker: batter is the loudest thing on screen. */
+.trk-batter { display: block; }
+.trk-batter-top { display: flex; align-items: center; gap: 12px; }
+.trk-name { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.trk-batter-meta { display: flex; align-items: center; gap: 10px; margin: 8px 0 0 56px; }
+.trk-jersey { font-size: 15px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trk-pa { font-size: 15px; font-weight: 600; }
+
+.trk-prompt { margin: 0 0 10px; }
+.trk-prompt-q { font-size: 16px; font-weight: 700; margin: 0; }
+.trk-prompt-s { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
+
+.trk-hist-tag { max-width: 62%; text-align: right; white-space: normal; line-height: 1.3; }
+
+@media (min-width: 900px) {
+  .lineup-panel { padding: 14px 16px; }
+  .lineup-track { display: inline-block; padding: 0 28px; }
+}

@@ -92,15 +92,22 @@ export function LineupClient({
       success: (r) => r.notice,
     });
 
-  const label = (p) =>
-    p.jersey_number != null ? `#${p.jersey_number} ${p.full_name}` : p.full_name;
+  // Jersey is tournament-specific display data. A pickup without a number for
+  // this event shows "#—" so the column still lines up — a blank reads as a
+  // rendering fault rather than a fact about the player.
+  const jersey = (p) => (p.jersey_number != null ? `#${p.jersey_number}` : "#—");
+  const isPickup = (p) => p.participation === "pickup";
 
   return (
     <div className="lineup">
       <header className="lineup-head">
-        <p className="lineup-eyebrow">Batting order</p>
-        <h1>vs {game.opponent_name ?? "Opponent"}</h1>
+        <h1>Set Batting Order</h1>
+        <p className="lineup-intro">
+          Set the batting order for this game. QAB tracking will automatically move through
+          players in this order.
+        </p>
         <p className="lineup-context">
+          vs {game.opponent_name ?? "Opponent"} ·{" "}
           {game.tournament?.name ?? "Tournament"}
           {game.game_date && ` · ${fmtDate(game.game_date)}`}
           {game.start_time && ` · ${fmtTime(game.start_time)}`}
@@ -124,15 +131,18 @@ export function LineupClient({
             {previousLineup.game_date && ` on ${fmtDate(previousLineup.game_date)}`}.
           </p>
           <button type="button" className="btn-primary btn-lg" onClick={copy} disabled={pending}>
-            Copy previous lineup
+            Use Previous Lineup
           </button>
-          <p className="lineup-hint">You can adjust the order afterwards.</p>
+          <p className="lineup-hint">
+            Copies the players and order only. Jersey numbers come from this tournament, and you
+            can make changes before saving.
+          </p>
         </div>
       )}
 
       <div className="lineup-cols">
         <section className="lineup-panel">
-          <h2>Batting order ({order.length})</h2>
+          <h2 className="lineup-h2">Batting Order <span>{order.length}</span></h2>
 
           {order.length === 0 ? (
             <p className="lineup-empty">
@@ -145,7 +155,11 @@ export function LineupClient({
                 return (
                   <li key={playerId} className="slot">
                     <span className="slot-num">{i + 1}</span>
-                    <span className="slot-name">{label(p)}</span>
+                    <span className="slot-id">
+                      <span className="slot-jersey">{jersey(p)}</span>
+                      <span className="slot-name">{p.full_name}</span>
+                      {isPickup(p) && <span className="tag-pickup">Pickup</span>}
+                    </span>
                     <span className="slot-controls">
                       <button
                         type="button"
@@ -180,7 +194,7 @@ export function LineupClient({
         </section>
 
         <section className="lineup-panel">
-          <h2>Available ({bench.length})</h2>
+          <h2 className="lineup-h2">Available Players <span>{bench.length}</span></h2>
 
           {bench.length === 0 ? (
             <p className="lineup-empty">
@@ -198,7 +212,11 @@ export function LineupClient({
                     onClick={() => add(p.player_id)}
                     disabled={!canWrite || pending}
                   >
-                    <span>{label(p)}</span>
+                    <span className="slot-id">
+                      <span className="slot-jersey">{jersey(p)}</span>
+                      <span className="slot-name">{p.full_name}</span>
+                      {isPickup(p) && <span className="tag-pickup">Pickup</span>}
+                    </span>
                     <span className="bench-plus" aria-hidden="true">
                       +
                     </span>
@@ -212,21 +230,20 @@ export function LineupClient({
 
       {canWrite && (
         <div className="lineup-actions">
-          <button
-            type="button"
-            className="btn-primary btn-lg"
-            onClick={save}
-            disabled={pending || !dirty}
-          >
-            {pending ? "Saving…" : dirty ? "Save lineup" : "Saved"}
-          </button>
+          {dirty ? (
+            <button type="button" className="btn-primary btn-lg" onClick={save} disabled={pending}>
+              {pending ? "Saving…" : "Save batting order"}
+            </button>
+          ) : (
+            order.length > 0 && <p className="lineup-saved">✓ Batting order saved</p>
+          )}
 
           {order.length > 0 && !dirty && (
             <a
-              className="btn-primary btn-lg lineup-track"
+              className="lineup-track"
               href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}
             >
-              Track QAB →
+              Start QAB Tracking →
             </a>
           )}
 
