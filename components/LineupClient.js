@@ -157,7 +157,7 @@ export function LineupClient({
 
       <div className="lineup-cols">
         <section className="lineup-panel">
-          <h2 className="lineup-h2">Batting Order <span>{order.length}</span></h2>
+          <h2 className="lineup-h2">Batting Order <span>({order.length})</span></h2>
 
           {order.length === 0 ? (
             <p className="lineup-empty">
@@ -209,7 +209,7 @@ export function LineupClient({
         </section>
 
         <section className="lineup-panel">
-          <h2 className="lineup-h2">Available Players <span>{bench.length}</span></h2>
+          <h2 className="lineup-h2">Available Players <span>({bench.length})</span></h2>
 
           {bench.length === 0 ? (
             <p className="lineup-empty">
@@ -243,29 +243,43 @@ export function LineupClient({
         </section>
       </div>
 
-      {canWrite && (
-        <div className="lineup-actions">
+      {order.length > 0 && previousLineup && !dirty && (
+        <p className="lineup-hint">
+          Clear the order first if you want to copy the previous lineup instead.
+        </p>
+      )}
+
+      {/* Sticky rather than fixed: it follows the coach down an 11-batter list,
+          then settles into the flow at the end so it never sits on top of the
+          last row or the footer. */}
+      {canWrite && order.length > 0 && (
+        <div className={`lineup-bar${dirty ? " is-dirty" : ""}`}>
           {dirty ? (
-            <button type="button" className="btn-primary btn-lg" onClick={save} disabled={pending}>
-              {pending ? "Saving…" : "Save batting order"}
-            </button>
+            <>
+              <span className="lineup-bar-state">
+                Unsaved changes · {order.length} {order.length === 1 ? "batter" : "batters"}
+              </span>
+              <button
+                type="button"
+                className="lineup-bar-action"
+                onClick={save}
+                disabled={pending}
+              >
+                {pending ? "Saving…" : "Save Lineup"}
+              </button>
+            </>
           ) : (
-            order.length > 0 && <p className="lineup-saved">✓ Batting order saved</p>
-          )}
-
-          {order.length > 0 && !dirty && (
-            <a
-              className="lineup-track"
-              href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}
-            >
-              Start QAB Tracking →
-            </a>
-          )}
-
-          {order.length > 0 && previousLineup && (
-            <p className="lineup-hint">
-              Clear the order first if you want to copy the previous lineup instead.
-            </p>
+            <>
+              <span className="lineup-bar-state">
+                ✓ Lineup saved · {order.length} {order.length === 1 ? "batter" : "batters"}
+              </span>
+              <a
+                className="lineup-bar-action"
+                href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}
+              >
+                Start QAB Tracking →
+              </a>
+            </>
           )}
         </div>
       )}

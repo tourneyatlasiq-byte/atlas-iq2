@@ -3517,3 +3517,55 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .lineup-copy-src { font-size: 14px; color: var(--muted); margin: 0 0 14px; }
 .lineup-copy .btn-lg { width: 100%; min-height: 56px; font-size: 17px; }
 @media (min-width: 900px) { .lineup-copy .btn-lg { width: auto; min-width: 260px; } }
+
+/* --- Set Batting Order: tighter rows, persistent next action -------------- */
+
+/* Vertical rhythm. An 11-batter order previously ran ~60px per row; this brings
+   it to ~44px, about 27% shorter, without shrinking a single hit target. */
+.lineup-intro { margin-bottom: 12px; }
+.lineup-head { margin-bottom: 12px; }
+.lineup-copy { margin-bottom: 14px; }
+.lineup-cols { gap: 12px; }
+.lineup-panel { padding: 10px 12px; }
+.lineup-h2 { padding-bottom: 6px; margin-bottom: 4px; }
+
+.slot { padding: 0; gap: 8px; }
+.slot-num { flex: 0 0 30px; height: 30px; font-size: 14px; }
+.slot-name { font-size: 15px; }
+.lineup-bench li { margin-bottom: 6px; }
+.bench-add { min-height: 48px; }
+
+/* The visible control is 44px so rows stay short; ::before restores the full
+   52px touch area, overlapping the row gap rather than the neighbouring
+   button. The tappable region is unchanged from before. */
+.slot-controls button { min-width: 52px; min-height: 44px; position: relative; }
+.slot-controls button::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -4px; bottom: -4px;
+}
+
+/* Persistent next action. Sticky, not fixed: it tracks the viewport bottom
+   while scrolling and then comes to rest in normal flow, so it cannot cover
+   the final batter or the footer on either form factor. */
+.lineup-bar {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; padding: 10px 14px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 -6px 18px rgba(15, 23, 42, .07);
+}
+.lineup-bar-state { font-size: 14px; font-weight: 600; color: #1b5e34; }
+.lineup-bar.is-dirty .lineup-bar-state { color: #7a5200; }
+.lineup-bar-action {
+  flex: 0 0 auto; min-height: 48px; line-height: 48px; padding: 0 20px;
+  border: none; border-radius: 12px; background: #0b2341; color: #fff;
+  font-size: 16px; font-weight: 700; text-decoration: none; text-align: center;
+  cursor: pointer; white-space: nowrap;
+}
+.lineup-bar.is-dirty .lineup-bar-action { background: #7a5200; }
+.lineup-bar-action:disabled { opacity: .5; cursor: default; }
+
+@media (max-width: 520px) {
+  .lineup-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .lineup-bar-action { width: 100%; }
+}
