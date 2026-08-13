@@ -3716,3 +3716,57 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .trk-add-pa:disabled { opacity: .45; cursor: default; }
 
 .trk-correct { margin: 0 0 10px; }
+
+/* --- Finance desktop density -------------------------------------------- */
+/* Spacing, not logic. No calculation, action, tab or term is touched here.
+   Mobile keeps its existing rhythm; everything below 900px is unchanged. */
+
+/* The compact Budget header row. Replaces the old space-between tab-head plus
+   a full-width .reconcile card stacked beneath it — that pairing is what
+   produced the wide empty region between the explanation and the button. */
+.budget-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 16px; margin: 0 0 10px;
+}
+.budget-bar-note { font-size: 13px; color: var(--navy); margin: 0; }
+.budget-bar-note-label { color: var(--slate); }
+.budget-bar-note strong { font-weight: 700; }
+.budget-bar-dot { color: var(--border); }
+.budget-bar-action { flex: 0 0 auto; }
+
+@media (min-width: 900px) {
+  /* Summary block: ~30% shorter through padding and gaps. The 31% hero keeps
+     its weight — it drops 42px -> 38px only, which is the metric's own scale
+     step, not a shrink. */
+  .fin-lead { gap: 14px; padding-bottom: 10px; margin-bottom: 10px; }
+  .fin-lead-hero { font-size: 38px; margin-top: 4px; }
+  .fin-lead-amounts { margin: 6px 0 4px; }
+  .fin-lead-rest { margin-top: 6px; }
+  .fin-lead-side { gap: 8px; }
+  .fin-mini { padding: 8px 12px; }
+
+  /* Needs action: an alert strip, not a card, when it holds one or two items. */
+  .finance-actions {
+    flex-direction: row; align-items: baseline; flex-wrap: wrap;
+    gap: 6px 12px; padding: 7px 12px; margin-bottom: 10px;
+  }
+  .finance-actions .roster-actions-label {
+    flex: 0 0 auto; margin: 0; font-size: 11px; letter-spacing: .07em;
+  }
+
+  /* Tabs sit closer to the content they switch. */
+  .tabs { margin: 12px 0 12px; }
+  .tab { padding: 8px 14px; }
+
+  /* Explanation is one tight paragraph, not a floating column. */
+  .tab-head { margin-bottom: 8px; }
+  .tab-head .page-sub { max-width: 88ch; }
+
+  /* Expense rows: ~25% shorter while the row stays a comfortable target. */
+  .budget-row { padding: 7px 16px; gap: 12px; }
+  .budget-cat { padding-top: 8px; padding-bottom: 8px; }
+
+  /* Secondary headings stop competing with the page title. */
+  .group { margin-top: 12px; }
+  .group-head { padding-bottom: 6px; }
+}

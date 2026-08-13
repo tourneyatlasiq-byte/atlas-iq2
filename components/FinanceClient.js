@@ -504,26 +504,33 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
 
   return (
     <>
+      {/* One compact header region. Previously the explanation sat in a
+          space-between row with the button pinned right, and the tournament
+          commitment stacked underneath as a full-width card — which is what
+          opened the wide empty gap between the two on a laptop. The commitment
+          line and the action now share the row beneath the explanation. */}
       <div className="tab-head">
         <div className="page-sub">
           Plan your season expenses here. Paid amounts come from transactions linked to each
           category. Money received is tracked separately in Money In.
         </div>
-        {canWrite && <button className="btn btn-primary" onClick={onAdd}>Add budget line</button>}
       </div>
 
-      {committedTournaments > 0 && (
-        <div className="reconcile">
-          <p className="reconcile-title">Tournament costs</p>
-          <p className="reconcile-line">
-            You&rsquo;ve committed to <strong>{money(committedTournaments)}</strong> in tournament
-            entry and gate fees.
+      <div className="budget-bar">
+        {committedTournaments > 0 && (
+          <p className="budget-bar-note">
+            <span className="budget-bar-note-label">Tournament commitments:</span>{" "}
+            <strong>{money(committedTournaments)}</strong>
+            <span className="budget-bar-dot" aria-hidden="true"> • </span>
+            <strong>{money(tournamentPaid)}</strong> paid
           </p>
-          <p className="reconcile-line">
-            <strong>{money(tournamentPaid)}</strong> of that has been paid and recorded here.
-          </p>
-        </div>
-      )}
+        )}
+        {canWrite && (
+          <button className="btn btn-primary budget-bar-action" onClick={onAdd}>
+            Add budget line
+          </button>
+        )}
+      </div>
 
       {budget.expenses.length === 0 ? (
         <div className="card">
