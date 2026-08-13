@@ -729,7 +729,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
             onToggle={() => toggle("games")}
           >
             <GamesSection
-              tournamentId={t.id}
+              tournament={t}
               games={games}
               canWrite={canWrite}
               openSignal={addGameSignal}
