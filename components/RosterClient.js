@@ -58,7 +58,6 @@ function staffRole(p) {
 const THROWS = ["R", "L"];
 const BATS = ["R", "L", "S"];
 
-const typeLabel = (v) => PERSON_TYPES.find((t) => t.value === v)?.label ?? "Player";
 
 function fmtDate(d) {
   if (!d) return null;
@@ -634,15 +633,13 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               {row.jersey_number != null && <span className="drawer-head-dates">#{row.jersey_number}</span>}
               {row.positions?.length > 0 && <span>{row.positions.join(" / ")}</span>}
               {p.grad_year && <span>Class of {p.grad_year}</span>}
-              {(p.person_type ?? "player") !== "player" && (
-                <span>{p.person_type === "other" ? p.other_role_label ?? "Staff" : typeLabel(p.person_type)}</span>
-              )}
+              {(p.person_type ?? "player") !== "player" && <span>{staffRole(p)}</span>}
             </div>
             <div className="drawer-head-pills">
               <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
                 {row.is_active ? "Active" : "Inactive"}
               </span>
-              <span className="pill pill-staff">{typeLabel(p.person_type)}</span>
+              <span className="pill pill-staff">{isPlayer ? "Player" : staffRole(p)}</span>
             </div>
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
@@ -684,10 +681,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             <Row label="Name" value={p.full_name} />
             {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
             {row.jersey_number != null && <Row label="Jersey number" value={row.jersey_number} />}
-            <Row
-              label="Type"
-              value={p.person_type === "other" ? p.other_role_label ?? "Other" : typeLabel(p.person_type)}
-            />
+
             {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
             {row.positions?.length > 0 && (
               <Row label="Positions" value={row.positions.join(" / ")} />
@@ -884,7 +878,7 @@ function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, on
                       {p.full_name}
                       {p.grad_year && <span className="muted"> · {p.grad_year}</span>}
                       {p.person_type !== "player" && (
-                        <span className="pill pill-staff cell-tag">{typeLabel(p.person_type)}</span>
+                        <span className="pill pill-staff cell-tag">{staffRole(p)}</span>
                       )}
                     </span>
                     <button className="btn btn-secondary" disabled={pending} onClick={() => assign(p.id)}>
