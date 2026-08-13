@@ -42,7 +42,15 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState([]);
   const [sync, setSync] = useState(SYNCED);
+  // Presentation only. Switching modes never creates, edits, voids or
+  // renumbers a plate appearance — it changes what is rendered and whether
+  // advancing the batting order implicitly creates a PA.
+  const [mode, setMode] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return game.game_date && game.game_date < today ? "review" : "live";
+  });
   const [correcting, setCorrecting] = useState(null);
+  const [confirmVoid, setConfirmVoid] = useState(null);
   const busy = useRef(false);
 
   const order = lineup ?? [];
@@ -161,12 +169,63 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
     }
   };
 
+  const removePa = async (row) => {
+    if (!canWrite || busy.current) return;
+    busy.current = true;
+    try {
+      setRows((r) =>
+        r.map((x) => (x.id === row.id ? { ...x, voided_at: new Date().toISOString() } : x))
+      );
+      setConfirmVoid(null);
+      setCorrecting(null);
+      await enqueue({ op: "void", gameId: game.id, payload: { id: row.id } });
+      await refreshStatus();
+      sync_();
+    } finally {
+      busy.current = false;
+    }
+  };
+
   const applyCorrection = async (row, reasons) => {
     setRows((r) => (r.map((x) => (x.id === row.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x))));
     setCorrecting(null);
     await enqueue({ op: "correct", gameId: game.id, payload: { id: row.id, reasons } });
     await refreshStatus();
     sync_();
+  };
+
+  // Review mode only. A new plate appearance requires naming the player
+  // explicitly; nothing is created by moving through the order.
+  const addPaFor = async (slot) => {
+    if (!canWrite || busy.current) return;
+    busy.current = true;
+    try {
+      const id = newPaId();
+      const paNumber = paNumberFor(slot.player_id);
+      setRows((r) => [
+        ...r,
+        {
+          id,
+          player_id: slot.player_id,
+          pa_number: paNumber,
+          qab_reasons: [],
+          is_qab: false,
+          voided_at: null,
+          localSeq: Date.now(),
+          pending: true,
+        },
+      ]);
+      await enqueue({
+        op: "record",
+        gameId: game.id,
+        payload: { id, gameId: game.id, playerId: slot.player_id, paNumber, reasons: [] },
+      });
+      await refreshStatus();
+      sync_();
+      setCorrecting({ id, player_id: slot.player_id, pa_number: paNumber, qab_reasons: [] });
+    } finally {
+      busy.current = false;
+    }
   };
 
   const nameOf = (playerId) =>
@@ -212,6 +271,35 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
         </span>
       </header>
 
+      <div className="trk-modes" role="tablist" aria-label="Entry mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "live"}
+          className={mode === "live" ? "on" : ""}
+          onClick={() => setMode("live")}
+        >
+          Live Tracking
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "review"}
+          className={mode === "review" ? "on" : ""}
+          onClick={() => setMode("review")}
+        >
+          Review &amp; Edit
+        </button>
+      </div>
+
+      {mode === "live" && live.length > 0 && (
+        <p className="trk-continuing">
+          This game already has {live.length} plate {live.length === 1 ? "appearance" : "appearances"}.
+          Tracking continues from where each batter left off.
+        </p>
+      )}
+
+      {mode === "live" && (
       <div className="trk-batter">
         <p className="trk-batter-eyebrow">Now batting</p>
         <p className="trk-name">{batter.full_name}</p>
@@ -224,7 +312,9 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           {batter.participation === "pickup" && <span className="tag-pickup">Pickup</span>}
         </p>
       </div>
+      )}
 
+      {mode === "live" && (
       <section className="trk-card">
         <h2 className="trk-card-h">What made this a Quality At-Bat?</h2>
         <p className="trk-card-s">Select all that apply.</p>
@@ -269,8 +359,9 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           </button>
         </div>
       </section>
+      )}
 
-      {lastLive && (
+      {mode === "live" && lastLive && (
         <div className="trk-last">
           <span className="trk-last-text">
             Last recorded: <strong>{nameOf(lastLive.player_id)}</strong> • PA {lastLive.pa_number}
@@ -281,6 +372,121 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
         </div>
       )}
 
+      {mode === "review" ? (
+        <section className="trk-review">
+          <h2 className="trk-history-h">
+            Recorded plate appearances <span>({live.length})</span>
+          </h2>
+          <p className="trk-card-s">
+            Nothing is added automatically here. Use “+ Add plate appearance” for a batter.
+          </p>
+
+          {order.map((slot, i) => {
+            const paRows = live
+              .filter((r) => r.player_id === slot.player_id)
+              .sort((a, b) => a.pa_number - b.pa_number);
+
+            return (
+              <div className="trk-player" key={slot.player_id}>
+                <div className="trk-player-head">
+                  <span className="trk-player-slot">{i + 1}</span>
+                  <span className="trk-player-name">{slot.full_name}</span>
+                  <span className="trk-player-jersey">
+                    {slot.jersey_number != null ? `#${slot.jersey_number}` : "#—"}
+                  </span>
+                  {slot.participation === "pickup" && <span className="tag-pickup">Pickup</span>}
+                  <span className="trk-player-count">
+                    {paRows.length} {paRows.length === 1 ? "PA" : "PA"}
+                  </span>
+                </div>
+
+                {paRows.length === 0 ? (
+                  <p className="trk-player-none">No plate appearances recorded.</p>
+                ) : (
+                  <ul className="trk-pa-list">
+                    {paRows.map((r) => (
+                      <li key={r.id}>
+                        <div className="trk-pa-row">
+                          <span className="trk-pa-num">PA {r.pa_number}</span>
+                          <span className="trk-pa-reasons">
+                            {r.is_qab ? r.qab_reasons.map(reasonLabel).join(" • ") : "—"}
+                          </span>
+                          <span className={`trk-badge${r.is_qab ? " qab" : ""}`}>
+                            {r.is_qab ? "QAB" : "No QAB"}
+                          </span>
+                          <span className="trk-pa-actions">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConfirmVoid(null);
+                                setCorrecting(correcting?.id === r.id ? null : r);
+                              }}
+                              disabled={!canWrite}
+                            >
+                              {correcting?.id === r.id ? "Close" : "Edit"}
+                            </button>
+                            <button
+                              type="button"
+                              className="trk-pa-remove"
+                              onClick={() => {
+                                setCorrecting(null);
+                                setConfirmVoid(confirmVoid?.id === r.id ? null : r);
+                              }}
+                              disabled={!canWrite}
+                            >
+                              Remove
+                            </button>
+                          </span>
+                        </div>
+
+                        {confirmVoid?.id === r.id && (
+                          <div className="trk-confirm">
+                            <p>
+                              Remove <strong>{slot.full_name}</strong> PA {r.pa_number}? It will no
+                              longer count in this game’s plate appearance or QAB statistics. The
+                              record is kept, not deleted.
+                            </p>
+                            <div className="trk-confirm-actions">
+                              <button
+                                type="button"
+                                className="trk-confirm-yes"
+                                onClick={() => removePa(r)}
+                              >
+                                Remove PA
+                              </button>
+                              <button type="button" onClick={() => setConfirmVoid(null)}>
+                                Keep it
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {correcting?.id === r.id && (
+                          <InlineCorrection
+                            row={r}
+                            name={slot.full_name}
+                            onCancel={() => setCorrecting(null)}
+                            onApply={(reasons) => applyCorrection(r, reasons)}
+                          />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <button
+                  type="button"
+                  className="trk-add-pa"
+                  onClick={() => addPaFor(slot)}
+                  disabled={!canWrite}
+                >
+                  + Add plate appearance
+                </button>
+              </div>
+            );
+          })}
+        </section>
+      ) : (
       <section className="trk-history">
         <h2 className="trk-history-h">This game <span>({live.length} PA)</span></h2>
         {live.length === 0 ? (
@@ -294,7 +500,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
                   <button
                     type="button"
                     className="trk-hist"
-                    onClick={() => setCorrecting(r)}
+                    onClick={() => setMode("review")}
                     disabled={!canWrite}
                   >
                     <span className="trk-hist-top">
@@ -304,8 +510,6 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
                         {r.is_qab ? "QAB" : "No QAB"}
                       </span>
                     </span>
-                    {/* Reason names, never a count. Several reasons describe one
-                        quality at bat; a number here read as several QABs. */}
                     {r.is_qab && (
                       <span className="trk-hist-reasons">
                         {r.qab_reasons.map(reasonLabel).join(" • ")}
@@ -317,15 +521,9 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           </ul>
         )}
       </section>
-
-      {correcting && (
-        <CorrectionPanel
-          row={correcting}
-          name={nameOf(correcting.player_id)}
-          onCancel={() => setCorrecting(null)}
-          onApply={(reasons) => applyCorrection(correcting, reasons)}
-        />
       )}
+
+
     </div>
   );
 }
@@ -334,13 +532,13 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
  * Correction is an inline panel, not a modal. A tracker who opens it by mistake
  * must be able to get out with one tap and without losing the live screen.
  */
-function CorrectionPanel({ row, name, onCancel, onApply }) {
+function InlineCorrection({ row, name, onCancel, onApply }) {
   const [reasons, setReasons] = useState(row.qab_reasons ?? []);
   const toggle = (key) =>
     setReasons((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
 
   return (
-    <section className="trk-card trk-correct">
+    <div className="trk-card trk-correct">
       <h2 className="trk-card-h">
         Correct {name} · PA {row.pa_number}
       </h2>
@@ -375,6 +573,6 @@ function CorrectionPanel({ row, name, onCancel, onApply }) {
       <p className="trk-hint">
         Clearing every reason records this as an explicit non-QAB. It stays a plate appearance.
       </p>
-    </section>
+    </div>
   );
 }

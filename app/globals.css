@@ -3675,3 +3675,44 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .trk-badge { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--surface-sunken); color: var(--slate); }
 .trk-badge.qab { background: #e8f2fe; color: var(--blue-dark); }
 .trk-hist-reasons { display: block; font-size: 13px; color: var(--slate); margin-top: 3px; }
+
+/* --- Live Tracking vs Review & Edit -------------------------------------- */
+
+.trk-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; margin-bottom: 14px; background: var(--surface-sunken); border-radius: 12px; }
+.trk-modes button { min-height: 44px; font-size: 14px; font-weight: 600; color: var(--slate); background: transparent; border: none; border-radius: 9px; cursor: pointer; }
+.trk-modes button.on { background: var(--surface); color: var(--navy); box-shadow: var(--shadow-card); }
+
+.trk-continuing { font-size: 13px; line-height: 1.45; color: #7a5200; background: #fff4d9; border-radius: var(--radius-control); padding: 9px 13px; margin: 0 0 14px; }
+
+/* Review: grouped by batting order so what exists is obvious at a glance. */
+.trk-review .trk-card-s { margin-bottom: 14px; }
+.trk-player { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-card); padding: 12px 14px; margin-bottom: 10px; }
+.trk-player-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.trk-player-slot { flex: 0 0 26px; height: 26px; border-radius: 7px; background: var(--surface-sunken); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--navy); }
+.trk-player-name { font-size: 16px; font-weight: 700; color: var(--navy); }
+.trk-player-jersey { font-size: 13px; color: var(--slate); font-variant-numeric: tabular-nums; }
+.trk-player-count { margin-left: auto; font-size: 12px; color: var(--slate); }
+.trk-player-none { font-size: 13px; color: var(--slate); margin: 8px 0 10px; }
+
+.trk-pa-list { list-style: none; margin: 8px 0 10px; padding: 0; }
+.trk-pa-list > li { border-top: 1px solid var(--border); }
+.trk-pa-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.trk-pa-num { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+.trk-pa-reasons { flex: 1 1 auto; font-size: 13px; color: var(--slate); min-width: 0; }
+.trk-pa-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+.trk-pa-actions button { min-height: 40px; padding: 0 13px; font-size: 13px; font-weight: 600; color: var(--navy); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; }
+.trk-pa-actions button:hover:not(:disabled) { border-color: var(--slate); }
+.trk-pa-remove { color: var(--danger) !important; }
+
+.trk-confirm { background: #fdf0ee; border-radius: var(--radius-control); padding: 12px 14px; margin: 0 0 10px; }
+.trk-confirm p { font-size: 13px; line-height: 1.5; margin: 0 0 10px; color: var(--navy); }
+.trk-confirm-actions { display: flex; gap: 8px; }
+.trk-confirm-actions button { min-height: 44px; padding: 0 16px; font-size: 14px; font-weight: 700; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--navy); cursor: pointer; }
+.trk-confirm-yes { background: var(--danger) !important; border-color: var(--danger) !important; color: #fff !important; }
+
+/* Adding is always explicit, and never the loudest thing in the group. */
+.trk-add-pa { width: 100%; min-height: 46px; font-size: 14px; font-weight: 600; color: var(--blue); background: var(--surface); border: 1.5px dashed var(--border); border-radius: 11px; cursor: pointer; }
+.trk-add-pa:hover:not(:disabled) { border-color: var(--blue); background: #f2f7fe; }
+.trk-add-pa:disabled { opacity: .45; cursor: default; }
+
+.trk-correct { margin: 0 0 10px; }
