@@ -220,6 +220,16 @@ export function LineupClient({
           >
             {pending ? "Saving…" : dirty ? "Save lineup" : "Saved"}
           </button>
+
+          {order.length > 0 && !dirty && (
+            <a
+              className="btn-primary btn-lg lineup-track"
+              href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}
+            >
+              Track QAB →
+            </a>
+          )}
+
           {order.length > 0 && previousLineup && (
             <p className="lineup-hint">
               Clear the order first if you want to copy the previous lineup instead.

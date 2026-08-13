@@ -3408,3 +3408,63 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .lineup-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   .lineup-actions .btn-lg { width: auto; min-width: 220px; }
 }
+
+/* ---------------------------------------------------------------------------
+   QAB live tracker
+   Sized for a phone held one-handed at a fence in the sun. Targets are 60px,
+   the reason grid is two columns, and nothing is hidden behind a modal. The
+   sync strip is always on screen because a write that has not landed must
+   never be invisible. Desktop widens the reason grid and caps the column, but
+   the phone layout is the one being optimised.
+--------------------------------------------------------------------------- */
+
+.trk { max-width: 560px; margin: 0 auto; }
+
+.trk-sync { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.trk-sync-ok   { background: #e8f5ec; color: #1b5e34; }
+.trk-sync-wait { background: #fff4d9; color: #7a5200; }
+.trk-sync-bad  { background: #fdeaea; color: #8c1d1d; }
+.trk-sync button { min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font-weight: 600; cursor: pointer; }
+
+.trk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.trk-tally { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.trk-batter { display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid var(--line); border-radius: 14px; margin-bottom: 14px; }
+.trk-slot { flex: 0 0 44px; height: 44px; border-radius: 10px; background: var(--chip); display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 700; }
+.trk-name { flex: 1 1 auto; font-size: 21px; font-weight: 700; line-height: 1.15; }
+.trk-pa { font-size: 14px; color: var(--muted); white-space: nowrap; }
+
+.trk-reasons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.trk-reason { min-height: 60px; padding: 8px 10px; font-size: 16px; font-weight: 600; border: 2px solid var(--line); border-radius: 12px; background: transparent; cursor: pointer; }
+.trk-reason.on { background: #1b5e34; border-color: #1b5e34; color: #fff; }
+.trk-reason:disabled { opacity: .45; cursor: default; }
+
+.trk-commit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.trk-noqab, .trk-save { min-height: 60px; font-size: 17px; font-weight: 700; border-radius: 12px; cursor: pointer; }
+.trk-noqab { border: 2px solid var(--line); background: transparent; }
+.trk-save { border: 2px solid #0b2341; background: #0b2341; color: #fff; }
+.trk-save:disabled { opacity: .4; cursor: default; }
+
+.trk-undo { margin-bottom: 18px; }
+.trk-undo button { width: 100%; min-height: 52px; font-size: 15px; font-weight: 600; border: 2px solid var(--line); border-radius: 12px; background: transparent; cursor: pointer; }
+.trk-undo button:disabled { opacity: .4; cursor: default; }
+
+.trk-history h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); }
+.trk-history ul { list-style: none; margin: 0; padding: 0; }
+.trk-history li { margin-bottom: 8px; }
+.trk-hist { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; font-size: 15px; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: transparent; cursor: pointer; }
+.trk-hist-tag { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.trk-hist-tag.qab { color: #1b5e34; font-weight: 700; }
+.trk-none { font-size: 14px; color: var(--muted); }
+
+.trk-correct { margin-top: 18px; padding: 14px; border: 2px solid var(--line); border-radius: 14px; }
+.trk-correct h2 { font-size: 16px; margin: 0 0 12px; }
+.trk-hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.trk-empty { text-align: center; padding: 40px 16px; }
+.trk-empty p { font-size: 16px; margin-bottom: 16px; }
+.lineup-track { display: inline-block; text-align: center; text-decoration: none; margin-top: 10px; }
+
+@media (min-width: 720px) {
+  .trk { max-width: 640px; }
+  .trk-reasons { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
