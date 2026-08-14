@@ -169,7 +169,13 @@ function GameRow({ game, tournamentId, enabled }) {
   let ready;
   let action;
 
-  if (game.plateAppearances > 0) {
+  // Four states. Completion is an explicit fact on the game, never derived
+  // from the PA count or a recorded score.
+  if (game.completed) {
+    ready = true;
+    state = `✓ Tracking complete · ${game.plateAppearances} PA recorded`;
+    action = { href: `${base}/track`, label: "Review & Edit →" };
+  } else if (game.plateAppearances > 0) {
     ready = true;
     state = `Batting order set · ${game.plateAppearances} PA recorded`;
     action = { href: `${base}/track`, label: "Continue tracking →" };
@@ -184,7 +190,7 @@ function GameRow({ game, tournamentId, enabled }) {
   }
 
   return (
-    <div className={`perf-game${ready ? " ready" : " needs"}`}>
+    <div className={`perf-game${game.completed ? " done" : ready ? " ready" : " needs"}`}>
       <div className="perf-game-text">
         <p className="perf-game-opponent">{game.opponent_name ?? "Opponent"}</p>
         <p className="perf-game-meta">
@@ -192,7 +198,7 @@ function GameRow({ game, tournamentId, enabled }) {
           {game.game_type && ` · ${game.game_type}`}
         </p>
         <p className="perf-game-state">
-          {ready && (
+          {ready && !game.completed && (
             <span className="perf-game-tick" aria-hidden="true">
               ✓
             </span>

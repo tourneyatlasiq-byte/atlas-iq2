@@ -4142,3 +4142,54 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .season-plist > li { grid-template-columns: minmax(0, 1fr) auto auto auto; }
   .season-early { grid-column: auto; text-align: right; }
 }
+
+/* --- QAB tracking completion ---------------------------------------------- */
+/* Distinct from the sync strip. "All saved" means the queue is empty; this
+   means the coach decided the game is done. */
+
+.trk-finish { margin: 4px 0 18px; }
+.trk-finish-btn {
+  width: 100%; min-height: 48px; font-size: 15px; font-weight: 600;
+  color: var(--navy); background: var(--surface);
+  border: 1.5px solid var(--border); border-radius: 12px; cursor: pointer;
+  font-family: var(--font-body);
+}
+.trk-finish-btn:hover:not(:disabled) { border-color: var(--slate); }
+.trk-finish-btn:disabled { opacity: .6; cursor: default; }
+
+.trk-finish-confirm, .trk-finish-blocked {
+  border: 1.5px solid var(--border); border-radius: var(--radius-card);
+  padding: 14px 16px; background: var(--surface);
+}
+.trk-finish-q { font-size: 16px; font-weight: 700; color: var(--navy); margin: 0 0 4px; }
+.trk-finish-figs { font-size: 14px; color: var(--navy); margin: 0 0 6px; font-variant-numeric: tabular-nums; }
+.trk-finish-note { font-size: 12.5px; color: var(--slate); margin: 0 0 12px; line-height: 1.45; }
+.trk-finish-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.trk-finish-actions .btn { min-height: 46px; }
+.trk-finish-blocked { background: #fffaf0; border-color: rgba(244,180,0,.5); }
+.trk-finish-blocked p { font-size: 13px; line-height: 1.5; color: var(--navy); margin: 0 0 10px; }
+
+/* Replaces the live workflow entirely, so the screen reads as finished rather
+   than as a tracker wearing a banner. */
+.trk-done {
+  border: 1.5px solid #1b5e34; border-radius: var(--radius-card);
+  background: #f2f9f4; padding: 18px; margin-bottom: 16px;
+}
+.trk-done-title { font-size: 17px; font-weight: 800; color: #1b5e34; margin: 0 0 8px; }
+.trk-done-figs { font-size: 20px; color: var(--navy); margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+.trk-done-figs strong { font-weight: 800; }
+.trk-done-figs span { color: var(--slate); }
+.trk-done-pct { margin-left: 10px; font-size: 16px; }
+.trk-done-note { font-size: 12.5px; color: var(--slate); line-height: 1.45; margin: 0 0 14px; }
+.trk-done-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.trk-done-actions .btn { min-height: 46px; text-decoration: none; }
+
+.trk-add-locked { font-size: 12.5px; color: var(--slate); font-style: italic; margin: 0; }
+
+/* Fourth Performance row state. */
+.perf-game.done { border-left-color: #1b5e34; }
+.perf-game.done .perf-game-state { color: #1b5e34; }
+
+@media (max-width: 720px) {
+  .trk-done-actions .btn, .trk-finish-actions .btn { width: 100%; text-align: center; }
+}

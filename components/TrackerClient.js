@@ -9,6 +9,7 @@ import {
   correctPlateAppearance,
 } from "../lib/actions/plate-appearances";
 import { enqueue, flushQueue, queueStatus, newPaId } from "../lib/offline-queue";
+import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 
 /**
  * Live QAB tracker.
@@ -51,6 +52,9 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
   });
   const [correcting, setCorrecting] = useState(null);
   const [confirmVoid, setConfirmVoid] = useState(null);
+  const [completedAt, setCompletedAt] = useState(game.qab_completed_at ?? null);
+  const [finishing, setFinishing] = useState(null); // null | "checking" | "confirm" | "blocked"
+  const [finishBlock, setFinishBlock] = useState(null);
   const busy = useRef(false);
 
   const order = lineup ?? [];
@@ -109,6 +113,59 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
       clearInterval(t);
     };
   }, [sync_, refreshStatus]);
+
+  /**
+   * Finishing is gated on an empty queue.
+   *
+   * If a plate appearance is still queued when the coach taps Finish, marking
+   * the game complete would make the database reject those rows when they
+   * finally sync — real at-bats lost hours later. So we flush first and refuse
+   * to complete while anything is pending. This is the one tracker action that
+   * legitimately requires a connection, and it says so rather than failing
+   * quietly.
+   */
+  const startFinish = async () => {
+    if (!canWrite || busy.current) return;
+    setFinishing("checking");
+    setFinishBlock(null);
+    await flushQueue(send, { gameId: game.id });
+    const s = await queueStatus(game.id);
+    await refreshStatus();
+    if (s.waiting > 0) {
+      setFinishBlock(s.waiting);
+      setFinishing("blocked");
+      return;
+    }
+    setFinishing("confirm");
+  };
+
+  const confirmFinish = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const result = await finishGameTracking(game.id);
+      if (result.ok) {
+        setCompletedAt(result.completedAt);
+        setFinishing(null);
+      } else {
+        setFinishBlock(null);
+        setFinishing("blocked");
+      }
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  const resume = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const result = await resumeGameTracking(game.id);
+      if (result.ok) setCompletedAt(null);
+    } finally {
+      busy.current = false;
+    }
+  };
 
   const advance = () => setCursor((c) => (order.length ? (c + 1) % order.length : 0));
 
@@ -312,7 +369,33 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
         </p>
       )}
 
-      {mode === "live" && (
+      {completedAt && (
+        <section className="trk-done">
+          <p className="trk-done-title">✓ QAB tracking complete</p>
+          <p className="trk-done-figs">
+            <strong>{totals.qab}</strong> QAB <span aria-hidden="true">/</span>{" "}
+            <strong>{totals.pa}</strong> PA
+            {totals.qabPct != null && <span className="trk-done-pct">{totals.qabPct}%</span>}
+          </p>
+          <p className="trk-done-note">
+            Recorded at-bats can still be reviewed and corrected. Recording a new one needs
+            tracking reopened.
+          </p>
+          <div className="trk-done-actions">
+            <a className="btn btn-primary" href={`/performance`}>
+              Back to Performance
+            </a>
+            <button type="button" className="btn" onClick={() => setMode("review")}>
+              Review &amp; Edit
+            </button>
+            <button type="button" className="btn" onClick={resume} disabled={!canWrite}>
+              Resume tracking
+            </button>
+          </div>
+        </section>
+      )}
+
+      {mode === "live" && !completedAt && (
       <div className="trk-batter">
         <p className="trk-batter-eyebrow">Now batting</p>
         <p className="trk-name">{batter.full_name}</p>
@@ -327,7 +410,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
       </div>
       )}
 
-      {mode === "live" && (
+      {mode === "live" && !completedAt && (
       <section className="trk-card">
         <h2 className="trk-card-h">What made this a Quality At-Bat?</h2>
         <p className="trk-card-s">Select all that apply.</p>
@@ -374,7 +457,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
       </section>
       )}
 
-      {mode === "live" && lastLive && (
+      {mode === "live" && !completedAt && lastLive && (
         <div className="trk-last">
           <span className="trk-last-text">
             Last recorded: <strong>{nameOf(lastLive.player_id)}</strong> • PA {lastLive.pa_number}
@@ -382,6 +465,52 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           <button type="button" className="trk-last-undo" onClick={undo} disabled={!canWrite}>
             Undo
           </button>
+        </div>
+      )}
+
+      {!completedAt && live.length > 0 && canWrite && (
+        <div className="trk-finish">
+          {finishing === "confirm" ? (
+            <div className="trk-finish-confirm">
+              <p className="trk-finish-q">Finish QAB tracking?</p>
+              <p className="trk-finish-figs">
+                {totals.pa} plate {totals.pa === 1 ? "appearance" : "appearances"} ·{" "}
+                {totals.qab} Quality At-{totals.qab === 1 ? "Bat" : "Bats"}
+                {totals.qabPct != null && ` · ${totals.qabPct}% QAB`}
+              </p>
+              <p className="trk-finish-note">
+                You can still review and correct these at-bats afterward.
+              </p>
+              <div className="trk-finish-actions">
+                <button type="button" className="btn btn-primary" onClick={confirmFinish}>
+                  Finish tracking
+                </button>
+                <button type="button" className="btn" onClick={() => setFinishing(null)}>
+                  Keep tracking
+                </button>
+              </div>
+            </div>
+          ) : finishing === "blocked" ? (
+            <div className="trk-finish-blocked">
+              <p>
+                {finishBlock
+                  ? `${finishBlock} at-${finishBlock === 1 ? "bat is" : "bats are"} still waiting to sync. They'll save when you're back online — finish tracking after that.`
+                  : "Couldn't finish tracking just now. Check your connection and try again."}
+              </p>
+              <button type="button" className="btn" onClick={startFinish}>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="trk-finish-btn"
+              onClick={startFinish}
+              disabled={finishing === "checking"}
+            >
+              {finishing === "checking" ? "Checking…" : "Finish tracking"}
+            </button>
+          )}
         </div>
       )}
 
@@ -487,14 +616,20 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
                   </ul>
                 )}
 
-                <button
-                  type="button"
-                  className="trk-add-pa"
-                  onClick={() => addPaFor(slot)}
-                  disabled={!canWrite}
-                >
-                  + Add plate appearance
-                </button>
+                {completedAt ? (
+                  <p className="trk-add-locked">
+                    Tracking complete — resume to add a plate appearance.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    className="trk-add-pa"
+                    onClick={() => addPaFor(slot)}
+                    disabled={!canWrite}
+                  >
+                    + Add plate appearance
+                  </button>
+                )}
               </div>
             );
           })}
