@@ -114,7 +114,7 @@ export default async function HomePage() {
           <div className="mk-grid mk-grid-3">
             <Capability title="Tournaments">
               Everything about a weekend in one place — dates, facility, entry and gate fees,
-              registration status, the tournament director, your event roster and results.
+              registration status, the tournament director, your tournament roster and results.
             </Capability>
             <Capability title="Team">
               Your roster, uniforms, contacts and paperwork, carried forward season to season.

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
 import { TeamIdentity, initialsOf } from "./TeamMark";
 import {
-  IconHome, IconTournaments, IconTeam, IconFacilities, IconFinance, IconFiles, IconContacts,
+  IconHome, IconTournaments, IconTeam, IconFacilities, IconFinance, IconPerformance,
+  IconFiles, IconContacts,
 } from "./NavIcons";
 
 /**
@@ -20,11 +21,12 @@ const NAV = [
   { href: "/team", label: "Team", Icon: IconTeam },
   { href: "/facilities", label: "Facilities", Icon: IconFacilities },
   { href: "/finance", label: "Finance", Icon: IconFinance },
+  { href: "/performance", label: "Performance", Icon: IconPerformance, feature: "qab" },
   { href: "/files", label: "Files", Icon: IconFiles },
   { href: "/contacts", label: "Contacts", Icon: IconContacts },
 ];
 
-export function NavSidebar({ email, organization, team, season, seasons, seasonPhase }) {
+export function NavSidebar({ email, organization, team, season, seasons, seasonPhase, features = {} }) {
   const pathname = usePathname();
 
   return (
@@ -56,6 +58,14 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
             >
               <item.Icon />
               <span>{item.label}</span>
+              {/* Premium features stay visible when they are not enabled. A
+                  hidden capability cannot be discovered, and RLS already
+                  denies the data regardless of what navigation shows. */}
+              {item.feature && !features[item.feature] && (
+                <span className="nav-premium" title="Premium feature">
+                  Premium
+                </span>
+              )}
             </Link>
           );
         })}

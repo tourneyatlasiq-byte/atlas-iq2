@@ -66,6 +66,17 @@ export function IconFinance() {
   );
 }
 
+export function IconPerformance() {
+  return (
+    <svg {...base}>
+      <path d="M2.5 13.5V9.5" />
+      <path d="M6.5 13.5V6" />
+      <path d="M10.5 13.5V8" />
+      <path d="M14 13.5V3.5" />
+    </svg>
+  );
+}
+
 export function IconFiles() {
   return (
     <svg {...base}>

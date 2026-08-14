@@ -738,7 +738,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
 
           <Collapsible
             id="section-roster"
-            title="Event roster"
+            title="Tournament roster"
             summary={participants.length === 0 ? "Not set" : `${participants.length} attending`}
             open={isOpen("roster")}
             onToggle={() => toggle("roster")}

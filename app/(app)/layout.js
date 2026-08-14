@@ -8,7 +8,8 @@ import { SeasonBanner } from "../../components/SeasonBanner";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }) {
-  const { user, organization, team, season, seasons, seasonPhase, currentSeason } = await getContext();
+  const { user, organization, team, season, seasons, seasonPhase, currentSeason, features } =
+    await getContext();
 
   // No organization yet means a brand-new signup, not a misconfigured account.
   // Setup lives outside this shell, which assumes an organization exists.
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }) {
         season={season}
         seasons={seasons}
         seasonPhase={seasonPhase}
+        features={features}
       />
 
       <div className="main">

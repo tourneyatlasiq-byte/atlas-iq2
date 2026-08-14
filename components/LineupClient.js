@@ -133,7 +133,7 @@ export function LineupClient({
 
       {playerSource === "season_roster" && (
         <div className="notice notice-info">
-          No event roster set for this tournament. Showing season roster.
+          No tournament roster set for this event. Showing season roster.
         </div>
       )}
 

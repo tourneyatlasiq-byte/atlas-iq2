@@ -48,7 +48,7 @@ export function EventRoster({
   return (
     <section className="detail-section" id="section-event-roster">
       <div className="section-head">
-        <h3 className="detail-section-title">Event roster</h3>
+        <h3 className="detail-section-title">Tournament roster</h3>
         {canWrite && rows.length > 0 && (
           <div className="section-head-actions">
             <button className="btn btn-ghost" onClick={() => setEditing("pickup")}>
@@ -65,14 +65,14 @@ export function EventRoster({
 
       {rows.length === 0 ? (
         <div className="er-empty">
-          <p className="er-empty-title">Event roster not set</p>
+          <p className="er-empty-title">Tournament roster not set</p>
           <p className="er-empty-body">
             Track who is dressing for this tournament. An empty roster means it hasn&rsquo;t been
             recorded yet.
           </p>
           {canWrite && (
             <button className="btn btn-primary" onClick={() => setEditing("roster")}>
-              Set event roster
+              Set tournament roster
             </button>
           )}
         </div>
@@ -288,7 +288,7 @@ function SetEventRosterSheet({
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={pending}>
-              {pending ? "Saving…" : "Save event roster"}
+              {pending ? "Saving…" : "Save tournament roster"}
             </button>
           </div>
         </form>
@@ -369,7 +369,7 @@ function AddPickupSheet({ tournament, candidates, alreadyIn, seasonName, pending
                       <span className="er-match-meta">
                         {c.grad_year ? `${c.grad_year} · ` : ""}
                         {alreadyIn.has(c.id)
-                          ? "already on this event roster"
+                          ? "already on this tournament roster"
                           : c.onSeasonRoster
                             ? `on your ${seasonName} roster — add from the roster list`
                             : c.eventsWithUs > 0

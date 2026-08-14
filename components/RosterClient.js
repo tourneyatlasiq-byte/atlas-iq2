@@ -326,7 +326,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
               <h3>No pickup players this season</h3>
               <p>
                 Someone who plays with you for a tournament without being on the season roster
-                appears here. Add them from a tournament&rsquo;s event roster.
+                appears here. Add them from a tournament&rsquo;s roster.
               </p>
             </div>
           ) : (
