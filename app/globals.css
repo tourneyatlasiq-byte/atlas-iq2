@@ -4052,3 +4052,93 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .perf-flow-step.done .perf-flow-tick { display: none; }
   .perf-flow.todo .perf-flow-step.todo { padding-bottom: 4px; }
 }
+
+/* --- Season performance --------------------------------------------------- */
+/* Everything a coach recorded is visible from the first at-bat. The guard
+   against over-reading a small sample is presentation: counts outweigh
+   percentages, nothing ranks, no direction is claimed. */
+
+.season { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.season-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+.season-title { font-size: 16px; font-weight: 700; color: var(--navy); margin: 0; }
+.season-toggle { display: flex; gap: 3px; padding: 3px; background: var(--surface-sunken); border-radius: 9px; }
+.season-toggle button {
+  font-size: 12.5px; font-weight: 600; color: var(--slate); padding: 6px 15px;
+  background: none; border: none; border-radius: 7px; cursor: pointer; font-family: var(--font-body);
+}
+.season-toggle button.on { background: var(--surface); color: var(--navy); box-shadow: var(--shadow-card); }
+
+.season-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); margin: 0 0 8px; }
+.season-sub { font-size: 12px; color: var(--slate); margin: 0 0 12px; line-height: 1.45; }
+.season-none { font-size: 13px; color: var(--slate); margin: 0; }
+
+.season-hero {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 16px 18px; margin-bottom: 12px;
+}
+.season-hero-main { min-width: 0; }
+/* Counts share the percentage's baseline. They must never be demoted to a
+   second line: at small samples they are the trustworthy half. */
+.season-hero-line { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 0; }
+.season-pct { font-family: var(--font-display); font-size: 40px; font-weight: 800; line-height: 1; color: var(--navy); }
+.season-counts { font-size: 15px; color: var(--navy); }
+.season-counts strong { font-weight: 700; }
+.season-counts span { color: var(--slate); }
+
+.season-tallies { display: flex; gap: 24px; margin-top: 14px; }
+.season-tallies span { display: flex; flex-direction: column; }
+.season-tallies strong { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--navy); line-height: 1.2; }
+.season-tallies em { font-style: normal; font-size: 11px; color: var(--slate); }
+
+.season-meter { display: block; height: 7px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; margin-top: 12px; }
+.season-meter > span { display: block; height: 100%; background: #1b5e34; }
+
+.season-cols { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.season-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
+
+.season-tlist { list-style: none; margin: 0; padding: 0; }
+.season-tlist > li + li { margin-top: 14px; }
+.season-trow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 5px; }
+.season-tname { font-size: 13.5px; font-weight: 600; color: var(--navy); }
+.season-tfig { font-size: 13px; white-space: nowrap; }
+.season-tfig strong { font-weight: 700; color: var(--navy); }
+.season-tfig span { font-size: 12px; color: var(--slate); }
+.season-bar { display: block; height: 20px; border-radius: 5px; background: var(--surface-sunken); overflow: hidden; }
+.season-bar > span { display: block; height: 100%; background: var(--blue); }
+/* Muted, not labelled — the counts above already state the sample. */
+.season-bar.thin > span { opacity: .45; }
+.season-tmeta { font-size: 11.5px; color: var(--slate); margin: 4px 0 0; }
+
+.season-rlist { list-style: none; margin: 0; padding: 0; }
+.season-rlist > li { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.season-rname { flex: 0 0 104px; font-size: 12.5px; color: var(--navy); }
+.season-rbar { flex: 1 1 auto; height: 15px; border-radius: 4px; background: var(--surface-sunken); overflow: hidden; }
+.season-rbar > span { display: block; height: 100%; background: var(--blue); }
+.season-rbar.zero { opacity: .5; }
+.season-rnum { flex: 0 0 16px; font-size: 12.5px; text-align: right; color: var(--navy); font-variant-numeric: tabular-nums; }
+.season-more { margin-top: 4px; padding: 0; background: none; border: none; color: var(--blue); font-size: 12.5px; font-weight: 600; font-family: var(--font-body); cursor: pointer; }
+
+.season-phead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.season-phead .season-label { margin-bottom: 4px; }
+.season-sort { font-size: 11px; color: var(--slate); }
+.season-plist { list-style: none; margin: 0; padding: 0; }
+.season-plist > li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border);
+}
+.season-pname { font-size: 14px; font-weight: 600; color: var(--navy); }
+.season-pcounts { font-size: 13px; color: var(--navy); font-variant-numeric: tabular-nums; }
+.season-pcounts strong { font-weight: 700; }
+.season-pcounts span { color: var(--border); }
+/* Quieter than the counts, deliberately. */
+.season-ppct { font-size: 13px; color: var(--slate); font-variant-numeric: tabular-nums; }
+.season-early { grid-column: 1 / -1; font-size: 11px; color: var(--slate); font-style: italic; }
+
+@media (min-width: 900px) {
+  .season-cols { grid-template-columns: 1fr 1fr; }
+  .season-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
+  .season-tallies { margin-top: 0; }
+  .season-meter { grid-column: 1 / -1; }
+  .season-plist > li { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+  .season-early { grid-column: auto; text-align: right; }
+}

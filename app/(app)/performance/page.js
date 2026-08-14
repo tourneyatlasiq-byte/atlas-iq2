@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getContext } from "../../../lib/context";
-import { getPerformanceOverview } from "../../../lib/queries/performance";
+import { getPerformanceOverview, getSeasonPerformance } from "../../../lib/queries/performance";
 import { HelpMenu } from "../../../components/HelpMenu";
+import { PerformanceSeason } from "../../../components/PerformanceSeason";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function PerformancePage() {
   if (!features?.qab) return <PerformancePremium />;
 
   const { tournament, participantCount, games } = await getPerformanceOverview();
+  const season = await getSeasonPerformance();
   const hasRoster = participantCount > 0;
 
   return (
@@ -142,8 +144,12 @@ export default async function PerformancePage() {
               </ul>
             )}
           </section>
+
+          <PerformanceSeason {...season} />
         </>
       )}
+
+      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} />}
     </div>
   );
 }
