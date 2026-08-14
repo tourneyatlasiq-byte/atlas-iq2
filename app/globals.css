@@ -4193,3 +4193,114 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   .trk-done-actions .btn, .trk-finish-actions .btn { width: 100%; text-align: center; }
 }
+
+/* --- Coach reporting: games, lineup contribution, player breakdown -------- */
+/* Data-rich without reading as a spreadsheet: one expandable row per game,
+   compact bars, and status carried by treatment rather than another column of
+   text. Every visual answers a coaching question. */
+
+.season-games .season-sub { margin-bottom: 10px; }
+.gm-list { list-style: none; margin: 0; padding: 0; }
+.gm-list > li { border-top: 1px solid var(--border); }
+.gm-list > li:first-child { border-top: none; }
+.gm-list > li.open { background: var(--surface-sunken); border-radius: 10px; }
+
+.gm-row {
+  width: 100%; display: grid; align-items: center; gap: 10px;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto auto auto;
+  padding: 11px 8px; background: none; border: none; cursor: pointer;
+  font-family: var(--font-body); text-align: left;
+}
+.gm-row:hover { background: var(--surface-sunken); border-radius: 10px; }
+.gm-caret { color: var(--slate); font-size: 10px; }
+.gm-id { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gm-opp { font-size: 14.5px; font-weight: 700; color: var(--navy); }
+.gm-meta { font-size: 11.5px; color: var(--slate); }
+
+.gm-outcome { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gm-res { font-size: 11px; font-weight: 800; border-radius: 5px; padding: 2px 6px; }
+.gm-res-w { background: #e8f5ec; color: #1b5e34; }
+.gm-res-l { background: #fdeaea; color: #8c1d1d; }
+.gm-res-t { background: var(--surface-sunken); color: var(--slate); }
+.gm-score { font-size: 12.5px; color: var(--navy); font-variant-numeric: tabular-nums; }
+.gm-noscore { font-size: 11.5px; color: var(--slate); font-style: italic; }
+
+.gm-figs { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.gm-figs strong { font-size: 14px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+.gm-figs span { color: var(--border); }
+.gm-figs em { font-style: normal; font-size: 10px; color: var(--slate); }
+.gm-pct { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+
+.gm-status {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+  border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+  background: #fff4d9; color: #7a5200;
+}
+.gm-status.done { background: #e8f5ec; color: #1b5e34; }
+
+/* Lineup contribution, nested inside the expanded game. */
+.lc { padding: 4px 12px 14px 32px; }
+.lc-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 0; }
+.lc-sub { font-size: 11.5px; color: var(--slate); margin: 2px 0 10px; }
+.lc-list { list-style: none; margin: 0; padding: 0; }
+.lc-list > li {
+  display: grid; align-items: center; gap: 10px;
+  grid-template-columns: 24px minmax(0, 1.1fr) minmax(0, 1.4fr) auto auto;
+  padding: 5px 0;
+}
+.lc-slot {
+  width: 24px; height: 24px; border-radius: 6px; background: var(--surface);
+  border: 1px solid var(--border); display: flex; align-items: center;
+  justify-content: center; font-size: 11.5px; font-weight: 700; color: var(--navy);
+}
+.lc-name { font-size: 13px; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Bar length is plate appearances, fill is quality at-bats — so sample size is
+   visible and a 1/1 cannot outweigh a 3/5. */
+.lc-bar { display: block; height: 14px; }
+.lc-bar-pa { display: block; height: 100%; background: var(--surface-sunken); border-radius: 4px; overflow: hidden; min-width: 3px; }
+.lc-bar-qab { display: block; height: 100%; background: var(--blue); }
+.lc-figs { font-size: 12px; color: var(--navy); font-variant-numeric: tabular-nums; }
+.lc-pct { font-size: 12px; color: var(--slate); font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+.lc-note { font-size: 11px; color: var(--slate); margin: 8px 0 0; }
+
+.season-trend-count { font-size: 12px; color: var(--slate); margin: 0; font-variant-numeric: tabular-nums; }
+
+/* Player expansion. */
+.season-plist > li.open { background: var(--surface-sunken); border-radius: 10px; }
+.season-prow {
+  width: 100%; display: grid; align-items: baseline; gap: 10px;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto;
+  padding: 10px 8px; background: none; border: none; cursor: pointer;
+  font-family: var(--font-body); text-align: left;
+}
+.season-prow:hover { background: var(--surface-sunken); border-radius: 10px; }
+.season-pcaret { color: var(--slate); font-size: 10px; }
+.pex { padding: 0 12px 14px 32px; }
+.pex-title { font-size: 12px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }
+.pex-none { font-size: 12.5px; color: var(--slate); margin: 0 0 4px; }
+.pex-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 18px; }
+.pex-list > li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.pex-label { font-size: 12.5px; color: var(--navy); }
+.pex-count { font-size: 12.5px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  /* Cards, not a squeezed table. Opponent and QAB% lead; no horizontal scroll. */
+  .gm-row {
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    grid-template-areas: "caret id pct" ". outcome outcome" ". figs status";
+    row-gap: 6px; padding: 12px 8px;
+  }
+  .gm-caret { grid-area: caret; align-self: start; margin-top: 3px; }
+  .gm-id { grid-area: id; }
+  .gm-pct { grid-area: pct; align-self: start; }
+  .gm-outcome { grid-area: outcome; }
+  .gm-figs { grid-area: figs; flex-direction: row; align-items: baseline; gap: 5px; }
+  .gm-figs em { font-size: 10.5px; }
+  .gm-status { grid-area: status; justify-self: end; }
+
+  .lc { padding: 4px 10px 14px 14px; }
+  .lc-list > li { grid-template-columns: 22px minmax(0, 1fr) auto auto; row-gap: 4px; }
+  .lc-bar { grid-column: 2 / -1; grid-row: 2; }
+  .pex { padding: 0 10px 14px 14px; }
+  .pex-list { grid-template-columns: minmax(0, 1fr); }
+}

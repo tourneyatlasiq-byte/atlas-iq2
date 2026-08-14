@@ -15,9 +15,65 @@ import { useState } from "react";
  * in presentation — counts carry more weight than percentages, nothing is
  * ranked, and no direction is claimed — not in hiding their data.
  */
-export function PerformanceSeason({ team, reasons, reasonsCited, players, tournaments }) {
+function fmtDate(d) {
+  if (!d) return null;
+  const [, m, day] = d.split("-");
+  return `${Number(m)}/${Number(day)}`;
+}
+
+/**
+ * Where through this lineup did the quality at-bats come from?
+ *
+ * Ordered by batting position, never by percentage — the sequence is the
+ * report. Positions come from the immutable plate_appearances.batting_order
+ * snapshot, so this stays accurate for a game whose lineup was later edited.
+ *
+ * Descriptive only. A high figure in one slot mostly reflects who the coach
+ * put there, so nothing here suggests that a position causes performance.
+ */
+function LineupContribution({ game }) {
+  const maxPa = Math.max(1, ...game.lineup.map((s) => s.pa));
+
+  return (
+    <div className="lc">
+      <p className="lc-title">Lineup contribution</p>
+      <p className="lc-sub">QAB performance through the batting order</p>
+
+      <ul className="lc-list">
+        {game.lineup.map((s) => (
+          <li key={`${s.battingOrder ?? "x"}-${s.playerId}`}>
+            <span className="lc-slot">{s.battingOrder ?? "—"}</span>
+            <span className="lc-name">{s.name}</span>
+            <span className="lc-bar" aria-hidden="true">
+              {/* Width tracks plate appearances, fill tracks quality at-bats,
+                  so a 1/1 cannot visually outweigh a 3/5. */}
+              <span className="lc-bar-pa" style={{ width: `${(s.pa / maxPa) * 100}%` }}>
+                <span
+                  className="lc-bar-qab"
+                  style={{ width: `${s.pa ? (s.qab / s.pa) * 100 : 0}%` }}
+                />
+              </span>
+            </span>
+            <span className="lc-figs">
+              {s.qab}/{s.pa}
+            </span>
+            <span className="lc-pct">{s.qabPct == null ? "—" : `${s.qabPct}%`}</span>
+          </li>
+        ))}
+      </ul>
+
+      {game.lineup.some((s) => s.battingOrder == null) && (
+        <p className="lc-note">— means the batting position was not recorded.</p>
+      )}
+    </div>
+  );
+}
+
+export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted }) {
   const [view, setView] = useState("team");
   const [allReasons, setAllReasons] = useState(false);
+  const [openGame, setOpenGame] = useState(null);
+  const [openPlayer, setOpenPlayer] = useState(null);
 
   if (team.pa === 0) {
     return (
@@ -98,34 +154,70 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, tourna
 
       {view === "team" ? (
         <div className="season-cols">
-          <div className="season-card">
-            <p className="season-label">By tournament</p>
-            {tournaments.length === 0 ? (
-              <p className="season-none">No tournament totals yet.</p>
+          <div className="season-card season-games">
+            <p className="season-label">Games</p>
+            <p className="season-sub">How we did in each game we tracked.</p>
+
+            {games.length === 0 ? (
+              <p className="season-none">No games tracked yet.</p>
             ) : (
-              <ul className="season-tlist">
-                {tournaments.map((t) => (
-                  <li key={t.tournamentId}>
-                    <p className="season-trow">
-                      <span className="season-tname">{t.name}</span>
-                      <span className="season-tfig">
-                        <strong>{t.qabPct == null ? "—" : `${t.qabPct}%`}</strong>{" "}
-                        <span>
-                          {t.qab}/{t.pa} PA
+              <ul className="gm-list">
+                {games.map((g) => {
+                  const open = openGame === g.gameId;
+                  return (
+                    <li key={g.gameId} className={open ? "open" : ""}>
+                      <button
+                        type="button"
+                        className="gm-row"
+                        aria-expanded={open}
+                        onClick={() => setOpenGame(open ? null : g.gameId)}
+                      >
+                        <span className="gm-caret" aria-hidden="true">
+                          {open ? "▾" : "▸"}
                         </span>
-                      </span>
-                    </p>
-                    {/* Thin samples are muted rather than labelled. The counts
-                        above already say how much is behind the bar. */}
-                    <span className={`season-bar${t.pa < 5 ? " thin" : ""}`} aria-hidden="true">
-                      <span style={{ width: `${t.qabPct ?? 0}%` }} />
-                    </span>
-                    <p className="season-tmeta">
-                      {t.games} {t.games === 1 ? "game" : "games"} · {t.players}{" "}
-                      {t.players === 1 ? "player" : "players"}
-                    </p>
-                  </li>
-                ))}
+
+                        <span className="gm-id">
+                          <span className="gm-opp">{g.opponent}</span>
+                          <span className="gm-meta">
+                            {fmtDate(g.gameDate)}
+                            {g.tournament && ` · ${g.tournament}`}
+                          </span>
+                        </span>
+
+                        <span className="gm-outcome">
+                          {g.hasScore ? (
+                            <>
+                              <span className={`gm-res gm-res-${(g.result ?? "").toLowerCase()}`}>
+                                {g.result}
+                              </span>
+                              <span className="gm-score">
+                                {g.runsFor}–{g.runsAgainst}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="gm-noscore">No score recorded</span>
+                          )}
+                        </span>
+
+                        <span className="gm-figs">
+                          <strong>{g.qab}</strong>
+                          <span aria-hidden="true"> / </span>
+                          <strong>{g.pa}</strong>
+                          <em>QAB / PA</em>
+                        </span>
+
+                        <span className="gm-pct">{g.qabPct == null ? "—" : `${g.qabPct}%`}</span>
+
+                        {/* Explicit completion, never inferred from the score. */}
+                        <span className={`gm-status${g.completed ? " done" : ""}`}>
+                          {g.completed ? "Complete" : "Tracking in progress"}
+                        </span>
+                      </button>
+
+                      {open && <LineupContribution game={g} />}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -161,6 +253,20 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, tourna
               </button>
             )}
           </div>
+
+          {/* The slot exists so the eventual chart is an insertion. Nothing is
+              repeated here from the Games report, and no direction is claimed
+              from three partially tracked games. */}
+          <div className="season-card season-trend">
+            <p className="season-label">Trend</p>
+            <p className="season-sub">
+              Game-to-game trends will appear as more completed games are tracked.
+            </p>
+            <p className="season-trend-count">
+              {team.games} {team.games === 1 ? "game" : "games"} tracked ·{" "}
+              {gamesCompleted} completed
+            </p>
+          </div>
         </div>
       ) : (
         <div className="season-card">
@@ -173,19 +279,55 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, tourna
           </p>
 
           <ul className="season-plist">
-            {players.map((p) => (
-              <li key={p.playerId}>
-                <span className="season-pname">{p.name}</span>
-                <span className="season-pcounts">
-                  <strong>{p.qab}</strong> QAB <span aria-hidden="true">/</span>{" "}
-                  <strong>{p.pa}</strong> PA
-                </span>
-                <span className="season-ppct">{p.qabPct == null ? "—" : `${p.qabPct}%`}</span>
-                {/* Quiet qualifier, not a warning. Disappears on its own once
-                    this player has enough plate appearances. */}
-                {p.earlyData && <span className="season-early">Early data</span>}
-              </li>
-            ))}
+            {players.map((p) => {
+              const open = openPlayer === p.playerId;
+              return (
+                <li key={p.playerId} className={open ? "open" : ""}>
+                  <button
+                    type="button"
+                    className="season-prow"
+                    aria-expanded={open}
+                    onClick={() => setOpenPlayer(open ? null : p.playerId)}
+                  >
+                    <span className="season-pcaret" aria-hidden="true">
+                      {open ? "▾" : "▸"}
+                    </span>
+                    <span className="season-pname">{p.name}</span>
+                    <span className="season-pcounts">
+                      <strong>{p.qab}</strong> QAB <span aria-hidden="true">/</span>{" "}
+                      <strong>{p.pa}</strong> PA
+                    </span>
+                    <span className="season-ppct">
+                      {p.qabPct == null ? "—" : `${p.qabPct}%`}
+                    </span>
+                    {p.earlyData && <span className="season-early">Early data</span>}
+                  </button>
+
+                  {open && (
+                    <div className="pex">
+                      {p.qab === 0 ? (
+                        <p className="pex-none">No quality at-bats recorded yet.</p>
+                      ) : (
+                        <>
+                          <p className="pex-title">Quality At-Bat breakdown</p>
+                          {/* Occurrences for this player. One plate appearance
+                              can cite several reasons and is still one QAB, so
+                              these counts are never totalled as a QAB figure. */}
+                          <ul className="pex-list">
+                            {p.reasons.map((r) => (
+                              <li key={r.key}>
+                                <span className="pex-label">{r.label}</span>
+                                <span className="pex-count">{r.count}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
