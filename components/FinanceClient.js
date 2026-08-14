@@ -185,7 +185,7 @@ export function FinanceClient({
         Detail that belongs to a tab lives in that tab — remaining budget,
         committed-unpaid and the money-in split are all one click away.
       */}
-      <div className="summary-band">
+      <div className="summary-band summary-band-flat">
         <div className="summary-band-grid">
           <div className="fin-lead-main">
             <p className="fin-panel-label">
@@ -525,26 +525,23 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
           commitment stacked underneath as a full-width card — which is what
           opened the wide empty gap between the two on a laptop. The commitment
           line and the action now share the row beneath the explanation. */}
-      <div className="tab-head">
+      {/* Commitments are supporting information, so they sit beside the
+          explanation rather than forming another band. The Add action moved to
+          the Expenses heading row, where the thing it adds to lives. */}
+      <div className="tab-head budget-intro">
         <div className="page-sub">
           Plan your season expenses here. Paid amounts come from transactions linked to each
           category. Money received is tracked separately in Money In.
         </div>
-      </div>
-
-      <div className="budget-bar">
         {committedTournaments > 0 && (
           <p className="budget-bar-note">
-            <span className="budget-bar-note-label">Tournament commitments:</span>{" "}
-            <strong>{money(committedTournaments)}</strong>
-            <span className="budget-bar-dot" aria-hidden="true"> • </span>
-            <strong>{money(tournamentPaid)}</strong> paid
+            <span className="budget-bar-note-label">Tournament commitments</span>
+            <span className="budget-bar-figures">
+              <strong>{money(committedTournaments)}</strong>
+              <span className="budget-bar-dot" aria-hidden="true"> • </span>
+              <strong>{money(tournamentPaid)}</strong> paid
+            </span>
           </p>
-        )}
-        {canWrite && (
-          <button className="btn btn-primary budget-bar-action" onClick={onAdd}>
-            Add budget line
-          </button>
         )}
       </div>
 
@@ -562,6 +559,13 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
             title="Expenses" groups={budget.expenses} openCats={openCats}
             setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
             onDelete={onDelete} pending={pending}
+            action={
+              canWrite && (
+                <button className="btn btn-primary" onClick={onAdd}>
+                  Add budget line
+                </button>
+              )
+            }
           />
         </>
       )}
@@ -611,13 +615,14 @@ function summaryMoney(n) {
     : money(v);
 }
 
-function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income }) {
+function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action }) {
   if (groups.length === 0) return null;
 
   return (
     <div className="group">
-      <div className="group-head" style={{ cursor: "default" }}>
+      <div className="group-head group-head-action" style={{ cursor: "default" }}>
         <span className={`group-title ${income ? "decision-committed" : "decision-considering"}`}>{title}</span>
+        {action}
       </div>
 
       {/* One header for the whole area, not one per category. Every category

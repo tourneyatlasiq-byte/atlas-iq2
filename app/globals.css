@@ -3727,15 +3727,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 /* The compact Budget header row. Replaces the old space-between tab-head plus
    a full-width .reconcile card stacked beneath it — that pairing is what
    produced the wide empty region between the explanation and the button. */
-.budget-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 10px 16px; margin: 0 0 10px;
-}
 .budget-bar-note { font-size: 13px; color: var(--navy); margin: 0; }
-.budget-bar-note-label { color: var(--slate); }
 .budget-bar-note strong { font-weight: 700; }
-.budget-bar-dot { color: var(--border); }
-.budget-bar-action { flex: 0 0 auto; }
 
 @media (min-width: 900px) {
   /* Summary block: ~30% shorter through padding and gaps. The 31% hero keeps
@@ -3745,7 +3738,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .fin-lead-amounts { margin: 6px 0 4px; }
   .fin-lead-rest { margin-top: 6px; }
   /* Tabs sit closer to the content they switch. */
-  .tabs { margin: 12px 0 12px; }
+  .tabs { margin: 10px 0 8px; }
   .tab { padding: 8px 14px; }
 
   /* Explanation is one tight paragraph, not a floating column. */
@@ -3767,8 +3760,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    compact pair beneath the meter rather than two more cards competing with it. */
 .fin-secondary {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px; margin-top: 12px;
-  padding-top: 12px; border-top: 1px solid var(--border);
+  gap: 10px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--border);
 }
 .fin-metric {
   display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
@@ -3780,22 +3773,48 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .fin-metric-sub { font-size: 12px; color: var(--slate); }
 .fin-metric:hover .fin-metric-value { color: var(--blue-dark); }
 
-/* The dues panel is the band's own surface — no nested card inside a card. */
-.summary-band .fin-lead-main {
-  background: var(--surface); border-radius: 12px; padding: 14px 16px;
+/* One surface, two columns, divided by a rule — not a white card sitting
+   inside another white card. Scoped to this modifier so .summary-band stays
+   available unchanged for Tournaments and, later, Home. */
+.summary-band-flat {
+  background: var(--surface); padding: 12px 14px;
+}
+.summary-band-flat .fin-lead-main { background: none; padding: 0; }
+.summary-band-flat .briefing {
+  background: none; border-radius: 0; padding: 0 0 0 16px;
+  border-left: 1px solid var(--border);
 }
 
 @media (min-width: 900px) {
-  /* One item in Needs action must not set a tall minimum height for the row.
-     Stretch is right for Tournaments, where the briefing carries several
-     entries; here the briefing sizes to its content and sits at the top. */
-  .summary-band .summary-band-grid { align-items: start; }
-  .summary-band .briefing { padding: 12px 12px; }
-  .summary-band .briefing-title { margin-bottom: 6px; }
-  .summary-band .fin-lead-main { padding: 12px 14px; }
-  .fin-secondary { margin-top: 10px; padding-top: 10px; }
+  /* Height follows content. Stretch is right for Tournaments, where the
+     briefing carries several entries; one item here must not set the row. */
+  .summary-band-flat .summary-band-grid { align-items: start; gap: 16px; }
+  .summary-band-flat .briefing-title { margin-bottom: 6px; }
+
+  /* Commitments sit beside the explanation, adding no height of their own. */
+  .budget-intro { align-items: flex-start; gap: 16px; margin-bottom: 10px; }
+  .budget-intro .page-sub { max-width: 72ch; }
+  .budget-bar-note {
+    flex: 0 0 auto; text-align: right; margin: 0; font-size: 12px; line-height: 1.45;
+  }
+  .budget-bar-note-label { display: block; color: var(--slate); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .budget-bar-figures { color: var(--navy); }
+  .budget-bar-dot { color: var(--border); }
+
+  /* Expenses heading and its action share one row; table follows immediately. */
+  .group-head-action { align-items: center; justify-content: space-between; gap: 12px; }
+  .group-head-action .btn { flex: 0 0 auto; }
 }
 
 @media (max-width: 899px) {
   .summary-band .summary-band-grid { grid-template-columns: minmax(0, 1fr); }
+  .summary-band-flat .briefing {
+    border-left: none; border-top: 1px solid var(--border);
+    padding: 12px 0 0; margin-top: 4px;
+  }
+  .budget-bar-note { margin: 8px 0 0; font-size: 12px; }
+  .budget-bar-note-label { color: var(--slate); }
+  .group-head-action { flex-wrap: wrap; }
+}
+
 }
