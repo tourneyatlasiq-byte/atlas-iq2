@@ -77,6 +77,35 @@ export function IconPerformance() {
   );
 }
 
+export function IconMore() {
+  return (
+    <svg {...base}>
+      <circle cx="3" cy="8" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="8" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="8" r="1.15" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconSettings() {
+  return (
+    <svg {...base}>
+      <circle cx="8" cy="8" r="2.1" />
+      <path d="M8 1.6v1.6M8 12.8v1.6M14.4 8h-1.6M3.2 8H1.6M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1M12.5 12.5l-1.1-1.1M4.6 4.6L3.5 3.5" />
+    </svg>
+  );
+}
+
+export function IconHelp() {
+  return (
+    <svg {...base}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M6.3 6.2c.1-1 .9-1.7 1.8-1.7 1 0 1.8.7 1.8 1.6 0 1.3-1.7 1.3-1.7 2.6" />
+      <circle cx="8" cy="11.4" r=".7" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconFiles() {
   return (
     <svg {...base}>
