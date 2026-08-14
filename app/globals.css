@@ -3125,7 +3125,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
     120px                 /* budget */
     120px                 /* used */
     120px                 /* left */
-    minmax(120px, auto);  /* status / actions */
+    minmax(84px, auto);   /* line-row actions (status text moved under name) */
 }
 
 .budget-board { padding: 0; }
@@ -3185,16 +3185,13 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .budget-num.over { color: var(--danger); }
 .budget-colhead .budget-num { color: var(--slate); }
 
-.budget-status {
-  font-size: 12px; color: var(--slate);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
+
 
 .budget-line-actions { display: flex; gap: 2px; justify-content: flex-end; }
 .budget-line-actions .btn { padding: 3px 8px; font-size: 12px; }
 
 @media (max-width: 900px) {
-  :root { --budget-grid: 18px minmax(0, 1fr) 100px 100px 100px; }
+  :root { --budget-grid: 18px minmax(0, 1fr) 92px 92px 92px; }
   .budget-colhead { display: none; }
   .budget-row > :nth-child(6) { grid-column: 2 / -1; }
   .budget-line-actions { justify-content: flex-start; padding-left: 18px; }
@@ -3727,8 +3724,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 /* The compact Budget header row. Replaces the old space-between tab-head plus
    a full-width .reconcile card stacked beneath it — that pairing is what
    produced the wide empty region between the explanation and the button. */
-.budget-bar-note { font-size: 13px; color: var(--navy); margin: 0; }
-.budget-bar-note strong { font-weight: 700; }
+
 
 @media (min-width: 900px) {
   /* Summary block: ~30% shorter through padding and gaps. The 31% hero keeps
@@ -3791,19 +3787,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .summary-band-flat .summary-band-grid { align-items: start; gap: 16px; }
   .summary-band-flat .briefing-title { margin-bottom: 6px; }
 
-  /* Commitments sit beside the explanation, adding no height of their own. */
-  .budget-intro { align-items: flex-start; gap: 16px; margin-bottom: 10px; }
-  .budget-intro .page-sub { max-width: 72ch; }
-  .budget-bar-note {
-    flex: 0 0 auto; text-align: right; margin: 0; font-size: 12px; line-height: 1.45;
-  }
-  .budget-bar-note-label { display: block; color: var(--slate); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-  .budget-bar-figures { color: var(--navy); }
-  .budget-bar-dot { color: var(--border); }
-
-  /* Expenses heading and its action share one row; table follows immediately. */
+  /* Expenses heading row keeps its shape; the action now sits with the
+     Season budget block above it. */
   .group-head-action { align-items: center; justify-content: space-between; gap: 12px; }
-  .group-head-action .btn { flex: 0 0 auto; }
 }
 
 @media (max-width: 899px) {
@@ -3812,9 +3798,55 @@ td.committed { color: var(--status-wait); font-weight: 600; }
     border-left: none; border-top: 1px solid var(--border);
     padding: 12px 0 0; margin-top: 4px;
   }
-  .budget-bar-note { margin: 8px 0 0; font-size: 12px; }
-  .budget-bar-note-label { color: var(--slate); }
   .group-head-action { flex-wrap: wrap; }
 }
 
+}
+
+/* --- Finance: approved hierarchy ----------------------------------------- */
+
+/* Three secondary metrics, quieter than the dues percentage above them. */
+.fin-secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Needs attention reads as part of the summary, not a module beside it. */
+.fin-needs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fin-needs-count {
+  flex: 0 0 auto; font-size: 11px; font-weight: 700; letter-spacing: 0;
+  text-transform: none; color: var(--slate);
+  background: var(--surface-sunken); border-radius: 999px; padding: 2px 8px;
+}
+.fin-needs-lead { font-size: 12.5px; line-height: 1.45; color: var(--slate); margin: 0 0 8px; }
+.fin-needs-link {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+  padding: 9px 11px; background: var(--surface-sunken);
+}
+.fin-needs-link:hover { border-color: var(--blue); background: #f2f7fe; }
+.fin-needs-link.on { border-color: var(--blue); background: #f2f7fe; }
+.fin-needs-go { flex: 0 0 auto; color: var(--blue); font-weight: 700; }
+.fin-needs .briefing-item + .briefing-item { border-top: none; margin-top: 6px; }
+.fin-needs .briefing-what { font-weight: 600; color: var(--navy); }
+
+/* Season budget: heading, supporting copy, commitments, action — one region. */
+.budget-intro {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 16px; margin: 0 0 10px;
+}
+.budget-intro-text { min-width: 0; }
+.budget-intro-title { font-size: 16px; font-weight: 700; color: var(--navy); margin: 0 0 2px; }
+.budget-intro .page-sub { margin-top: 0; max-width: 68ch; }
+.budget-intro-note { font-size: 13px; color: var(--slate); margin: 6px 0 0; }
+.budget-intro-note strong { color: var(--navy); font-weight: 700; }
+.budget-intro-action { flex: 0 0 auto; }
+
+/* The Status column's information now sits beneath the category it describes. */
+.budget-cat-sub { display: block; }
+
+@media (max-width: 899px) {
+  .fin-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .budget-intro-action { width: 100%; }
+}
+
+@media (max-width: 520px) {
+  .fin-secondary { grid-template-columns: minmax(0, 1fr); }
 }

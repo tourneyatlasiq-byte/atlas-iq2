@@ -212,19 +212,31 @@ export function FinanceClient({
               )}
             </p>
 
-            {/* Secondary metrics sit inside the dues column, beneath the meter,
-                so the summary reads as one story rather than three cards. */}
-            <div className="fin-secondary">
-              <button className="fin-metric" onClick={() => setTab("budget")}>
-                <span className="fin-metric-label">Spent</span>
-                <span className="fin-metric-value">{money(summary.actualExpenses)}</span>
-                <span className="fin-metric-sub">of {money(summary.budgetedExpenses)} planned</span>
-              </button>
+            {/* Secondary metrics sit beneath the dues story, quieter than the
+                percentage above them.
 
+                Budget available reads summary.availableBudget — the same
+                canonical figure Home shows. It is deliberately NOT
+                remainingBudget (budgeted less spent): that is a different
+                number, and showing it here under this label is precisely how
+                Home and Finance drifted apart before. */}
+            <div className="fin-secondary">
               <button className="fin-metric" onClick={() => setTab("funds")}>
                 <span className="fin-metric-label">Money received</span>
-                <span className="fin-metric-value">{money(funds.total)}</span>
+                <span className="fin-metric-value">{summaryMoney(funds.total)}</span>
                 <span className="fin-metric-sub">this season</span>
+              </button>
+
+              <button className="fin-metric" onClick={() => setTab("budget")}>
+                <span className="fin-metric-label">Spent</span>
+                <span className="fin-metric-value">{summaryMoney(summary.actualExpenses)}</span>
+                <span className="fin-metric-sub">of {summaryMoney(summary.budgetedExpenses)} planned</span>
+              </button>
+
+              <button className="fin-metric" onClick={() => setTab("budget")}>
+                <span className="fin-metric-label">Budget available</span>
+                <span className="fin-metric-value">{summaryMoney(summary.availableBudget)}</span>
+                <span className="fin-metric-sub">after planned commitments</span>
               </button>
             </div>
           </div>
@@ -232,8 +244,23 @@ export function FinanceClient({
           {/* Needs action lives in the band, matching Tournaments. The dues line
               above already carries the outstanding-balance story, so this only
               shows what is unrelated to it. */}
-          <section className="briefing">
-            <p className="briefing-title">Needs action</p>
+          <section className="briefing fin-needs">
+            <p className="briefing-title fin-needs-head">
+              Needs attention
+              {otherActions.length > 0 && (
+                <span className="fin-needs-count">
+                  {otherActions.length} {otherActions.length === 1 ? "item" : "items"}
+                </span>
+              )}
+            </p>
+
+            {otherActions.length > 0 && (
+              <p className="fin-needs-lead">
+                {otherActions.length === 1
+                  ? "One thing is missing information needed to track money correctly."
+                  : "Some records are missing information needed to track money correctly."}
+              </p>
+            )}
 
             {otherActions.length === 0 ? (
               <div className="briefing-clear briefing-clear-good">
@@ -245,13 +272,14 @@ export function FinanceClient({
                 {otherActions.map((a) => (
                   <li key={a.id} className="briefing-item">
                     <button
-                      className={`briefing-link${actionId === a.id ? " on" : ""}`}
+                      className={`briefing-link fin-needs-link${actionId === a.id ? " on" : ""}`}
                       onClick={() => selectAction(actionId === a.id ? null : a.id)}
                     >
                       <span className="briefing-dot dot-attention" aria-hidden="true" />
                       <span className="briefing-text">
                         <span className="briefing-what">{financeActionText(a, dues)}</span>
                       </span>
+                      <span className="fin-needs-go" aria-hidden="true">→</span>
                     </button>
                   </li>
                 ))}
@@ -528,20 +556,24 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
       {/* Commitments are supporting information, so they sit beside the
           explanation rather than forming another band. The Add action moved to
           the Expenses heading row, where the thing it adds to lives. */}
-      <div className="tab-head budget-intro">
-        <div className="page-sub">
-          Plan your season expenses here. Paid amounts come from transactions linked to each
-          category. Money received is tracked separately in Money In.
-        </div>
-        {committedTournaments > 0 && (
-          <p className="budget-bar-note">
-            <span className="budget-bar-note-label">Tournament commitments</span>
-            <span className="budget-bar-figures">
-              <strong>{money(committedTournaments)}</strong>
-              <span className="budget-bar-dot" aria-hidden="true"> • </span>
-              <strong>{money(tournamentPaid)}</strong> paid
-            </span>
+      <div className="budget-intro">
+        <div className="budget-intro-text">
+          <h2 className="budget-intro-title">Season budget</h2>
+          <p className="page-sub">
+            Plan expenses and see how much of each category has actually been used.
           </p>
+          {committedTournaments > 0 && (
+            <p className="budget-intro-note">
+              <strong>{summaryMoney(committedTournaments)}</strong> committed to tournaments
+              <span className="budget-bar-dot" aria-hidden="true"> · </span>
+              <strong>{summaryMoney(tournamentPaid)}</strong> paid
+            </p>
+          )}
+        </div>
+        {canWrite && (
+          <button className="btn btn-primary budget-intro-action" onClick={onAdd}>
+            + Add budget item
+          </button>
         )}
       </div>
 
@@ -559,13 +591,6 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
             title="Expenses" groups={budget.expenses} openCats={openCats}
             setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
             onDelete={onDelete} pending={pending}
-            action={
-              canWrite && (
-                <button className="btn btn-primary" onClick={onAdd}>
-                  Add budget line
-                </button>
-              )
-            }
           />
         </>
       )}
@@ -639,7 +664,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           <span className="budget-num">Budget</span>
           <span className="budget-num">Used</span>
           <span className="budget-num">Left</span>
-          <span>Status</span>
+          <span />
         </div>
 
         {groups.map((g) => {
@@ -656,6 +681,13 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
 
                 <span className="budget-name">
                   <span className="budget-cat-name">{g.category}</span>
+                  {/* Same information the Status column carried, in plain
+                      English beneath the category it describes. */}
+                  <span className="budget-sub budget-cat-sub">
+                    {g.percentCommitted == null
+                      ? "No spending recorded"
+                      : `${g.percentCommitted}% of budget used`}
+                  </span>
                   <PaymentNote used={g.committedTotal} paid={g.paidTotal} />
                 </span>
 
@@ -667,9 +699,10 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                     : summaryMoney(g.available)}
                 </span>
 
-                <span className="budget-status">
-                  {g.percentCommitted == null ? "—" : `${g.percentCommitted}% used`}
-                </span>
+                {/* Track 6 is shared with the line rows' actions. The category
+                    row keeps the cell so the columns stay aligned; its Status
+                    text now lives beneath the category name. */}
+                <span />
               </button>
 
               {open &&
