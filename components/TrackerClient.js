@@ -118,11 +118,15 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
     try {
       const id = newPaId();
       const paNumber = paNumberFor(batter.player_id);
+      // Captured here, at tap time, from the order currently on screen. This
+      // is why an offline replay keeps the original position: the value is
+      // frozen into the queued payload, not looked up when it finally syncs.
       const payload = {
         id,
         gameId: game.id,
         playerId: batter.player_id,
         paNumber,
+        battingOrder: batter.batting_order ?? null,
         reasons,
       };
 
@@ -132,6 +136,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           id,
           player_id: batter.player_id,
           pa_number: paNumber,
+          batting_order: batter.batting_order ?? null,
           qab_reasons: reasons,
           is_qab: reasons.length > 0,
           voided_at: null,
@@ -208,6 +213,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
           id,
           player_id: slot.player_id,
           pa_number: paNumber,
+          batting_order: slot.batting_order ?? null,
           qab_reasons: [],
           is_qab: false,
           voided_at: null,
@@ -218,7 +224,14 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
       await enqueue({
         op: "record",
         gameId: game.id,
-        payload: { id, gameId: game.id, playerId: slot.player_id, paNumber, reasons: [] },
+        payload: {
+          id,
+          gameId: game.id,
+          playerId: slot.player_id,
+          paNumber,
+          battingOrder: slot.batting_order ?? null,
+          reasons: [],
+        },
       });
       await refreshStatus();
       sync_();
