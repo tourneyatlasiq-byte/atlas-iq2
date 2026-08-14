@@ -82,28 +82,46 @@ export default async function PerformancePage() {
             </p>
           </section>
 
-          {/* Tournament roster is a tournament-level prerequisite, so it is
-              stated once above the games rather than repeated on each. */}
-          <section className={`perf-req${hasRoster ? " ok" : " todo"}`}>
-            <div className="perf-req-text">
-              <p className="perf-req-label">Tournament roster</p>
-              {hasRoster ? (
-                <p className="perf-req-state">✓ {participantCount} attending</p>
-              ) : (
-                <>
-                  <p className="perf-req-state">Not set</p>
-                  <p className="perf-req-help">
-                    Set who&rsquo;s attending this tournament before creating game batting
-                    orders.
+          {/* Game day setup.
+
+              Tournament roster is a tournament-level fact, so it carries a real
+              status. Batting order and Track QABs are labels, not statuses —
+              they happen per game and the cards below say so themselves. The
+              sequence is orientation, not a wizard. */}
+          <section className={`perf-flow${hasRoster ? " ok" : " todo"}`}>
+            <p className="perf-flow-label">Game day setup</p>
+
+            <div className="perf-flow-steps">
+              <div className={`perf-flow-step ${hasRoster ? "done" : "todo"}`}>
+                {hasRoster ? (
+                  <p className="perf-flow-name">
+                    <span className="perf-flow-tick" aria-hidden="true">✓</span>
+                    Tournament roster · {participantCount} attending
                   </p>
-                </>
-              )}
+                ) : (
+                  <>
+                    <p className="perf-flow-name">Tournament roster needed</p>
+                    <p className="perf-flow-help">
+                      Set who&rsquo;s attending this tournament before creating game batting
+                      orders.
+                    </p>
+                    <Link className="btn btn-primary perf-flow-action" href="/tournaments">
+                      Set tournament roster →
+                    </Link>
+                  </>
+                )}
+              </div>
+
+              <span className="perf-flow-arrow" aria-hidden="true">→</span>
+              <div className="perf-flow-step ahead">
+                <p className="perf-flow-name">Batting order</p>
+              </div>
+
+              <span className="perf-flow-arrow" aria-hidden="true">→</span>
+              <div className="perf-flow-step ahead">
+                <p className="perf-flow-name">Track QABs</p>
+              </div>
             </div>
-            {!hasRoster && (
-              <Link className="btn btn-primary perf-req-action" href="/tournaments">
-                Set tournament roster →
-              </Link>
-            )}
           </section>
 
           <section className="perf-games">
@@ -139,36 +157,46 @@ export default async function PerformancePage() {
 function GameRow({ game, tournamentId, enabled }) {
   const base = `/tournaments/${tournamentId}/games/${game.id}`;
 
+  // Same three states as before. Nothing new is derived or invented — only the
+  // wording and the rail tone change.
   let state;
-  let action = null;
+  let ready;
+  let action;
 
   if (game.plateAppearances > 0) {
-    state = `${game.plateAppearances} PA recorded`;
-    action = { href: `${base}/track`, label: "Continue QAB Tracking →", primary: true };
+    ready = true;
+    state = `Batting order set · ${game.plateAppearances} PA recorded`;
+    action = { href: `${base}/track`, label: "Continue tracking →" };
   } else if (game.batters > 0) {
-    state = `${game.batters} batting`;
-    action = { href: `${base}/track`, label: "Start QAB Tracking →", primary: true };
+    ready = true;
+    state = `Batting order set · ${game.batters} batting`;
+    action = { href: `${base}/track`, label: "Start QAB tracking →" };
   } else {
-    state = "Batting order not set";
-    action = { href: `${base}/lineup`, label: "Set batting order →", primary: false };
+    ready = false;
+    state = "Batting order needed";
+    action = { href: `${base}/lineup`, label: "Set batting order →" };
   }
 
   return (
-    <div className="perf-game">
+    <div className={`perf-game${ready ? " ready" : " needs"}`}>
       <div className="perf-game-text">
         <p className="perf-game-opponent">{game.opponent_name ?? "Opponent"}</p>
         <p className="perf-game-meta">
           {fmtDate(game.game_date)}
           {game.game_type && ` · ${game.game_type}`}
         </p>
-        <p className="perf-game-state">{state}</p>
+        <p className="perf-game-state">
+          {ready && (
+            <span className="perf-game-tick" aria-hidden="true">
+              ✓
+            </span>
+          )}
+          {state}
+        </p>
       </div>
 
       {enabled ? (
-        <Link
-          className={`btn perf-game-action${action.primary ? " btn-primary" : ""}`}
-          href={action.href}
-        >
+        <Link className="btn btn-primary perf-game-action" href={action.href}>
           {action.label}
         </Link>
       ) : (

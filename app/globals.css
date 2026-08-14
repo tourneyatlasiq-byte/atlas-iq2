@@ -3875,36 +3875,58 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .perf-name { font-family: var(--font-display); font-size: 26px; font-weight: 800; margin: 0; line-height: 1.15; }
 .perf-meta { font-size: 13px; color: rgba(255,255,255,.72); margin: 6px 0 0; }
 
-/* The prerequisite. When unmet it is the loudest thing under the header; when
-   met it collapses to a quiet confirmation so the games can lead. */
-.perf-req {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+/* Game day setup.
+
+   Orientation, not a wizard. The roster step carries a real status because it
+   is a tournament-level fact; the two that follow are labels, because they
+   happen per game and the cards below already say so. */
+.perf-flow {
   border: 1px solid var(--border); border-radius: var(--radius-card);
-  padding: 12px 16px; margin-bottom: 14px; background: var(--surface);
+  padding: 11px 16px; margin-bottom: 14px; background: var(--surface);
 }
-.perf-req.todo { border-color: rgba(244,180,0,.5); background: #fffaf0; }
-.perf-req-label { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--slate); margin: 0 0 2px; }
-.perf-req-state { font-size: 16px; font-weight: 700; color: var(--navy); margin: 0; }
-.perf-req.ok .perf-req-state { color: #1b5e34; }
-.perf-req-help { font-size: 13px; color: var(--slate); margin: 4px 0 0; max-width: 52ch; }
-.perf-req-action { flex: 0 0 auto; }
+.perf-flow.todo { border-color: rgba(244,180,0,.5); background: #fffaf0; }
+.perf-flow-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); margin: 0 0 7px; }
+.perf-flow-steps { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.perf-flow-step { min-width: 0; }
+.perf-flow-name { font-size: 13.5px; font-weight: 600; color: var(--navy); margin: 0; }
+.perf-flow-step.done .perf-flow-name { color: #1b5e34; }
+.perf-flow-step.ahead .perf-flow-name { color: var(--slate); font-weight: 500; }
+.perf-flow-tick { margin-right: 5px; font-weight: 800; }
+.perf-flow-arrow { color: var(--border); font-size: 13px; }
+
+/* Unmet: the first step takes the room and the action; the rest recede. */
+.perf-flow.todo .perf-flow-steps { align-items: flex-start; }
+.perf-flow.todo .perf-flow-step.todo { flex: 1 1 320px; }
+.perf-flow.todo .perf-flow-step.todo .perf-flow-name { font-size: 16px; font-weight: 700; color: var(--navy); }
+.perf-flow.todo .perf-flow-step.ahead { opacity: .45; }
+.perf-flow-help { font-size: 13px; color: var(--slate); margin: 4px 0 10px; max-width: 52ch; }
+.perf-flow-action { display: inline-block; }
 
 .perf-games-h { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); margin: 0 0 8px; }
 .perf-none { font-size: 14px; color: var(--slate); }
 .perf-list { list-style: none; margin: 0; padding: 0; }
 .perf-list > li { margin-bottom: 8px; }
 
+/* A game-day workspace row, not a link. The 3px rail is the fastest state
+   signal down a column of games — readable before any text is. */
 .perf-game {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  border: 1px solid var(--border); border-radius: var(--radius-card);
-  padding: 13px 16px; background: var(--surface);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border: 1px solid var(--border); border-left: 3px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px 16px; background: var(--surface);
 }
+.perf-game.ready { border-left-color: #1b5e34; }
+.perf-game.needs { border-left-color: var(--gold); }
 .perf-game-text { min-width: 0; }
-.perf-game-opponent { font-size: 16px; font-weight: 700; color: var(--navy); margin: 0; }
-.perf-game-meta { font-size: 12.5px; color: var(--slate); margin: 2px 0 0; }
-.perf-game-state { font-size: 13px; color: var(--navy); margin: 5px 0 0; font-weight: 600; }
-.perf-game-action { flex: 0 0 auto; white-space: nowrap; }
+.perf-game-opponent { font-size: 16.5px; font-weight: 700; color: var(--navy); margin: 0; line-height: 1.2; }
+.perf-game-meta { font-size: 12.5px; color: var(--slate); margin: 3px 0 0; }
+.perf-game-state { font-size: 13px; margin: 8px 0 0; font-weight: 600; }
+.perf-game.ready .perf-game-state { color: #1b5e34; }
+.perf-game.needs .perf-game-state { color: #7a5200; }
+.perf-game-tick { margin-right: 5px; font-weight: 800; }
+.perf-game-action { flex: 0 0 auto; white-space: nowrap; min-height: 44px; line-height: 26px; }
 .perf-game-blocked { flex: 0 0 auto; font-size: 12.5px; color: var(--slate); }
+
 
 /* Premium state. Explains the capability; promises no self-activation. */
 .perf-premium-tag {
@@ -3929,6 +3951,15 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .perf-locked-note { font-size: 13px; color: var(--slate); margin: 0; padding-top: 14px; border-top: 1px solid var(--border); }
 
 @media (max-width: 720px) {
-  .perf-req, .perf-game { flex-direction: column; align-items: stretch; }
-  .perf-req-action, .perf-game-action { width: 100%; text-align: center; }
+  /* The sequence survives wrapping; the arrows stay inline so the order still
+     reads left to right. */
+  .perf-flow-steps { gap: 4px 8px; }
+  .perf-flow-name { font-size: 13px; }
+  .perf-flow.todo .perf-flow-step.todo { flex: 1 1 100%; }
+  .perf-flow-action { width: 100%; text-align: center; }
+
+  /* Card stacks; the action becomes a full-width target at the bottom and the
+     rail stays on the left edge. */
+  .perf-game { flex-direction: column; align-items: stretch; gap: 12px; }
+  .perf-game-action { width: 100%; text-align: center; }
 }
