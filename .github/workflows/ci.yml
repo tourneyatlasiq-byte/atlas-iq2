@@ -1,0 +1,37 @@
+name: CI
+
+# Every push to the default branch and every pull request into it. The build
+# step is the one that matters most: `npm run check` only parses JavaScript, so
+# a broken stylesheet or a bad import reaches production without this.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Check and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Matches the Vercel project's runtime (nodeVersion 24.x) so CI and
+          # production build on the same major. Next 14.2.5 requires >=18.17.0,
+          # so this is comfortably inside the supported range.
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax and convention checks
+        run: npm run check
+
+      - name: Production build
+        run: npm run build
