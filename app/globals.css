@@ -1679,16 +1679,19 @@ a.help-task.featured:hover { background: #eef4fe; }
    Same visual language as Home, different job. Home answers "what do I need to
    know"; this answers "what are we playing and what's unresolved about it". */
 
-.tiq-band {
+/* Shared page summary band. Promoted from .tiq-band so Finance, and later
+   Home, use one implementation instead of three. .tiq-band remains an alias so
+   Tournaments renders unchanged. */
+.summary-band, .tiq-band {
   background: var(--surface-sunken);
   border: 1px solid var(--border); border-radius: var(--radius-card);
   padding: 14px; margin-bottom: 12px;
 }
-.tiq-band-grid {
+.summary-band-grid, .tiq-band-grid {
   display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(260px, 1fr);
   gap: 14px; align-items: stretch;
 }
-.tiq-band .briefing {
+.summary-band .briefing, .tiq-band .briefing {
   background: var(--surface); border-radius: 12px; padding: 14px 12px;
 }
 .tiq-band .briefing-link { padding: 9px 6px; }
@@ -3738,22 +3741,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   /* Summary block: ~30% shorter through padding and gaps. The 31% hero keeps
      its weight — it drops 42px -> 38px only, which is the metric's own scale
      step, not a shrink. */
-  .fin-lead { gap: 14px; padding-bottom: 10px; margin-bottom: 10px; }
   .fin-lead-hero { font-size: 38px; margin-top: 4px; }
   .fin-lead-amounts { margin: 6px 0 4px; }
   .fin-lead-rest { margin-top: 6px; }
-  .fin-lead-side { gap: 8px; }
-  .fin-mini { padding: 8px 12px; }
-
-  /* Needs action: an alert strip, not a card, when it holds one or two items. */
-  .finance-actions {
-    flex-direction: row; align-items: baseline; flex-wrap: wrap;
-    gap: 6px 12px; padding: 7px 12px; margin-bottom: 10px;
-  }
-  .finance-actions .roster-actions-label {
-    flex: 0 0 auto; margin: 0; font-size: 11px; letter-spacing: .07em;
-  }
-
   /* Tabs sit closer to the content they switch. */
   .tabs { margin: 12px 0 12px; }
   .tab { padding: 8px 14px; }
@@ -3769,4 +3759,43 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   /* Secondary headings stop competing with the page title. */
   .group { margin-top: 12px; }
   .group-head { padding-bottom: 6px; }
+}
+
+/* --- Finance summary inside the shared band ------------------------------ */
+
+/* Spent and Money received are secondary to the dues story, so they read as a
+   compact pair beneath the meter rather than two more cards competing with it. */
+.fin-secondary {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin-top: 12px;
+  padding-top: 12px; border-top: 1px solid var(--border);
+}
+.fin-metric {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-body); text-align: left; width: 100%;
+}
+.fin-metric-label { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--slate); }
+.fin-metric-value { font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--navy); line-height: 1.15; }
+.fin-metric-sub { font-size: 12px; color: var(--slate); }
+.fin-metric:hover .fin-metric-value { color: var(--blue-dark); }
+
+/* The dues panel is the band's own surface — no nested card inside a card. */
+.summary-band .fin-lead-main {
+  background: var(--surface); border-radius: 12px; padding: 14px 16px;
+}
+
+@media (min-width: 900px) {
+  /* One item in Needs action must not set a tall minimum height for the row.
+     Stretch is right for Tournaments, where the briefing carries several
+     entries; here the briefing sizes to its content and sits at the top. */
+  .summary-band .summary-band-grid { align-items: start; }
+  .summary-band .briefing { padding: 12px 12px; }
+  .summary-band .briefing-title { margin-bottom: 6px; }
+  .summary-band .fin-lead-main { padding: 12px 14px; }
+  .fin-secondary { margin-top: 10px; padding-top: 10px; }
+}
+
+@media (max-width: 899px) {
+  .summary-band .summary-band-grid { grid-template-columns: minmax(0, 1fr); }
 }

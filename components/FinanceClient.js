@@ -185,65 +185,81 @@ export function FinanceClient({
         Detail that belongs to a tab lives in that tab — remaining budget,
         committed-unpaid and the money-in split are all one click away.
       */}
-      <div className="fin-lead">
-        <div className="fin-lead-main">
-          <p className="fin-panel-label">
-            Player dues <HelpTip term="Player Payments" />
-          </p>
-          <p className="fin-lead-hero">
-            {dues.expected > 0 ? Math.round((dues.collected / dues.expected) * 100) : 0}%
-            <span className="fin-lead-hero-unit">of player dues collected</span>
-          </p>
-          <p className="fin-lead-amounts">
-            {money(dues.collected)} of {money(dues.expected)} collected
-          </p>
-          <Meter value={dues.collected} total={dues.expected} hidePct />
-          <p className="fin-lead-rest">
-            <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
-              {dues.outstanding > 0
-                ? `${money(dues.outstanding)} still to collect`
-                : "All dues collected"}
-            </span>
-            {dues.outstanding > 0 && (
-              <button className="fin-lead-link" onClick={() => { setTab("payments"); selectAction("outstanding"); }}>
-                View player balances →
+      <div className="summary-band">
+        <div className="summary-band-grid">
+          <div className="fin-lead-main">
+            <p className="fin-panel-label">
+              Player dues <HelpTip term="Player Payments" />
+            </p>
+            <p className="fin-lead-hero">
+              {dues.expected > 0 ? Math.round((dues.collected / dues.expected) * 100) : 0}%
+              <span className="fin-lead-hero-unit">of player dues collected</span>
+            </p>
+            <p className="fin-lead-amounts">
+              {money(dues.collected)} of {money(dues.expected)} collected
+            </p>
+            <Meter value={dues.collected} total={dues.expected} hidePct />
+            <p className="fin-lead-rest">
+              <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
+                {dues.outstanding > 0
+                  ? `${money(dues.outstanding)} still to collect`
+                  : "All dues collected"}
+              </span>
+              {dues.outstanding > 0 && (
+                <button className="fin-lead-link" onClick={() => { setTab("payments"); selectAction("outstanding"); }}>
+                  View player balances →
+                </button>
+              )}
+            </p>
+
+            {/* Secondary metrics sit inside the dues column, beneath the meter,
+                so the summary reads as one story rather than three cards. */}
+            <div className="fin-secondary">
+              <button className="fin-metric" onClick={() => setTab("budget")}>
+                <span className="fin-metric-label">Spent</span>
+                <span className="fin-metric-value">{money(summary.actualExpenses)}</span>
+                <span className="fin-metric-sub">of {money(summary.budgetedExpenses)} planned</span>
               </button>
+
+              <button className="fin-metric" onClick={() => setTab("funds")}>
+                <span className="fin-metric-label">Money received</span>
+                <span className="fin-metric-value">{money(funds.total)}</span>
+                <span className="fin-metric-sub">this season</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Needs action lives in the band, matching Tournaments. The dues line
+              above already carries the outstanding-balance story, so this only
+              shows what is unrelated to it. */}
+          <section className="briefing">
+            <p className="briefing-title">Needs action</p>
+
+            {otherActions.length === 0 ? (
+              <div className="briefing-clear briefing-clear-good">
+                <p className="briefing-clear-title">Finances are in order</p>
+                <p className="briefing-clear-sub">Nothing outstanding beyond player dues.</p>
+              </div>
+            ) : (
+              <ul className="briefing-list">
+                {otherActions.map((a) => (
+                  <li key={a.id} className="briefing-item">
+                    <button
+                      className={`briefing-link${actionId === a.id ? " on" : ""}`}
+                      onClick={() => selectAction(actionId === a.id ? null : a.id)}
+                    >
+                      <span className="briefing-dot dot-attention" aria-hidden="true" />
+                      <span className="briefing-text">
+                        <span className="briefing-what">{financeActionText(a, dues)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-          </p>
-        </div>
-
-        <div className="fin-lead-side">
-          <button className="fin-mini" onClick={() => setTab("budget")}>
-            <span className="fin-mini-label">Spent</span>
-            <span className="fin-mini-value">{money(summary.actualExpenses)}</span>
-            <span className="fin-mini-sub">of {money(summary.budgetedExpenses)} planned</span>
-          </button>
-
-          <button className="fin-mini" onClick={() => setTab("funds")}>
-            <span className="fin-mini-label">Money received</span>
-            <span className="fin-mini-value">{money(funds.total)}</span>
-            <span className="fin-mini-sub">this season</span>
-          </button>
+          </section>
         </div>
       </div>
-
-      {/* The dues line above already carries the outstanding-balance story, so
-          this only appears when something unrelated needs attention. */}
-      {otherActions.length > 0 && (
-        <div className="roster-actions finance-actions">
-          <p className="roster-actions-label">Needs action</p>
-          {otherActions.map((a) => (
-            <button
-              key={a.id}
-              className={`roster-action${actionId === a.id ? " on" : ""}`}
-              onClick={() => selectAction(actionId === a.id ? null : a.id)}
-            >
-              <span className="briefing-dot dot-attention" aria-hidden="true" />
-              <span className="roster-action-text">{financeActionText(a, dues)}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {activeAction && (
         <FilterChip
