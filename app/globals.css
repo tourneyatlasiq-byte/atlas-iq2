@@ -3742,8 +3742,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .tab-head .page-sub { max-width: 88ch; }
 
   /* Expense rows: ~25% shorter while the row stays a comfortable target. */
-  .budget-row { padding: 7px 16px; gap: 12px; }
-  .budget-cat { padding-top: 8px; padding-bottom: 8px; }
+  .budget-row { padding: 8px 16px; gap: 12px; }
+  .budget-cat { padding-top: 9px; padding-bottom: 9px; }
 
   /* Secondary headings stop competing with the page title. */
   .group { margin-top: 12px; }
@@ -3756,8 +3756,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    compact pair beneath the meter rather than two more cards competing with it. */
 .fin-secondary {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px; margin-top: 10px;
-  padding-top: 10px; border-top: 1px solid var(--border);
+  gap: 14px; margin-top: 14px;
+  padding-top: 12px; border-top: 1px solid var(--border);
 }
 .fin-metric {
   display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
@@ -3765,7 +3765,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   font-family: var(--font-body); text-align: left; width: 100%;
 }
 .fin-metric-label { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--slate); }
-.fin-metric-value { font-family: var(--font-display); font-size: 19px; font-weight: 800; color: var(--navy); line-height: 1.15; }
+.fin-metric-value { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--navy); line-height: 1.15; }
 .fin-metric-sub { font-size: 12px; color: var(--slate); }
 .fin-metric:hover .fin-metric-value { color: var(--blue-dark); }
 
@@ -3773,7 +3773,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    inside another white card. Scoped to this modifier so .summary-band stays
    available unchanged for Tournaments and, later, Home. */
 .summary-band-flat {
-  background: var(--surface); padding: 12px 14px;
+  background: var(--surface); padding: 16px 18px;
 }
 .summary-band-flat .fin-lead-main { background: none; padding: 0; }
 .summary-band-flat .briefing {
@@ -3784,7 +3784,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (min-width: 900px) {
   /* Height follows content. Stretch is right for Tournaments, where the
      briefing carries several entries; one item here must not set the row. */
-  .summary-band-flat .summary-band-grid { align-items: start; gap: 16px; }
+  /* ~75 / 25. Scoped here so Tournaments keeps its own 2.3fr proportion. */
+  .summary-band-flat .summary-band-grid {
+    grid-template-columns: minmax(0, 3fr) minmax(230px, 1fr);
+    align-items: start; gap: 24px;
+  }
   .summary-band-flat .briefing-title { margin-bottom: 6px; }
 
   /* Expenses heading row keeps its shape; the action now sits with the
@@ -3804,7 +3808,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 /* --- Finance: approved hierarchy ----------------------------------------- */
 
 /* Three secondary metrics, quieter than the dues percentage above them. */
-.fin-secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Grouped, not spread. Capping the width and dividing the columns makes the
+   three read as one related set instead of three items pushed to the edges. */
+.fin-secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 520px; }
+.fin-metric + .fin-metric { padding-left: 14px; border-left: 1px solid var(--border); }
 
 /* Needs attention reads as part of the summary, not a module beside it. */
 .fin-needs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -3813,11 +3820,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   text-transform: none; color: var(--slate);
   background: var(--surface-sunken); border-radius: 999px; padding: 2px 8px;
 }
-.fin-needs-lead { font-size: 12.5px; line-height: 1.45; color: var(--slate); margin: 0 0 8px; }
+.fin-needs-lead { font-size: 12.5px; line-height: 1.45; color: var(--slate); margin: 0 0 10px; }
 .fin-needs-link {
-  display: flex; align-items: center; gap: 8px; width: 100%;
+  display: flex; align-items: center; gap: 9px; width: 100%;
   border: 1px solid var(--border); border-radius: var(--radius-control);
-  padding: 9px 11px; background: var(--surface-sunken);
+  padding: 11px 12px; background: var(--surface-sunken);
 }
 .fin-needs-link:hover { border-color: var(--blue); background: #f2f7fe; }
 .fin-needs-link.on { border-color: var(--blue); background: #f2f7fe; }
@@ -3841,7 +3848,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .budget-cat-sub { display: block; }
 
 @media (max-width: 899px) {
-  .fin-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fin-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; }
+  .fin-metric + .fin-metric { padding-left: 0; border-left: none; }
   .budget-intro-action { width: 100%; }
 }
 
