@@ -3801,8 +3801,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .group-head-action { flex-wrap: wrap; }
 }
 
-}
-
 /* --- Finance: approved hierarchy ----------------------------------------- */
 
 /* Three secondary metrics, quieter than the dues percentage above them. */
