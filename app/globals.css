@@ -4093,7 +4093,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .season-meter { display: block; height: 7px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; margin-top: 12px; }
 .season-meter > span { display: block; height: 100%; background: #1b5e34; }
 
-.season-cols { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.season-card + .season-card { margin-top: 12px; }
 .season-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
 
 .season-tlist { list-style: none; margin: 0; padding: 0; }
@@ -4135,7 +4135,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .season-early { grid-column: 1 / -1; font-size: 11px; color: var(--slate); font-style: italic; }
 
 @media (min-width: 900px) {
-  .season-cols { grid-template-columns: 1fr 1fr; }
   .season-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
   .season-tallies { margin-top: 0; }
   .season-meter { grid-column: 1 / -1; }
@@ -4205,11 +4204,22 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .gm-list > li:first-child { border-top: none; }
 .gm-list > li.open { background: var(--surface-sunken); border-radius: 10px; }
 
+/* One column system shared by the header row and every game row, so figures
+   line up down the report instead of floating in each row. */
+.gm-head, .gm-row {
+  display: grid; align-items: center; gap: 12px;
+  grid-template-columns: 16px minmax(0, 1fr) 140px 92px 64px 132px;
+}
+.gm-head {
+  padding: 0 10px 7px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--slate);
+}
+.gm-head span:nth-child(4), .gm-head span:nth-child(5) { text-align: right; }
+.gm-head span:nth-child(6) { text-align: right; }
 .gm-row {
-  width: 100%; display: grid; align-items: center; gap: 10px;
-  grid-template-columns: 14px minmax(0, 1fr) auto auto auto auto;
-  padding: 11px 8px; background: none; border: none; cursor: pointer;
-  font-family: var(--font-body); text-align: left;
+  width: 100%; padding: 12px 10px; background: none; border: none; cursor: pointer;
+  font-family: var(--font-body); text-align: left; border-radius: 10px;
 }
 .gm-row:hover { background: var(--surface-sunken); border-radius: 10px; }
 .gm-caret { color: var(--slate); font-size: 10px; }
@@ -4217,7 +4227,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .gm-opp { font-size: 14.5px; font-weight: 700; color: var(--navy); }
 .gm-meta { font-size: 11.5px; color: var(--slate); }
 
-.gm-outcome { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gm-outcome { display: flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
 .gm-res { font-size: 11px; font-weight: 800; border-radius: 5px; padding: 2px 6px; }
 .gm-res-w { background: #e8f5ec; color: #1b5e34; }
 .gm-res-l { background: #fdeaea; color: #8c1d1d; }
@@ -4225,21 +4235,29 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .gm-score { font-size: 12.5px; color: var(--navy); font-variant-numeric: tabular-nums; }
 .gm-noscore { font-size: 11.5px; color: var(--slate); font-style: italic; }
 
-.gm-figs { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.gm-figs { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; text-align: right; }
 .gm-figs strong { font-size: 14px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
 .gm-figs span { color: var(--border); }
 .gm-figs em { font-style: normal; font-size: 10px; color: var(--slate); }
-.gm-pct { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+.gm-pct { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; text-align: right; }
 
 .gm-status {
   font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
-  border-radius: 999px; padding: 3px 9px; white-space: nowrap;
-  background: #fff4d9; color: #7a5200;
+  border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  background: #fff4d9; color: #7a5200; justify-self: end; text-align: center;
 }
 .gm-status.done { background: #e8f5ec; color: #1b5e34; }
 
 /* Lineup contribution, nested inside the expanded game. */
 .lc { padding: 4px 12px 14px 32px; }
+/* Secondary to the Lineup contribution heading below it: smaller, lighter,
+   and wrapping rather than shrinking on a narrow screen. */
+.lc-context {
+  font-size: 12px; color: var(--slate); margin: 0 0 10px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 2px;
+  font-variant-numeric: tabular-nums; line-height: 1.5;
+}
+.lc-context-opp { font-weight: 700; color: var(--navy); }
 .lc-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 0; }
 .lc-sub { font-size: 11.5px; color: var(--slate); margin: 2px 0 10px; }
 .lc-list { list-style: none; margin: 0; padding: 0; }
@@ -4263,7 +4281,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .lc-pct { font-size: 12px; color: var(--slate); font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
 .lc-note { font-size: 11px; color: var(--slate); margin: 8px 0 0; }
 
-.season-trend-count { font-size: 12px; color: var(--slate); margin: 0; font-variant-numeric: tabular-nums; }
+.season-trend-line { font-size: 12px; color: var(--slate); margin: 12px 2px 0; line-height: 1.5; }
 
 /* Player expansion. */
 .season-plist > li.open { background: var(--surface-sunken); border-radius: 10px; }
@@ -4285,8 +4303,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 @media (max-width: 720px) {
   /* Cards, not a squeezed table. Opponent and QAB% lead; no horizontal scroll. */
+  .gm-head { display: none; }
   .gm-row {
-    grid-template-columns: 14px minmax(0, 1fr) auto;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
     grid-template-areas: "caret id pct" ". outcome outcome" ". figs status";
     row-gap: 6px; padding: 12px 8px;
   }

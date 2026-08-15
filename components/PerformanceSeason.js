@@ -36,6 +36,27 @@ function LineupContribution({ game }) {
 
   return (
     <div className="lc">
+      {/* Context restated inside the expansion because a twelve-position
+          lineup scrolls the collapsed row off screen. Every value is read
+          from the aggregate already passed in — no new query or maths. */}
+      <p className="lc-context">
+        <span className="lc-context-opp">{game.opponent}</span>
+        <span aria-hidden="true"> · </span>
+        <span>
+          {game.qab} QAB / {game.pa} PA
+        </span>
+        {game.qabPct != null && (
+          <>
+            <span aria-hidden="true"> · </span>
+            <span>{game.qabPct}%</span>
+          </>
+        )}
+        <span aria-hidden="true"> · </span>
+        <span>
+          {game.lineup.length} {game.lineup.length === 1 ? "batter" : "batters"}
+        </span>
+      </p>
+
       <p className="lc-title">Lineup contribution</p>
       <p className="lc-sub">QAB performance through the batting order</p>
 
@@ -122,7 +143,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
           At small samples the counts are the trustworthy half. */}
       <div className="season-hero">
         <div className="season-hero-main">
-          <p className="season-label">Quality at-bats</p>
+          <p className="season-label">Season QAB%</p>
           <p className="season-hero-line">
             <span className="season-pct">{team.qabPct == null ? "—" : `${team.qabPct}%`}</span>
             <span className="season-counts">
@@ -153,7 +174,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
       </div>
 
       {view === "team" ? (
-        <div className="season-cols">
+        <>
           <div className="season-card season-games">
             <p className="season-label">Games</p>
             <p className="season-sub">How we did in each game we tracked.</p>
@@ -161,7 +182,16 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             {games.length === 0 ? (
               <p className="season-none">No games tracked yet.</p>
             ) : (
-              <ul className="gm-list">
+              <>
+                <div className="gm-head" aria-hidden="true">
+                  <span />
+                  <span>Opponent</span>
+                  <span>Result</span>
+                  <span>QAB / PA</span>
+                  <span>QAB%</span>
+                  <span>Status</span>
+                </div>
+                <ul className="gm-list">
                 {games.map((g) => {
                   const open = openGame === g.gameId;
                   return (
@@ -218,7 +248,8 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </>
             )}
           </div>
 
@@ -254,20 +285,15 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             )}
           </div>
 
-          {/* The slot exists so the eventual chart is an insertion. Nothing is
-              repeated here from the Games report, and no direction is claimed
-              from three partially tracked games. */}
-          <div className="season-card season-trend">
-            <p className="season-label">Trend</p>
-            <p className="season-sub">
-              Game-to-game trends will appear as more completed games are tracked.
-            </p>
-            <p className="season-trend-count">
-              {team.games} {team.games === 1 ? "game" : "games"} tracked ·{" "}
-              {gamesCompleted} completed
-            </p>
-          </div>
-        </div>
+          {/* Deliberately one quiet line, not a card. An empty panel makes the
+              product look unfinished; this states the fact and gets out of the
+              way. The chart replaces this line when there are enough completed
+              games to show a direction honestly. */}
+          <p className="season-trend-line">
+            Game-to-game trends will appear as more completed games are tracked ·{" "}
+            {gamesCompleted} of {team.games} tracked {team.games === 1 ? "game" : "games"} complete
+          </p>
+        </>
       ) : (
         <div className="season-card">
           <div className="season-phead">
