@@ -4318,7 +4318,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (min-width: 900px) {
   /* Fifth track for the Early chip, immediately after QAB%. */
   .season-prow { grid-template-columns: 14px minmax(0, 1fr) auto auto auto; }
-  .season-early-short { grid-column: auto; grid-row: 1; justify-self: end; }
+  /* No grid-row here, deliberately. An explicit row makes grid place this item
+     BEFORE the auto-placed ones, so it claimed column 1 and pushed the caret,
+     name and figures right. Left fully auto, it takes column 5 in DOM order:
+     caret | name | QAB/PA | QAB% | Early. */
+  .season-early-short { grid-column: auto; justify-self: end; }
 }
 .season-pcaret { color: var(--slate); font-size: 10px; }
 .pex { padding: 0 12px 14px 32px; }
