@@ -4093,6 +4093,12 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .season-meter { display: block; height: 7px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; margin-top: 12px; }
 .season-meter > span { display: block; height: 100%; background: #1b5e34; }
 
+/* Supporting copy weight, not a metric. Season record covers every game with a
+   result; the counts above cover QAB-tracked games only, so this must not read
+   as part of that cluster. */
+.season-record { font-size: 12px; color: var(--slate); margin: 10px 0 0; line-height: 1.5; }
+.season-record strong { font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+
 .season-card + .season-card { margin-top: 12px; }
 .season-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
 
@@ -4139,12 +4145,12 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .season-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
   .season-tallies { margin-top: 0; }
   .season-meter { grid-column: 1 / -1; }
+  /* Spans both hero columns; auto-placement would trap it in the narrow first
+     column beside an empty tallies cell. */
+  .season-record { grid-column: 1 / -1; }
   /* Desktop: a quiet chip, not a repeated italic phrase. Every row qualifies
      until players cross 10 PA, so the indicator has to sit lightly. */
   .season-early-full { display: none; }
-  /* Fifth track for the chip, so it stays on the row with the figures instead
-     of wrapping to an implicit new row at column 1. */
-  .season-prow { grid-template-columns: 14px minmax(0, 1fr) auto auto auto; }
   .season-early-short {
     display: inline-block; grid-column: auto; justify-self: end; align-self: baseline;
     font-size: 10px; font-style: normal; font-weight: 600;
@@ -4303,6 +4309,17 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   font-family: var(--font-body); text-align: left;
 }
 .season-prow:hover { background: var(--surface-sunken); border-radius: 10px; }
+
+/* Desktop row placement.
+   This block must stay AFTER the .season-prow base rule above. Media queries
+   add no specificity, so an identical selector declared later in the file wins
+   at every width — which is exactly why the earlier attempt at this failed and
+   the chip kept falling to an implicit row. */
+@media (min-width: 900px) {
+  /* Fifth track for the Early chip, immediately after QAB%. */
+  .season-prow { grid-template-columns: 14px minmax(0, 1fr) auto auto auto; }
+  .season-early-short { grid-column: auto; grid-row: 1; justify-self: end; }
+}
 .season-pcaret { color: var(--slate); font-size: 10px; }
 .pex { padding: 0 12px 14px 32px; }
 .pex-title { font-size: 12px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }

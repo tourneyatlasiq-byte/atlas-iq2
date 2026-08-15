@@ -90,7 +90,7 @@ function LineupContribution({ game }) {
   );
 }
 
-export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted }) {
+export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record }) {
   const [view, setView] = useState("team");
   const [allReasons, setAllReasons] = useState(false);
   const [openGame, setOpenGame] = useState(null);
@@ -171,6 +171,26 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
         <div className="season-meter" aria-hidden="true">
           <span style={{ width: `${team.qabPct ?? 0}%` }} />
         </div>
+
+        {/* Season record covers ALL games with a recorded result, which is a
+            different scope from the Games / Players / Tournaments counts above
+            — those describe QAB-tracked data. Kept as supporting copy rather
+            than a tile so the two scopes are not visually equated.
+
+            Omitted entirely when no game has a result: 0-0 would read as a
+            season played and lost nothing. */}
+        {record?.played > 0 && (
+          <p className="season-record">
+            Season record{" "}
+            <strong>
+              {record.w}–{record.l}
+              {record.t > 0 && `–${record.t}`}
+            </strong>{" "}
+            · {record.winPct}% ·{" "}
+            {record.played} of {record.total}{" "}
+            {record.total === 1 ? "game" : "games"} with a result recorded
+          </p>
+        )}
       </div>
 
       {view === "team" ? (
