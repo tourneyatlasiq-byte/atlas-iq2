@@ -4132,14 +4132,24 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .season-pcounts span { color: var(--border); }
 /* Quieter than the counts, deliberately. */
 .season-ppct { font-size: 13px; color: var(--slate); font-variant-numeric: tabular-nums; }
+/* Mobile default: full phrase on its own line beneath the figures. */
 .season-early { grid-column: 1 / -1; font-size: 11px; color: var(--slate); font-style: italic; }
+.season-early-short { display: none; }
 
 @media (min-width: 900px) {
   .season-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
   .season-tallies { margin-top: 0; }
   .season-meter { grid-column: 1 / -1; }
   .season-plist > li { grid-template-columns: minmax(0, 1fr) auto auto auto; }
-  .season-early { grid-column: auto; text-align: right; }
+  /* Desktop: a quiet chip, not a repeated italic phrase. Every row qualifies
+     until players cross 10 PA, so the indicator has to sit lightly. */
+  .season-early-full { display: none; }
+  .season-early-short {
+    display: inline-block; grid-column: auto; justify-self: end;
+    font-size: 10px; font-style: normal; font-weight: 600;
+    letter-spacing: .04em; color: var(--slate);
+    background: var(--surface-sunken); border-radius: 999px; padding: 2px 7px;
+  }
 }
 
 /* --- QAB tracking completion ---------------------------------------------- */

@@ -301,7 +301,8 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             <span className="season-sort">Sorted by plate appearances</span>
           </div>
           <p className="season-sub">
-            Percentages from a handful of at-bats move a lot. Counts are shown alongside.
+            Percentages can move a lot with fewer than 10 plate appearances. Players below 10 PA
+            are marked Early. Counts are shown alongside.
           </p>
 
           <ul className="season-plist">
@@ -326,7 +327,17 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                     <span className="season-ppct">
                       {p.qabPct == null ? "—" : `${p.qabPct}%`}
                     </span>
-                    {p.earlyData && <span className="season-early">Early data</span>}
+                    {p.earlyData && (
+                      <>
+                        {/* Two forms, one shown at a time by CSS. Desktop gets a
+                            compact chip because the section copy already explains
+                            the rule; mobile keeps the full phrase, which reads
+                            well in the stacked card. display:none also removes
+                            the hidden one from the accessibility tree. */}
+                        <span className="season-early season-early-full">Early data</span>
+                        <span className="season-early season-early-short">Early</span>
+                      </>
+                    )}
                   </button>
 
                   {open && (
