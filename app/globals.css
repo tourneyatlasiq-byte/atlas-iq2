@@ -4122,10 +4122,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .season-phead .season-label { margin-bottom: 4px; }
 .season-sort { font-size: 11px; color: var(--slate); }
 .season-plist { list-style: none; margin: 0; padding: 0; }
-.season-plist > li {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border);
-}
+/* The row grid lives on .season-prow (the button). This only stacks that
+   button above the expansion panel and carries the separator. */
+.season-plist > li { border-top: 1px solid var(--border); }
 .season-pname { font-size: 14px; font-weight: 600; color: var(--navy); }
 .season-pcounts { font-size: 13px; color: var(--navy); font-variant-numeric: tabular-nums; }
 .season-pcounts strong { font-weight: 700; }
@@ -4140,12 +4139,14 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .season-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 24px; }
   .season-tallies { margin-top: 0; }
   .season-meter { grid-column: 1 / -1; }
-  .season-plist > li { grid-template-columns: minmax(0, 1fr) auto auto auto; }
   /* Desktop: a quiet chip, not a repeated italic phrase. Every row qualifies
      until players cross 10 PA, so the indicator has to sit lightly. */
   .season-early-full { display: none; }
+  /* Fifth track for the chip, so it stays on the row with the figures instead
+     of wrapping to an implicit new row at column 1. */
+  .season-prow { grid-template-columns: 14px minmax(0, 1fr) auto auto auto; }
   .season-early-short {
-    display: inline-block; grid-column: auto; justify-self: end;
+    display: inline-block; grid-column: auto; justify-self: end; align-self: baseline;
     font-size: 10px; font-style: normal; font-weight: 600;
     letter-spacing: .04em; color: var(--slate);
     background: var(--surface-sunken); border-radius: 999px; padding: 2px 7px;
