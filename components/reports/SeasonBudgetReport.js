@@ -264,15 +264,13 @@ export function SeasonBudgetReport({ report }) {
           </section>
         )}
 
-        {/* Context, not a disclaimer. Sits with the footer so it reads as a
-            closing note rather than a warning attached to any one figure. */}
-        <p className="rpt-planning-note">
+        {/* One closing statement, not two. The separate planning note and
+            footer both said amounts may change, and the prepared date appeared
+            here as well as in the header — the same caution and the same date
+            three times between them. */}
+        <footer className="rpt-foot">
           Budget amounts reflect the team&rsquo;s current season plan and may be updated as
           tournament schedules, team needs, or other season costs are finalized.
-        </p>
-
-        <footer className="rpt-foot">
-          Planned budget as of {generated}. Amounts may change during the season.
         </footer>
       </article>
     </div>
