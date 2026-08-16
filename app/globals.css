@@ -2222,6 +2222,15 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .fac-address { font-size: 14px; font-weight: 600; color: var(--navy); margin: 0; line-height: 1.5; }
 .fac-directions { flex-shrink: 0; white-space: nowrap; }
 
+/* Facility Information: shared facts, deliberately quieter than Team Notes. */
+.fac-blurb {
+  color: var(--slate); margin-bottom: 8px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Confirmed amenities only. Absence is not rendered. */
+.fac-amenities { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
 /* History reads as useful rather than as an absence. */
 .fc-first { font-size: 13px; color: var(--slate); }
 

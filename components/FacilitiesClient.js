@@ -24,6 +24,9 @@ import {
   FIELD_TYPES,
   SURFACE_OPTIONS,
   displayValue,
+  formatFacilityAddress,
+  facilityMapsUrl,
+  displayableSurface,
 } from "../lib/facility-fields";
 
 const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
@@ -37,12 +40,21 @@ const AMENITIES = [
   { key: "indoor", label: "Indoor" },
 ];
 
-/** Null means unknown, which must never render as "no". */
-function amenityMark(v) {
-  if (v === true) return <span className="amenity yes">Yes</span>;
-  if (v === false) return <span className="amenity no">No</span>;
-  return <span className="amenity unknown">Unknown</span>;
-}
+/**
+ * Team Notes categories, in display order.
+ *
+ * Stored column on the left, coach-facing label on the right. internal_notes
+ * keeps its column name — renaming it is a migration, and "internal" would
+ * imply a confidentiality boundary the product does not actually enforce.
+ */
+const NOTE_CATEGORIES = [
+  { key: "parking_notes", label: "Parking" },
+  { key: "entry_notes", label: "Entry / gate" },
+  { key: "concessions_notes", label: "Concessions" },
+  { key: "restroom_notes", label: "Restrooms" },
+  { key: "seating_notes", label: "Seating / shade" },
+  { key: "internal_notes", label: "General notes" },
+];
 
 const normalize = (s) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -750,11 +762,13 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
   }, [historyTarget, f?.id]);
 
   const n = f.orgNotes;
-  const hasNotes =
-    n && [n.parking_notes, n.entry_notes, n.concessions_notes, n.restroom_notes, n.seating_notes, n.internal_notes]
-      .some(Boolean);
+  const hasNotes = Boolean(n && NOTE_CATEGORIES.some(({ key }) => n[key]));
 
-  const address = [f.street_address, cityState(f), f.zip].filter(Boolean).join(", ");
+  const address = formatFacilityAddress(f);
+  const mapsUrl = facilityMapsUrl(f);
+  const surface = displayableSurface(f.surface_type);
+  const amenities = AMENITIES.filter((a) => f[a.key] === true);
+  const hasFacilityInfo = Boolean(f.description || f.website || f.field_count != null || amenities.length);
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>
@@ -762,14 +776,16 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2>{f.name}</h2>
+            {/* Atlas ID is a support key and means nothing to a coach. It stays
+                available through search; it no longer occupies the heading. */}
             <div className="drawer-head-meta">
-              <span className="atlas-id">{f.atlas_id}</span>
               {cityState(f) && <span className="drawer-head-dates">{cityState(f)}</span>}
-              {f.field_count != null && <span>{f.field_count} fields</span>}
             </div>
-            <div className="drawer-head-pills">
-              <span className={`pill ${surfaceClass(f.surface_type)}`}>{f.surface_type ?? "Unknown"}</span>
-            </div>
+            {surface && (
+              <div className="drawer-head-pills">
+                <span className={`pill ${surfaceClass(surface)}`}>{surface}</span>
+              </div>
+            )}
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -777,11 +793,11 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
         <div className="drawer-body">
           {/* Arrival first: where it is and how to get there. Everything else
               is reference and can wait. */}
-          {(address || f.maps_link) && (
+          {(address || mapsUrl) && (
             <div className="fac-arrival">
               {address && <p className="fac-address">{address}</p>}
-              {f.maps_link && (
-                <a className="btn btn-secondary fac-directions" href={f.maps_link} target="_blank" rel="noreferrer">
+              {mapsUrl && (
+                <a className="btn btn-secondary fac-directions" href={mapsUrl} target="_blank" rel="noreferrer">
                   Open in maps
                 </a>
               )}
@@ -789,7 +805,7 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           )}
 
           <Section
-            title="Our Notes"
+            title="Team Notes"
             action={
               canWrite ? (
                 <button className="btn btn-ghost" onClick={onEditNotes} disabled={pending}>
@@ -800,12 +816,11 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           >
             {hasNotes ? (
               <>
-                <Row label="Parking" value={n.parking_notes} />
-                <Row label="Entry / gate" value={n.entry_notes} />
-                <Row label="Concessions" value={n.concessions_notes} />
-                <Row label="Restrooms" value={n.restroom_notes} />
-                <Row label="Seating / shade" value={n.seating_notes} />
-                <Row label="General notes" value={n.internal_notes} />
+                {/* Only categories this organization has actually filled in.
+                    An empty category is not information about the facility. */}
+                {NOTE_CATEGORIES.map(({ key, label }) =>
+                  n[key] ? <Row key={key} label={label} value={n[key]} /> : null
+                )}
               </>
             ) : (
               <div className="notes-empty">
@@ -822,36 +837,32 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
             )}
           </Section>
 
-          <Section title="Location details">
-            <Row label="Address" value={address || null} />
-            <Row label="County" value={f.county} />
-            <Row
-              label="Website"
-              value={
-                f.website ? (
-                  <a className="link" href={f.website} target="_blank" rel="noreferrer">{f.website}</a>
-                ) : null
-              }
-            />
-            <Row
-              label="Coordinates"
-              value={f.latitude != null && f.longitude != null ? `${f.latitude}, ${f.longitude}` : null}
-            />
-          </Section>
-
-          <Section title="Facility Details">
-            <Row label="Number of fields" value={f.field_count} />
-            <Row label="Surface" value={f.surface_type ?? "Unknown"} />
-            <Row label="Parking" value={f.parking} />
-            <div className="amenity-grid">
-              {AMENITIES.map((a) => (
-                <div key={a.key} className="amenity-row">
-                  <span>{a.label}</span>
-                  {amenityMark(f[a.key])}
+          {/* Shared, publicly true facts — secondary to the team's own notes.
+              Address is not repeated here: it renders once, at the top.
+              County, coordinates and Atlas ID are internal and never shown. */}
+          {hasFacilityInfo && (
+            <Section title="Facility Information">
+              {f.description && <p className="section-body fac-blurb">{f.description}</p>}
+              {f.field_count != null && <Row label="Fields" value={f.field_count} />}
+              {f.website && (
+                <Row
+                  label="Website"
+                  value={
+                    <a className="link" href={f.website} target="_blank" rel="noreferrer">{f.website}</a>
+                  }
+                />
+              )}
+              {/* Only amenities confirmed present. "Unknown" on a facility we
+                  have no data for is not a fact worth a row. */}
+              {amenities.length > 0 && (
+                <div className="fac-amenities">
+                  {amenities.map((a) => (
+                    <span key={a.key} className="amenity yes">{a.label}</span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </Section>
+              )}
+            </Section>
+          )}
 
           <Section title="Tournament History" anchor="history">
             {f.history.length === 0 ? (
@@ -873,13 +884,6 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
               </>
             )}
           </Section>
-
-          {f.description && (
-            <Section title="About this facility">
-              <p className="section-body">{f.description}</p>
-              {f.data_source && <p className="field-note">Source: {f.data_source}</p>}
-            </Section>
-          )}
 
           {canReview && f.pendingEdits.length > 0 && (
             <Section title={`Pending corrections (${f.pendingEdits.length})`}>
@@ -1445,18 +1449,18 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               </div>
             </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="f-surface">Surface</label>
-                <select id="f-surface" name="surface_type" defaultValue={row?.surface_type ?? ""}>
-                  <option value="">Not specified</option>
-                  {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="f-county">County</label>
-                <input id="f-county" name="county" defaultValue={row?.county ?? ""} />
-              </div>
+            {/* County is no longer collected, but updateFacility writes the
+                whole payload — dropping the input outright would null the
+                stored value on every save. Round-tripping it keeps the column
+                and its 44 existing values intact with no action change. */}
+            <input type="hidden" name="county" defaultValue={row?.county ?? ""} />
+
+            <div className="field">
+              <label htmlFor="f-surface">Surface</label>
+              <select id="f-surface" name="surface_type" defaultValue={row?.surface_type ?? ""}>
+                <option value="">Not specified</option>
+                {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
 
             <div className="form-divider">Amenities</div>
