@@ -317,6 +317,30 @@ const duesUnlinked = (n, amount) =>
      ...ng.former.map((f) => f.record.totalDue)].reduce((a, b) => a + b, 0),
     NG_PAYMENTS.reduce((a, p) => a + p.totalDue, 0));
 
+  /* ===================================================================
+     Money arithmetic: integer cents, not float addition.
+     Whole-dollar data hid this. 0.1+0.2 !== 0.3 in binary floating point,
+     and these figures reach a parent-facing report.
+     =================================================================== */
+  console.log("\nCurrency aggregation\n");
+  const { sumMoney, toCents } = mod;
+
+  assertEq("0.1 + 0.2 === 0.3 (float gives 0.30000000000000004)",
+    sumMoney([0.1, 0.2]), 0.3);
+  assertEq("three x 33.33 === 99.99", sumMoney([33.33, 33.33, 33.33]), 99.99);
+  assertEq("0.1 + 0.2 + 0.3 === 0.6 (float gives 0.6000000000000001)",
+    sumMoney([0.1, 0.2, 0.3]), 0.6);
+  assertEq("99.99 - 33.33 - 33.33 - 33.33 === 0 exactly",
+    sumMoney([99.99, -33.33, -33.33, -33.33]), 0);
+  assertEq("a cent survives a large total", sumMoney([29480, 0.01]), 29480.01);
+  assertEq("negative remainders are exact", sumMoney([100.10, -100.20]), -0.1);
+  assertEq("toCents rounds half away from zero, not by float luck",
+    [toCents(2400), toCents(33.335), toCents(0.005)], [2400, 33.34, 0.01]);
+
+  // The float versions these replaced, kept as a record of what was wrong.
+  assertEq("float baseline really does drift (documents the defect)",
+    [0.1 + 0.2 === 0.3, 0.1 + 0.2 + 0.3 === 0.6], [false, false]);
+
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
