@@ -5063,9 +5063,52 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   font-size: 12.5px; line-height: 1.5; color: var(--slate);
 }
 
-/* Six segments need to wrap on narrow screens rather than compress. */
-.pay-views { flex-wrap: wrap; }
+/* Six filters do not fit one phone row, and shrinking the text to force them
+   would make the counts unreadable. Below 640px the control becomes a
+   deliberate two-column grid: full width, 44px targets, borders rebuilt as a
+   grid rather than the inline-flex divider, which would otherwise leave a
+   stray left border at the start of each wrapped row. No horizontal overflow
+   and no text shrinking beyond one step. */
 @media (max-width: 640px) {
-  .pay-views .segment { flex: 1 1 auto; }
+  .pay-views {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .pay-views .segment {
+    padding: 10px 10px;
+    min-height: 44px;
+    font-size: 12.5px;
+    line-height: 1.25;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    text-align: center;
+    min-width: 0;
+  }
+  /* Vertical divider between the two columns, horizontal between rows. */
+  .pay-views .segment:nth-child(odd) { border-right: 1px solid var(--border); }
+  .pay-views .segment:nth-child(-n + 2) { border-top: none; }
+
   .btn-set-dues { width: 100%; }
+}
+
+/* Below 380px even two columns are tight for "Former / unlinked", so the
+   control goes to a single column rather than clipping a label. */
+@media (max-width: 379px) {
+  .pay-views { grid-template-columns: minmax(0, 1fr); }
+  .pay-views .segment { border-right: none; border-top: 1px solid var(--border); }
+  .pay-views .segment:first-child { border-top: none; }
+}
+
+/* Accounting scope for the dues figures above it. Quiet by design — it
+   qualifies the numbers without competing with them. */
+.fin-dues-scope {
+  margin: 8px 0 10px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--slate);
 }

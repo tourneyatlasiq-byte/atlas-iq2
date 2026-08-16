@@ -425,7 +425,7 @@ export function FinanceClient({
             </p>
 
             <p className="fin-dues-amounts">
-              {money(dues.collected)} collected of {money(dues.expected)}
+              {money(dues.collected)} collected of {money(dues.expected)} in dues set
             </p>
 
             <Meter value={dues.collected} total={dues.expected} hidePct />
@@ -433,13 +433,27 @@ export function FinanceClient({
             <p className="fin-dues-outstanding">
               <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
                 {dues.outstanding > 0
-                  ? `${money(dues.outstanding)} outstanding`
+                  ? `${money(dues.outstanding)} still to collect`
                   : "All dues collected"}
               </span>
             </p>
 
+            {/* Scope, stated generically.
+                These figures cover every dues obligation recorded for the
+                season, which is the right basis for accounting: a player who
+                leaves mid-season still owed what they owed, and money they
+                paid was really collected. That makes the total legitimately
+                larger than the current roster's, so the scope is named here
+                rather than left for a coach to discover by subtraction.
+                Deliberately not about any particular player — it stays true
+                whenever anyone leaves a team. */}
+            <p className="fin-dues-scope">
+              Covers every dues record for this season, including players who have since left
+              the roster.
+            </p>
+
             <button className="fin-lead-link" onClick={() => selectAction("outstanding")}>
-              View player balances →
+              View all player balances →
             </button>
 
             {/* One compact line, not a card nested inside a card. A player with
