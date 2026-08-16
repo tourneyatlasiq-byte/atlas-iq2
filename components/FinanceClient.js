@@ -1627,11 +1627,17 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
                       </div>
                     </td>
 
+                    {/* Display formatting only — p.balance is untouched.
+                        A settled player owes zero, which is a real figure and
+                        should read as one. The em dash is reserved for a
+                        balance that genuinely does not exist. */}
                     <td className="pay-balance">
-                      {settled ? (
-                        <span className="muted">—</span>
-                      ) : (
+                      {p.balance > 0 ? (
                         <span className="pay-owed">{money(p.balance)}</span>
+                      ) : p.balance < 0 ? (
+                        <span className="muted">{money(Math.abs(p.balance))} credit</span>
+                      ) : (
+                        <span className="muted">$0</span>
                       )}
                     </td>
                   </tr>
