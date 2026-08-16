@@ -20,7 +20,13 @@ export const dynamic = "force-dynamic";
 async function pickers(seasonId, organizationId) {
   const supabase = createClient();
   const [tournaments, players, facilities] = await Promise.all([
-    supabase.from("tournaments").select("id, name, total_cost").eq("season_id", seasonId).order("start_date"),
+    // budget_item_id travels with the picker so the transaction form can tell
+    // whether the chosen tournament is still unassigned. Read-only addition.
+    supabase
+      .from("tournaments")
+      .select("id, name, total_cost, budget_item_id")
+      .eq("season_id", seasonId)
+      .order("start_date"),
     // Only this season's active roster. Dues are owed by players on the team
     // now — not by everyone the organization has ever recorded.
     supabase

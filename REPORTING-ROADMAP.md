@@ -176,3 +176,118 @@ A deliberate model, not a derived number:
 "Fundraising reduces dues", "offsets dues", "covers the budget gap", "planned
 in addition to dues", "cost after fundraising", or any surplus/shortfall
 figure. Each asserts a relationship the model does not establish.
+
+---
+
+## 7. Stabilization status (Batch 1 closed)
+
+### Schema baseline — BLOCKED on an action only you can take
+
+Production has 95 applied migrations; the repository holds 6 files. Worse, the
+6 files' versions are NOT the versions recorded in production: the same
+migrations were applied through MCP `apply_migration`, which assigns its own
+timestamp.
+
+| Migration | Repo filename | Applied as |
+|---|---|---|
+| `feat_01_organization_features` | `20260813120000` | `20260813211328` |
+| `qab_05_game_qab_completion`    | `20260814210000` | `20260814224504` |
+
+Consequence: **`supabase db push` would attempt to re-apply all six** against a
+database that already has them.
+
+An authoritative dump CANNOT be produced from the assistant environment. No
+Supabase CLI, no `pg_dump`/`psql`, `db.<ref>.supabase.co` does not resolve, and
+`api.supabase.com` / the pooler are blocked by egress policy. A hand-assembled
+baseline from `pg_catalog` was considered and REJECTED as insufficiently
+trustworthy.
+
+**Required, run locally:**
+
+```bash
+supabase link --project-ref iiyuagxdeafkxrtixktr
+supabase db dump --schema public -f supabase/migrations/00000000000000_baseline.sql
+```
+
+Read-only. Version `00000000000000` sorts before the earliest applied
+migration (`20260805233358`), so it can never interleave.
+
+**Then, in order:**
+
+1. `supabase migration list` — compare local against remote.
+2. `supabase migration repair --status applied 00000000000000` — records the
+   baseline as applied. Inserts one history row; runs no DDL.
+3. `supabase db push --dry-run` — MUST print "Remote database is up to date."
+   Anything else means something would be re-applied. Stop if so.
+4. Only then move the 6 orphan files to `supabase/migrations/_archive/`.
+   DECISION: archive, never delete. The CLI ignores subdirectories.
+
+**No new migration may be created until this is resolved.** That includes the
+foreign-key indexes identified in the audit.
+
+### Tournament finance — decided and implemented
+
+Coaches MAY commit to a tournament without a budget category. Forcing the
+choice at commit time would push coaches to skip recording the commitment,
+which is worse data.
+
+- `availableBudget` keeps its meaning: budget not yet committed TO A CATEGORY.
+  Not redefined, not recalculated.
+- When unassigned commitments exist, Finance additionally shows the unassigned
+  total and **Projected Available = Available − unassigned**. Hidden entirely
+  when there are none.
+- At transaction entry, choosing a tournament that has no budget category
+  offers an explicit, confirmable checkbox to assign it to the same budget
+  line the transaction already requires. Never silent, never retroactive,
+  routed through `setTournamentBudgetLine` so
+  `enforce_tournament_budget_link` still validates org, season and
+  expense-not-income.
+- The transaction saves first; a failed assignment never blocks recording the
+  money.
+
+Reference figures at time of writing: Northgate $20,276 available, $1,315
+unassigned, $18,961 projected. Georgia Power $32,648 / $9,255 / $23,393.
+
+### Georgia Power legacy dues — accepted as legacy data debt
+
+Six `player_payments` rows with `player_id = NULL`, ids
+`10000000-…-0001` through `-0006`, $2,700 each, 22 payment log entries, all
+dated 2026-08-05, seeded by `20260810103842 fin_05_backfill_georgia_power_season`.
+The legacy `player_name` column holds surnames; four of six resolve to exactly
+one player (Cox, Mower, Bohannon, Terry), two do not (Thaxton, Lower).
+
+Classified: **historical legacy condition, no longer creatable.**
+`savePlayerPayment` rejects an empty `player_id` and requires season-roster
+membership; `setDuesForAll` iterates roster players only.
+
+UNTOUCHED by decision. A `player_id NOT NULL` constraint is deliberately
+DEFERRED until the schema baseline is stable — it would mean another untracked
+schema change on top of an unreproducible history.
+
+### Money arithmetic — closed
+
+All currency aggregation uses integer cents (`sumMoney`/`toCents`). Zero float
+money reduces remain in `lib/queries/finance.js`. Merged as `6917eb5`.
+
+### Batch 2 backlog, in dependency order
+
+1. **Schema baseline + migration repair** — blocks everything requiring DDL.
+2. **Foreign-key indexes** — 16 FK columns unindexed, including
+   `organization_id` on `plate_appearances`, `game_lineup_slots`, `games`,
+   `player_payments`. Every RLS policy filters on it. NEEDS A MIGRATION, so
+   blocked on (1).
+3. **E2E suite (5 tests)** — no migration needed, can start now. Load Finance
+   and assert totals; copy a lineup; track a PA then reload and assert the next
+   batter; open the report and assert no player name in the DOM; log in as
+   org B and assert org A's game 404s.
+4. **`fundsIn` category matching** — hardcodes "Fundraising"/"Sponsors" while
+   `budget_items.category` is free text. Georgia Power's
+   "Fundraising & Sponsors" falls into the residual `other`.
+5. **Documentation** — `ATLAS-DECISIONS.md`, `ATLAS-PRODUCT-RULES.md`,
+   `BUSINESS-RULES.md` and `README.md` still say "Player Payments".
+6. **Dead CSS** — `.fin-lead-main`, `.fin-secondary`, `.fin-metric`,
+   `.fi-list`, `.fi-row-total`; orphaned `copy_previous_lineup()` RPC.
+7. **`facility_code_sequences`** — RLS on, zero policies. Fails closed;
+   confirm no runtime path depends on it.
+8. **Unrelated but open:** rotate the Geocodio key and delete
+   `temp/geocodio-dryrun`; decide on the public GitHub repo.

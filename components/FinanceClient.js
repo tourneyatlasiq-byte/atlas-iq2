@@ -312,6 +312,18 @@ export function FinanceClient({
     () => sumMoney(unassignedTournaments.map((t) => t.amount)),
     [unassignedTournaments]
   );
+  /**
+   * Available Budget minus commitments that no category accounts for.
+   *
+   * Derived for display only. availableBudget itself is untouched: it means
+   * "budget not yet committed to a category", which is correct and is what
+   * every other surface reads.
+   */
+  const projectedAvailable = useMemo(
+    () => sumMoney([summary.availableBudget, -unassignedTotal]),
+    [summary.availableBudget, unassignedTotal]
+  );
+
   const needsCount = otherActions.length + unassignedTournaments.length;
 
   /**
@@ -409,6 +421,27 @@ export function FinanceClient({
                 "No budget planned for this season yet."
               )}
             </p>
+
+            {/* Shown only when unassigned commitments exist, so a team with
+                clean data sees no extra figures.
+
+                Available Budget keeps its existing meaning — budget not yet
+                committed TO A CATEGORY — and is not recalculated here.
+                buildBudget can only reach a tournament through
+                budget_item_id, so a committed tournament without one reduces
+                no category. Projected Available states what is left once
+                those commitments are accounted for, without redefining
+                anything above it. */}
+            {unassignedTotal > 0 && (
+              <p className="fin-unassigned-line">
+                <span className="fin-unassigned-mark" aria-hidden="true" />
+                <span>
+                  <strong>{summaryMoney(unassignedTotal)}</strong> in tournament commitments isn&rsquo;t
+                  assigned to a budget category, so it isn&rsquo;t reflected in Available.{" "}
+                  <strong>{summaryMoney(projectedAvailable)}</strong> projected available.
+                </span>
+              </p>
+            )}
 
             <button className="fin-lead-link" onClick={() => goToTab("budget")}>
               View full budget →
@@ -668,7 +701,26 @@ export function FinanceClient({
           players={players}
           facilities={facilities}
           pending={pending}
-          onSubmit={(fd) => run(saveTransaction, fd, () => { setEditTxn(null); setDetailTxn(null); })}
+          onSubmit={(fd, assignTournamentId) =>
+            run(saveTransaction, fd, async () => {
+              /* Saved first, assigned second, and only when the coach ticked
+                 the box. The transaction is never blocked by the assignment:
+                 if it fails, the money is still recorded and the tournament
+                 simply stays in Needs Attention. Existing tournaments are
+                 never touched unless chosen on this transaction. */
+              if (assignTournamentId) {
+                const line = fd.get("budget_item_id");
+                if (line) {
+                  const af = new FormData();
+                  af.set("tournament_id", assignTournamentId);
+                  af.set("budget_item_id", line);
+                  await setTournamentBudgetLine(af);
+                }
+              }
+              setEditTxn(null);
+              setDetailTxn(null);
+            })
+          }
           onCancel={() => setEditTxn(null)}
           onCreateBudgetLine={(seed) => setLineDraft(seed)}
           justCreatedLineId={justCreatedLineId}
@@ -1299,8 +1351,15 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
   const [budgetItemId, setBudgetItemId] = useState(row?.budget_item_id ?? "");
   const [amount, setAmount] = useState(row?.actual_amount ?? "");
   const [tournamentId, setTournamentId] = useState(row?.tournament_id ?? "");
+  // Opt-in, and only ever for the tournament chosen on this transaction.
+  const [assignTournament, setAssignTournament] = useState(false);
   const [isIncome, setIsIncome] = useState(Boolean(row?.is_income));
   const [pickingLine, setPickingLine] = useState(false);
+
+  /** The chosen tournament, when it has no budget category of its own. */
+  const unassignedPick = tournamentId
+    ? (tournaments ?? []).find((t) => t.id === tournamentId && !t.budget_item_id) ?? null
+    : null;
 
   const chosenLine = budgetItems.find((b) => b.id === budgetItemId) ?? null;
 
@@ -1324,7 +1383,7 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <form action={onSubmit}>
+        <form action={(fd) => onSubmit(fd, assignTournament && unassignedPick ? unassignedPick.id : null)}>
           {row && <input type="hidden" name="id" value={row.id} />}
           <div className="modal-head">
             <h2>{isNew ? "Add transaction" : `Edit ${row.item}`}</h2>
@@ -1454,6 +1513,39 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
                 ))}
               </select>
               <p className="field-note">Picking a tournament suggests its committed cost. Adjust to what you actually paid.</p>
+
+              {/* The transaction already requires a budget line, so by this
+                  point the coach has answered the question this tournament is
+                  missing. Offered as an explicit, confirmable choice — never
+                  applied silently, and never to a historical tournament the
+                  coach did not pick here. Assignment goes through the existing
+                  setTournamentBudgetLine action, so enforce_tournament_budget_link
+                  still validates same-organization, same-season and
+                  expense-not-income. */}
+              {unassignedPick && (
+                <div className="txn-assign">
+                  <p className="txn-assign-lead">
+                    <strong>{unassignedPick.name}</strong> isn&rsquo;t assigned to a budget category
+                    yet, so its {money(unassignedPick.total_cost)} commitment isn&rsquo;t counted in
+                    Available.
+                  </p>
+                  {budgetItemId ? (
+                    <label className="txn-assign-check">
+                      <input
+                        type="checkbox"
+                        checked={assignTournament}
+                        onChange={(e) => setAssignTournament(e.target.checked)}
+                      />
+                      <span>
+                        Also assign this tournament to{" "}
+                        <strong>{budgetItems.find((b) => b.id === budgetItemId)?.name ?? "this budget line"}</strong>
+                      </span>
+                    </label>
+                  ) : (
+                    <p className="txn-assign-hint">Pick a budget line above to assign it.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="field-row">
