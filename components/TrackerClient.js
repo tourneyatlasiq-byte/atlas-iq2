@@ -60,6 +60,14 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const [ourScore, setOurScore] = useState(game.runs_for ?? "");
   const [oppScore, setOppScore] = useState(game.runs_against ?? "");
   const [finishError, setFinishError] = useState(null);
+  const [scoreNote, setScoreNote] = useState(null);
+
+  /**
+   * A game dated in the future cannot legally hold a score:
+   * enforce_game_result_timing() refuses one. Tracking can still be finished,
+   * so the fields are hidden rather than offered and then rejected.
+   */
+  const scoreAllowed = !game.game_date || game.game_date <= new Date().toISOString().slice(0, 10);
   const busy = useRef(false);
 
   // Local so a substitution updates the order on the field without a page
@@ -203,13 +211,16 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         runsFor: ourScore,
         runsAgainst: oppScore,
       });
+
       if (result.ok) {
+        // Tracking is finished even when the score was refused, so the screen
+        // always leaves the confirmation. A score that could not be stored is
+        // reported afterwards rather than trapping the coach on this panel.
         setCompletedAt(result.completedAt);
         setFinishing(null);
         setFinishError(null);
+        setScoreNote(result.scoreNote ?? null);
       } else {
-        // A rejected score is a correctable mistake, not a sync failure, so it
-        // stays on the confirmation instead of dropping into the blocked view.
         setFinishError(result.error);
       }
     } finally {
@@ -484,6 +495,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         </p>
       )}
 
+      {scoreNote && <div className="notice notice-info trk-score-note">{scoreNote}</div>}
+
       {completedAt && (
         <section className="trk-done">
           <p className="trk-done-title">✓ QAB tracking complete</p>
@@ -682,6 +695,15 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
               {/* Optional. Win, loss or tie is derived by the database from
                   these two numbers — there is no separate result field to keep
                   in step, and leaving them blank finishes tracking anyway. */}
+              {!scoreAllowed && (
+                <p className="trk-finish-note">
+                  This game is scheduled for a later date, so a score can&rsquo;t be recorded yet.
+                  Finishing tracking still works — add the score from the game once it&rsquo;s
+                  played.
+                </p>
+              )}
+
+              {scoreAllowed && (
               <div className="trk-finish-score">
                 <div className="field">
                   <label htmlFor="fin-us">Our score</label>
@@ -710,9 +732,12 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                   />
                 </div>
               </div>
+              )}
               <p className="trk-finish-note">
-                Score is optional — you can add it later from the game. You can still review and
-                correct these at-bats afterward.
+                {scoreAllowed
+                  ? "Score is optional — you can add it later from the game. "
+                  : ""}
+                You can still review and correct these at-bats afterward.
               </p>
               <div className="trk-finish-actions">
                 <button type="button" className="btn btn-primary" onClick={confirmFinish}>

@@ -4774,3 +4774,55 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .trk-controls { align-items: stretch; }
   .trk-finish-top { width: 100%; }
 }
+
+/* --- QAB% by game --------------------------------------------------------- */
+
+/* Restrained by intent: one line, one reference, no axes, no gridlines and no
+   card chrome. It sits between the season summary and the player table and
+   uses the width that was previously empty. */
+.qtrend { margin: 18px 0 6px; }
+.qtrend-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px;
+}
+.qtrend-h {
+  margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--slate);
+}
+.qtrend-key { margin: 0; font-size: 11.5px; color: var(--slate); display: flex; align-items: center; gap: 6px; }
+.qtrend-key-line {
+  display: inline-block; width: 16px; height: 0;
+  border-top: 1px dashed var(--slate); opacity: .8;
+}
+
+.qtrend-svg { width: 100%; height: 132px; display: block; overflow: visible; }
+.qtrend-path { fill: none; stroke: var(--navy); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.qtrend-dot { fill: var(--surface); stroke: var(--navy); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.qtrend-season {
+  stroke: var(--slate); stroke-width: 1; stroke-dasharray: 4 4;
+  opacity: .55; vector-effect: non-scaling-stroke;
+}
+
+/* Labels sit on the same rhythm as the points: equal-width cells, so each
+   label falls beneath its game without absolute positioning. */
+.qtrend-labels {
+  list-style: none; margin: 6px 0 0; padding: 0;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+}
+.qtrend-labels li {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 0; text-align: center;
+}
+.qtrend-label-opp {
+  font-size: 10.5px; color: var(--slate);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.qtrend-label-pct { font-size: 11.5px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+
+.qtrend-single { margin: 0; font-size: 13px; line-height: 1.5; color: var(--slate); }
+.qtrend-single strong { color: var(--navy); }
+
+@media (max-width: 560px) {
+  .qtrend-svg { height: 108px; }
+  .qtrend-label-opp { font-size: 9.5px; }
+}

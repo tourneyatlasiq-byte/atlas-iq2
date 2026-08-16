@@ -332,11 +332,8 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             )}
           </div>
 
-          {/* States what has been tracked, and nothing more.
-              The previous wording promised a game-to-game trend "as more
-              completed games are tracked". No trend chart exists, so no number
-              of games would ever have produced one — the line described a
-              feature that had not been built. */}
+          <QabTrend games={games} seasonPct={team.qabPct} />
+
           <p className="season-trend-line">
             {gamesCompleted} of {team.games} tracked {team.games === 1 ? "game" : "games"} complete
           </p>
@@ -355,11 +352,6 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
               </select>
             </label>
           </div>
-          <p className="season-sub">
-            Percentages can move a lot with fewer than 10 plate appearances — read the QAB and PA
-            counts alongside the percentage early in a season.
-          </p>
-
           {/* Column header for the aligned figures. The row is a button, so
               this is a presentational header rather than a table head. */}
           <div className="season-phead-cols" aria-hidden="true">
@@ -424,6 +416,103 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
           </ul>
         </div>
       )}
+    </section>
+  );
+}
+
+
+/**
+ * Team QAB% per game, in date order.
+ *
+ * Every figure is already computed by the server-side performance query —
+ * gameRows carry qabPct, qab, pa, opponent and gameDate. Nothing is recomputed
+ * and no statistic is invented: a game with no plate appearances has no point
+ * rather than a zero, and the line joins only the games that exist. There is
+ * no interpolation and no smoothing.
+ *
+ * Plain SVG on a 0–100 scale, so the vertical position of a point means the
+ * same thing in every season regardless of how the team is performing.
+ */
+function QabTrend({ games, seasonPct }) {
+  const points = (games ?? []).filter((g) => g.pa > 0 && g.qabPct != null);
+
+  if (points.length === 0) return null;
+
+  // One game is a fact, not a trend. Stating it is more honest than drawing a
+  // line through a single point.
+  if (points.length === 1) {
+    const only = points[0];
+    return (
+      <section className="qtrend">
+        <p className="qtrend-h">QAB% by game</p>
+        <p className="qtrend-single">
+          <strong>{only.qabPct}%</strong> vs {only.opponent} · {only.qab} of {only.pa} plate
+          appearances. A second tracked game will start the trend.
+        </p>
+      </section>
+    );
+  }
+
+  const W = 640;
+  const H = 132;
+  const padX = 10;
+  const padY = 14;
+  const stepX = points.length > 1 ? (W - padX * 2) / (points.length - 1) : 0;
+  const y = (pct) => padY + (1 - pct / 100) * (H - padY * 2);
+  const x = (i) => padX + i * stepX;
+
+  const path = points.map((g, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(g.qabPct)}`).join(" ");
+  const seasonY = seasonPct != null ? y(seasonPct) : null;
+
+  return (
+    <section className="qtrend">
+      <div className="qtrend-head">
+        <p className="qtrend-h">QAB% by game</p>
+        {seasonPct != null && (
+          <p className="qtrend-key">
+            <span className="qtrend-key-line" aria-hidden="true" /> Season {seasonPct}%
+          </p>
+        )}
+      </div>
+
+      <svg
+        className="qtrend-svg"
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Team QAB percentage across ${points.length} tracked games, ${points
+          .map((g) => `${g.opponent} ${g.qabPct}%`)
+          .join(", ")}`}
+      >
+        {seasonY != null && (
+          <line
+            className="qtrend-season"
+            x1={padX}
+            x2={W - padX}
+            y1={seasonY}
+            y2={seasonY}
+          />
+        )}
+
+        <path className="qtrend-path" d={path} />
+
+        {points.map((g, i) => (
+          <circle key={g.gameId} className="qtrend-dot" cx={x(i)} cy={y(g.qabPct)} r="4">
+            {/* Native tooltip: no hover state to manage, and it works on
+                keyboard focus and in screen readers. */}
+            <title>{`${g.opponent} · ${g.qabPct}% · ${g.qab} of ${g.pa} PA`}</title>
+          </circle>
+        ))}
+      </svg>
+
+      <ol className="qtrend-labels">
+        {points.map((g) => (
+          <li key={g.gameId} title={`${g.opponent} · ${g.qabPct}% · ${g.qab} of ${g.pa} PA`}>
+            <span className="qtrend-label-opp">{g.opponent}</span>
+            <span className="qtrend-label-pct">{g.qabPct}%</span>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
