@@ -66,6 +66,11 @@ const duesUnlinked = (n, amount) =>
   assertEq("Northgate: per-player still $2,400", northgate.perPlayer, 2400);
   assertEq("Northgate: team total SUPPRESSED", northgate.expectedTotal, null);
   assertEq("Northgate: not publishable", northgate.totalDefensible, false);
+  assertEq("Northgate blocks because MAYA is missing, not because of Ava",
+    northgate.identityComplete, false);
+  assertEq("Northgate: once Maya has dues it generates",
+    duesProfile([...duesFor(roster(12), 2400), { player_id: "ava", totalDue: 2400 }], roster(12))
+      .identityComplete, true);
   assertEq("Northgate: active roster would owe $26,400", northgate.activeExpectedTotal, 26400);
   assertEq("Northgate: all records still total $28,800", northgate.allRecordsTotal, 28800);
 
@@ -78,11 +83,48 @@ const duesUnlinked = (n, amount) =>
   assertEq("Inactive dues do not satisfy the missing active player", cancelled.missingCount, 1);
   assertEq("Total suppressed despite matching counts", cancelled.totalDefensible, false);
 
+  /* --- A legitimate inactive-player record must NOT block --------------
+     Production case: a player paid $2,400 in full across six installments,
+     then left the roster. Requiring that record to be absent would mean
+     deleting real financial history to print a report. */
+  const withDeparted = duesProfile(
+    [...duesFor(roster(12), 2400), { player_id: "ava-departed", totalDue: 2400 }],
+    roster(12)
+  );
+  assertEq("Departed player's dues do NOT block", withDeparted.identityComplete, true);
+  assertEq("Departed player counted separately", withDeparted.inactiveWithDues, 1);
+  assertEq("Departed player excluded from the report total", withDeparted.expectedTotal, 28800);
+  assertEq("Report total is 12 x $2,400, not 13", withDeparted.expectedTotal, 12 * 2400);
+  assertEq("Finance's all-records figure still includes them", withDeparted.allRecordsTotal, 31200);
+  assertEq("Departed player not counted as active", withDeparted.withDues, 12);
+
+  /* --- An unlinked record must not block or contaminate ------------------ */
+  const withUnlinked = duesProfile(
+    [...duesFor(roster(12), 2400), ...duesUnlinked(2, 999)],
+    roster(12)
+  );
+  assertEq("Unlinked records do NOT block", withUnlinked.identityComplete, true);
+  assertEq("Unlinked records counted separately", withUnlinked.unlinked, 2);
+  assertEq("Unlinked amounts excluded from the report total", withUnlinked.expectedTotal, 28800);
+  assertEq("Unlinked amounts do not affect per-player", withUnlinked.perPlayer, 2400);
+  assertEq("Unlinked amounts do not widen the range", [withUnlinked.min, withUnlinked.max], [2400, 2400]);
+
+  /* --- Both at once, which is the realistic long-running season ---------- */
+  const messyButValid = duesProfile(
+    [...duesFor(roster(12), 2400), { player_id: "departed", totalDue: 2400 }, ...duesUnlinked(1, 500)],
+    roster(12)
+  );
+  assertEq("Departed + unlinked together still generate", messyButValid.identityComplete, true);
+  assertEq("Report total unaffected by either", messyButValid.expectedTotal, 28800);
+
+  /* --- A missing ACTIVE player still blocks ------------------------------ */
+  const stillBlocks = duesProfile(duesFor(roster(11), 2400), roster(12));
+  assertEq("Missing active player STILL blocks", stillBlocks.identityComplete, false);
+  assertEq("Missing active player: no total", stillBlocks.expectedTotal, null);
+
   /* --- identityComplete gates GENERATION; totalDefensible gates the total.
      A roster can be fully reconciled while players legitimately owe different
      amounts: the report generates, the team total does not print. */
-  assertEq("Northgate: not reconciled, so generation blocks", northgate.identityComplete, false);
-
   const variedButComplete = duesProfile(
     [...duesFor(roster(12).slice(0, 6), 2400), ...duesFor(roster(12).slice(6), 2700)],
     roster(12)

@@ -928,10 +928,16 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   </span>
                 </span>
 
-                <span className="budget-num">{summaryMoney(g.budgeted)}</span>
-                <span className="budget-num">{summaryMoney(g.paidTotal)}</span>
-                <span className="budget-num">{summaryMoney(g.toPay)}</span>
-                <span className={`budget-num budget-num-avail strong${g.available < 0 ? " over" : ""}`}>
+                {/* data-label drives the mobile layout, where the column
+                    header is hidden and four bare figures would otherwise be
+                    unexplained. Desktop ignores it entirely. */}
+                <span className="budget-num" data-label="Budget">{summaryMoney(g.budgeted)}</span>
+                <span className="budget-num" data-label="Paid">{summaryMoney(g.paidTotal)}</span>
+                <span className="budget-num" data-label="To pay">{summaryMoney(g.toPay)}</span>
+                <span
+                  data-label="Available"
+                  className={`budget-num budget-num-avail strong${g.available < 0 ? " over" : ""}`}
+                >
                   {g.available < 0
                     ? `Over ${summaryMoney(Math.abs(g.available))}`
                     : summaryMoney(g.available)}
@@ -957,10 +963,15 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                       )}
                     </span>
 
-                    <span className="budget-num">{money(r.budgeted)}</span>
-                    <span className="budget-num">{money(r.actual)}</span>
-                    <span className="budget-num">{income ? money(0) : money(r.toPay)}</span>
-                    <span className={`budget-num budget-num-avail${r.available < 0 ? " over" : ""}`}>
+                    <span className="budget-num" data-label="Budget">{money(r.budgeted)}</span>
+                    <span className="budget-num" data-label="Paid">{money(r.actual)}</span>
+                    <span className="budget-num" data-label="To pay">
+                      {income ? money(0) : money(r.toPay)}
+                    </span>
+                    <span
+                      data-label="Available"
+                      className={`budget-num budget-num-avail${r.available < 0 ? " over" : ""}`}
+                    >
                       {r.available < 0
                         ? `Over ${money(Math.abs(r.available))}`
                         : money(r.available)}

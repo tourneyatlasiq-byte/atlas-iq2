@@ -3196,12 +3196,99 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .budget-line-actions { display: flex; gap: 2px; justify-content: flex-end; }
 .budget-line-actions .btn { padding: 3px 8px; font-size: 12px; }
 
-@media (max-width: 900px) {
+/* Tablet: four numeric columns still fit beside the name. */
+@media (max-width: 900px) and (min-width: 641px) {
   :root { --budget-grid: 18px minmax(0, 1fr) 78px 78px 78px 78px; }
   .budget-colhead { display: none; }
   /* Actions moved from track 6 to track 7 when To pay gained its own column. */
   .budget-row > :nth-child(7) { grid-column: 2 / -1; }
   .budget-line-actions { justify-content: flex-start; padding-left: 18px; }
+}
+
+/* ===== Phone: the budget board becomes cards, not a squeezed table =====
+
+   ROOT CAUSE of the unusable mobile view: below 900px the grid still reserved
+   four fixed 78px numeric columns plus an 18px caret — 330px of fixed track.
+   On a 375px screen, after page padding, roughly 13px was left for the
+   category name, so the one thing a coach needs first (which expense is this?)
+   was crushed to nothing while four figures took the row. The column header
+   was hidden at that width too, so those figures carried no labels at all.
+
+   Below 640px the row stops behaving as a table row: the name takes its own
+   full-width line, and the four figures sit beneath it two-by-two, each
+   labelled from data-label. Nothing scrolls sideways and no value is clipped.
+   Desktop and tablet are untouched, and no value is recalculated — this is
+   presentation only.
+
+   Child positions are identical on both row types, which is what lets one set
+   of rules serve both:
+     1 caret / spacer   2 name   3 Budget   4 Paid   5 To pay   6 Available
+     7 actions (line rows) or an empty cell (category rows) */
+@media (max-width: 640px) {
+  .budget-colhead { display: none; }
+
+  .budget-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "caret name name"
+      ".     f1   f2"
+      ".     f3   f4"
+      ".     act  act";
+    row-gap: 11px;
+    column-gap: 10px;
+    padding: 13px 10px;
+    align-items: start;
+  }
+
+  .budget-row > :nth-child(1) { grid-area: caret; padding-top: 1px; }
+  .budget-row > :nth-child(2) { grid-area: name; min-width: 0; }
+  .budget-row > :nth-child(3) { grid-area: f1; }
+  .budget-row > :nth-child(4) { grid-area: f2; }
+  .budget-row > :nth-child(5) { grid-area: f3; }
+  .budget-row > :nth-child(6) { grid-area: f4; }
+  .budget-row > :nth-child(7) { grid-area: act; }
+
+  /* Every figure carries its own label, so a coach never sees four
+     unexplained dollar amounts. */
+  .budget-row > .budget-num {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    text-align: left;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  .budget-row > .budget-num[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--slate);
+  }
+
+  /* The expense identity leads, and wraps rather than truncating. */
+  .budget-cat-name,
+  .budget-line-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    font-size: 15px;
+  }
+  .budget-cat-sub { font-size: 12px; }
+
+  /* Expand control stays an obvious thumb target. */
+  .budget-cat { min-height: 60px; }
+  .group-caret { font-size: 16px; }
+
+  .budget-line-actions { justify-content: flex-start; padding-left: 0; }
+  /* Category rows have an empty seventh cell; it must not add a blank row. */
+  .budget-cat > :nth-child(7):empty { display: none; }
+
+  .budget-total-row { padding: 13px 10px; }
 }
 
 /* During onboarding only one of Next Up / Needs Action may be present, so the
@@ -4947,3 +5034,16 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* Contextual report entry point in the Finance header. */
 .fin-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Add budget item: full width on a phone rather than a narrow button pushed
+   to the right of a wrapped header. */
+@media (max-width: 640px) {
+  .budget-intro { gap: 12px; }
+  .budget-intro-action { flex: 1 1 100%; width: 100%; min-height: 46px; }
+
+  /* Three legend columns at 375px leaves ~100px each for a label plus a
+     figure; two rows read better than three cramped ones. */
+  .fin-split-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
+  .fin-split-item + .fin-split-item { padding-left: 0; border-left: none; }
+  .fin-split-item:nth-child(odd) { padding-right: 10px; }
+}

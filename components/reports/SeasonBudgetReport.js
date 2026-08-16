@@ -239,8 +239,14 @@ export function SeasonBudgetReport({ report }) {
                   {dues.activeRosterCount} players on the roster
                 </p>
                 {dues.expectedTotal != null && (
+                  /* Scope stated explicitly. This total covers the CURRENT
+                     roster, so it can legitimately differ from Finance's
+                     season-wide expected dues, which also counts players who
+                     have since left. Naming the scope makes that difference
+                     self-explaining rather than alarming. */
                   <p className="rpt-card-line">
-                    <strong>{dollars(dues.expectedTotal)}</strong> in total player dues
+                    <strong>{dollars(dues.expectedTotal)}</strong> from the{" "}
+                    {dues.activeRosterCount} players on this roster
                   </p>
                 )}
               </>
