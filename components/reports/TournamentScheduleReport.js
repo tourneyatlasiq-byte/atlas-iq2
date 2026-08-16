@@ -95,20 +95,29 @@ export function TournamentScheduleReport({ report }) {
                       family acts on, and the only field present on every
                       tournament in the product. */}
                   <p className="sch-date">{range}</p>
+
+                  <div className="sch-body">
                   <h2 className="sch-name">{t.name}</h2>
 
                   {t.place && (
                     <p className="sch-place">
                       {t.place.name && <span className="sch-place-name">{t.place.name}</span>}
-                      {t.place.name && t.place.area && <span className="sch-dot"> · </span>}
-                      {t.place.area && <span>{t.place.area}</span>}
+                      {/* City and state are omitted when a full address follows,
+                          since the address already contains them. */}
+                      {t.place.name && t.place.area && !t.place.address && (
+                        <span className="sch-dot"> · </span>
+                      )}
+                      {t.place.area && !t.place.address && <span>{t.place.area}</span>}
+                      {!t.place.name && t.place.area && <span>{t.place.area}</span>}
+                      {t.place.name && t.place.address && <span className="sch-dot"> · </span>}
                       {t.place.address && <span className="sch-address">{t.place.address}</span>}
                     </p>
                   )}
 
                   {days.length === 0 ? (
                     /* Season Tempo knows only that nothing has been entered —
-                       not whether the tournament has released a schedule. */
+                       not whether the tournament has released a schedule. A
+                       trailing status line, not another content row. */
                     <p className="sch-pending">
                       Game times and opponents will be added when available.
                     </p>
@@ -134,6 +143,7 @@ export function TournamentScheduleReport({ report }) {
                       ))}
                     </div>
                   )}
+                  </div>
                 </li>
               );
             })}

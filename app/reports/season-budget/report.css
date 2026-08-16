@@ -84,10 +84,13 @@
   display: block;
 }
 
-.rpt-org { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+/* letter-spacing normal: negative tracking narrows the glyph gaps a PDF
+   text extractor uses to infer word boundaries, producing runs like
+   "TournamentSchedule" in the extracted text layer. */
+.rpt-org { margin: 0; font-size: 21px; font-weight: 800; }
 .rpt-team { margin: 3px 0 0; font-size: 15px; color: #334155; }
 .rpt-doc-title {
-  margin: 16px 0 0; font-size: 27px; font-weight: 800; letter-spacing: -0.02em;
+  margin: 16px 0 0; font-size: 27px; font-weight: 800;
 }
 .rpt-doc-meta { margin: 5px 0 0; font-size: 13px; color: #64748b; }
 
