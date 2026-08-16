@@ -499,11 +499,28 @@ function QabTrend({ games, seasonPct }) {
         ))}
       </svg>
 
+      {/* The result sits in the LABEL, never on the line or the points. The
+          chart plots QAB%; colouring the plot by outcome would suggest the two
+          are the same measure. Games with no recorded result simply omit the
+          marker rather than showing a placeholder. */}
       <ol className="qtrend-labels">
         {points.map((g) => (
-          <li key={g.gameId} title={`${g.opponent} · ${g.qabPct}% · ${g.qab} of ${g.pa} PA`}>
+          <li
+            key={g.gameId}
+            title={`${g.opponent} · ${g.qabPct}% · ${g.qab} of ${g.pa} PA${
+              g.result ? ` · ${g.result}` : ""
+            }`}
+          >
             <span className="qtrend-label-opp">{g.opponent}</span>
-            <span className="qtrend-label-pct">{g.qabPct}%</span>
+            <span className="qtrend-label-figs">
+              <span className="qtrend-label-pct">{g.qabPct}%</span>
+              {g.result && (
+                <>
+                  <span className="qtrend-label-sep" aria-hidden="true">·</span>
+                  <span className={`gm-res gm-res-${g.result.toLowerCase()}`}>{g.result}</span>
+                </>
+              )}
+            </span>
           </li>
         ))}
       </ol>
