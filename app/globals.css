@@ -4826,3 +4826,36 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .qtrend-svg { height: 108px; }
   .qtrend-label-opp { font-size: 9.5px; }
 }
+
+/* --- QAB tracker: resume selector ----------------------------------------- */
+
+/* Shown only when the recorded at-bats cannot identify the next position.
+   A normal reopen never renders this. */
+.trk-pick {
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  background: var(--surface); padding: 16px; margin-bottom: 14px;
+}
+.trk-pick-h {
+  margin: 0 0 4px; font-family: var(--font-display);
+  font-size: 16px; font-weight: 800; color: var(--navy);
+}
+.trk-pick-s { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--slate); }
+.trk-pick-list { display: grid; gap: 8px; }
+.trk-pick-btn {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 48px; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); cursor: pointer;
+  font-family: var(--font-body); text-align: left;
+}
+.trk-pick-btn:hover { border-color: var(--blue); background: #f2f7fe; }
+.trk-pick-slot {
+  flex: 0 0 auto; min-width: 34px;
+  font-family: var(--font-display); font-size: 12px; font-weight: 800;
+  letter-spacing: .04em; color: var(--slate);
+}
+.trk-pick-name { font-size: 15px; font-weight: 600; color: var(--navy); }
+
+@media (min-width: 640px) {
+  .trk-pick-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

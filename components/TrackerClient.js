@@ -11,6 +11,7 @@ import {
 import { enqueue, flushQueue, queueStatus, newPaId } from "../lib/offline-queue";
 import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 import { substitutePlayer } from "../lib/actions/lineup";
+import { resumePosition } from "../lib/tracker-cursor";
 
 /**
  * Live QAB tracker.
@@ -41,7 +42,25 @@ function ordinal(n) {
 
 export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite }) {
   const [rows, setRows] = useState(initialRows ?? []);
-  const [cursor, setCursor] = useState(0);
+  /**
+   * Where the order resumes.
+   *
+   * Previously useState(0), which restarted at the top of the lineup on every
+   * mount — so reopening a partially tracked game silently re-batted the front
+   * of the order. Derived once, lazily, from the at-bats already recorded.
+   * initialRows is the server-rendered set, so this runs before anything is
+   * displayed and costs no extra tap in the normal case.
+   */
+  const initialResume = useMemo(
+    () => resumePosition(lineup ?? [], initialRows ?? []),
+    // Mount-time only: recomputing as at-bats accumulate would fight the live
+    // cursor, which advances tap by tap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+  const [cursor, setCursor] = useState(initialResume.index);
+  // Exception path only. Never a silent fall back to position 1.
+  const [pickBatter, setPickBatter] = useState(initialResume.ambiguous);
   const [selected, setSelected] = useState([]);
   const [sync, setSync] = useState(SYNCED);
   // Presentation only. Switching modes never creates, edits, voids or
@@ -523,7 +542,35 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         </section>
       )}
 
-      {mode === "live" && !completedAt && (
+      {/* Exception path. The at-bats recorded so far do not identify a next
+          position — a slot the lineup no longer has, an at-bat stored without
+          a position, or two sharing the last timestamp. Asking costs one tap;
+          guessing is what produced the out-of-sequence history in the first
+          place. */}
+      {mode === "live" && !completedAt && pickBatter && (
+        <section className="trk-pick">
+          <h2 className="trk-pick-h">Who is batting next?</h2>
+          <p className="trk-pick-s">
+            We couldn&rsquo;t work out where the order left off from the at-bats already
+            recorded. Pick the batter and tracking continues from there.
+          </p>
+          <div className="trk-pick-list">
+            {order.map((slot, i) => (
+              <button
+                key={slot.player_id}
+                type="button"
+                className="trk-pick-btn"
+                onClick={() => { setCursor(i); setPickBatter(false); }}
+              >
+                <span className="trk-pick-slot">{ordinal(slot.batting_order ?? i + 1)}</span>
+                <span className="trk-pick-name">{slot.full_name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {mode === "live" && !completedAt && !pickBatter && (
       <div className="trk-batter">
         <p className="trk-batter-eyebrow">Now batting</p>
         <p className="trk-name">{batter.full_name}</p>
@@ -538,7 +585,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       </div>
       )}
 
-      {mode === "live" && !completedAt && (
+      {mode === "live" && !completedAt && !pickBatter && (
       <section className="trk-card">
         <h2 className="trk-card-h">What made this a Quality At-Bat?</h2>
         <p className="trk-card-s">Select all that apply.</p>
