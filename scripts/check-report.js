@@ -43,7 +43,7 @@ const duesUnlinked = (n, amount) =>
   const mod = await import(pathToFileURL(path.resolve("lib/finance-rules.js")).href);
   const { duesProfile, categoryAllocation, expectedOtherIncome, reconcileDues,
           incomeCategoryBucket, categoryOptions, resolveCategoryChoice,
-          CATEGORY_OTHER, CATEGORIES } = mod;
+          CATEGORY_OTHER, CATEGORY_OTHER_LABEL, CATEGORIES } = mod;
 
   console.log("\nParent budget report regression cases\n");
 
@@ -381,7 +381,20 @@ const duesUnlinked = (n, amount) =>
   assertEq("all known categories are offered on a new line",
     categoryOptions(undefined), CATEGORIES);
 
-  // 2. Other… with a custom value
+  // The duplicate-"Other" defect: "Other" is a REAL category with saved data,
+  // so the custom-entry option must not be labelled the same word.
+  assertEq('"Other" is a real, selectable category', CATEGORIES.includes("Other"), true);
+  assertEq("custom-entry label does not collide with any category",
+    CATEGORIES.some(
+      (c) => c.toLowerCase().replace(/[^a-z]/g, "") ===
+             CATEGORY_OTHER_LABEL.toLowerCase().replace(/[^a-z]/g, "")
+    ), false);
+  assertEq("exactly one option reads 'Other'",
+    categoryOptions(undefined).filter((c) => c === "Other").length, 1);
+  assertEq("selecting the real 'Other' stores 'Other', not the sentinel",
+    resolveCategoryChoice("Other", ""), "Other");
+
+  // 2. Custom category with a typed value
   assertEq("Other + custom name resolves to the custom name",
     resolveCategoryChoice(CATEGORY_OTHER, "Travel"), "Travel");
   assertEq("custom name is trimmed",

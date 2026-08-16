@@ -15,7 +15,7 @@ import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance"
 import {
   isActual, TXN_STATUSES, money, quantity, cents, sumMoney,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
-  categoryOptions, CATEGORY_OTHER,
+  categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
@@ -1122,7 +1122,7 @@ function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsInc
                 {categoryOptions(row?.category).map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-                <option value={CATEGORY_OTHER}>Other…</option>
+                <option value={CATEGORY_OTHER}>{CATEGORY_OTHER_LABEL}</option>
               </select>
 
               {catChoice === CATEGORY_OTHER && (
