@@ -9,7 +9,7 @@ import { SUPPORT_EMAIL } from "../lib/legal";
 import { TeamIdentity, initialsOf } from "./TeamMark";
 import {
   IconHome, IconTournaments, IconTeam, IconFacilities, IconFinance, IconPerformance,
-  IconFiles, IconContacts, IconMore, IconSettings, IconHelp,
+  IconFiles, IconContacts, IconReports, IconMore, IconSettings, IconHelp,
 } from "./NavIcons";
 
 /**
@@ -25,6 +25,12 @@ const NAV = [
   { href: "/facilities", label: "Facilities", Icon: IconFacilities },
   { href: "/finance", label: "Finance", Icon: IconFinance },
   { href: "/performance", label: "Performance", Icon: IconPerformance, feature: "qab", primary: true },
+  /* Reports spans Finance, Tournaments and Performance, so it belongs to no
+     one of them — top level, but NOT primary. The mobile bar is a designed
+     five positions (four primary plus More); promoting Reports would make six.
+     It is also not feature-gated: the budget and schedule reports are
+     available to every organization, and the hub gates the QAB group itself. */
+  { href: "/reports", label: "Reports", Icon: IconReports },
   { href: "/files", label: "Files", Icon: IconFiles },
   { href: "/contacts", label: "Contacts", Icon: IconContacts },
 ];

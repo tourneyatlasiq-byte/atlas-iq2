@@ -124,3 +124,12 @@ export function IconContacts() {
     </svg>
   );
 }
+
+export function IconReports() {
+  return (
+    <svg {...base}>
+      <path d="M3.5 2.5h9v11h-9z" />
+      <path d="M6 6.5v4M8 5v5.5M10 8v2.5" />
+    </svg>
+  );
+}

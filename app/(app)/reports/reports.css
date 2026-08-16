@@ -1,0 +1,70 @@
+/* Reports hub. Uses the application's own visual language — this is a screen
+   inside the product, not a printed document, so it deliberately does not
+   borrow report.css. */
+
+.rpthub-group { margin-bottom: 26px; }
+
+.rpthub-group-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.rpthub-group-title {
+  margin: 0; font-family: var(--font-display);
+  font-size: 15px; font-weight: 800; color: var(--navy);
+}
+.rpthub-premium {
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--navy); background: var(--gold);
+  border-radius: 999px; padding: 2px 8px;
+}
+.rpthub-group-blurb {
+  margin: 3px 0 10px; font-size: 13px; line-height: 1.5; color: var(--slate);
+}
+
+.rpthub-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.rpthub-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; min-height: 64px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  text-decoration: none; color: inherit;
+}
+a.rpthub-item:hover { border-color: var(--blue); background: #f7fafe; }
+
+.rpthub-item.is-unavailable { background: var(--bg); border-style: dashed; }
+.rpthub-item.is-unavailable .rpthub-item-name { color: var(--slate); }
+
+.rpthub-item-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rpthub-item-name {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 14.5px; font-weight: 700; color: var(--navy);
+}
+.rpthub-item-desc { font-size: 12.5px; line-height: 1.45; color: var(--slate); }
+
+.rpthub-audience {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--slate); background: var(--surface-sunken);
+  border-radius: 999px; padding: 2px 7px;
+}
+
+.rpthub-go { flex: 0 0 auto; font-size: 16px; color: var(--blue); }
+.rpthub-status {
+  flex: 0 0 auto;
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--slate); background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.rpthub-foot {
+  margin: 22px 0 0; padding-top: 14px; border-top: 1px solid var(--border);
+  font-size: 12px; line-height: 1.5; color: var(--slate);
+}
+
+/* Phone: the row stacks so a long report name never squeezes its status. */
+@media (max-width: 560px) {
+  .rpthub-item {
+    align-items: flex-start; flex-direction: column; gap: 8px; padding: 13px 14px;
+  }
+  .rpthub-go { align-self: flex-end; margin-top: -22px; }
+}
