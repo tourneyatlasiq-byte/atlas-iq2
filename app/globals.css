@@ -2222,6 +2222,13 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .fac-address { font-size: 14px; font-weight: 600; color: var(--navy); margin: 0; line-height: 1.5; }
 .fac-directions { flex-shrink: 0; white-space: nowrap; }
 
+/* Four amenities read as a quick row, not a data-entry block. */
+.amenity-fields-compact { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.amenity-fields-compact .field label { font-size: 12px; }
+@media (max-width: 620px) {
+  .amenity-fields-compact { grid-template-columns: 1fr 1fr; }
+}
+
 /* Facility Information: shared facts, deliberately quieter than Team Notes. */
 .fac-blurb {
   color: var(--slate); margin-bottom: 8px;

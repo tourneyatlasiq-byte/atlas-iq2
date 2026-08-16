@@ -31,6 +31,27 @@ import {
 
 const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
 
+/**
+ * Surfaces a user may newly choose.
+ *
+ * "Mixed" is excluded: it sits on 106 of 179 facilities, and at a multi-field
+ * complex it isn't a surface so much as an admission that surface is the wrong
+ * grain for the record. The drawer already treats it as no information.
+ *
+ * It remains valid in the database and in the CHECK constraint. An existing
+ * Mixed facility still renders the option (see surfaceOptionsFor) so opening
+ * and saving that record cannot silently rewrite its surface.
+ */
+const SELECTABLE_SURFACES = ["Grass", "Turf", "Unknown"];
+
+/** Adds Mixed back only when that is what the record already holds. */
+function surfaceOptionsFor(current) {
+  return current === "Mixed" ? [...SELECTABLE_SURFACES, "Mixed"] : SELECTABLE_SURFACES;
+}
+
+/**
+ * Amenities shown in the drawer and offered as a list filter. Unchanged.
+ */
 const AMENITIES = [
   { key: "lights", label: "Lights" },
   { key: "batting_cages", label: "Batting cages" },
@@ -39,6 +60,22 @@ const AMENITIES = [
   { key: "playground", label: "Playground" },
   { key: "indoor", label: "Indoor" },
 ];
+
+/**
+ * Amenities a coach is asked to record.
+ *
+ * Restrooms and Indoor are deliberately absent. Team Notes already owns
+ * restrooms, and the binary is near-universal so it discriminates nothing.
+ * Indoor has never been true across the whole catalog — it is not a travel
+ * softball fact. Both columns and all their values are preserved; they are
+ * round-tripped through hidden inputs so a save cannot null them.
+ */
+const FORM_AMENITIES = AMENITIES.filter(
+  (a) => a.key !== "restrooms" && a.key !== "indoor"
+);
+
+/** Amenity keys the form no longer asks for but must still carry through. */
+const CARRIED_AMENITIES = AMENITIES.filter((a) => !FORM_AMENITIES.includes(a));
 
 /**
  * Team Notes categories, in display order.
@@ -1449,6 +1486,15 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               </div>
             </div>
 
+            {/* Website sits with the other shared identity facts. It used to
+                live under "Links" beside coordinates and the maps link, which
+                are internal plumbing — that pushed it below the fold. */}
+            <div className="field">
+              <label htmlFor="f-website">Website</label>
+              <input id="f-website" name="website" type="url" placeholder="https://"
+                     defaultValue={prefill?.website ?? row?.website ?? ""} />
+            </div>
+
             {/* County is no longer collected, but updateFacility writes the
                 whole payload — dropping the input outright would null the
                 stored value on every save. Round-tripping it keeps the column
@@ -1459,14 +1505,20 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               <label htmlFor="f-surface">Surface</label>
               <select id="f-surface" name="surface_type" defaultValue={row?.surface_type ?? ""}>
                 <option value="">Not specified</option>
-                {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {surfaceOptionsFor(row?.surface_type).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
+              {row?.surface_type === "Mixed" && (
+                <p className="field-note">
+                  This facility is recorded as Mixed. Choosing Grass or Turf is more useful,
+                  but leaving it as-is changes nothing.
+                </p>
+              )}
             </div>
 
             <div className="form-divider">Amenities</div>
 
-            <div className="amenity-fields">
-              {AMENITIES.map((a) => (
+            <div className="amenity-fields amenity-fields-compact">
+              {FORM_AMENITIES.map((a) => (
                 <div className="field" key={a.key}>
                   <label htmlFor={`f-${a.key}`}>{a.label}</label>
                   <select
@@ -1484,27 +1536,33 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               ))}
             </div>
 
-            <div className="field">
-              <label htmlFor="f-parking">Parking</label>
-              <input id="f-parking" name="parking" placeholder="e.g. 200 spaces, free"
-                     defaultValue={row?.parking ?? ""} />
-              <p className="field-note">
-                Facts about the parking itself. Your own experience of it goes in your notes.
-              </p>
-            </div>
+            {/* Carried, not collected.
+                tri() maps "true"/"false"/"" back to true/false/null exactly, so
+                these round-trip byte-for-byte. Without them, facilityFields
+                would read a missing key and write null over real data.
+                  - Restrooms and Indoor: dropped from the form above.
+                  - Parking: Team Notes > Parking is the coach-facing workflow
+                    now. The six stored values stay untouched; migrating them
+                    would be a production data change. */}
+            {CARRIED_AMENITIES.map((a) => (
+              <input
+                key={a.key}
+                type="hidden"
+                name={a.key}
+                defaultValue={row?.[a.key] === true ? "true" : row?.[a.key] === false ? "false" : ""}
+              />
+            ))}
+            <input type="hidden" name="parking" defaultValue={row?.parking ?? ""} />
 
             <div className="field">
               <label htmlFor="f-description">Description</label>
               <textarea id="f-description" name="description" rows={2}
-                        placeholder="Publicly true facts about the facility"
+                        placeholder="e.g. Six-field complex off Highway 92, main entrance on the north side"
                         defaultValue={row?.description ?? ""} />
-            </div>
-
-            <div className="form-divider">Links</div>
-
-            <div className="field">
-              <label htmlFor="f-website">Website</label>
-              <input id="f-website" name="website" type="url" placeholder="https://" defaultValue={prefill?.website ?? row?.website ?? ""} />
+              <p className="field-note">
+                An objective description of the facility, shared with every organization in
+                Season Tempo. Anything specific to your team belongs in Team Notes.
+              </p>
             </div>
 
             <details className="more-details" open={Boolean(prefill)}>
