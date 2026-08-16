@@ -60,8 +60,13 @@ export default async function ReportsPage() {
         {
           name: "QAB Performance",
           description:
-            "Team, tournament and player Quality At-Bat performance, with game-by-game detail.",
-          status: qab ? "Next" : "Premium",
+            "Team Quality At-Bat performance: season summary, game-by-game, how QABs were earned, and every player.",
+          // Live only for entitled organizations. Without the entitlement this
+          // stays a non-interactive row — the route itself also refuses, and
+          // RLS returns nothing regardless.
+          href: qab ? "/reports/qab-performance" : undefined,
+          status: qab ? undefined : "Premium",
+          audience: qab ? "For coaches" : undefined,
         },
       ],
     },
