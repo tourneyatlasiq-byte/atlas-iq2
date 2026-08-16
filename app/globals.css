@@ -4944,3 +4944,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .pgh-svg { height: 72px; }
   .pd-summary { gap: 2px 14px; }
 }
+
+/* Contextual report entry point in the Finance header. */
+.fin-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

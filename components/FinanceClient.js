@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { useActionFeedback } from "../lib/useActionFeedback";
 import { PageHelp } from "./PageHelp";
@@ -363,7 +365,15 @@ export function FinanceClient({
           <h1>Finance</h1>
           <div className="page-sub">{MODULE_DESCRIPTIONS.finance}</div>
         </div>
-        <PageHelp />
+        <div className="fin-head-actions">
+          {/* Contextual entry point. The report is a separate document with
+              its own layout — this navigates to it rather than printing this
+              page. No Reports area exists yet, by design. */}
+          <Link className="btn btn-secondary" href="/reports/season-budget">
+            Parent budget report
+          </Link>
+          <PageHelp />
+        </div>
       </div>
 
       {/*
