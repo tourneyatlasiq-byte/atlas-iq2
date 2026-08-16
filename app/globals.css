@@ -3126,10 +3126,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 :root {
   --budget-grid:
     18px                  /* caret */
-    minmax(200px, 1fr)    /* name, with secondary text beneath */
-    120px                 /* budget */
-    120px                 /* used */
-    120px                 /* left */
+    minmax(170px, 1fr)    /* name, with secondary text beneath */
+    108px                 /* budget */
+    108px                 /* paid */
+    108px                 /* to pay */
+    108px                 /* available */
     minmax(84px, auto);   /* line-row actions (status text moved under name) */
 }
 
@@ -3196,9 +3197,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .budget-line-actions .btn { padding: 3px 8px; font-size: 12px; }
 
 @media (max-width: 900px) {
-  :root { --budget-grid: 18px minmax(0, 1fr) 92px 92px 92px; }
+  :root { --budget-grid: 18px minmax(0, 1fr) 78px 78px 78px 78px; }
   .budget-colhead { display: none; }
-  .budget-row > :nth-child(6) { grid-column: 2 / -1; }
+  /* Actions moved from track 6 to track 7 when To pay gained its own column. */
+  .budget-row > :nth-child(7) { grid-column: 2 / -1; }
   .budget-line-actions { justify-content: flex-start; padding-left: 18px; }
 }
 
@@ -4393,4 +4395,131 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .qa-dupe-list li { flex-direction: column; align-items: stretch; }
   .qa-dupe-list li .btn { width: 100%; min-height: 44px; }
   .qa-dupe-actions .btn { flex: 1; min-height: 44px; }
+}
+
+/* --- Finance: budget-led hierarchy ---------------------------------------
+   Season budget is the primary story, player dues the second. The two panels
+   are related but distinct, so they sit in one band with different internal
+   shapes rather than as two identical cards. */
+
+/* Budget gets the greater share of the row: it is now the lead story.
+   Scoped with .fin-band so Tournaments keeps the shared 3fr/1fr proportion. */
+@media (min-width: 900px) {
+  .summary-band-flat.fin-band .summary-band-grid {
+    grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+    align-items: start;
+    gap: 28px;
+  }
+  .fin-band .fin-dues-panel {
+    padding-left: 28px;
+    border-left: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 899px) {
+  .fin-band .fin-dues-panel {
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+}
+
+.fin-budget-hero {
+  font-family: var(--font-display);
+  font-size: 40px; font-weight: 800; line-height: 1.02;
+  letter-spacing: -0.02em; color: var(--navy);
+  margin: 4px 0 16px;
+}
+
+/* Dues is deliberately a step down from the budget figure: same family, less
+   weight, so the reading order is legible without a label saying so. */
+.fin-dues-hero {
+  font-family: var(--font-display);
+  font-size: 30px; font-weight: 800; line-height: 1.05;
+  color: var(--navy); margin: 4px 0 2px;
+}
+
+/* One bar, three mutually exclusive segments. Paid and To pay share a hue and
+   sit adjacent so Paid reads as contained within total commitment; the
+   uncommitted remainder is the quiet part of the track. */
+.fin-split { margin: 0 0 12px; }
+
+.fin-split-bar {
+  display: flex; width: 100%; height: 14px;
+  border-radius: 999px; overflow: hidden;
+  background: var(--surface-sunken);
+}
+.fin-split-seg { display: block; height: 100%; min-width: 0; }
+.fin-split-seg.seg-paid { background: var(--navy); }
+.fin-split-seg.seg-topay { background: #7d9bc1; }
+.fin-split-seg.seg-available { background: var(--surface-sunken); }
+
+.fin-split-legend {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; margin: 12px 0 0;
+}
+.fin-split-item { min-width: 0; }
+.fin-split-item dt {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--slate);
+}
+.fin-split-item dd {
+  margin: 3px 0 0;
+  font-family: var(--font-display); font-size: 19px; font-weight: 800;
+  color: var(--navy); font-variant-numeric: tabular-nums;
+}
+.fin-split-item dd.over { color: var(--danger); }
+
+.fin-split-key {
+  width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto;
+}
+.fin-split-key.seg-paid { background: var(--navy); }
+.fin-split-key.seg-topay { background: #7d9bc1; }
+.fin-split-key.seg-available { background: var(--surface-sunken); border: 1px solid var(--border); }
+
+/* Combined commitment is context, not a fourth headline figure. */
+.fin-budget-context {
+  font-size: 13px; color: var(--slate);
+  margin: 14px 0 8px; line-height: 1.45;
+}
+.fin-budget-context strong { color: var(--navy); }
+
+/* Players with no dues record are absent from expected, collected AND
+   outstanding, so this sits inside the dues panel to explain the gap. */
+.fin-dues-alert {
+  margin-top: 14px; padding: 10px 12px;
+  background: #fffaf0; border: 1px solid #f0d9a8;
+  border-radius: var(--radius-control);
+}
+.fin-dues-alert-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--navy); }
+.fin-dues-alert-body { margin: 3px 0 6px; font-size: 12.5px; line-height: 1.45; color: var(--slate); }
+
+/* Committed tournament cost with no budget category. Presented as a fixable
+   record gap, never folded into the category totals. */
+.fin-unassigned { margin-bottom: 10px; }
+.fin-unassigned-lead {
+  margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--slate);
+}
+.fin-unassigned-lead strong { color: var(--navy); }
+.fin-unassigned-list { list-style: none; margin: 0; padding: 0; }
+.fin-unassigned-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 10px;
+  padding: 9px 0; border-top: 1px solid var(--border);
+}
+.fin-unassigned-name {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  font-size: 13px; font-weight: 600; color: var(--navy);
+}
+.fin-unassigned-assign { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fin-unassigned-assign select { max-width: 260px; }
+
+@media (max-width: 640px) {
+  .fin-budget-hero { font-size: 32px; }
+  .fin-dues-hero { font-size: 26px; }
+  .fin-split-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .fin-split-item dd { font-size: 16px; }
+  .fin-unassigned-assign { width: 100%; }
+  .fin-unassigned-assign select { flex: 1 1 auto; max-width: none; }
 }

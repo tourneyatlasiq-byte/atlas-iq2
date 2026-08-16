@@ -8,6 +8,7 @@ import {
   financeSummary,
   fundsIn,
   duesSummary,
+  unassignedTournamentCommitments,
 } from "../../../lib/queries/finance";
 import { createClient } from "../../../lib/supabase/server";
 import { FinanceClient } from "../../../components/FinanceClient";
@@ -50,6 +51,10 @@ const TAB_ALIASES = {
   transactions: "transactions",
   "player-payments": "payments",
   payments: "payments",
+  // Additive. The two aliases above are kept so existing Help links, Roster
+  // links and any bookmark a coach already has continue to resolve.
+  dues: "payments",
+  "player-dues": "payments",
 };
 
 export default async function FinancePage({ searchParams }) {
@@ -101,6 +106,7 @@ export default async function FinancePage({ searchParams }) {
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
       committedTournaments={committed}
+      unassignedTournaments={unassignedTournamentCommitments(seasonTournaments ?? [])}
       budgetItems={budgetItems}
       tournaments={picks.tournaments}
       players={picks.players}

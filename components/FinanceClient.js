@@ -8,8 +8,9 @@ import { RelatedLink } from "./RelatedLink";
 import { NeedsAction, FilterChip } from "./NeedsAction";
 import { SearchPicker } from "./SearchPicker";
 import { setDuesForAll } from "../lib/actions/finance";
+import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
-import { isActual, CATEGORIES, TXN_STATUSES, money, quantity } from "../lib/finance-rules";
+import { isActual, CATEGORIES, TXN_STATUSES, money, quantity, cents, sumMoney } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
 import {
@@ -31,6 +32,132 @@ function Meter({ value, total, hidePct = false }) {
       <span className="meter-fill" style={{ width: `${pct}%` }} />
       {!hidePct && <span className="meter-pct">{pct}%</span>}
     </span>
+  );
+}
+
+/**
+ * Budget = Paid + To Pay + Available, as one bar.
+ *
+ * The three segments are mutually exclusive and fill the track, so the
+ * relationship is visible rather than asserted. Paid and To Pay share a hue
+ * and sit adjacent because Paid is contained within total commitment; the
+ * uncommitted remainder is the empty part of the track.
+ *
+ * Widths are computed in integer cents and the last segment takes the
+ * remainder, so the three can never total 99% or 101% through rounding.
+ *
+ * Over-commitment is real and must not be hidden: when committed exceeds the
+ * budget the bar scales to committed instead, and Available reports the
+ * overspend rather than clamping to zero.
+ */
+function BudgetSplit({ summary }) {
+  const budget = cents(summary.budgetedExpenses);
+  const paid = Math.max(0, cents(summary.actualExpenses));
+  const toPay = Math.max(0, cents(summary.toPay));
+  const available = cents(summary.availableBudget);
+  const over = available < 0;
+
+  if (budget <= 0 && paid + toPay <= 0) return null;
+
+  const denominator = Math.max(budget, paid + toPay, 1);
+  const pctPaid = (paid / denominator) * 100;
+  const pctToPay = (toPay / denominator) * 100;
+  const pctAvailable = Math.max(0, 100 - pctPaid - pctToPay);
+
+  const label = `${summaryMoney(summary.actualExpenses)} paid, ${summaryMoney(
+    summary.toPay
+  )} to pay, ${summaryMoney(Math.abs(summary.availableBudget))} ${over ? "over budget" : "available"}`;
+
+  return (
+    <div className="fin-split">
+      <div className="fin-split-bar" role="img" aria-label={label}>
+        <span className="fin-split-seg seg-paid" style={{ width: `${pctPaid}%` }} />
+        <span className="fin-split-seg seg-topay" style={{ width: `${pctToPay}%` }} />
+        <span className="fin-split-seg seg-available" style={{ width: `${pctAvailable}%` }} />
+      </div>
+
+      <dl className="fin-split-legend">
+        <div className="fin-split-item">
+          <dt><span className="fin-split-key seg-paid" aria-hidden="true" />Paid</dt>
+          <dd>{summaryMoney(summary.actualExpenses)}</dd>
+        </div>
+        <div className="fin-split-item">
+          <dt><span className="fin-split-key seg-topay" aria-hidden="true" />To pay</dt>
+          <dd>{summaryMoney(summary.toPay)}</dd>
+        </div>
+        <div className="fin-split-item">
+          <dt><span className="fin-split-key seg-available" aria-hidden="true" />
+            {over ? "Over budget" : "Available"}
+          </dt>
+          <dd className={over ? "over" : undefined}>
+            {summaryMoney(Math.abs(summary.availableBudget))}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * Committed tournaments that no budget category accounts for.
+ *
+ * Deliberately not auto-assigned and not folded into the totals: the coach
+ * chooses the category, using the same tournament/budget relationship the
+ * Tournaments module already writes. Until then the wording must not imply
+ * these amounts are inside any category's Available.
+ */
+function UnassignedCommitments({ tournaments, budgetItems, canWrite, pending, onAssign }) {
+  const [choice, setChoice] = useState({});
+  const expenseLines = (budgetItems ?? []).filter((b) => !b.is_income);
+  const total = sumMoney(tournaments.map((t) => t.amount));
+
+  return (
+    <div className="fin-unassigned">
+      <p className="fin-unassigned-lead">
+        <strong>{summaryMoney(total)}</strong> of committed tournament cost is not assigned to a
+        budget category, so it is <em>not</em> included in any category&rsquo;s available budget.
+      </p>
+
+      <ul className="fin-unassigned-list">
+        {tournaments.map((t) => (
+          <li key={t.id} className="fin-unassigned-row">
+            <span className="fin-unassigned-name">
+              {t.name}
+              <span className="budget-sub">{money(t.amount)} committed &middot; no budget category</span>
+            </span>
+
+            {canWrite && (
+              <span className="fin-unassigned-assign">
+                <select
+                  aria-label={`Budget category for ${t.name}`}
+                  value={choice[t.id] ?? ""}
+                  onChange={(e) => setChoice({ ...choice, [t.id]: e.target.value })}
+                >
+                  <option value="">Choose a budget line…</option>
+                  {expenseLines.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.category} · {b.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-secondary"
+                  disabled={pending || !choice[t.id]}
+                  onClick={() => {
+                    const fd = new FormData();
+                    fd.set("tournament_id", t.id);
+                    fd.set("budget_item_id", choice[t.id]);
+                    onAssign(fd);
+                  }}
+                >
+                  Assign
+                </button>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -69,6 +196,7 @@ const statusClass = (s) =>
 
 export function FinanceClient({
   budget, transactions, payments, summary, funds, dues, committedTournaments,
+  unassignedTournaments = [],
   tournaments, players, facilities, budgetItems, canWrite,
   // Review surface only: lets /review render each tab. Defaults to the normal
   // starting tab, so nothing changes in the application itself.
@@ -119,9 +247,19 @@ export function FinanceClient({
 
   const activeAction = actions.find((a) => a.id === actionId) ?? null;
 
-  // Everything except the dues story, which the summary already tells.
+  /**
+   * The dues-setup gap, shown inside the Player Dues panel rather than in the
+   * page-level Needs attention list — it is a dues story, and it explains why
+   * those players are absent from every dues figure.
+   */
+  const duesAction = useMemo(() => actions.find((a) => a.id === "no-dues") ?? null, [actions]);
+
+  // Everything the two panels above do not already tell.
   const otherActions = useMemo(
-    () => actions.filter((a) => a.id !== "outstanding" && a.id !== "not-started"),
+    () =>
+      actions.filter(
+        (a) => a.id !== "outstanding" && a.id !== "not-started" && a.id !== "no-dues"
+      ),
     [actions]
   );
 
@@ -213,31 +351,48 @@ export function FinanceClient({
       </div>
 
       {/*
-        Three panels, deliberately different shapes so they cannot be read as
-        arithmetic. Nothing is netted across them and there is no cash-on-hand
-        figure — Season Tempo does not track bank balances.
+        Season budget leads; player dues sit beside it as the second story.
 
-        Each leads with what has HAPPENED, not what is theoretically left.
-        Leading with remaining budget made a season look healthy while most of
-        the dues were still outstanding.
+        The budget panel uses ONE segmented bar rather than a row of cards.
+        Paid is contained within committed, so four equally weighted figures
+        invite a coach to add overlapping numbers. Three mutually exclusive
+        segments that fill the bar make Budget = Paid + To Pay + Available
+        structural instead of something a caption has to explain.
       */}
-      {/*
-        Dues lead because they are the actionable story: 31% collected with
-        $19,900 outstanding is what a coach can do something about. Spending and
-        money received are true but not urgent, so they sit beneath.
-
-        Detail that belongs to a tab lives in that tab — remaining budget,
-        committed-unpaid and the money-in split are all one click away.
-      */}
-      <div className="summary-band summary-band-flat">
+      <div className="summary-band summary-band-flat fin-band">
         <div className="summary-band-grid">
-          <div className="fin-lead-main">
-            <p className="fin-panel-label">
-              Player dues <HelpTip term="Player Payments" />
+          <section className="fin-budget-panel">
+            <p className="fin-panel-label">Total season budget</p>
+            <p className="fin-budget-hero">{summaryMoney(summary.budgetedExpenses)}</p>
+
+            <BudgetSplit summary={summary} />
+
+            <p className="fin-budget-context">
+              {summary.budgetedExpenses > 0 ? (
+                <>
+                  <strong>{summaryMoney(summary.committedExpenses)}</strong> committed of{" "}
+                  {summaryMoney(summary.budgetedExpenses)}
+                  {summary.percentCommitted != null && (
+                    <span className="muted"> &middot; {summary.percentCommitted}%</span>
+                  )}
+                </>
+              ) : (
+                "No budget planned for this season yet."
+              )}
             </p>
-            <p className="fin-lead-hero">
+
+            <button className="fin-lead-link" onClick={() => goToTab("budget")}>
+              View full budget →
+            </button>
+          </section>
+
+          <section className="fin-dues-panel">
+            <p className="fin-panel-label">
+              Player dues <HelpTip term="Player Dues" />
+            </p>
+            <p className="fin-dues-hero">
               {dues.expected > 0 ? Math.round((dues.collected / dues.expected) * 100) : 0}%
-              <span className="fin-lead-hero-unit">of player dues collected</span>
+              <span className="fin-lead-hero-unit">collected</span>
             </p>
             <p className="fin-lead-amounts">
               {money(dues.collected)} of {money(dues.expected)} collected
@@ -256,82 +411,85 @@ export function FinanceClient({
               )}
             </p>
 
-            {/* Secondary metrics sit beneath the dues story, quieter than the
-                percentage above them.
-
-                Budget available reads summary.availableBudget — the same
-                canonical figure Home shows. It is deliberately NOT
-                remainingBudget (budgeted less spent): that is a different
-                number, and showing it here under this label is precisely how
-                Home and Finance drifted apart before. */}
-            <div className="fin-secondary">
-              <button className="fin-metric" onClick={() => goToTab("funds")}>
-                <span className="fin-metric-label">Money received</span>
-                <span className="fin-metric-value">{summaryMoney(funds.total)}</span>
-                <span className="fin-metric-sub">this season</span>
-              </button>
-
-              <button className="fin-metric" onClick={() => goToTab("budget")}>
-                <span className="fin-metric-label">Spent</span>
-                <span className="fin-metric-value">{summaryMoney(summary.actualExpenses)}</span>
-                <span className="fin-metric-sub">of {summaryMoney(summary.budgetedExpenses)} planned</span>
-              </button>
-
-              <button className="fin-metric" onClick={() => goToTab("budget")}>
-                <span className="fin-metric-label">Budget available</span>
-                <span className="fin-metric-value">{summaryMoney(summary.availableBudget)}</span>
-                <span className="fin-metric-sub">after planned commitments</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Needs action lives in the band, matching Tournaments. The dues line
-              above already carries the outstanding-balance story, so this only
-              shows what is unrelated to it. */}
-          <section className="briefing fin-needs">
-            <p className="briefing-title fin-needs-head">
-              Needs attention
-              {otherActions.length > 0 && (
-                <span className="fin-needs-count">
-                  {otherActions.length} {otherActions.length === 1 ? "item" : "items"}
-                </span>
-              )}
-            </p>
-
-            {otherActions.length > 0 && (
-              <p className="fin-needs-lead">
-                {otherActions.length === 1
-                  ? "One thing is missing information needed to track money correctly."
-                  : "Some records are missing information needed to track money correctly."}
-              </p>
-            )}
-
-            {otherActions.length === 0 ? (
-              <div className="briefing-clear briefing-clear-good">
-                <p className="briefing-clear-title">Finances are in order</p>
-                <p className="briefing-clear-sub">Nothing outstanding beyond player dues.</p>
+            {/* Dues attention belongs to dues, not to the page header. A player
+                with no dues record is excluded from expected, collected AND
+                outstanding, so without this they are invisible in every figure
+                above. */}
+            {duesAction && (
+              <div className="fin-dues-alert">
+                <p className="fin-dues-alert-title">
+                  {duesAction.affected.length === 1
+                    ? "1 player has no dues set"
+                    : `${duesAction.affected.length} players have no dues set`}
+                </p>
+                <p className="fin-dues-alert-body">
+                  {duesAction.affected
+                    .map((a) => a.player?.full_name)
+                    .filter(Boolean)
+                    .join(", ")}
+                  {" — "}not counted in the figures above.
+                </p>
+                {canWrite && (
+                  <button
+                    className="fin-lead-link"
+                    onClick={() => {
+                      goToTab("payments");
+                      setEditPay("new");
+                    }}
+                  >
+                    Set their dues →
+                  </button>
+                )}
               </div>
-            ) : (
-              <ul className="briefing-list">
-                {otherActions.map((a) => (
-                  <li key={a.id} className="briefing-item">
-                    <button
-                      className={`briefing-link fin-needs-link${actionId === a.id ? " on" : ""}`}
-                      onClick={() => selectAction(actionId === a.id ? null : a.id)}
-                    >
-                      <span className="briefing-dot dot-attention" aria-hidden="true" />
-                      <span className="briefing-text">
-                        <span className="briefing-what">{financeActionText(a, dues)}</span>
-                      </span>
-                      <span className="fin-needs-go" aria-hidden="true">→</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
             )}
           </section>
         </div>
       </div>
+
+      {/* Needs attention sits below the two financial stories, matching the
+          reading order: position → dues → exceptions → detail. */}
+      {(otherActions.length > 0 || unassignedTournaments.length > 0) && (
+        <section className="briefing fin-needs card">
+          <p className="briefing-title fin-needs-head">
+            Needs attention
+            <span className="fin-needs-count">
+              {otherActions.length + unassignedTournaments.length}{" "}
+              {otherActions.length + unassignedTournaments.length === 1 ? "item" : "items"}
+            </span>
+          </p>
+
+          {unassignedTournaments.length > 0 && (
+            <UnassignedCommitments
+              tournaments={unassignedTournaments}
+              budgetItems={budgetItems}
+              canWrite={canWrite}
+              pending={pending}
+              onAssign={(fd) =>
+                run(setTournamentBudgetLine, fd, { success: "Tournament assigned to a budget category" })
+              }
+            />
+          )}
+
+          {otherActions.length > 0 && (
+            <ul className="briefing-list">
+              {otherActions.map((a) => (
+                <li key={a.id} className="briefing-item">
+                  <button
+                    className={`briefing-link fin-needs-link${actionId === a.id ? " on" : ""}`}
+                    onClick={() => selectAction(actionId === a.id ? null : a.id)}
+                  >
+                    <span className="briefing-dot dot-attention" aria-hidden="true" />
+                    <span className="briefing-text">
+                      <span className="briefing-what">{financeActionText(a, dues)}</span>
+                    </span>
+                    <span className="fin-needs-go" aria-hidden="true">→</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {activeAction && (
         <FilterChip
@@ -343,9 +501,9 @@ export function FinanceClient({
       <div className="tabs" role="tablist" ref={tabsRef}>
         {[
           { key: "budget", label: "Budget" },
-          { key: "funds", label: "Money In" },
           { key: "transactions", label: "Transactions" },
-          { key: "payments", label: "Player Payments" },
+          { key: "funds", label: "Money In" },
+          { key: "payments", label: "Player Dues" },
         ].map((t) => (
           <button
             key={t.key}
@@ -518,7 +676,7 @@ export function FundsInTab({ funds, dues }) {
       label: "Player dues",
       received: funds.playerDues,
       goal: dues.expected,
-      note: "Derived from Player Payments",
+      note: "Derived from Player Dues",
       derived: true,
       goalWord: "expected",
     },
@@ -547,7 +705,7 @@ export function FundsInTab({ funds, dues }) {
               <div className="fi-row-head">
                 <span className="fi-source">
                   {r.label}
-                  {r.derived && <span className="role-tag">From Player Payments</span>}
+                  {r.derived && <span className="role-tag">From Player Dues</span>}
                 </span>
                 <span className="fi-received">{money(r.received)}</span>
               </div>
@@ -654,25 +812,6 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
 }
 
 /**
- * Payment status, stated one way everywhere.
- *
- * Budget usage and cash paid answer different questions, so this stays quiet
- * and appears only when it says something: nothing on an untouched line, a
- * single "Paid" when settled.
- */
-function PaymentNote({ used, paid }) {
-  if (!used || used <= 0) return null;
-  const toPay = used - paid;
-  if (toPay <= 0) return <span className="budget-sub pay-done">Paid</span>;
-  if (paid <= 0) return <span className="budget-sub">{money(toPay)} to pay</span>;
-  return (
-    <span className="budget-sub">
-      {money(paid)} paid &middot; {money(toPay)} to pay
-    </span>
-  );
-}
-
-/**
  * Whole dollars at summary level, cents when they matter.
  *
  * A column of $22,000.00 / $5,050.00 / $16,950.00 is four characters of
@@ -709,8 +848,9 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           <span />
           <span>Category</span>
           <span className="budget-num">Budget</span>
-          <span className="budget-num">Used</span>
-          <span className="budget-num">Left</span>
+          <span className="budget-num">Paid</span>
+          <span className="budget-num">To pay</span>
+          <span className="budget-num">Available</span>
           <span />
         </div>
 
@@ -733,13 +873,13 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   <span className="budget-sub budget-cat-sub">
                     {g.percentCommitted == null
                       ? "No spending recorded"
-                      : `${g.percentCommitted}% of budget used`}
+                      : `${g.percentCommitted}% of budget committed`}
                   </span>
-                  <PaymentNote used={g.committedTotal} paid={g.paidTotal} />
                 </span>
 
                 <span className="budget-num">{summaryMoney(g.budgeted)}</span>
-                <span className="budget-num strong">{summaryMoney(g.committedTotal)}</span>
+                <span className="budget-num">{summaryMoney(g.paidTotal)}</span>
+                <span className="budget-num">{summaryMoney(g.toPay)}</span>
                 <span className={`budget-num strong${g.available < 0 ? " over" : ""}`}>
                   {g.available < 0
                     ? `Over ${summaryMoney(Math.abs(g.available))}`
@@ -764,13 +904,11 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                           {quantity(r.quantity)} &times; {money(r.unitCost)}
                         </span>
                       )}
-                      {!income && <PaymentNote used={r.committedTotal} paid={r.actual} />}
                     </span>
 
                     <span className="budget-num">{money(r.budgeted)}</span>
-                    <span className="budget-num">
-                      {income ? money(r.actual) : money(r.committedTotal)}
-                    </span>
+                    <span className="budget-num">{money(r.actual)}</span>
+                    <span className="budget-num">{income ? money(0) : money(r.toPay)}</span>
                     <span className={`budget-num${r.available < 0 ? " over" : ""}`}>
                       {r.available < 0
                         ? `Over ${money(Math.abs(r.available))}`

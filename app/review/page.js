@@ -303,7 +303,7 @@ export default async function ReviewPage() {
       </ReviewSection>
 
       <ReviewSection number={17} title="Finance — Funds In"
-        note="Player dues derive from Player Payments and are read-only." wide>
+        note="Player dues derive from the Player Dues tab and are read-only." wide>
         <FundsInTab funds={funds} dues={dues} />
       </ReviewSection>
 
@@ -311,7 +311,7 @@ export default async function ReviewPage() {
         <TransactionsTab transactions={transactions} canWrite={writable} onAdd={noop} onOpen={noop} />
       </ReviewSection>
 
-      <ReviewSection number={19} title="Finance — Player Payments"
+      <ReviewSection number={19} title="Finance — Player Dues"
         note="Paid in full, partial and not started." wide>
         <PaymentsTab payments={payments} canWrite={writable} onAdd={noop} onOpen={noop} />
       </ReviewSection>
