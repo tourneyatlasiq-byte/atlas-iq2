@@ -356,9 +356,18 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             </label>
           </div>
           <p className="season-sub">
-            Percentages can move a lot with fewer than 10 plate appearances. Players below 10 PA
-            are marked Early.
+            Percentages can move a lot with fewer than 10 plate appearances — read the QAB and PA
+            counts alongside the percentage early in a season.
           </p>
+
+          {/* Column header for the aligned figures. The row is a button, so
+              this is a presentational header rather than a table head. */}
+          <div className="season-phead-cols" aria-hidden="true">
+            <span className="season-pcol-name">Player</span>
+            <span className="season-pcol-num">QAB</span>
+            <span className="season-pcol-num">PA</span>
+            <span className="season-pcol-num">QAB%</span>
+          </div>
 
           <ul className="season-plist">
             {sortedPlayers.map((p) => {
@@ -375,24 +384,16 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                       {open ? "▾" : "▸"}
                     </span>
                     <span className="season-pname">{p.name}</span>
-                    <span className="season-pcounts">
-                      <strong>{p.qab}</strong> QAB <span aria-hidden="true">/</span>{" "}
-                      <strong>{p.pa}</strong> PA
-                    </span>
-                    <span className="season-ppct">
+                    {/* Three aligned numeric columns. The Early badge is gone:
+                        with a 10-PA threshold it appeared on nearly every
+                        player early in a season, so it marked the norm rather
+                        than the exception. The note above the table carries
+                        the same caution once. */}
+                    <span className="season-pnum">{p.qab}</span>
+                    <span className="season-pnum">{p.pa}</span>
+                    <span className="season-pnum season-pnum-pct">
                       {p.qabPct == null ? "—" : `${p.qabPct}%`}
                     </span>
-                    {p.earlyData && (
-                      <>
-                        {/* Two forms, one shown at a time by CSS. Desktop gets a
-                            compact chip because the section copy already explains
-                            the rule; mobile keeps the full phrase, which reads
-                            well in the stacked card. display:none also removes
-                            the hidden one from the accessibility tree. */}
-                        <span className="season-early season-early-full">Early data</span>
-                        <span className="season-early season-early-short">Early</span>
-                      </>
-                    )}
                   </button>
 
                   {open && (

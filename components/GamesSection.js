@@ -34,7 +34,41 @@ function fmtTime(t) {
 const resultClass = (r) =>
   r === "W" ? "res-w" : r === "L" ? "res-l" : r === "T" ? "res-t" : "res-none";
 
-export function GamesSection({ tournament, games, canWrite, onChanged, openSignal = 0 }) {
+/**
+ * One action per game, labelled for the state the game is in.
+ *
+ * Routes are the existing ones — /lineup for building an order, /track for
+ * everything after. A finished game still opens /track because that is where
+ * corrections live; the tracker renders its completed state and the database
+ * refuses a NEW plate appearance until tracking is resumed.
+ */
+function QabAction({ tournament, game }) {
+  const base = `/tournaments/${tournament.id}/games/${game.id}`;
+  const batters = game.batters ?? 0;
+  const pas = game.plateAppearances ?? 0;
+
+  let href = `${base}/lineup`;
+  let label = "Set lineup";
+
+  if (game.qabCompleted) {
+    href = `${base}/track`;
+    label = "View QABs";
+  } else if (pas > 0) {
+    href = `${base}/track`;
+    label = "Continue QABs";
+  } else if (batters > 0) {
+    href = `${base}/lineup`;
+    label = `Lineup · ${batters}`;
+  }
+
+  return (
+    <Link className="btn btn-ghost" href={href}>
+      {label}
+    </Link>
+  );
+}
+
+export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0 }) {
   const [editing, setEditing] = useState(null); // game | "new" | null
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
@@ -147,12 +181,12 @@ export function GamesSection({ tournament, games, canWrite, onChanged, openSigna
 
                   {canWrite && (
                     <span className="game-actions">
-                      <Link
-                        className="btn btn-ghost"
-                        href={`/tournaments/${tournament.id}/games/${g.id}/lineup`}
-                      >
-                        Set lineup
-                      </Link>
+                      {/* QAB is premium. Without it there is no lineup and no
+                          tracking, so the action is not offered at all —
+                          normal game management below is untouched. The label
+                          reflects the game's actual state rather than always
+                          reading "Set lineup" on a game with a full history. */}
+                      {qabEnabled && <QabAction tournament={tournament} game={g} />}
                       <button className="btn btn-ghost" onClick={() => setEditing(g)} disabled={pending}>
                         Edit
                       </button>

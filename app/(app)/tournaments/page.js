@@ -21,7 +21,7 @@ import { SetupNext, setupState } from "../../../components/SetupNext";
 export const dynamic = "force-dynamic";
 
 export default async function TournamentsPage({ searchParams }) {
-  const { profile, organization, team, season, seasonPhase } = await getContext();
+  const { profile, organization, team, season, seasonPhase, features } = await getContext();
 
   if (!season) {
     return (
@@ -83,6 +83,7 @@ export default async function TournamentsPage({ searchParams }) {
     <>
       <SetupNext steps={setup.steps} hidden={setup.hidden} currentStepId="tournament" />
     <TournamentClient
+      qabEnabled={Boolean(features?.qab)}
       tournaments={withDocs}
       actions={seasonPhase === "current" ? tournamentActions(withDocs) : []}
       summary={deriveSummary(withDocs)}

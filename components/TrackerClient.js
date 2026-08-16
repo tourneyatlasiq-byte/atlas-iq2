@@ -39,7 +39,7 @@ function ordinal(n) {
   return `${n}${suffix}`;
 }
 
-export function TrackerClient({ game, lineup, availablePlayers = [], initialRows, canWrite }) {
+export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite }) {
   const [rows, setRows] = useState(initialRows ?? []);
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState([]);
@@ -230,7 +230,7 @@ export function TrackerClient({ game, lineup, availablePlayers = [], initialRows
     try {
       const result = await substitutePlayer(game.id, subSlot, subPlayer);
       if (result.ok) {
-        const incoming = availablePlayers.find((p) => p.player_id === subPlayer);
+        const incoming = substitutes.find((p) => p.player_id === subPlayer);
         setSlots((prev) =>
           prev.map((s2) =>
             s2.batting_order === subSlot
@@ -439,25 +439,42 @@ export function TrackerClient({ game, lineup, availablePlayers = [], initialRows
         </span>
       </header>
 
-      <div className="trk-modes" role="tablist" aria-label="Entry mode">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "live"}
-          className={mode === "live" ? "on" : ""}
-          onClick={() => setMode("live")}
-        >
-          Live Tracking
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "review"}
-          className={mode === "review" ? "on" : ""}
-          onClick={() => setMode("review")}
-        >
-          Review &amp; Edit
-        </button>
+      {/* Two views and one action. Finish sits here so game management is in
+          one place, but it is deliberately NOT a third tab: it is outside the
+          tablist, styled as an action, and it ends the game rather than
+          changing what is on screen. */}
+      <div className="trk-controls">
+        <div className="trk-modes" role="tablist" aria-label="Entry mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "live"}
+            className={mode === "live" ? "on" : ""}
+            onClick={() => setMode("live")}
+          >
+            Live Tracking
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "review"}
+            className={mode === "review" ? "on" : ""}
+            onClick={() => setMode("review")}
+          >
+            Corrections
+          </button>
+        </div>
+
+        {!completedAt && live.length > 0 && canWrite && finishing !== "confirm" && (
+          <button
+            type="button"
+            className="trk-finish-top"
+            onClick={startFinish}
+            disabled={finishing === "checking"}
+          >
+            {finishing === "checking" ? "Checking…" : "Finish tracking"}
+          </button>
+        )}
       </div>
 
       {mode === "live" && live.length > 0 && (
@@ -484,7 +501,7 @@ export function TrackerClient({ game, lineup, availablePlayers = [], initialRows
               Back to Performance
             </a>
             <button type="button" className="btn" onClick={() => setMode("review")}>
-              Review &amp; Edit
+              Corrections
             </button>
             <button type="button" className="btn" onClick={resume} disabled={!canWrite}>
               Resume tracking
@@ -608,12 +625,16 @@ export function TrackerClient({ game, lineup, availablePlayers = [], initialRows
                   onChange={(e) => { setSubPlayer(e.target.value); setSubError(null); }}
                 >
                   <option value="">Choose a player…</option>
-                  {availablePlayers
+                  {/* Anyone already occupying a slot is excluded — the
+                      database enforces UNIQUE (game_id, player_id) too.
+                      Tournament-roster players are ordered first by the query. */}
+                  {substitutes
                     .filter((p) => !order.some((s2) => s2.player_id === p.player_id))
                     .map((p) => (
                       <option key={p.player_id} value={p.player_id}>
                         {p.jersey_number != null ? `#${p.jersey_number} ` : ""}
                         {p.full_name}
+                        {p.onTournamentRoster ? "" : " · not on tournament roster"}
                       </option>
                     ))}
                 </select>
@@ -713,16 +734,7 @@ export function TrackerClient({ game, lineup, availablePlayers = [], initialRows
                 Try again
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="trk-finish-btn"
-              onClick={startFinish}
-              disabled={finishing === "checking"}
-            >
-              {finishing === "checking" ? "Checking…" : "Finish tracking"}
-            </button>
-          )}
+          ) : null}
         </div>
       )}
 

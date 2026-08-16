@@ -46,7 +46,7 @@ export default async function TrackPage({ params }) {
       <TrackerClient
         game={ctx.game}
         lineup={ctx.lineup}
-        availablePlayers={ctx.availablePlayers}
+        substitutes={ctx.substitutes}
         initialRows={seeded}
         canWrite={canWrite(profile)}
       />

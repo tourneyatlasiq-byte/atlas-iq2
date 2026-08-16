@@ -98,7 +98,7 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {} }) {
+export function TournamentClient({ qabEnabled = false, tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {} }) {
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
@@ -382,6 +382,7 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       {/* 4. Slide-over detail */}
       {detail && !editing && (
         <TournamentDetail
+          qabEnabled={qabEnabled}
           t={detail}
           canWrite={canWrite}
           isAdmin={isAdmin}
@@ -523,7 +524,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
   );
 }
 
-export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
+export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -733,6 +734,7 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
               tournament={t}
               games={games}
               canWrite={canWrite}
+              qabEnabled={qabEnabled}
               openSignal={addGameSignal}
             />
           </Collapsible>
@@ -866,7 +868,15 @@ export function TournamentDetail({ t, canWrite, isAdmin, documentTargets, season
                   <Row label="Guaranteed games" value={t.guaranteed_games} />
                 )}
                 {t.registration_deadline && (
-                  <Row label="Registration deadline" value={fmtDate(t.registration_deadline)} />
+                  <Row
+                    label="Registration deadline"
+                    /* fmtDate was never declared in this file, so this row
+                       threw ReferenceError for any tournament that had a
+                       deadline set. dateRange is the helper this component
+                       already uses; with no end date it renders the single
+                       date. */
+                    value={dateRange(t.registration_deadline, null)}
+                  />
                 )}
                 {t.travel_type && <Row label="Travel" value={t.travel_type} />}
                 {t.event_url && (

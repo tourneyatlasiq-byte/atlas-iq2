@@ -43,9 +43,8 @@ export default async function PerformancePage() {
 
   if (!features?.qab) return <PerformancePremium />;
 
-  const { tournament, participantCount, games } = await getPerformanceOverview();
+  const { tournament, games } = await getPerformanceOverview();
   const season = await getSeasonPerformance();
-  const hasRoster = participantCount > 0;
 
   return (
     <div className="page">
@@ -84,48 +83,6 @@ export default async function PerformancePage() {
             </p>
           </section>
 
-          {/* Game day setup.
-
-              Tournament roster is a tournament-level fact, so it carries a real
-              status. Batting order and Track QABs are labels, not statuses —
-              they happen per game and the cards below say so themselves. The
-              sequence is orientation, not a wizard. */}
-          <section className={`perf-flow${hasRoster ? " ok" : " todo"}`}>
-            <p className="perf-flow-label">Game day setup</p>
-
-            <div className="perf-flow-steps">
-              <div className={`perf-flow-step ${hasRoster ? "done" : "todo"}`}>
-                {hasRoster ? (
-                  <p className="perf-flow-name">
-                    <span className="perf-flow-tick" aria-hidden="true">✓</span>
-                    Tournament roster · {participantCount} attending
-                  </p>
-                ) : (
-                  <>
-                    <p className="perf-flow-name">Tournament roster needed</p>
-                    <p className="perf-flow-help">
-                      Set who&rsquo;s attending this tournament before creating game batting
-                      orders.
-                    </p>
-                    <Link className="btn btn-primary perf-flow-action" href="/tournaments">
-                      Set tournament roster →
-                    </Link>
-                  </>
-                )}
-              </div>
-
-              <span className="perf-flow-arrow" aria-hidden="true">→</span>
-              <div className="perf-flow-step ahead">
-                <p className="perf-flow-name">Batting order</p>
-              </div>
-
-              <span className="perf-flow-arrow" aria-hidden="true">→</span>
-              <div className="perf-flow-step ahead">
-                <p className="perf-flow-name">Track QABs</p>
-              </div>
-            </div>
-          </section>
-
           <section className="perf-games">
             <h3 className="perf-games-h">Games</h3>
 
@@ -138,7 +95,7 @@ export default async function PerformancePage() {
               <ul className="perf-list">
                 {games.map((g) => (
                   <li key={g.id}>
-                    <GameRow game={g} tournamentId={tournament.id} enabled={hasRoster} />
+                    <GameRow game={g} tournamentId={tournament.id} />
                   </li>
                 ))}
               </ul>
@@ -160,7 +117,7 @@ export default async function PerformancePage() {
  * No game is labelled first, next or previous: with start_time absent there is
  * no basis for it, and a wrong label is worse than none.
  */
-function GameRow({ game, tournamentId, enabled }) {
+function GameRow({ game, tournamentId }) {
   const base = `/tournaments/${tournamentId}/games/${game.id}`;
 
   // Same three states as before. Nothing new is derived or invented — only the
@@ -207,13 +164,9 @@ function GameRow({ game, tournamentId, enabled }) {
         </p>
       </div>
 
-      {enabled ? (
-        <Link className="btn btn-primary perf-game-action" href={action.href}>
-          {action.label}
-        </Link>
-      ) : (
-        <span className="perf-game-blocked">Set the tournament roster first</span>
-      )}
+      <Link className="btn btn-primary perf-game-action" href={action.href}>
+        {action.label}
+      </Link>
     </div>
   );
 }

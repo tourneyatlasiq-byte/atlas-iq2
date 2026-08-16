@@ -344,12 +344,6 @@ export function LineupClient({
         </section>
       </div>
 
-      {order.length > 0 && previousLineup && !dirty && (
-        <p className="lineup-hint">
-          Clear the order first if you want to copy the previous lineup instead.
-        </p>
-      )}
-
       {/* Sticky rather than fixed: it follows the coach down an 11-batter list,
           then settles into the flow at the end so it never sits on top of the
           last row or the footer. */}
