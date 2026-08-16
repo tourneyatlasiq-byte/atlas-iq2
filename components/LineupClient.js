@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useActionFeedback } from "../lib/useActionFeedback";
-import { saveLineup, copyPreviousLineup } from "../lib/actions/lineup";
+import { saveLineup, copyLineupFrom } from "../lib/actions/lineup";
 
 /**
  * QAB batting order editor.
@@ -40,7 +40,7 @@ export function LineupClient({
   initialLineup,
   availablePlayers,
   playerSource,
-  previousLineup,
+  copySources = [],
   canWrite,
 }) {
   const [order, setOrder] = useState(() => initialLineup.map((s) => s.player_id));
@@ -48,6 +48,11 @@ export function LineupClient({
   // Display data for players copied from a previous game who are not
   // participants in this tournament, so their names still render.
   const [copiedMeta, setCopiedMeta] = useState([]);
+  // Explicit copy: which game to copy from, and whether the coach has
+  // confirmed replacing an order that already exists.
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyFrom, setCopyFrom] = useState("");
+  const [confirmReplace, setConfirmReplace] = useState(null);
   const { error, notice, pending, run, setError } = useActionFeedback();
 
   const byId = new Map(availablePlayers.map((p) => [p.player_id, p]));
@@ -93,17 +98,36 @@ export function LineupClient({
   // Copying writes the rows server-side, so the page shows the populated order
   // straight away with nothing pending. The coach then makes the usual one to
   // three changes, which is what marks it dirty and brings Save back.
-  const copy = () =>
-    run(() => copyPreviousLineup(game.id), null, {
+  //
+  // The source is always an explicit choice. Replacing an existing order is a
+  // second, deliberate action — the first attempt returns needsConfirm rather
+  // than overwriting.
+  const copy = (confirmed = false) => {
+    if (!copyFrom) {
+      setError("Choose a game to copy from.");
+      return;
+    }
+    // Replacing an existing order is destructive, so it takes a second,
+    // deliberate action. Gated here because the client already knows whether
+    // this game has an order; the server refuses an unconfirmed replace too,
+    // so a stale tab cannot get past it either.
+    if (order.length > 0 && !confirmed) {
+      setConfirmReplace(order.length);
+      return;
+    }
+    run(() => copyLineupFrom(game.id, copyFrom, { replace: true }), null, {
       onDone: (r) => {
         if (r.copied > 0) {
           setCopiedMeta(r.order ?? []);
           setOrder((r.order ?? []).map((s) => s.player_id));
           setDirty(false);
+          setCopyOpen(false);
+          setConfirmReplace(null);
         }
       },
       success: (r) => r.notice,
     });
+  };
 
   // Jersey is tournament-specific display data. A pickup without a number for
   // this event shows "#—" so the column still lines up — a blank reads as a
@@ -137,21 +161,98 @@ export function LineupClient({
         </div>
       )}
 
-      {order.length === 0 && previousLineup && canWrite && (
+      {/* The coach names the source game. The old control inferred it as "the
+          previous game" and tie-broke on a random UUID, so on a one-day
+          tournament it could copy from a game that had not been played yet. */}
+      {copySources.length > 0 && canWrite && (
         <div className="lineup-copy">
-          <h2 className="lineup-copy-h">Start from previous lineup?</h2>
-          <p className="lineup-copy-src">
-            vs {previousLineup.opponent_name}
-            {previousLineup.game_date && ` · ${fmtDate(previousLineup.game_date)}`}
-            {previousLineup.batters ? ` · ${previousLineup.batters} batters` : ""}
-          </p>
-          <button type="button" className="btn-primary btn-lg" onClick={copy} disabled={pending}>
-            Use Previous Lineup
-          </button>
-          <p className="lineup-hint">
-            Copies players and order only — jersey numbers come from this tournament. Archived
-            players are left out. You can make changes before saving.
-          </p>
+          {!copyOpen ? (
+            <button
+              type="button"
+              className={order.length === 0 ? "btn-primary btn-lg" : "btn btn-secondary"}
+              onClick={() => { setCopyOpen(true); setConfirmReplace(null); }}
+              disabled={pending}
+            >
+              Copy lineup from…
+            </button>
+          ) : (
+            <>
+              <h2 className="lineup-copy-h">Copy lineup from…</h2>
+
+              <div className="field">
+                <label htmlFor="copy-src">Game to copy</label>
+                <select
+                  id="copy-src"
+                  value={copyFrom}
+                  onChange={(e) => { setCopyFrom(e.target.value); setConfirmReplace(null); }}
+                >
+                  <option value="">Choose a game…</option>
+                  {copySources.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {`vs ${g.opponent_name ?? "Opponent"}`}
+                      {g.game_date ? ` · ${fmtDate(g.game_date)}` : ""}
+                      {g.start_time ? ` · ${fmtTime(g.start_time)}` : ""}
+                      {g.tournament_name ? ` · ${g.tournament_name}` : ""}
+                      {` · ${g.batters} batters`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {confirmReplace != null ? (
+                <div className="lineup-copy-confirm">
+                  <p>
+                    This game already has {confirmReplace}{" "}
+                    {confirmReplace === 1 ? "batter" : "batters"}. Copying replaces that order.
+                    Recorded at-bats are not affected.
+                  </p>
+                  <div className="lineup-copy-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => copy(true)}
+                      disabled={pending}
+                    >
+                      Replace lineup
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setConfirmReplace(null)}
+                      disabled={pending}
+                    >
+                      Keep current lineup
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="lineup-copy-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => copy(false)}
+                    disabled={pending || !copyFrom}
+                  >
+                    Copy lineup
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => { setCopyOpen(false); setConfirmReplace(null); }}
+                    disabled={pending}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <p className="lineup-hint">
+                Copies players and order only, as a snapshot — jersey numbers come from this
+                tournament, and later changes to that game will not affect this one. Archived
+                players are left out. Recorded at-bats are never copied.
+              </p>
+            </>
+          )}
         </div>
       )}
 

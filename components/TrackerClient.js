@@ -10,6 +10,7 @@ import {
 } from "../lib/actions/plate-appearances";
 import { enqueue, flushQueue, queueStatus, newPaId } from "../lib/offline-queue";
 import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
+import { substitutePlayer } from "../lib/actions/lineup";
 
 /**
  * Live QAB tracker.
@@ -38,7 +39,7 @@ function ordinal(n) {
   return `${n}${suffix}`;
 }
 
-export function TrackerClient({ game, lineup, initialRows, canWrite }) {
+export function TrackerClient({ game, lineup, availablePlayers = [], initialRows, canWrite }) {
   const [rows, setRows] = useState(initialRows ?? []);
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState([]);
@@ -55,9 +56,64 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
   const [completedAt, setCompletedAt] = useState(game.qab_completed_at ?? null);
   const [finishing, setFinishing] = useState(null); // null | "checking" | "confirm" | "blocked"
   const [finishBlock, setFinishBlock] = useState(null);
+  // Optional final score, entered in the finish confirmation.
+  const [ourScore, setOurScore] = useState(game.runs_for ?? "");
+  const [oppScore, setOppScore] = useState(game.runs_against ?? "");
+  const [finishError, setFinishError] = useState(null);
   const busy = useRef(false);
 
-  const order = lineup ?? [];
+  // Local so a substitution updates the order on the field without a page
+  // reload. Seeded from the server and only ever changed by a substitution.
+  const [slots, setSlots] = useState(lineup ?? []);
+  const [subSlot, setSubSlot] = useState(null);   // batting_order being changed
+  const [subPlayer, setSubPlayer] = useState("");
+  const [subError, setSubError] = useState(null);
+
+  const order = slots;
+
+  /**
+   * Batters who have recorded plate appearances but are no longer in the
+   * batting order — substituted out.
+   *
+   * game_lineup_slots holds who is CURRENTLY due to bat, so after a
+   * substitution it no longer describes everyone who batted. Reading review
+   * from the lineup alone made a substituted-out player's at-bats vanish from
+   * the screen even though the rows were untouched in the database. Their
+   * plate appearances are never modified; they are only rendered again.
+   *
+   * Deliberately excluded from `order`, which drives the live cursor: a
+   * player who has left the game must not come back around to bat.
+   */
+  const departed = useMemo(() => {
+    const inOrder = new Set(order.map((s) => s.player_id));
+    const found = new Map();
+    for (const r of rows) {
+      if (inOrder.has(r.player_id) || found.has(r.player_id)) continue;
+      found.set(r.player_id, {
+        player_id: r.player_id,
+        full_name: r.player?.full_name ?? "Former batter",
+        jersey_number: null,
+        participation: null,
+        batting_order: r.batting_order ?? null,
+        departed: true,
+      });
+    }
+    return [...found.values()];
+  }, [rows, order]);
+
+  /** Everyone who batted in this game, for review and for naming. */
+  const reviewOrder = useMemo(
+    () =>
+      [...order, ...departed].sort((a, b) => {
+        const ao = a.batting_order ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.batting_order ?? Number.MAX_SAFE_INTEGER;
+        // A substituted-out player sorts just above the batter who replaced
+        // them, so the slot reads in the sequence it was actually used.
+        return ao - bo || (a.departed ? -1 : 1) - (b.departed ? -1 : 1)
+          || (a.full_name ?? "").localeCompare(b.full_name ?? "");
+      }),
+    [order, departed]
+  );
   const batter = order[cursor] ?? null;
 
   const live = useMemo(() => rows.filter((r) => !r.voided_at), [rows]);
@@ -143,13 +199,55 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
     if (busy.current) return;
     busy.current = true;
     try {
-      const result = await finishGameTracking(game.id);
+      const result = await finishGameTracking(game.id, {
+        runsFor: ourScore,
+        runsAgainst: oppScore,
+      });
       if (result.ok) {
         setCompletedAt(result.completedAt);
         setFinishing(null);
+        setFinishError(null);
       } else {
-        setFinishBlock(null);
-        setFinishing("blocked");
+        // A rejected score is a correctable mistake, not a sync failure, so it
+        // stays on the confirmation instead of dropping into the blocked view.
+        setFinishError(result.error);
+      }
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  /**
+   * Swaps the player in one batting position. Historical plate appearances are
+   * untouched — they carry their own player_id and a frozen batting_order — so
+   * the starter keeps every at-bat they recorded and the substitute is
+   * credited only from here on.
+   */
+  const applySubstitution = async () => {
+    if (!subPlayer || subSlot == null || busy.current) return;
+    busy.current = true;
+    setSubError(null);
+    try {
+      const result = await substitutePlayer(game.id, subSlot, subPlayer);
+      if (result.ok) {
+        const incoming = availablePlayers.find((p) => p.player_id === subPlayer);
+        setSlots((prev) =>
+          prev.map((s2) =>
+            s2.batting_order === subSlot
+              ? {
+                  ...s2,
+                  player_id: subPlayer,
+                  full_name: incoming?.full_name ?? "Substitute",
+                  jersey_number: incoming?.jersey_number ?? null,
+                  participation: incoming?.participation ?? null,
+                }
+              : s2
+          )
+        );
+        setSubSlot(null);
+        setSubPlayer("");
+      } else {
+        setSubError(result.error);
       }
     } finally {
       busy.current = false;
@@ -299,7 +397,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
   };
 
   const nameOf = (playerId) =>
-    order.find((s) => s.player_id === playerId)?.full_name ?? "Unknown player";
+    reviewOrder.find((s) => s.player_id === playerId)?.full_name ?? "Unknown player";
 
   const toggle = (key) =>
     setSelected((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
@@ -468,6 +566,86 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
         </div>
       )}
 
+      {/* Game management, grouped and set apart from the tap targets used on
+          every pitch. Finish tracking used to sit alone directly beneath the
+          reason buttons, which is where a thumb lands between at-bats. */}
+      {mode === "live" && !completedAt && canWrite && order.length > 0 && (
+        <div className="trk-manage">
+          {subSlot == null ? (
+            <button
+              type="button"
+              className="btn btn-secondary trk-manage-btn"
+              onClick={() => { setSubSlot(order[cursor]?.batting_order ?? order[0]?.batting_order ?? 1); setSubError(null); }}
+            >
+              Make substitution
+            </button>
+          ) : (
+            <div className="trk-sub">
+              <p className="trk-sub-h">Make substitution</p>
+
+              {subError && <div className="notice notice-error">{subError}</div>}
+
+              <div className="field">
+                <label htmlFor="sub-slot">Batting position</label>
+                <select
+                  id="sub-slot"
+                  value={subSlot}
+                  onChange={(e) => { setSubSlot(Number(e.target.value)); setSubError(null); }}
+                >
+                  {order.map((s2) => (
+                    <option key={s2.batting_order} value={s2.batting_order}>
+                      {ordinal(s2.batting_order)} · {s2.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="sub-player">Player coming in</label>
+                <select
+                  id="sub-player"
+                  value={subPlayer}
+                  onChange={(e) => { setSubPlayer(e.target.value); setSubError(null); }}
+                >
+                  <option value="">Choose a player…</option>
+                  {availablePlayers
+                    .filter((p) => !order.some((s2) => s2.player_id === p.player_id))
+                    .map((p) => (
+                      <option key={p.player_id} value={p.player_id}>
+                        {p.jersey_number != null ? `#${p.jersey_number} ` : ""}
+                        {p.full_name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <p className="trk-sub-note">
+                At-bats already recorded stay with the player who batted. The substitute is
+                credited from their next plate appearance.
+              </p>
+
+              <div className="trk-sub-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={applySubstitution}
+                  disabled={!subPlayer}
+                >
+                  Confirm substitution
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setSubSlot(null); setSubPlayer(""); setSubError(null); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {!completedAt && live.length > 0 && canWrite && (
         <div className="trk-finish">
           {finishing === "confirm" ? (
@@ -478,8 +656,42 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
                 {totals.qab} Quality At-{totals.qab === 1 ? "Bat" : "Bats"}
                 {totals.qabPct != null && ` · ${totals.qabPct}% QAB`}
               </p>
+              {finishError && <div className="notice notice-error">{finishError}</div>}
+
+              {/* Optional. Win, loss or tie is derived by the database from
+                  these two numbers — there is no separate result field to keep
+                  in step, and leaving them blank finishes tracking anyway. */}
+              <div className="trk-finish-score">
+                <div className="field">
+                  <label htmlFor="fin-us">Our score</label>
+                  <input
+                    id="fin-us"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    placeholder="—"
+                    value={ourScore}
+                    onChange={(e) => { setOurScore(e.target.value); setFinishError(null); }}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="fin-them">Opponent score</label>
+                  <input
+                    id="fin-them"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    placeholder="—"
+                    value={oppScore}
+                    onChange={(e) => { setOppScore(e.target.value); setFinishError(null); }}
+                  />
+                </div>
+              </div>
               <p className="trk-finish-note">
-                You can still review and correct these at-bats afterward.
+                Score is optional — you can add it later from the game. You can still review and
+                correct these at-bats afterward.
               </p>
               <div className="trk-finish-actions">
                 <button type="button" className="btn btn-primary" onClick={confirmFinish}>
@@ -523,7 +735,7 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
             Nothing is added automatically here. Use “+ Add plate appearance” for a batter.
           </p>
 
-          {order.map((slot, i) => {
+          {reviewOrder.map((slot, i) => {
             const paRows = live
               .filter((r) => r.player_id === slot.player_id)
               .sort((a, b) => a.pa_number - b.pa_number);
@@ -531,8 +743,9 @@ export function TrackerClient({ game, lineup, initialRows, canWrite }) {
             return (
               <div className="trk-player" key={slot.player_id}>
                 <div className="trk-player-head">
-                  <span className="trk-player-slot">{i + 1}</span>
+                  <span className="trk-player-slot">{slot.batting_order ?? i + 1}</span>
                   <span className="trk-player-name">{slot.full_name}</span>
+                  {slot.departed && <span className="tag-pickup">Subbed out</span>}
                   <span className="trk-player-jersey">
                     {slot.jersey_number != null ? `#${slot.jersey_number}` : "#—"}
                   </span>

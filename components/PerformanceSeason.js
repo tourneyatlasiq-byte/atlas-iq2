@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 /**
  * Season performance.
@@ -95,6 +95,33 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
   const [allReasons, setAllReasons] = useState(false);
   const [openGame, setOpenGame] = useState(null);
   const [openPlayer, setOpenPlayer] = useState(null);
+  const [sort, setSort] = useState("qabPct");
+
+  /**
+   * Sorting is presentation only — no statistic is recalculated here.
+   *
+   * Batting average is deliberately absent: at-bats and hits are not recorded
+   * anywhere in the model, so an AVG would have to be inferred from QAB
+   * reasons and would be wrong. These four are the metrics that exist.
+   */
+  const sortedPlayers = useMemo(() => {
+    const list = [...players];
+    if (sort === "name") {
+      return list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (sort === "pa") {
+      return list.sort((a, b) => b.pa - a.pa || a.name.localeCompare(b.name));
+    }
+    if (sort === "qab") {
+      return list.sort((a, b) => b.qab - a.qab || b.pa - a.pa || a.name.localeCompare(b.name));
+    }
+    // Null percentage means no plate appearances, which sorts last rather
+    // than reading as zero.
+    return list.sort(
+      (a, b) =>
+        (b.qabPct ?? -1) - (a.qabPct ?? -1) || b.pa - a.pa || a.name.localeCompare(b.name)
+    );
+  }, [players, sort]);
 
   if (team.pa === 0) {
     return (
@@ -305,12 +332,12 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             )}
           </div>
 
-          {/* Deliberately one quiet line, not a card. An empty panel makes the
-              product look unfinished; this states the fact and gets out of the
-              way. The chart replaces this line when there are enough completed
-              games to show a direction honestly. */}
+          {/* States what has been tracked, and nothing more.
+              The previous wording promised a game-to-game trend "as more
+              completed games are tracked". No trend chart exists, so no number
+              of games would ever have produced one — the line described a
+              feature that had not been built. */}
           <p className="season-trend-line">
-            Game-to-game trends will appear as more completed games are tracked ·{" "}
             {gamesCompleted} of {team.games} tracked {team.games === 1 ? "game" : "games"} complete
           </p>
         </>
@@ -318,15 +345,23 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
         <div className="season-card">
           <div className="season-phead">
             <p className="season-label">All players with recorded at-bats</p>
-            <span className="season-sort">Sorted by plate appearances</span>
+            <label className="season-sort" htmlFor="season-sort">
+              <span className="season-sort-label">Sort by</span>
+              <select id="season-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="qabPct">QAB %, highest first</option>
+                <option value="qab">Quality at-bats</option>
+                <option value="pa">Plate appearances</option>
+                <option value="name">Player name</option>
+              </select>
+            </label>
           </div>
           <p className="season-sub">
             Percentages can move a lot with fewer than 10 plate appearances. Players below 10 PA
-            are marked Early. Counts are shown alongside.
+            are marked Early.
           </p>
 
           <ul className="season-plist">
-            {players.map((p) => {
+            {sortedPlayers.map((p) => {
               const open = openPlayer === p.playerId;
               return (
                 <li key={p.playerId} className={open ? "open" : ""}>

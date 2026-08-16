@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext, canWrite } from "../../../../../../../lib/context";
-import { getLineupContext, hasPreviousLineup } from "../../../../../../../lib/queries/lineup";
+import { getLineupContext, lineupCopySources } from "../../../../../../../lib/queries/lineup";
 import { LineupClient } from "../../../../../../../components/LineupClient";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function LineupPage({ params }) {
   if (!ctx) notFound();
   if (ctx.game.tournament_id !== params.tournamentId) notFound();
 
-  const previous = await hasPreviousLineup(params.gameId);
+  const copySources = await lineupCopySources(params.gameId);
 
   return (
     <div className="page">
@@ -40,7 +40,7 @@ export default async function LineupPage({ params }) {
         initialLineup={ctx.lineup}
         availablePlayers={ctx.availablePlayers}
         playerSource={ctx.playerSource}
-        previousLineup={previous}
+        copySources={copySources}
         canWrite={canWrite(profile)}
       />
     </div>

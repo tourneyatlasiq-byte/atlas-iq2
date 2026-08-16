@@ -4669,3 +4669,80 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .fin-split-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .fin-attention-head { flex-wrap: wrap; }
 }
+
+/* --- QAB: live-game management ------------------------------------------- */
+
+/* Substitution and Finish tracking are game-management actions, set apart
+   from the reason buttons a thumb hits on every pitch. */
+.trk-manage {
+  margin: 14px 0 4px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.trk-manage-btn { min-height: 44px; }
+
+.trk-sub {
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 14px 16px; background: var(--surface);
+}
+.trk-sub-h {
+  margin: 0 0 10px; font-family: var(--font-display);
+  font-size: 15px; font-weight: 800; color: var(--navy);
+}
+.trk-sub .field { margin-bottom: 12px; }
+.trk-sub select {
+  font-family: var(--font-body); font-size: 15px; color: var(--navy);
+  padding: 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface);
+  outline: none; width: 100%; min-height: 44px;
+}
+.trk-sub select:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
+}
+.trk-sub-note { margin: 4px 0 14px; font-size: 12.5px; line-height: 1.5; color: var(--slate); }
+.trk-sub-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.trk-sub-actions .btn { min-height: 44px; flex: 1 1 auto; }
+
+/* Optional final score, inside the finish confirmation. */
+.trk-finish-score {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin: 12px 0 4px;
+}
+.trk-finish-score input {
+  font-family: var(--font-body); font-size: 16px; color: var(--navy);
+  padding: 10px 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface);
+  outline: none; width: 100%; min-height: 44px;
+}
+.trk-finish-score input:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
+}
+
+/* Explicit copy-lineup source picker. */
+.lineup-copy .field { margin-bottom: 12px; }
+.lineup-copy select {
+  font-family: var(--font-body); font-size: 15px; color: var(--navy);
+  padding: 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface);
+  outline: none; width: 100%; min-height: 44px;
+}
+.lineup-copy select:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
+}
+.lineup-copy-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.lineup-copy-actions .btn { min-height: 44px; flex: 1 1 auto; }
+.lineup-copy-confirm p { font-size: 13.5px; line-height: 1.5; color: var(--navy); }
+
+/* Season sort control replaces a static "Sorted by …" label. */
+.season-sort { display: inline-flex; align-items: center; gap: 8px; }
+.season-sort-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--slate);
+}
+.season-sort select {
+  font-family: var(--font-body); font-size: 13px; color: var(--navy);
+  padding: 6px 9px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface); outline: none;
+}
+.season-sort select:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
+}
