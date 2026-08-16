@@ -32,8 +32,6 @@ function fmtDate(d) {
  * put there, so nothing here suggests that a position causes performance.
  */
 function LineupContribution({ game }) {
-  const maxPa = Math.max(1, ...game.lineup.map((s) => s.pa));
-
   return (
     <div className="lc">
       {/* Context restated inside the expansion because a twelve-position
@@ -57,24 +55,18 @@ function LineupContribution({ game }) {
         </span>
       </p>
 
-      <p className="lc-title">Lineup contribution</p>
+      <p className="lc-title">Player performance this game</p>
       <p className="lc-sub">QAB performance through the batting order</p>
 
-      <ul className="lc-list">
+      {/* A grid rather than twelve full-width rows. The bars are gone: at this
+          density they cost more height than they earned, and the figures they
+          encoded are stated directly beside each name. Same values, same
+          batting order, roughly a third of the vertical space. */}
+      <ul className="lc-grid">
         {game.lineup.map((s) => (
-          <li key={`${s.battingOrder ?? "x"}-${s.playerId}`}>
+          <li key={`${s.battingOrder ?? "x"}-${s.playerId}`} className="lc-cell">
             <span className="lc-slot">{s.battingOrder ?? "—"}</span>
             <span className="lc-name">{s.name}</span>
-            <span className="lc-bar" aria-hidden="true">
-              {/* Width tracks plate appearances, fill tracks quality at-bats,
-                  so a 1/1 cannot visually outweigh a 3/5. */}
-              <span className="lc-bar-pa" style={{ width: `${(s.pa / maxPa) * 100}%` }}>
-                <span
-                  className="lc-bar-qab"
-                  style={{ width: `${s.pa ? (s.qab / s.pa) * 100 : 0}%` }}
-                />
-              </span>
-            </span>
             <span className="lc-figs">
               {s.qab}/{s.pa}
             </span>
@@ -390,6 +382,8 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
 
                   {open && (
                     <div className="pex">
+                      <PlayerGameHistory playerId={p.playerId} games={games} />
+
                       {p.qab === 0 ? (
                         <p className="pex-none">No quality at-bats recorded yet.</p>
                       ) : (
@@ -514,5 +508,81 @@ function QabTrend({ games, seasonPct }) {
         ))}
       </ol>
     </section>
+  );
+}
+
+
+/**
+ * One player's game-by-game history.
+ *
+ * Built entirely from the `games` prop the season view already receives: each
+ * game carries a lineup entry per batter with playerId, qab, pa and qabPct,
+ * and the games are already in date order. No additional query, no new schema
+ * and no statistic that is not already computed upstream.
+ *
+ * Games the player did not bat in are absent rather than plotted as zero —
+ * not appearing and going 0-for are different facts.
+ */
+function PlayerGameHistory({ playerId, games }) {
+  const history = (games ?? [])
+    .map((g) => {
+      const slot = (g.lineup ?? []).find((s) => s.playerId === playerId);
+      return slot ? { ...slot, opponent: g.opponent, gameDate: g.gameDate, gameId: g.gameId } : null;
+    })
+    .filter(Boolean)
+    .filter((h) => h.pa > 0);
+
+  if (history.length === 0) return null;
+
+  // A single game is a result, not a trend, so it is stated rather than drawn.
+  if (history.length === 1) {
+    const only = history[0];
+    return (
+      <div className="pgh">
+        <p className="pex-title">Game history</p>
+        <p className="pgh-single">
+          <strong>{only.qabPct}%</strong> vs {only.opponent} · {only.qab} of {only.pa} PA
+        </p>
+      </div>
+    );
+  }
+
+  const W = 320;
+  const H = 60;
+  const padX = 6;
+  const padY = 8;
+  const stepX = (W - padX * 2) / (history.length - 1);
+  const y = (pct) => padY + (1 - pct / 100) * (H - padY * 2);
+  const path = history.map((h, i) => `${i === 0 ? "M" : "L"} ${padX + i * stepX} ${y(h.qabPct)}`).join(" ");
+
+  return (
+    <div className="pgh">
+      <p className="pex-title">QAB% by game</p>
+
+      <svg
+        className="pgh-svg"
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={history.map((h) => `${h.opponent} ${h.qabPct}%`).join(", ")}
+      >
+        <path className="pgh-path" d={path} />
+        {history.map((h, i) => (
+          <circle key={h.gameId} className="pgh-dot" cx={padX + i * stepX} cy={y(h.qabPct)} r="3">
+            <title>{`${h.opponent} · ${h.qabPct}% · ${h.qab} of ${h.pa} PA`}</title>
+          </circle>
+        ))}
+      </svg>
+
+      <ul className="pgh-recent">
+        {history.slice(-5).map((h) => (
+          <li key={h.gameId}>
+            <span className="pgh-opp">{h.opponent}</span>
+            <span className="pgh-figs">{h.qab}/{h.pa}</span>
+            <span className="pgh-pct">{h.qabPct}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
