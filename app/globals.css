@@ -5047,3 +5047,25 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .fin-split-item + .fin-split-item { padding-left: 0; border-left: none; }
   .fin-split-item:nth-child(odd) { padding-right: 10px; }
 }
+
+/* --- Player Dues: roster states ------------------------------------------ */
+
+/* A player with no obligation is a real roster member, shown plainly rather
+   than missing from the table. */
+.pay-row-unset .cell-name { color: var(--navy); }
+.pay-sub-unset { color: #8a6d1f; font-weight: 600; }
+.btn-set-dues { padding: 5px 12px; font-size: 12.5px; min-height: 34px; }
+
+/* Records that aren't the current roster's. Accessible, clearly separated. */
+.pay-former-note {
+  margin: 0; padding: 11px 14px;
+  border-bottom: 1px solid var(--border); background: var(--surface-sunken);
+  font-size: 12.5px; line-height: 1.5; color: var(--slate);
+}
+
+/* Six segments need to wrap on narrow screens rather than compress. */
+.pay-views { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .pay-views .segment { flex: 1 1 auto; }
+  .btn-set-dues { width: 100%; }
+}

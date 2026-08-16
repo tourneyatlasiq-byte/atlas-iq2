@@ -41,7 +41,7 @@ const duesUnlinked = (n, amount) =>
 
 (async () => {
   const mod = await import(pathToFileURL(path.resolve("lib/finance-rules.js")).href);
-  const { duesProfile, categoryAllocation, expectedOtherIncome } = mod;
+  const { duesProfile, categoryAllocation, expectedOtherIncome, reconcileDues } = mod;
 
   console.log("\nParent budget report regression cases\n");
 
@@ -212,6 +212,110 @@ const duesUnlinked = (n, amount) =>
   assertEq("Income (combined category): still counted", combined.total, 300);
   assertEq("Income: zero-budget lines omitted", combined.lines.length, 1);
   assertEq("Income: none at all totals zero", expectedOtherIncome([]).total, 0);
+
+  /* ===================================================================
+     Player Dues roster reconciliation — Northgate's exact production shape.
+     12 active players, 12 dues records, but Maya has none and Ava's belongs
+     to a player who has left. Counts previously cancelled and hid both.
+     =================================================================== */
+  console.log("\nPlayer Dues roster reconciliation\n");
+
+  const NG_ACTIVE = [
+    "Bella Ramos", "Cora Lindqvist", "Delaney Boyd", "Elle Nakamura",
+    "Faith Okonkwo", "Gia Castellano", "Hannah Devereux", "Iris Kaminski",
+    "Jada Sinclair", "Kira Alsobrook", "Lena Marchetti", "Maya Okafor",
+  ].map((full_name, i) => ({ id: `pl${i + 1}`, full_name }));
+
+  const rec = (playerId, due, paid, id) => ({
+    id: id ?? `rec-${playerId}`,
+    player_id: playerId,
+    player: { full_name: NG_ACTIVE.find((p) => p.id === playerId)?.full_name ?? "Ava Whitfield" },
+    totalDue: due, totalPaid: paid, balance: due - paid,
+  });
+
+  const NG_PAYMENTS = [
+    rec("pl1", 2400, 2400),   // Bella — paid in full
+    rec("pl2", 2400, 700),
+    rec("pl3", 2400, 1200),
+    rec("pl4", 2400, 700),
+    rec("pl5", 2400, 700),
+    rec("pl6", 2400, 400),
+    rec("pl7", 2400, 400),
+    rec("pl8", 2400, 0),
+    rec("pl9", 2400, 0),
+    rec("pl10", 2400, 0),
+    rec("pl11", 2400, 0),
+    // Maya (pl12) deliberately absent.
+    { id: "rec-ava", player_id: "ava", player: { full_name: "Ava Whitfield" },
+      totalDue: 2400, totalPaid: 2400, balance: 0 },
+  ];
+
+  const ng = reconcileDues(NG_ACTIVE, NG_PAYMENTS);
+
+  assertEq("Roster is the spine: all 12 active players appear", ng.roster.length, 12);
+  assertEq("Every active player is present by name",
+    ng.roster.map((r) => r.name),
+    NG_ACTIVE.map((p) => p.full_name).sort((a, b) => a.localeCompare(b)));
+
+  /* 1. Active player with no player_payments row */
+  const maya = ng.roster.find((r) => r.name === "Maya Okafor");
+  assertEq("Maya appears as a row, not a missing record", Boolean(maya), true);
+  assertEq("Maya's state is 'not-set'", maya.state, "not-set");
+  assertEq("Maya has no attached record", maya.record, null);
+
+  /* 2. Inactive player with legitimate payment history */
+  assertEq("Ava is NOT in the roster view",
+    ng.roster.some((r) => r.name === "Ava Whitfield"), false);
+  assertEq("Ava is in Former / unlinked", ng.former.length, 1);
+  assertEq("Ava is labelled 'former', never 'unlinked'", ng.former[0].kind, "former");
+  assertEq("Ava keeps her name", ng.former[0].name, "Ava Whitfield");
+  assertEq("Ava keeps her $2,400 paid in full",
+    [ng.former[0].record.totalDue, ng.former[0].record.totalPaid, ng.former[0].record.balance],
+    [2400, 2400, 0]);
+
+  /* 3. Counts describe the roster, not the record count */
+  assertEq("All = 12 active players (not 12 records)", ng.counts.all, 12);
+  assertEq("Paid = 1 (Bella only, not Ava)", ng.counts.paid, 1);
+  assertEq("Owes balance = 10", ng.counts.owes, 10);
+  assertEq("Not started = 4", ng.counts.notStarted, 4);
+  assertEq("Dues not set = 1 (Maya)", ng.counts.notSet, 1);
+  assertEq("Former = 1, unlinked = 0", [ng.counts.former, ng.counts.unlinked], [1, 0]);
+  assertEq("Bella is the only Paid player",
+    ng.roster.filter((r) => r.state === "paid").map((r) => r.name), ["Bella Ramos"]);
+
+  assertEq("Roster states partition All: paid + owes + notSet = 12",
+    ng.counts.paid + ng.counts.owes + ng.counts.notSet, 12);
+  assertEq("Not started OVERLAPS owes, by design",
+    ng.roster.filter((r) => r.state === "not-started").every((r) => r.record.balance > 0), true);
+
+  /* 4. Equal counts, mismatched identities — the original defect */
+  assertEq("12 active and 12 records, yet one player has none and one record is former",
+    [NG_ACTIVE.length, NG_PAYMENTS.length, ng.counts.notSet, ng.counts.former],
+    [12, 12, 1, 1]);
+
+  /* 5. NULL player_id records (Georgia Power) */
+  const gpRoster = reconcileDues(
+    Array.from({ length: 13 }, (_, i) => ({ id: `g${i}`, full_name: `GP Player ${i}` })),
+    Array.from({ length: 6 }, (_, i) => ({
+      id: `u${i}`, player_id: null, player: null,
+      totalDue: 2700, totalPaid: 2700, balance: 0,
+    }))
+  );
+  assertEq("GP: all 13 active players appear", gpRoster.counts.all, 13);
+  assertEq("GP: all 13 show dues not set", gpRoster.counts.notSet, 13);
+  assertEq("GP: 6 unlinked records are reachable", gpRoster.counts.unlinked, 6);
+  assertEq("GP: unlinked records are not called 'former'", gpRoster.counts.former, 0);
+  assertEq("GP: unlinked records never masquerade as active players",
+    gpRoster.roster.some((r) => r.record), false);
+
+  /* 6. Amounts are read, never altered */
+  assertEq("Every attached record is the same object that came in",
+    ng.roster.filter((r) => r.record)
+      .every((r) => NG_PAYMENTS.includes(r.record)), true);
+  assertEq("Total dollars across roster + former is unchanged",
+    [...ng.roster.filter((r) => r.record).map((r) => r.record.totalDue),
+     ...ng.former.map((f) => f.record.totalDue)].reduce((a, b) => a + b, 0),
+    NG_PAYMENTS.reduce((a, p) => a + p.totalDue, 0));
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);

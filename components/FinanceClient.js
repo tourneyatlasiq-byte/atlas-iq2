@@ -14,7 +14,7 @@ import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import {
   isActual, CATEGORIES, TXN_STATUSES, money, quantity, cents, sumMoney,
-  tournamentPaidTotal, duesCollectedPercent, outstandingTotal,
+  tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
@@ -240,6 +240,9 @@ export function FinanceClient({
   const { detail: detailPay, openDetail, closeDetail } = useOpenParam(payments);
   // Arrives from the roster prompt: /finance?tab=payments&add=dues
   const [editPay, setEditPay] = useState(autoAddDues ? "new" : null);
+  // Set from a "Dues not set" row so the form opens on that player. Uses the
+  // existing creation path — nothing is created automatically.
+  const [duesForPlayer, setDuesForPlayer] = useState(null);
   const [openCats, setOpenCats] = useState({});
 
   const actions = useMemo(
@@ -605,8 +608,10 @@ export function FinanceClient({
       {tab === "payments" && (
         <PaymentsTab
           payments={visiblePayments}
+          activePlayers={players}
           canWrite={canWrite}
-          onAdd={() => setEditPay("new")}
+          onAdd={() => { setDuesForPlayer(null); setEditPay("new"); }}
+          onAddFor={(playerId) => { setDuesForPlayer(playerId); setEditPay("new"); }}
           onOpen={(p) => openDetail(p)}
           onBulk={(fd) => run(setDuesForAll, fd, { success: "Dues set for the players who needed them" })}
           pending={pending}
@@ -698,15 +703,17 @@ export function FinanceClient({
         <PaymentForm
           row={editPay === "new" ? null : editPay}
           players={players}
+          presetPlayerId={duesForPlayer}
           existing={payments}
           pending={pending}
           onSubmit={(fd, scope) =>
             run(scope === "all" ? setDuesForAll : savePlayerPayment, fd, () => {
               setEditPay(null);
+              setDuesForPlayer(null);
               closeDetail();
             })
           }
-          onCancel={() => setEditPay(null)}
+          onCancel={() => { setEditPay(null); setDuesForPlayer(null); }}
         />
       )}
     </>
@@ -1482,11 +1489,21 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
 
 /* ---------------- Player payments ---------------- */
 
+/**
+ * Views over the ACTIVE ROSTER, plus one for records that are not the current
+ * roster's. Counts describe players, never the number of dues records.
+ *
+ * "Owes balance" and "Not started" deliberately overlap: a player who has paid
+ * nothing owes the full amount and belongs in both. Two questions, not a
+ * split — and the behaviour before this change, preserved.
+ */
 const PAYMENT_VIEWS = [
   { key: "all", label: "All" },
   { key: "owes", label: "Owes balance" },
   { key: "none", label: "Not started" },
+  { key: "notset", label: "Dues not set" },
   { key: "paid", label: "Paid" },
+  { key: "former", label: "Former / unlinked" },
 ];
 
 /**
@@ -1495,35 +1512,58 @@ const PAYMENT_VIEWS = [
  * Progress replaces three numeric columns a coach had to compare. Exact
  * amounts and payment history remain in the drawer.
  */
-export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending, filtered = false, filterLabel = null, onClearFilter }) {
+export function PaymentsTab({
+  payments,
+  activePlayers = [],
+  canWrite,
+  onAdd,
+  onAddFor,
+  onOpen,
+  onBulk,
+  pending,
+  filtered = false,
+  filterLabel = null,
+  onClearFilter,
+}) {
   const [view, setView] = useState("all");
   const [bulkAmount, setBulkAmount] = useState("");
 
-  const visible = payments.filter((p) => {
-    if (view === "owes") return p.balance > 0;
-    if (view === "none") return p.totalPaid === 0 && p.totalDue > 0;
-    if (view === "paid") return p.balance <= 0 && p.totalDue > 0;
-    return true;
-  });
+  // The roster is the spine; dues attach to it.
+  const { roster, former, counts } = reconcileDues(activePlayers, payments);
 
   const countFor = (key) =>
-    payments.filter((p) => {
-      if (key === "owes") return p.balance > 0;
-      if (key === "none") return p.totalPaid === 0 && p.totalDue > 0;
-      if (key === "paid") return p.balance <= 0 && p.totalDue > 0;
-      return true;
-    }).length;
+    key === "all" ? counts.all
+    : key === "owes" ? counts.owes
+    : key === "none" ? counts.notStarted
+    : key === "notset" ? counts.notSet
+    : key === "paid" ? counts.paid
+    : counts.former + counts.unlinked;
+
+  const visible =
+    view === "former"
+      ? former
+      : roster.filter((r) => {
+          if (view === "owes") return r.record && r.record.balance > 0;
+          if (view === "none") return r.state === "not-started";
+          if (view === "notset") return r.state === "not-set";
+          if (view === "paid") return r.state === "paid";
+          return true;
+        });
+
+  const nothingSetUp = roster.length > 0 && counts.notSet === roster.length && former.length === 0;
 
   return (
     <>
       <div className="tab-head">
-        <div className="page-sub">Amounts owed by each player for this season.</div>
+        <div className="page-sub">
+          Every active player on the roster, and what they owe for this season.
+        </div>
         {canWrite && <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>}
       </div>
 
-      {payments.length > 0 && (
+      {(roster.length > 0 || former.length > 0) && (
         <div className="segmented pay-views" role="group" aria-label="Filter players">
-          {PAYMENT_VIEWS.map((v) => (
+          {PAYMENT_VIEWS.filter((v) => v.key !== "former" || former.length > 0).map((v) => (
             <button
               key={v.key}
               className={`segment${view === v.key ? " on" : ""}`}
@@ -1537,30 +1577,26 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
       )}
 
       <div className="card card-flush">
-        {payments.length === 0 && filtered ? (
-          /*
-             Filtered to nothing. The first-run prompt below must not appear
-             here: it tells a coach who already has dues recorded that they
-             have none, and invites them to set dues for everyone. That is
-             what "Player dues not set" used to land on, because those players
-             have no player_payments row to list.
-          */
+        {filtered && visible.length === 0 ? (
           <div className="empty">
-            <h3>No player payments match this filter</h3>
+            <h3>No players match this filter</h3>
             <p>
               {filterLabel
                 ? `These players are ${filterLabel}, so they have no payment record to show yet.`
-                : "No payment records match the selected filter."}
+                : "No players match the selected filter."}
             </p>
             {onClearFilter && (
-              <button className="btn" onClick={onClearFilter}>
-                Show all players
-              </button>
+              <button className="btn" onClick={onClearFilter}>Show all players</button>
             )}
           </div>
-        ) : payments.length === 0 ? (
+        ) : roster.length === 0 && former.length === 0 ? (
           <div className="empty">
-            <h3>No player payments yet</h3>
+            <h3>No players on the roster yet</h3>
+            <p>Add players to the season roster before setting dues.</p>
+          </div>
+        ) : nothingSetUp ? (
+          <div className="empty">
+            <h3>No player dues yet</h3>
             <p>
               Most teams charge the same amount to everyone. Set it once here, then adjust
               individual players later if you need to.
@@ -1598,6 +1634,8 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
             <h3>No players here</h3>
             <p>Nobody matches this view right now.</p>
           </div>
+        ) : view === "former" ? (
+          <FormerDuesTable rows={former} onOpen={onOpen} />
         ) : (
           <table className="table pay-table">
             <thead>
@@ -1608,20 +1646,50 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
               </tr>
             </thead>
             <tbody>
-              {visible.map((p) => {
-                const settled = p.totalDue > 0 && p.balance <= 0;
+              {visible.map((r) => {
+                /* A player with no obligation is a real roster member, not a
+                   missing row. Their dues state is the story of the row. */
+                if (r.state === "not-set") {
+                  return (
+                    <tr key={r.key} className="pay-row-unset">
+                      <td className="pay-player">
+                        <div className="pay-cell">
+                          <span className="cell-name">{r.name}</span>
+                          <span className="pay-sub pay-sub-unset">Dues not set</span>
+                        </div>
+                      </td>
+                      <td className="pay-progress">
+                        <div className="pay-cell">
+                          {canWrite ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-set-dues"
+                              onClick={() => onAddFor?.(r.playerId)}
+                              disabled={pending}
+                            >
+                              Set dues
+                            </button>
+                          ) : (
+                            <span className="muted">No amount set</span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Genuinely not applicable — no obligation exists, which
+                          is different from owing zero. */}
+                      <td className="pay-balance"><span className="muted">—</span></td>
+                    </tr>
+                  );
+                }
+
+                const p = r.record;
+                const settled = r.state === "paid";
                 const nothing = p.totalPaid === 0;
 
                 return (
-                  <tr key={p.id} className="row-click" onClick={() => onOpen(p)}>
-                    {/* Stacking lives on an inner wrapper, never on the cell
-                        itself. A table cell set to display:flex stops being a
-                        table cell and the row's column structure collapses. */}
+                  <tr key={r.key} className="row-click" onClick={() => onOpen(p)}>
                     <td className="pay-player">
                       <div className="pay-cell">
-                        <span className="cell-name">
-                          {p.player?.full_name ?? <span className="muted">Unlinked</span>}
-                        </span>
+                        <span className="cell-name">{r.name}</span>
                         <span className="pay-sub">
                           {settled
                             ? "Paid in full"
@@ -1649,10 +1717,6 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
                       </div>
                     </td>
 
-                    {/* Display formatting only — p.balance is untouched.
-                        A settled player owes zero, which is a real figure and
-                        should read as one. The em dash is reserved for a
-                        balance that genuinely does not exist. */}
                     <td className="pay-balance">
                       {p.balance > 0 ? (
                         <span className="pay-owed">{money(p.balance)}</span>
@@ -1669,6 +1733,71 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
           </table>
         )}
       </div>
+    </>
+  );
+}
+
+/**
+ * Dues records that are not the current roster's.
+ *
+ * Kept fully accessible — every balance and the whole payment history opens
+ * exactly as before. A former player is named and labelled as a former player;
+ * only a record with no player at all is called unlinked.
+ */
+function FormerDuesTable({ rows, onOpen }) {
+  return (
+    <>
+      <p className="pay-former-note">
+        These dues records aren&rsquo;t part of the current active roster. They still count in
+        Finance totals and their payment history is unchanged.
+      </p>
+      <table className="table pay-table">
+        <thead>
+          <tr>
+            <th className="pay-player">Record</th>
+            <th className="pay-progress">Payment progress</th>
+            <th className="pay-balance">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const p = r.record;
+            const settled = p.totalDue > 0 && p.balance <= 0;
+            return (
+              <tr key={r.key} className="row-click" onClick={() => onOpen(p)}>
+                <td className="pay-player">
+                  <div className="pay-cell">
+                    <span className="cell-name">
+                      {r.kind === "former" ? r.name : <span className="muted">No player linked</span>}
+                    </span>
+                    <span className="pay-sub">
+                      {r.kind === "former" ? "No longer on the active roster" : "Not linked to a player"}
+                    </span>
+                  </div>
+                </td>
+                <td className="pay-progress">
+                  <div className="pay-cell">
+                    {settled ? (
+                      <span className="pay-settled">Paid in full ✓</span>
+                    ) : (
+                      <span className="pay-amounts">
+                        {money(p.totalPaid)} <span className="muted">of {money(p.totalDue)}</span>
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="pay-balance">
+                  {p.balance > 0 ? (
+                    <span className="pay-owed">{money(p.balance)}</span>
+                  ) : (
+                    <span className="muted">$0</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </>
   );
 }
@@ -1760,9 +1889,11 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
   );
 }
 
-function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
+function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel }) {
   const isNew = !row;
-  const [scope, setScope] = useState("all");
+  // Opened from a specific player's row: go straight to that player rather
+  // than defaulting to the bulk action.
+  const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
 
   const taken = new Set(existing.map((p) => p.player_id));
   // Season fees are owed by players. Coaches and other staff are excluded.
@@ -1830,7 +1961,7 @@ function PaymentForm({ row, players, existing, pending, onSubmit, onCancel }) {
             {isNew && scope === "one" && (
               <div className="field">
                 <label htmlFor="p-player">Player</label>
-                <select id="p-player" name="player_id" required>
+                <select id="p-player" name="player_id" required defaultValue={presetPlayerId ?? ""}>
                   <option value="">Pick a player</option>
                   {available.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </select>

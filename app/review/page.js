@@ -313,7 +313,17 @@ export default async function ReviewPage() {
 
       <ReviewSection number={19} title="Finance — Player Dues"
         note="Paid in full, partial and not started." wide>
-        <PaymentsTab payments={payments} canWrite={writable} onAdd={noop} onOpen={noop} />
+        <PaymentsTab
+          payments={payments}
+          /* The roster is the spine of this table, so the review surface has
+             to supply it too or every record falls into Former / unlinked. */
+          activePlayers={roster
+            .filter((r) => r.is_active && r.player?.person_type === "player" && r.player?.id)
+            .map((r) => r.player)}
+          canWrite={writable}
+          onAdd={noop}
+          onOpen={noop}
+        />
       </ReviewSection>
 
       <ReviewSection number={20} title="Facilities" note="Shared directory. Defaults to Our Facilities." wide>
