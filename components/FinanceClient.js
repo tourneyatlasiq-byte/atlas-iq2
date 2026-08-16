@@ -129,6 +129,7 @@ function UnassignedCommitments({ tournaments, budgetItems, canWrite, pending, on
             {canWrite && (
               <span className="fin-unassigned-assign">
                 <select
+                  className="fin-select"
                   aria-label={`Budget category for ${t.name}`}
                   value={choice[t.id] ?? ""}
                   onChange={(e) => setChoice({ ...choice, [t.id]: e.target.value })}
@@ -294,6 +295,18 @@ export function FinanceClient({
   const tabsRef = useRef(null);
 
   /**
+   * Needs attention is collapsed by default. It is an exception state, so it
+   * should state the problem in one line and stay out of the way until the
+   * coach chooses to resolve it.
+   */
+  const [needsOpen, setNeedsOpen] = useState(false);
+  const unassignedTotal = useMemo(
+    () => sumMoney(unassignedTournaments.map((t) => t.amount)),
+    [unassignedTournaments]
+  );
+  const needsCount = otherActions.length + unassignedTournaments.length;
+
+  /**
    * Switch tab and bring the result into view.
    *
    * rAF defers the scroll until after React has committed the new tab, so we
@@ -370,11 +383,11 @@ export function FinanceClient({
             <p className="fin-budget-context">
               {summary.budgetedExpenses > 0 ? (
                 <>
-                  <strong>{summaryMoney(summary.committedExpenses)}</strong> committed of{" "}
-                  {summaryMoney(summary.budgetedExpenses)}
-                  {summary.percentCommitted != null && (
-                    <span className="muted"> &middot; {summary.percentCommitted}%</span>
-                  )}
+                  <strong>{summary.percentCommitted ?? 0}% of budget committed</strong>
+                  <span className="muted">
+                    {" · "}
+                    {summaryMoney(summary.committedExpenses)} total
+                  </span>
                 </>
               ) : (
                 "No budget planned for this season yet."
@@ -392,101 +405,128 @@ export function FinanceClient({
             </p>
             <p className="fin-dues-hero">
               {dues.expected > 0 ? Math.round((dues.collected / dues.expected) * 100) : 0}%
-              <span className="fin-lead-hero-unit">collected</span>
-            </p>
-            <p className="fin-lead-amounts">
-              {money(dues.collected)} of {money(dues.expected)} collected
-            </p>
-            <Meter value={dues.collected} total={dues.expected} hidePct />
-            <p className="fin-lead-rest">
-              <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
-                {dues.outstanding > 0
-                  ? `${money(dues.outstanding)} still to collect`
-                  : "All dues collected"}
-              </span>
-              {dues.outstanding > 0 && (
-                <button className="fin-lead-link" onClick={() => selectAction("outstanding")}>
-                  View player balances →
-                </button>
-              )}
+              <span className="fin-dues-hero-unit">collected</span>
             </p>
 
-            {/* Dues attention belongs to dues, not to the page header. A player
-                with no dues record is excluded from expected, collected AND
-                outstanding, so without this they are invisible in every figure
-                above. */}
+            <p className="fin-dues-amounts">
+              {money(dues.collected)} collected of {money(dues.expected)}
+            </p>
+
+            <Meter value={dues.collected} total={dues.expected} hidePct />
+
+            <p className="fin-dues-outstanding">
+              <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
+                {dues.outstanding > 0
+                  ? `${money(dues.outstanding)} outstanding`
+                  : "All dues collected"}
+              </span>
+            </p>
+
+            <button className="fin-lead-link" onClick={() => selectAction("outstanding")}>
+              View player balances →
+            </button>
+
+            {/* One compact line, not a card nested inside a card. A player with
+                no dues record is excluded from expected, collected AND
+                outstanding, so this is the only place they appear. */}
             {duesAction && (
-              <div className="fin-dues-alert">
-                <p className="fin-dues-alert-title">
-                  {duesAction.affected.length === 1
-                    ? "1 player has no dues set"
-                    : `${duesAction.affected.length} players have no dues set`}
-                </p>
-                <p className="fin-dues-alert-body">
+              <p className="fin-dues-gap">
+                <span className="fin-dues-gap-mark" aria-hidden="true" />
+                <span className="fin-dues-gap-text">
+                  <strong>
+                    {duesAction.affected.length === 1
+                      ? "1 player has no dues set"
+                      : `${duesAction.affected.length} players have no dues set`}
+                  </strong>{" "}
+                  —{" "}
                   {duesAction.affected
                     .map((a) => a.player?.full_name)
                     .filter(Boolean)
                     .join(", ")}
-                  {" — "}not counted in the figures above.
-                </p>
-                {canWrite && (
-                  <button
-                    className="fin-lead-link"
-                    onClick={() => {
-                      goToTab("payments");
-                      setEditPay("new");
-                    }}
-                  >
-                    Set their dues →
-                  </button>
-                )}
-              </div>
+                  , not counted above.
+                  {canWrite && (
+                    <button
+                      className="fin-lead-link fin-dues-gap-cta"
+                      onClick={() => {
+                        goToTab("payments");
+                        setEditPay("new");
+                      }}
+                    >
+                      Set dues →
+                    </button>
+                  )}
+                </span>
+              </p>
             )}
           </section>
         </div>
       </div>
 
-      {/* Needs attention sits below the two financial stories, matching the
-          reading order: position → dues → exceptions → detail. */}
-      {(otherActions.length > 0 || unassignedTournaments.length > 0) && (
-        <section className="briefing fin-needs card">
-          <p className="briefing-title fin-needs-head">
-            Needs attention
-            <span className="fin-needs-count">
-              {otherActions.length + unassignedTournaments.length}{" "}
-              {otherActions.length + unassignedTournaments.length === 1 ? "item" : "items"}
-            </span>
+      {/* An exception state, sized like one. Collapsed by default: the summary
+          says what is wrong and how much it is worth, and the resolution
+          controls appear only when the coach asks for them. */}
+      {needsCount > 0 && (
+        <section className="card fin-attention">
+          <div className="fin-attention-head">
+            <p className="fin-attention-title">
+              Needs attention
+              <span className="fin-attention-count">{needsCount}</span>
+            </p>
+            <button
+              className="fin-lead-link"
+              onClick={() => setNeedsOpen(!needsOpen)}
+              aria-expanded={needsOpen}
+            >
+              {needsOpen ? "Hide" : "Review"} →
+            </button>
+          </div>
+
+          <p className="fin-attention-summary">
+            {unassignedTournaments.length > 0 && (
+              <>
+                <strong>{summaryMoney(unassignedTotal)}</strong> in tournament commitments needs a
+                budget category.
+              </>
+            )}
+            {unassignedTournaments.length > 0 && otherActions.length > 0 && " "}
+            {otherActions.map((a) => financeActionText(a, dues)).join(" · ")}
           </p>
 
-          {unassignedTournaments.length > 0 && (
-            <UnassignedCommitments
-              tournaments={unassignedTournaments}
-              budgetItems={budgetItems}
-              canWrite={canWrite}
-              pending={pending}
-              onAssign={(fd) =>
-                run(setTournamentBudgetLine, fd, { success: "Tournament assigned to a budget category" })
-              }
-            />
-          )}
+          {needsOpen && (
+            <div className="fin-attention-body">
+              {unassignedTournaments.length > 0 && (
+                <UnassignedCommitments
+                  tournaments={unassignedTournaments}
+                  budgetItems={budgetItems}
+                  canWrite={canWrite}
+                  pending={pending}
+                  onAssign={(fd) =>
+                    run(setTournamentBudgetLine, fd, {
+                      success: "Tournament assigned to a budget category",
+                    })
+                  }
+                />
+              )}
 
-          {otherActions.length > 0 && (
-            <ul className="briefing-list">
-              {otherActions.map((a) => (
-                <li key={a.id} className="briefing-item">
-                  <button
-                    className={`briefing-link fin-needs-link${actionId === a.id ? " on" : ""}`}
-                    onClick={() => selectAction(actionId === a.id ? null : a.id)}
-                  >
-                    <span className="briefing-dot dot-attention" aria-hidden="true" />
-                    <span className="briefing-text">
-                      <span className="briefing-what">{financeActionText(a, dues)}</span>
-                    </span>
-                    <span className="fin-needs-go" aria-hidden="true">→</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+              {otherActions.length > 0 && (
+                <ul className="briefing-list">
+                  {otherActions.map((a) => (
+                    <li key={a.id} className="briefing-item">
+                      <button
+                        className={`briefing-link fin-needs-link${actionId === a.id ? " on" : ""}`}
+                        onClick={() => selectAction(actionId === a.id ? null : a.id)}
+                      >
+                        <span className="briefing-dot dot-attention" aria-hidden="true" />
+                        <span className="briefing-text">
+                          <span className="briefing-what">{financeActionText(a, dues)}</span>
+                        </span>
+                        <span className="fin-needs-go" aria-hidden="true">→</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </section>
       )}
@@ -697,11 +737,19 @@ export function FundsInTab({ funds, dues }) {
         </div>
       </div>
 
-      <div className="fi-list">
+      {/* Total leads: it is the answer to "how much came in?". The sources
+          beneath explain it, and one of them is Player Dues — which is why
+          this total is deliberately not repeated in the page header. */}
+      <div className="fi-total">
+        <p className="fin-panel-label">Total received this season</p>
+        <p className="fi-total-value">{summaryMoney(funds.total)}</p>
+      </div>
+
+      <div className="fi-grid">
         {rows.map((r) => {
           const remaining = Math.max(0, (r.goal ?? 0) - r.received);
           return (
-            <div key={r.label} className="fi-row">
+            <div key={r.label} className="fi-card">
               <div className="fi-row-head">
                 <span className="fi-source">
                   {r.label}
@@ -734,15 +782,7 @@ export function FundsInTab({ funds, dues }) {
             </div>
           );
         })}
-
-        <div className="fi-row fi-row-total">
-          <div className="fi-row-head">
-            <span className="fi-source">Total received this season</span>
-            <span className="fi-received">{money(funds.total)}</span>
-          </div>
-        </div>
       </div>
-
     </>
   );
 }
@@ -850,7 +890,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           <span className="budget-num">Budget</span>
           <span className="budget-num">Paid</span>
           <span className="budget-num">To pay</span>
-          <span className="budget-num">Available</span>
+          <span className="budget-num budget-num-avail">Available</span>
           <span />
         </div>
 
@@ -880,7 +920,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 <span className="budget-num">{summaryMoney(g.budgeted)}</span>
                 <span className="budget-num">{summaryMoney(g.paidTotal)}</span>
                 <span className="budget-num">{summaryMoney(g.toPay)}</span>
-                <span className={`budget-num strong${g.available < 0 ? " over" : ""}`}>
+                <span className={`budget-num budget-num-avail strong${g.available < 0 ? " over" : ""}`}>
                   {g.available < 0
                     ? `Over ${summaryMoney(Math.abs(g.available))}`
                     : summaryMoney(g.available)}
@@ -909,7 +949,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                     <span className="budget-num">{money(r.budgeted)}</span>
                     <span className="budget-num">{money(r.actual)}</span>
                     <span className="budget-num">{income ? money(0) : money(r.toPay)}</span>
-                    <span className={`budget-num${r.available < 0 ? " over" : ""}`}>
+                    <span className={`budget-num budget-num-avail${r.available < 0 ? " over" : ""}`}>
                       {r.available < 0
                         ? `Over ${money(Math.abs(r.available))}`
                         : money(r.available)}

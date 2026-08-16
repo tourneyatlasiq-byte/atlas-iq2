@@ -4428,37 +4428,61 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   font-family: var(--font-display);
   font-size: 40px; font-weight: 800; line-height: 1.02;
   letter-spacing: -0.02em; color: var(--navy);
-  margin: 4px 0 16px;
+  margin: 4px 0 14px;
 }
 
 /* Dues is deliberately a step down from the budget figure: same family, less
    weight, so the reading order is legible without a label saying so. */
 .fin-dues-hero {
   font-family: var(--font-display);
-  font-size: 30px; font-weight: 800; line-height: 1.05;
-  color: var(--navy); margin: 4px 0 2px;
+  font-size: 34px; font-weight: 800; line-height: 1.0;
+  color: var(--navy); margin: 6px 0 0;
 }
+/* Its own line. Inline, the unit collided with the figure ("31%collected"). */
+.fin-dues-hero-unit {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--slate);
+  margin-top: 5px;
+}
+.fin-dues-amounts { font-size: 13.5px; color: var(--navy); margin: 14px 0 8px; }
+.fin-dues-outstanding { margin: 8px 0 10px; font-size: 13.5px; }
 
 /* One bar, three mutually exclusive segments. Paid and To pay share a hue and
    sit adjacent so Paid reads as contained within total commitment; the
    uncommitted remainder is the quiet part of the track. */
-.fin-split { margin: 0 0 12px; }
+.fin-split { margin: 0 0 4px; }
 
 .fin-split-bar {
-  display: flex; width: 100%; height: 14px;
+  display: flex; width: 100%; height: 16px;
   border-radius: 999px; overflow: hidden;
   background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .fin-split-seg { display: block; height: 100%; min-width: 0; }
-.fin-split-seg.seg-paid { background: var(--navy); }
-.fin-split-seg.seg-topay { background: #7d9bc1; }
-.fin-split-seg.seg-available { background: var(--surface-sunken); }
 
+/* Paid is solid; To pay is the same family but hatched, so it reads as
+   committed-but-not-yet-realised rather than as a separate kind of money.
+   Available is the untouched track. */
+.fin-split-seg.seg-paid { background: var(--navy); }
+.fin-split-seg.seg-topay {
+  background: repeating-linear-gradient(
+    135deg,
+    #8ba6c6 0 5px,
+    #b3c6dc 5px 10px
+  );
+}
+.fin-split-seg.seg-available { background: transparent; }
+
+/* Sits directly under the bar and divides on the same rhythm, so each figure
+   reads as a label for its segment rather than a free-floating metric. */
 .fin-split-legend {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px; margin: 12px 0 0;
+  gap: 0; margin: 10px 0 0;
 }
-.fin-split-item { min-width: 0; }
+.fin-split-item { min-width: 0; padding-right: 12px; }
+.fin-split-item + .fin-split-item { padding-left: 14px; border-left: 1px solid var(--border); }
 .fin-split-item dt {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 700; letter-spacing: .06em;
@@ -4475,25 +4499,32 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto;
 }
 .fin-split-key.seg-paid { background: var(--navy); }
-.fin-split-key.seg-topay { background: #7d9bc1; }
+.fin-split-key.seg-topay {
+  background: repeating-linear-gradient(135deg, #8ba6c6 0 3px, #b3c6dc 3px 6px);
+}
 .fin-split-key.seg-available { background: var(--surface-sunken); border: 1px solid var(--border); }
 
 /* Combined commitment is context, not a fourth headline figure. */
 .fin-budget-context {
   font-size: 13px; color: var(--slate);
-  margin: 14px 0 8px; line-height: 1.45;
+  margin: 16px 0 8px; line-height: 1.45;
 }
 .fin-budget-context strong { color: var(--navy); }
 
 /* Players with no dues record are absent from expected, collected AND
    outstanding, so this sits inside the dues panel to explain the gap. */
-.fin-dues-alert {
-  margin-top: 14px; padding: 10px 12px;
-  background: #fffaf0; border: 1px solid #f0d9a8;
-  border-radius: var(--radius-control);
+.fin-dues-gap {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 16px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px; line-height: 1.5; color: var(--slate);
 }
-.fin-dues-alert-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--navy); }
-.fin-dues-alert-body { margin: 3px 0 6px; font-size: 12.5px; line-height: 1.45; color: var(--slate); }
+.fin-dues-gap-mark {
+  flex: 0 0 auto; width: 7px; height: 7px; margin-top: 6px;
+  border-radius: 50%; background: var(--gold);
+}
+.fin-dues-gap-text strong { color: var(--navy); }
+.fin-dues-gap-cta { margin-left: 6px; }
 
 /* Committed tournament cost with no budget category. Presented as a fixable
    record gap, never folded into the category totals. */
@@ -4522,4 +4553,103 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .fin-split-item dd { font-size: 16px; }
   .fin-unassigned-assign { width: 100%; }
   .fin-unassigned-assign select { flex: 1 1 auto; max-width: none; }
+}
+
+/* --- Finance QA pass ------------------------------------------------------ */
+
+/* Needs attention: compact by default.
+   Two permanently open dropdowns were occupying the primary workflow for an
+   exception that most seasons will not have. */
+.fin-attention { padding: 14px 16px; margin-bottom: 18px; }
+.fin-attention-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.fin-attention-title {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font-family: var(--font-display); font-size: 13px; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--navy);
+}
+.fin-attention-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: var(--gold); color: var(--navy);
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0;
+}
+.fin-attention-summary {
+  margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--slate);
+}
+.fin-attention-summary strong { color: var(--navy); }
+.fin-attention-body { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* Assignment controls join the existing form-control system rather than
+   inheriting the browser default select. Matches .field select exactly. */
+.fin-select {
+  font-family: var(--font-body); font-size: 13.5px; color: var(--navy);
+  padding: 8px 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface);
+  outline: none; max-width: 280px;
+}
+.fin-select:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
+}
+
+/* Available carries the emphasis in the budget table: it is the figure a coach
+   acts on. Uses the existing weight step, no new token. */
+.budget-num-avail { font-weight: 700; }
+.budget-colhead .budget-num-avail { font-weight: 800; color: var(--navy); }
+
+/* Money In: total leads, sources share the width instead of one long column. */
+.fi-total {
+  padding: 16px 18px; margin-bottom: 16px;
+  background: var(--surface-sunken); border-radius: var(--radius-card);
+}
+.fi-total-value {
+  margin: 4px 0 0; font-family: var(--font-display);
+  font-size: 34px; font-weight: 800; line-height: 1.05;
+  letter-spacing: -0.02em; color: var(--navy);
+}
+.fi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.fi-card {
+  padding: 14px 16px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+}
+.fi-card .meter { margin: 10px 0 6px; max-width: none; }
+
+/* ===== Player Dues table, desktop =====
+   ROOT CAUSE: .pay-player was only given a column layout inside the 720px
+   media query, so above that breakpoint the name span and the sub-line span
+   were plain inline elements in one cell and rendered end to end
+   ("Ava WhitfieldPaid in full"). The columns were never colliding; two spans
+   inside one cell were. Scoped to min-width so the phone reflow is untouched. */
+@media (min-width: 721px) {
+  .pay-table .pay-player { width: 34%; }
+  .pay-table .pay-progress { width: 42%; }
+  .pay-table .pay-balance { width: 24%; text-align: right; }
+
+  .pay-table td.pay-player,
+  .pay-table td.pay-progress {
+    display: flex; flex-direction: column; align-items: flex-start;
+    gap: 3px; vertical-align: top;
+  }
+
+  .pay-table .cell-name {
+    color: var(--navy); font-weight: 600;
+    overflow-wrap: anywhere;   /* long names wrap instead of pushing columns */
+  }
+  .pay-table .pay-sub { font-size: 12.5px; color: var(--slate); line-height: 1.4; }
+
+  .pay-table .pay-amounts { font-size: 13px; color: var(--navy); }
+  .pay-table td.pay-progress .meter { width: 100%; max-width: 300px; margin: 2px 0 0; }
+
+  .pay-table td.pay-balance {
+    font-variant-numeric: tabular-nums; white-space: nowrap; vertical-align: top;
+  }
+}
+
+@media (max-width: 899px) {
+  .fin-split-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fin-attention-head { flex-wrap: wrap; }
 }
