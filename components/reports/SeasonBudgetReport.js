@@ -34,6 +34,24 @@ function fmtDate(iso) {
   });
 }
 
+/**
+ * "What this budget covers", assembled from the categories already printed in
+ * the table below it. Introduces no category of its own — if a cost is not in
+ * the budget, it is not named here.
+ */
+function coverageSentence(categories) {
+  const names = categories.map((c) => c.category);
+  if (names.length === 0) return null;
+  if (names.length <= 4) {
+    const last = names[names.length - 1];
+    const rest = names.slice(0, -1);
+    return rest.length ? `${rest.join(", ")} and ${last}` : last;
+  }
+  const shown = names.slice(0, 4).join(", ");
+  const remaining = names.length - 4;
+  return `${shown} and ${remaining} more ${remaining === 1 ? "category" : "categories"} listed below`;
+}
+
 export function SeasonBudgetReport({ report }) {
   const [note, setNote] = useState("");
 
@@ -44,11 +62,18 @@ export function SeasonBudgetReport({ report }) {
     return (
       <div className="rpt-shell">
         <div className="rpt-blocked">
-          <h2>This report can&rsquo;t be created yet</h2>
+          <h2>This report isn&rsquo;t ready for parents yet</h2>
+          <p className="rpt-blocked-lead">
+            Season Tempo won&rsquo;t produce a parent-facing budget while the dues figures would be
+            inaccurate. Here&rsquo;s what to correct first.
+          </p>
           {blocking.map((w, i) => (
-            <p key={i}>{w.message}</p>
+            <div key={i} className="rpt-blocked-item">
+              {w.title && <p className="rpt-blocked-title">{w.title}</p>}
+              <p>{w.message}</p>
+            </div>
           ))}
-          <p style={{ marginTop: 14 }}>
+          <p style={{ marginTop: 18 }}>
             <Link href="/finance">← Back to Finance</Link>
           </p>
         </div>
@@ -58,6 +83,7 @@ export function SeasonBudgetReport({ report }) {
 
   const { organization, team, season, allocation, dues, otherIncome } = report;
   const generated = fmtDate(report.generatedAt);
+  const coverage = coverageSentence(allocation.categories);
 
   return (
     <div className="rpt-shell">
@@ -75,8 +101,12 @@ export function SeasonBudgetReport({ report }) {
           </Link>
         </div>
 
+        {/* Coach-facing only. These never render inside the document. */}
         {notices.map((w, i) => (
-          <div key={i} className="rpt-warn rpt-warn-note">{w.message}</div>
+          <div key={i} className="rpt-warn rpt-warn-note">
+            {w.title && <strong>{w.title}. </strong>}
+            {w.message}
+          </div>
         ))}
 
         <div className="rpt-note-field">
@@ -172,84 +202,68 @@ export function SeasonBudgetReport({ report }) {
               </tr>
             </tbody>
           </table>
-        </section>
 
-        <section className="rpt-section">
-          <p className="rpt-h">Player dues</p>
-
-          {dues.status === "varied" ? (
-            <>
-              <div className="rpt-figures">
-                <div>
-                  <span className="rpt-fig-label">Dues per player</span>
-                  <span className="rpt-fig-value">
-                    {dollars(dues.min)} – {dollars(dues.max)}
-                  </span>
-                </div>
-                <div>
-                  <span className="rpt-fig-label">Players on the roster</span>
-                  <span className="rpt-fig-value rpt-fig-sm">{dues.activeRosterCount}</span>
-                </div>
-              </div>
-              <p className="rpt-caveat">
-                Dues vary by player this season. Your family&rsquo;s amount is confirmed separately by
-                the coach.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="rpt-figures">
-                <div>
-                  <span className="rpt-fig-label">Dues per player</span>
-                  <span className="rpt-fig-value">{dollars(dues.perPlayer)}</span>
-                </div>
-                <div>
-                  <span className="rpt-fig-label">Players on the roster</span>
-                  <span className="rpt-fig-value rpt-fig-sm">{dues.activeRosterCount}</span>
-                </div>
-                {/* Only shown when the set of players it covers fairly
-                    describes the roster. Otherwise it would read as a whole-team
-                    figure when it is not. */}
-                {dues.expectedTotal != null && (
-                  <div>
-                    <span className="rpt-fig-label">Expected total dues</span>
-                    <span className="rpt-fig-value rpt-fig-sm">{dollars(dues.expectedTotal)}</span>
-                  </div>
-                )}
-              </div>
-
-              {dues.expectedTotal == null && (
-                <p className="rpt-caveat">
-                  Dues are currently set for {dues.withDues} of {dues.activeRosterCount} players, so a
-                  team total is not shown here yet.
-                </p>
-              )}
-
-              {dues.expectedTotal != null && dues.missingCount > 0 && (
-                <p className="rpt-caveat">
-                  Based on the {dues.withDues} players whose dues are set.{" "}
-                  {dues.missingCount === 1 ? "One more player is" : `${dues.missingCount} more players are`}{" "}
-                  still being confirmed.
-                </p>
-              )}
-            </>
+          {coverage && (
+            <p className="rpt-covers">
+              <strong>What this covers:</strong> {coverage}.
+            </p>
           )}
         </section>
 
-        {otherIncome.total > 0 && (
-          <section className="rpt-section">
-            <p className="rpt-h">Expected fundraising &amp; sponsorship</p>
-            <div className="rpt-figures">
-              <div>
-                <span className="rpt-fig-label">Planned this season</span>
-                <span className="rpt-fig-value rpt-fig-sm">{dollars(otherIncome.total)}</span>
-              </div>
-            </div>
-            <p className="rpt-lead" style={{ marginTop: 10 }}>
-              {otherIncome.lines.map((l) => l.name).join(" · ")}
-            </p>
+        {/* Two independent facts, side by side. Season budget, dues and
+            fundraising are not related to one another anywhere in the data
+            model, so nothing here nets, offsets or compares them. */}
+        <div className="rpt-cards">
+          <section className="rpt-card">
+            <p className="rpt-h">Player dues</p>
+
+            {dues.status === "varied" ? (
+              <>
+                <p className="rpt-card-figure">
+                  {dollars(dues.min)} – {dollars(dues.max)}
+                </p>
+                <p className="rpt-card-label">Dues per player</p>
+                <p className="rpt-card-line">
+                  {dues.activeRosterCount} players on the roster
+                </p>
+                <p className="rpt-card-foot">
+                  Dues vary by player this season. Your family&rsquo;s amount is confirmed
+                  separately by the coach.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="rpt-card-figure">{dollars(dues.perPlayer)}</p>
+                <p className="rpt-card-label">Dues per player</p>
+                <p className="rpt-card-line">
+                  {dues.activeRosterCount} players on the roster
+                </p>
+                {dues.expectedTotal != null && (
+                  <p className="rpt-card-line">
+                    <strong>{dollars(dues.expectedTotal)}</strong> in total player dues
+                  </p>
+                )}
+              </>
+            )}
           </section>
-        )}
+
+          {otherIncome.total > 0 && (
+            <section className="rpt-card">
+              <p className="rpt-h">Fundraising &amp; sponsorship</p>
+              <p className="rpt-card-figure">{dollars(otherIncome.total)}</p>
+              <p className="rpt-card-label">Planned this season</p>
+              {/* Activities belong to this card, not floating beneath it. */}
+              <ul className="rpt-card-list">
+                {otherIncome.lines.map((l) => (
+                  <li key={l.name}>
+                    <span>{l.name}</span>
+                    <span className="rpt-card-list-amt">{dollars(l.budgeted)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
 
         {note.trim() && (
           <section className="rpt-section">

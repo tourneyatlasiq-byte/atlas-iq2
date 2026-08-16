@@ -120,3 +120,59 @@ must never be presented as chronology.
 Note `lib/queries/tournaments.js` still uses `nullsFirst: true` for the
 tournament drawer's game list (pre-existing). Worth aligning when that view is
 next touched; not changed here to keep this pass scoped.
+
+---
+
+## 6. Future concept: Funding Plan (NOT implemented)
+
+Recorded for later consideration. **Nothing in the product calculates this
+today, and the parent Season Budget report deliberately does not imply it.**
+
+### What the data model establishes now
+
+Season budget, player dues and expected fundraising are **three independent
+facts** with no relationship between them anywhere in code or schema:
+
+- Dues are typed in by the coach (`setDuesForAll` reads `initial_cost` from
+  form input). Nothing derives them from the budget.
+- Income budget lines are never netted against expenses. `financeSummary`
+  sums `budgetedExpenses` and `budgetedIncome` separately, and every derived
+  figure — `availableBudget`, `remainingBudget`, `percentCommitted` — uses
+  expenses only. Money In states it plainly: "Kept separate from expenses —
+  never netted against the budget."
+
+Northgate illustrates why an inferred relationship would be wrong:
+
+```
+Planned expenses                   $29,480
+Dues (12 × $2,400)                 $28,800
+Fundraising & sponsorship targets  $ 3,000
+                                   -------
+Planned funding                    $31,800   → $2,320 above expenses
+```
+
+If fundraising offset dues, dues would have been set near $2,207. They were
+not. Whether the $2,320 is a buffer, rounding to a clean $2,400, or two
+figures set independently, **the data does not say** — so no report may
+assert it.
+
+### What a Funding Plan would need
+
+A deliberate model, not a derived number:
+
+1. An explicit statement of how the season is intended to be funded — dues,
+   fundraising, sponsorship, carry-over — with the coach's intent recorded
+   rather than inferred from whatever the numbers happen to be.
+2. A defined treatment of surplus and shortfall, including what a surplus is
+   FOR (buffer, next season, refund) — a question the current schema cannot
+   answer.
+3. A decision on whether fundraising is attributed per family or to the team
+   as a whole. Nothing expresses per-family attribution today, which is why
+   "cost after fundraising" cannot be computed.
+4. Parent-facing wording that survives a parent doing the arithmetic.
+
+### Wording that must NOT be used until such a model exists
+
+"Fundraising reduces dues", "offsets dues", "covers the budget gap", "planned
+in addition to dues", "cost after fundraising", or any surplus/shortfall
+figure. Each asserts a relationship the model does not establish.

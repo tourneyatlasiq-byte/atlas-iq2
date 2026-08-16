@@ -78,13 +78,26 @@ const duesUnlinked = (n, amount) =>
   assertEq("Inactive dues do not satisfy the missing active player", cancelled.missingCount, 1);
   assertEq("Total suppressed despite matching counts", cancelled.totalDefensible, false);
 
+  /* --- identityComplete gates GENERATION; totalDefensible gates the total.
+     A roster can be fully reconciled while players legitimately owe different
+     amounts: the report generates, the team total does not print. */
+  assertEq("Northgate: not reconciled, so generation blocks", northgate.identityComplete, false);
+
+  const variedButComplete = duesProfile(
+    [...duesFor(roster(12).slice(0, 6), 2400), ...duesFor(roster(12).slice(6), 2700)],
+    roster(12)
+  );
+  assertEq("Varied but reconciled: generation allowed", variedButComplete.identityComplete, true);
+  assertEq("Varied but reconciled: total still suppressed", variedButComplete.totalDefensible, false);
+
   /* --- Fully configured: dues set IS the active roster ------------------- */
   const complete = duesProfile(duesFor(roster(12), 2400), roster(12));
   assertEq("Complete: status uniform", complete.status, "uniform");
   assertEq("Complete: publishable", complete.totalDefensible, true);
   assertEq("Complete: $28,800", complete.expectedTotal, 28800);
-  assertEq("Complete: nothing missing or stray", 
+  assertEq("Complete: nothing missing or stray",
     [complete.missingCount, complete.inactiveWithDues, complete.unlinked], [0, 0, 0]);
+  assertEq("Complete: reconciled, so generation allowed", complete.identityComplete, true);
 
   /* --- Georgia Power: every dues record unlinked ------------------------- */
   const gp = duesProfile(duesUnlinked(6, 2700), roster(13));
