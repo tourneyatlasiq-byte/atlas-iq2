@@ -13,8 +13,9 @@ import { setDuesForAll } from "../lib/actions/finance";
 import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import {
-  isActual, CATEGORIES, TXN_STATUSES, money, quantity, cents, sumMoney,
+  isActual, TXN_STATUSES, money, quantity, cents, sumMoney,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
+  categoryOptions, CATEGORY_OTHER,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
@@ -1069,6 +1070,10 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
 }
 
 function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsIncome = false }) {
+  // Empty on a new line so the placeholder shows and `required` bites; on an
+  // existing line, the line's own category — including an off-list one.
+  const [catChoice, setCatChoice] = useState(row?.category ?? "");
+  const [customCat, setCustomCat] = useState("");
   const isNew = !row;
 
   // An existing line already tells us which mode it was saved in.
@@ -1097,11 +1102,43 @@ function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsInc
             </div>
             <div className="field">
               <label htmlFor="b-cat">Category</label>
-              <input id="b-cat" name="category" required list="fin-categories"
-                     defaultValue={row?.category ?? ""} />
-              <datalist id="fin-categories">
-                {CATEGORIES.map((c) => <option key={c} value={c} />)}
-              </datalist>
+              {/* A native select, not a datalist. A datalist renders as a plain
+                  text box with no dropdown affordance, so on mobile a coach saw
+                  a required "Category" field and no way to discover the
+                  choices. A select gets the platform picker for free.
+
+                  An off-list category the team already uses is included by
+                  categoryOptions(), so editing that line shows its own value
+                  selected and leaves it unchanged unless the coach picks
+                  something else. */}
+              <select
+                id="b-cat"
+                name={catChoice === CATEGORY_OTHER ? undefined : "category"}
+                required
+                value={catChoice}
+                onChange={(e) => setCatChoice(e.target.value)}
+              >
+                <option value="" disabled>Choose a category…</option>
+                {categoryOptions(row?.category).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                <option value={CATEGORY_OTHER}>Other…</option>
+              </select>
+
+              {catChoice === CATEGORY_OTHER && (
+                <div className="field" style={{ marginTop: 10 }}>
+                  <label htmlFor="b-cat-other">New category name</label>
+                  <input
+                    id="b-cat-other"
+                    name="category"
+                    required
+                    autoFocus
+                    placeholder="e.g. Travel"
+                    value={customCat}
+                    onChange={(e) => setCustomCat(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Total amount stays the default. Quantity mode exists so a coach

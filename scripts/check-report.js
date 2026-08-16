@@ -42,7 +42,8 @@ const duesUnlinked = (n, amount) =>
 (async () => {
   const mod = await import(pathToFileURL(path.resolve("lib/finance-rules.js")).href);
   const { duesProfile, categoryAllocation, expectedOtherIncome, reconcileDues,
-          incomeCategoryBucket } = mod;
+          incomeCategoryBucket, categoryOptions, resolveCategoryChoice,
+          CATEGORY_OTHER, CATEGORIES } = mod;
 
   console.log("\nParent budget report regression cases\n");
 
@@ -366,6 +367,54 @@ const duesUnlinked = (n, amount) =>
     ["other", "other", "other", "other"]);
   assertEq("null and undefined are safe",
     [incomeCategoryBucket(null), incomeCategoryBucket(undefined)], ["other", "other"]);
+
+  /* ===================================================================
+     Budget-item category selector. Was a free-text <datalist>, which gave no
+     dropdown affordance — on mobile the choices were undiscoverable. Now a
+     native <select>. Existing off-list categories must round-trip unchanged.
+     =================================================================== */
+  console.log("\nBudget category selector\n");
+
+  // 1. Standard category
+  assertEq("standard category resolves to itself",
+    resolveCategoryChoice("Equipment", ""), "Equipment");
+  assertEq("all known categories are offered on a new line",
+    categoryOptions(undefined), CATEGORIES);
+
+  // 2. Other… with a custom value
+  assertEq("Other + custom name resolves to the custom name",
+    resolveCategoryChoice(CATEGORY_OTHER, "Travel"), "Travel");
+  assertEq("custom name is trimmed",
+    resolveCategoryChoice(CATEGORY_OTHER, "  Travel  "), "Travel");
+  assertEq("the sentinel is never stored as a category",
+    resolveCategoryChoice(CATEGORY_OTHER, "Travel") === CATEGORY_OTHER, false);
+
+  // 3. Editing an existing OFF-LIST category without changing it
+  for (const legacy of ["Fundraising & Sponsors", "Fees & Team Building", "Tournaments"]) {
+    const opts = categoryOptions(legacy);
+    assertEq(`off-list "${legacy}" is offered so it can stay selected`,
+      opts.includes(legacy), true);
+    assertEq(`off-list "${legacy}" round-trips unchanged`,
+      resolveCategoryChoice(legacy, ""), legacy);
+  }
+  assertEq("off-list value is added once, not duplicated",
+    categoryOptions("Fundraising & Sponsors").filter((c) => c === "Fundraising & Sponsors").length, 1);
+  assertEq("a known category is not duplicated when editing",
+    categoryOptions("Equipment").filter((c) => c === "Equipment").length, 1);
+  assertEq("known categories are all still present alongside an off-list one",
+    CATEGORIES.every((c) => categoryOptions("Tournaments").includes(c)), true);
+
+  // 4. Deliberately changing an off-list category to a standard one
+  assertEq("off-list can be deliberately changed to a standard category",
+    resolveCategoryChoice("Equipment", ""), "Equipment");
+
+  // 5. Required-field behaviour
+  assertEq("no selection is not a category",
+    [resolveCategoryChoice("", ""), resolveCategoryChoice(null, ""), resolveCategoryChoice(undefined, "")],
+    [null, null, null]);
+  assertEq("Other with an empty or blank custom name is incomplete",
+    [resolveCategoryChoice(CATEGORY_OTHER, ""), resolveCategoryChoice(CATEGORY_OTHER, "   ")],
+    [null, null]);
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
