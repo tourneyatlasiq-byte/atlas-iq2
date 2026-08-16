@@ -39,12 +39,28 @@ function fmtRange(start, end) {
 }
 
 export default async function PerformancePage() {
-  const { features } = await getContext();
+  const { features, season: currentSeason } = await getContext();
 
   if (!features?.qab) return <PerformancePremium />;
 
-  const { tournament, games } = await getPerformanceOverview();
-  const season = await getSeasonPerformance();
+  if (!currentSeason) {
+    return (
+      <div className="page">
+        <div className="card">
+          <div className="empty">
+            <h3>No season yet</h3>
+            <p>This team needs a season before performance can be tracked.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Scope is resolved here, at the page boundary, and passed down explicitly.
+  // The query layer never reads cookies or session state, which is what lets
+  // the same functions serve a report for a season the user is not viewing.
+  const { tournament, games } = await getPerformanceOverview(currentSeason.id);
+  const season = await getSeasonPerformance(currentSeason.id);
 
   return (
     <div className="page">

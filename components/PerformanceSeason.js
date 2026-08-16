@@ -380,7 +380,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                     </span>
                   </button>
 
-                  {open && <PlayerDetail player={p} games={games} />}
+                  {open && <PlayerDetail player={p} />}
                 </li>
               );
             })}
@@ -521,28 +521,11 @@ function QabTrend({ games, seasonPct }) {
  * three to six games and single-figure plate appearances, any such label would
  * be an interpretation the data cannot carry. The panel states the numbers.
  */
-function PlayerDetail({ player, games }) {
-  const history = (games ?? [])
-    .map((g) => {
-      const slot = (g.lineup ?? []).find((s) => s.playerId === player.playerId);
-      return slot ? { ...slot, opponent: g.opponent, gameDate: g.gameDate, gameId: g.gameId } : null;
-    })
-    .filter(Boolean)
-    .filter((h) => h.pa > 0);
-
-  /**
-   * Pooled QAB and PA over the most recent games in which this player batted.
-   *
-   * Pooled, not an average of percentages, so a one-at-bat game cannot weigh
-   * the same as a four-at-bat game. Order within the window does not affect
-   * the result — only which games fall inside it — so same-day games are safe
-   * unless the window boundary itself falls between two games sharing a date.
-   */
-  const RECENT = 2;
-  const recent = history.slice(-RECENT);
-  const recentQab = recent.reduce((n, h) => n + h.qab, 0);
-  const recentPa = recent.reduce((n, h) => n + h.pa, 0);
-  const recentPct = recentPa > 0 ? Math.round((recentQab / recentPa) * 1000) / 10 : null;
+function PlayerDetail({ player }) {
+  // Already derived by getSeasonPerformance. This component renders; it does
+  // not recompute business figures.
+  const history = player.history ?? [];
+  const recent = player.recentForm ?? null;
 
   const maxReason = Math.max(1, ...player.reasons.map((r) => r.count));
 
@@ -563,9 +546,10 @@ function PlayerDetail({ player, games }) {
           </span>
         </div>
 
-        {history.length >= 2 && (
+        {recent && (
           <p className="pd-recent">
-            Last {recent.length} games: <strong>{recentPct}% QAB</strong> · {recentQab}/{recentPa} PA
+            Last {recent.games} games: <strong>{recent.qabPct}% QAB</strong> · {recent.qab}/
+            {recent.pa} PA
           </p>
         )}
 

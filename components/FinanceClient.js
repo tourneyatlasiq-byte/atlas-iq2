@@ -10,7 +10,10 @@ import { SearchPicker } from "./SearchPicker";
 import { setDuesForAll } from "../lib/actions/finance";
 import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
-import { isActual, CATEGORIES, TXN_STATUSES, money, quantity, cents, sumMoney } from "../lib/finance-rules";
+import {
+  isActual, CATEGORIES, TXN_STATUSES, money, quantity, cents, sumMoney,
+  tournamentPaidTotal, duesCollectedPercent, outstandingTotal,
+} from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { HelpTip } from "./HelpTip";
 import {
@@ -169,7 +172,7 @@ function UnassignedCommitments({ tournaments, budgetItems, canWrite, pending, on
 function financeActionText(a, dues) {
   const n = a.affected?.length ?? 0;
   if (a.id === "outstanding") {
-    const owed = (a.affected ?? []).reduce((s2, p) => s2 + (p.balance ?? 0), 0);
+    const owed = outstandingTotal(a.affected);
     return `${n} ${n === 1 ? "player still owes" : "players still owe"} ${money(owed)}`;
   }
   if (a.id === "not-started") {
@@ -404,7 +407,7 @@ export function FinanceClient({
               Player dues <HelpTip term="Player Dues" />
             </p>
             <p className="fin-dues-hero">
-              {dues.expected > 0 ? Math.round((dues.collected / dues.expected) * 100) : 0}%
+              {duesCollectedPercent(dues) ?? 0}%
               <span className="fin-dues-hero-unit">collected</span>
             </p>
 
@@ -562,9 +565,7 @@ export function FinanceClient({
           budget={budget}
           summary={summary}
           committedTournaments={committedTournaments}
-          tournamentPaid={transactions
-            .filter((t) => t.tournament_id && !t.is_income && isActual(t))
-            .reduce((sum, t) => sum + Number(t.actual_amount), 0)}
+          tournamentPaid={tournamentPaidTotal(transactions)}
           openCats={openCats}
           setOpenCats={setOpenCats}
           canWrite={canWrite}
