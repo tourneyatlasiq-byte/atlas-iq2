@@ -34,24 +34,6 @@ function fmtDate(iso) {
   });
 }
 
-/**
- * "What this budget covers", assembled from the categories already printed in
- * the table below it. Introduces no category of its own — if a cost is not in
- * the budget, it is not named here.
- */
-function coverageSentence(categories) {
-  const names = categories.map((c) => c.category);
-  if (names.length === 0) return null;
-  if (names.length <= 4) {
-    const last = names[names.length - 1];
-    const rest = names.slice(0, -1);
-    return rest.length ? `${rest.join(", ")} and ${last}` : last;
-  }
-  const shown = names.slice(0, 4).join(", ");
-  const remaining = names.length - 4;
-  return `${shown} and ${remaining} more ${remaining === 1 ? "category" : "categories"} listed below`;
-}
-
 export function SeasonBudgetReport({ report }) {
   const [note, setNote] = useState("");
 
@@ -83,7 +65,6 @@ export function SeasonBudgetReport({ report }) {
 
   const { organization, team, season, allocation, dues, otherIncome } = report;
   const generated = fmtDate(report.generatedAt);
-  const coverage = coverageSentence(allocation.categories);
 
   return (
     <div className="rpt-shell">
@@ -133,12 +114,22 @@ export function SeasonBudgetReport({ report }) {
       {/* The document. */}
       <article className="rpt-page">
         <header className="rpt-head">
-          {organization.logoUrl && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img className="rpt-logo" src={organization.logoUrl} alt="" />
-          )}
-          <p className="rpt-org">{organization.name}</p>
-          {team.name && <p className="rpt-team">{team.name}</p>}
+          <div className="rpt-head-row">
+            <div className="rpt-head-identity">
+              <p className="rpt-org">{organization.name}</p>
+              {team.name && <p className="rpt-team">{team.name}</p>}
+            </div>
+
+            {/* Only when the organization has actually uploaded one. No
+                placeholder, no reserved space and no broken-image state —
+                the header simply reads as text. logoUrl is the existing
+                public storage URL; nothing new is stored or fetched. */}
+            {organization.logoUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img className="rpt-logo" src={organization.logoUrl} alt="" />
+            )}
+          </div>
+
           <h1 className="rpt-doc-title">Planned Season Budget</h1>
           <p className="rpt-doc-meta">
             {season.name} season{generated ? ` · Prepared ${generated}` : ""}
@@ -149,8 +140,8 @@ export function SeasonBudgetReport({ report }) {
           <p className="rpt-h">Season budget</p>
           <p className="rpt-total">{dollars(report.totalBudget)}</p>
           <p className="rpt-lead">
-            This is what the team plans to spend across the {season.name} season. It covers
-            everything the team pays for together — the categories below show where it goes.
+            This budget outlines the planned team expenses for the {season.name} season and gives
+            families a clear view of how team funds are expected to be used.
           </p>
         </section>
 
@@ -203,11 +194,6 @@ export function SeasonBudgetReport({ report }) {
             </tbody>
           </table>
 
-          {coverage && (
-            <p className="rpt-covers">
-              <strong>What this covers:</strong> {coverage}.
-            </p>
-          )}
         </section>
 
         {/* Two independent facts, side by side. Season budget, dues and
@@ -277,6 +263,13 @@ export function SeasonBudgetReport({ report }) {
             <p className="rpt-note">{note.trim()}</p>
           </section>
         )}
+
+        {/* Context, not a disclaimer. Sits with the footer so it reads as a
+            closing note rather than a warning attached to any one figure. */}
+        <p className="rpt-planning-note">
+          Budget amounts reflect the team&rsquo;s current season plan and may be updated as
+          tournament schedules, team needs, or other season costs are finalized.
+        </p>
 
         <footer className="rpt-foot">
           Planned budget as of {generated}. Amounts may change during the season.
