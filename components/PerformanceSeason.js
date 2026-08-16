@@ -380,30 +380,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                     </span>
                   </button>
 
-                  {open && (
-                    <div className="pex">
-                      <PlayerGameHistory playerId={p.playerId} games={games} />
-
-                      {p.qab === 0 ? (
-                        <p className="pex-none">No quality at-bats recorded yet.</p>
-                      ) : (
-                        <>
-                          <p className="pex-title">Quality At-Bat breakdown</p>
-                          {/* Occurrences for this player. One plate appearance
-                              can cite several reasons and is still one QAB, so
-                              these counts are never totalled as a QAB figure. */}
-                          <ul className="pex-list">
-                            {p.reasons.map((r) => (
-                              <li key={r.key}>
-                                <span className="pex-label">{r.label}</span>
-                                <span className="pex-count">{r.count}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  {open && <PlayerDetail player={p} games={games} />}
                 </li>
               );
             })}
@@ -530,76 +507,151 @@ function QabTrend({ games, seasonPct }) {
 
 
 /**
- * One player's game-by-game history.
+ * The expanded player panel.
  *
- * Built entirely from the `games` prop the season view already receives: each
- * game carries a lineup entry per batter with playerId, qab, pa and qabPct,
- * and the games are already in date order. No additional query, no new schema
- * and no statistic that is not already computed upstream.
+ * Two columns on desktop: performance and trend on the left, how the quality
+ * at-bats were earned on the right. One column on a narrow screen.
  *
- * Games the player did not bat in are absent rather than plotted as zero —
- * not appearing and going 0-for are different facts.
+ * Everything is read from data the season view already holds — games[].lineup
+ * carries a per-game entry per batter, and player.reasons carries the reason
+ * counts. No extra query, no schema, and nothing derived that is not already
+ * a recorded figure.
+ *
+ * Deliberately free of judgement. No "improving", "hot", "consistent": with
+ * three to six games and single-figure plate appearances, any such label would
+ * be an interpretation the data cannot carry. The panel states the numbers.
  */
-function PlayerGameHistory({ playerId, games }) {
+function PlayerDetail({ player, games }) {
   const history = (games ?? [])
     .map((g) => {
-      const slot = (g.lineup ?? []).find((s) => s.playerId === playerId);
+      const slot = (g.lineup ?? []).find((s) => s.playerId === player.playerId);
       return slot ? { ...slot, opponent: g.opponent, gameDate: g.gameDate, gameId: g.gameId } : null;
     })
     .filter(Boolean)
     .filter((h) => h.pa > 0);
 
-  if (history.length === 0) return null;
+  /**
+   * Pooled QAB and PA over the most recent games in which this player batted.
+   *
+   * Pooled, not an average of percentages, so a one-at-bat game cannot weigh
+   * the same as a four-at-bat game. Order within the window does not affect
+   * the result — only which games fall inside it — so same-day games are safe
+   * unless the window boundary itself falls between two games sharing a date.
+   */
+  const RECENT = 2;
+  const recent = history.slice(-RECENT);
+  const recentQab = recent.reduce((n, h) => n + h.qab, 0);
+  const recentPa = recent.reduce((n, h) => n + h.pa, 0);
+  const recentPct = recentPa > 0 ? Math.round((recentQab / recentPa) * 1000) / 10 : null;
 
-  // A single game is a result, not a trend, so it is stated rather than drawn.
-  if (history.length === 1) {
-    const only = history[0];
-    return (
-      <div className="pgh">
-        <p className="pex-title">Game history</p>
-        <p className="pgh-single">
-          <strong>{only.qabPct}%</strong> vs {only.opponent} · {only.qab} of {only.pa} PA
-        </p>
-      </div>
-    );
-  }
-
-  const W = 320;
-  const H = 60;
-  const padX = 6;
-  const padY = 8;
-  const stepX = (W - padX * 2) / (history.length - 1);
-  const y = (pct) => padY + (1 - pct / 100) * (H - padY * 2);
-  const path = history.map((h, i) => `${i === 0 ? "M" : "L"} ${padX + i * stepX} ${y(h.qabPct)}`).join(" ");
+  const maxReason = Math.max(1, ...player.reasons.map((r) => r.count));
 
   return (
-    <div className="pgh">
-      <p className="pex-title">QAB% by game</p>
+    <div className="pex">
+      <div className="pex-main">
+        {/* The player's name is already on the row above, so it is not
+            repeated here. */}
+        <div className="pd-summary">
+          <span className="pd-stat">
+            <strong>{player.qabPct == null ? "—" : `${player.qabPct}%`}</strong> QAB
+          </span>
+          <span className="pd-stat">
+            <strong>{player.qab}</strong> QAB / <strong>{player.pa}</strong> PA
+          </span>
+          <span className="pd-stat">
+            <strong>{history.length}</strong> {history.length === 1 ? "game" : "games"} with a PA
+          </span>
+        </div>
 
-      <svg
-        className="pgh-svg"
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={history.map((h) => `${h.opponent} ${h.qabPct}%`).join(", ")}
-      >
-        <path className="pgh-path" d={path} />
-        {history.map((h, i) => (
-          <circle key={h.gameId} className="pgh-dot" cx={padX + i * stepX} cy={y(h.qabPct)} r="3">
+        {history.length >= 2 && (
+          <p className="pd-recent">
+            Last {recent.length} games: <strong>{recentPct}% QAB</strong> · {recentQab}/{recentPa} PA
+          </p>
+        )}
+
+        {history.length >= 2 && <PlayerTrend history={history} />}
+
+        {history.length > 0 && (
+          <ul className="pgh-recent">
+            {history.map((h) => (
+              <li key={h.gameId}>
+                <span className="pgh-opp">{h.opponent}</span>
+                <span className="pgh-figs">{h.qab}/{h.pa}</span>
+                <span className="pgh-pct">{h.qabPct}%</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="pex-side">
+        {player.qab === 0 ? (
+          <p className="pex-none">No quality at-bats recorded yet.</p>
+        ) : (
+          <>
+            <p className="pex-title">How QABs were earned</p>
+            {/* Occurrences, not quality at-bats. One plate appearance can cite
+                several reasons and is still one QAB, so these are never
+                totalled and called a QAB figure. */}
+            <ul className="pd-reasons">
+              {player.reasons.map((r) => (
+                <li key={r.key}>
+                  <span className="pd-reason-label">{r.label}</span>
+                  <span className="pd-reason-bar" aria-hidden="true">
+                    <span style={{ width: `${(r.count / maxReason) * 100}%` }} />
+                  </span>
+                  <span className="pd-reason-count">{r.count}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * QAB% per game, with each point labelled.
+ *
+ * The unlabelled sparkline was readable only against the table beneath it.
+ * The percentage now sits above its own point, so the sequence can be read on
+ * its own. Fixed 0-100 scale, so height means the same thing for every player.
+ */
+function PlayerTrend({ history }) {
+  const W = 420;
+  const H = 78;
+  const padX = 16;
+  const padTop = 20;
+  const padBottom = 10;
+  const stepX = (W - padX * 2) / (history.length - 1);
+  const x = (i) => padX + i * stepX;
+  const y = (pct) => padTop + (1 - pct / 100) * (H - padTop - padBottom);
+  const path = history.map((h, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(h.qabPct)}`).join(" ");
+
+  return (
+    <svg
+      className="pgh-svg"
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={history.map((h) => `${h.opponent} ${h.qabPct}%`).join(", ")}
+    >
+      <path className="pgh-path" d={path} />
+      {history.map((h, i) => (
+        <g key={h.gameId}>
+          <circle className="pgh-dot" cx={x(i)} cy={y(h.qabPct)} r="3.5">
             <title>{`${h.opponent} · ${h.qabPct}% · ${h.qab} of ${h.pa} PA`}</title>
           </circle>
-        ))}
-      </svg>
-
-      <ul className="pgh-recent">
-        {history.slice(-5).map((h) => (
-          <li key={h.gameId}>
-            <span className="pgh-opp">{h.opponent}</span>
-            <span className="pgh-figs">{h.qab}/{h.pa}</span>
-            <span className="pgh-pct">{h.qabPct}%</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+          <text
+            className="pgh-point-label"
+            x={x(i)}
+            y={y(h.qabPct) - 8}
+            textAnchor={i === 0 ? "start" : i === history.length - 1 ? "end" : "middle"}
+          >
+            {h.qabPct}%
+          </text>
+        </g>
+      ))}
+    </svg>
   );
 }

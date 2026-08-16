@@ -4350,13 +4350,46 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .season-pnum { font-size: 12.5px; }
 }
 .season-pcaret { color: var(--slate); font-size: 10px; }
-.pex { padding: 0 12px 14px 32px; }
+/* Two columns on desktop: performance and trend beside how the QABs were
+   earned. The reasons list previously ran full width as a two-column text
+   list, which left most of the row empty and made the panel taller than it
+   needed to be. */
+.pex {
+  padding: 0 12px 14px 32px;
+  display: grid; gap: 6px 28px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .pex { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; }
+}
+.pex-main, .pex-side { min-width: 0; }
 .pex-title { font-size: 12px; font-weight: 700; color: var(--navy); margin: 0 0 8px; }
 .pex-none { font-size: 12.5px; color: var(--slate); margin: 0 0 4px; }
-.pex-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 18px; }
-.pex-list > li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-.pex-label { font-size: 12.5px; color: var(--navy); }
-.pex-count { font-size: 12.5px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+/* Summary figures, stated once and not repeating the player's name. */
+.pd-summary {
+  display: flex; flex-wrap: wrap; gap: 4px 18px;
+  margin: 0 0 6px; font-size: 12.5px; color: var(--slate);
+}
+.pd-stat strong { font-size: 14px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+
+/* A fact, not a verdict. No wording here implies a direction. */
+.pd-recent {
+  margin: 0 0 8px; font-size: 12.5px; color: var(--slate);
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.pd-recent strong { color: var(--navy); font-variant-numeric: tabular-nums; }
+
+/* Reasons as short bars: the shape is readable at a glance, and the count is
+   still stated because the bar is relative to this player's own maximum. */
+.pd-reasons { list-style: none; margin: 0; padding: 0; }
+.pd-reasons > li {
+  display: grid; grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr) 1.8em;
+  align-items: center; gap: 8px; padding: 3px 0;
+}
+.pd-reason-label { font-size: 12px; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-reason-bar { display: block; height: 8px; background: var(--surface-sunken); border-radius: 999px; overflow: hidden; }
+.pd-reason-bar > span { display: block; height: 100%; background: var(--blue); border-radius: 999px; min-width: 2px; }
+.pd-reason-count { font-size: 12px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; text-align: right; }
 
 @media (max-width: 720px) {
   /* Cards, not a squeezed table. Opponent and QAB% lead; no horizontal scroll. */
@@ -4377,7 +4410,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .lc { padding: 4px 10px 14px 14px; }
   .lc-grid { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .pex { padding: 0 10px 14px 14px; }
-  .pex-list { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* --- Quick Add: existing-facility choice ---
@@ -4900,3 +4932,15 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 .pgh-single { margin: 4px 0 0; font-size: 12.5px; color: var(--slate); }
 .pgh-single strong { color: var(--navy); }
+
+/* Point labels make the player sparkline readable without the table beneath. */
+.pgh-point-label {
+  font-family: var(--font-body); font-size: 9px; font-weight: 700;
+  fill: var(--navy);
+}
+.pgh-svg { max-width: 420px; height: 78px; }
+
+@media (max-width: 720px) {
+  .pgh-svg { height: 72px; }
+  .pd-summary { gap: 2px 14px; }
+}
