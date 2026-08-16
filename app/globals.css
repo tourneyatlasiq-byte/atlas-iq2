@@ -4619,33 +4619,45 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .fi-card .meter { margin: 10px 0 6px; max-width: none; }
 
 /* ===== Player Dues table, desktop =====
-   ROOT CAUSE: .pay-player was only given a column layout inside the 720px
-   media query, so above that breakpoint the name span and the sub-line span
-   were plain inline elements in one cell and rendered end to end
-   ("Ava WhitfieldPaid in full"). The columns were never colliding; two spans
-   inside one cell were. Scoped to min-width so the phone reflow is untouched. */
+   Two spans sitting inline inside one cell rendered end to end
+   ("Ava WhitfieldPaid in full"), because the only rule that stacked them lived
+   in the <=720px block.
+
+   The stacking MUST go on an inner wrapper. Setting display:flex on the <td>
+   itself removes it from display:table-cell, the row loses its column
+   structure, and the browser repairs the table with anonymous cells — which
+   is what pushed Payment progress under the Player column and made the rows
+   tall. The td stays a table cell; .pay-cell does the stacking. */
+/* Stacks at EVERY width. Scoping this to desktop would re-create the original
+   inline collision on the phone, where the wrapper is the cell's only child. */
+.pay-cell {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  min-width: 0;
+}
+
 @media (min-width: 721px) {
-  .pay-table .pay-player { width: 34%; }
-  .pay-table .pay-progress { width: 42%; }
+  .pay-table .pay-player { width: 36%; }
+  .pay-table .pay-progress { width: 40%; }
   .pay-table .pay-balance { width: 24%; text-align: right; }
 
-  .pay-table td.pay-player,
-  .pay-table td.pay-progress {
-    display: flex; flex-direction: column; align-items: flex-start;
-    gap: 3px; vertical-align: top;
-  }
+  /* Top-aligned so a two-line name does not push its neighbours down. */
+  .pay-table td { vertical-align: top; }
 
   .pay-table .cell-name {
     color: var(--navy); font-weight: 600;
-    overflow-wrap: anywhere;   /* long names wrap instead of pushing columns */
+    overflow-wrap: anywhere;   /* long names wrap instead of widening the column */
   }
   .pay-table .pay-sub { font-size: 12.5px; color: var(--slate); line-height: 1.4; }
 
   .pay-table .pay-amounts { font-size: 13px; color: var(--navy); }
-  .pay-table td.pay-progress .meter { width: 100%; max-width: 300px; margin: 2px 0 0; }
+  .pay-table .pay-cell .meter { width: 100%; max-width: 280px; margin: 1px 0 0; }
+  /* The 46px inset on .meter-fill reserves room for the percentage label.
+     These meters pass hidePct, so there is no label and the fill would stop
+     short of the track near 100%. Scoped to this table only. */
+  .pay-table .pay-cell .meter-fill { max-width: 100%; }
 
   .pay-table td.pay-balance {
-    font-variant-numeric: tabular-nums; white-space: nowrap; vertical-align: top;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
   }
 }
 

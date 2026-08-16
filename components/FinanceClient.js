@@ -1592,32 +1592,39 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
 
                 return (
                   <tr key={p.id} className="row-click" onClick={() => onOpen(p)}>
+                    {/* Stacking lives on an inner wrapper, never on the cell
+                        itself. A table cell set to display:flex stops being a
+                        table cell and the row's column structure collapses. */}
                     <td className="pay-player">
-                      <span className="cell-name">
-                        {p.player?.full_name ?? <span className="muted">Unlinked</span>}
-                      </span>
-                      <span className="pay-sub">
-                        {settled
-                          ? "Paid in full"
-                          : nothing
-                            ? `Nothing paid of ${money(p.totalDue)}`
-                            : `${money(p.totalPaid)} of ${money(p.totalDue)}`}
-                      </span>
+                      <div className="pay-cell">
+                        <span className="cell-name">
+                          {p.player?.full_name ?? <span className="muted">Unlinked</span>}
+                        </span>
+                        <span className="pay-sub">
+                          {settled
+                            ? "Paid in full"
+                            : nothing
+                              ? `Nothing paid of ${money(p.totalDue)}`
+                              : `${money(p.totalPaid)} of ${money(p.totalDue)}`}
+                        </span>
+                      </div>
                     </td>
 
                     <td className="pay-progress">
-                      {settled ? (
-                        <span className="pay-settled">Paid in full ✓</span>
-                      ) : nothing ? (
-                        <span className="muted">Nothing paid</span>
-                      ) : (
-                        <>
-                          <span className="pay-amounts">
-                            {money(p.totalPaid)} <span className="muted">of {money(p.totalDue)}</span>
-                          </span>
-                          <Meter value={p.totalPaid} total={p.totalDue} hidePct />
-                        </>
-                      )}
+                      <div className="pay-cell">
+                        {settled ? (
+                          <span className="pay-settled">Paid in full ✓</span>
+                        ) : nothing ? (
+                          <span className="muted">Nothing paid</span>
+                        ) : (
+                          <>
+                            <span className="pay-amounts">
+                              {money(p.totalPaid)} <span className="muted">of {money(p.totalDue)}</span>
+                            </span>
+                            <Meter value={p.totalPaid} total={p.totalDue} hidePct />
+                          </>
+                        )}
+                      </div>
                     </td>
 
                     <td className="pay-balance">
