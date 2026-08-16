@@ -29,6 +29,7 @@ function assertEq(label, actual, expected) {
   const {
     isGameWithinTournament, compareGames, compareTournaments,
     formatDateRange, formatDayLabel, formatClock, groupGamesByDate, parseDate,
+    locationParts,
   } = m;
 
   console.log("\nTournament Schedule rules\n");
@@ -114,6 +115,31 @@ function assertEq(label, actual, expected) {
     grouped.map((d2) => [d2.date, d2.games.length]),
     [["2026-08-05", 2], ["2026-08-06", 1]]);
   assertEq("no games groups to nothing", groupGamesByDate([]), []);
+
+  /* --- Location line: each part appears at most once ---------------------
+     A free-text location printed twice ("Panama City, FLPanama City, FL")
+     because two independent conditionals were both true for it. */
+  const text = (place) => locationParts(place).map((p2) => p2.text).join(" · ");
+
+  assertEq("free-text location appears exactly once",
+    text({ name: null, area: "Panama City, FL", address: null }), "Panama City, FL");
+  assertEq("facility with a full address: address replaces city/state",
+    text({ name: "Hobgood Park", area: "Woodstock, GA", address: "6501 Bells Ferry Rd, Woodstock, GA 30189" }),
+    "Hobgood Park · 6501 Bells Ferry Rd, Woodstock, GA 30189");
+  assertEq("facility without an address falls back to city/state",
+    text({ name: "Champions Park", area: "Newberry, FL", address: null }),
+    "Champions Park · Newberry, FL");
+  assertEq("address without a facility name stands alone",
+    text({ name: null, area: "Athens, GA", address: "1 Main St, Athens, GA 30601" }),
+    "1 Main St, Athens, GA 30601");
+  assertEq("no location yields no parts, so no empty line is rendered",
+    [locationParts(null).length, locationParts({ name: null, area: null, address: null }).length],
+    [0, 0]);
+  assertEq("no part is ever emitted twice",
+    ["Panama City, FL", "Lakeland, FL"].every((area) => {
+      const out = text({ name: null, area, address: null });
+      return out.split(area).length - 1 === 1;
+    }), true);
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);

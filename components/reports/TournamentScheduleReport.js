@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {
-  formatDateRange, formatDayLabel, formatClock, groupGamesByDate,
+  formatDateRange, formatDayLabel, formatClock, groupGamesByDate, locationParts,
 } from "../../lib/schedule-rules";
 
 /**
@@ -99,18 +99,24 @@ export function TournamentScheduleReport({ report }) {
                   <div className="sch-body">
                   <h2 className="sch-name">{t.name}</h2>
 
-                  {t.place && (
+                  {locationParts(t.place).length > 0 && (
                     <p className="sch-place">
-                      {t.place.name && <span className="sch-place-name">{t.place.name}</span>}
-                      {/* City and state are omitted when a full address follows,
-                          since the address already contains them. */}
-                      {t.place.name && t.place.area && !t.place.address && (
-                        <span className="sch-dot"> · </span>
-                      )}
-                      {t.place.area && !t.place.address && <span>{t.place.area}</span>}
-                      {!t.place.name && t.place.area && <span>{t.place.area}</span>}
-                      {t.place.name && t.place.address && <span className="sch-dot"> · </span>}
-                      {t.place.address && <span className="sch-address">{t.place.address}</span>}
+                      {locationParts(t.place).map((part, i) => (
+                        <span key={part.key}>
+                          {i > 0 && <span className="sch-dot"> · </span>}
+                          <span
+                            className={
+                              part.kind === "name"
+                                ? "sch-place-name"
+                                : part.kind === "address"
+                                  ? "sch-address"
+                                  : undefined
+                            }
+                          >
+                            {part.text}
+                          </span>
+                        </span>
+                      ))}
                     </p>
                   )}
 
@@ -151,8 +157,7 @@ export function TournamentScheduleReport({ report }) {
         )}
 
         <footer className="rpt-foot">
-          Tournament dates and game times can change. Your coach will confirm details before each
-          event.
+          Tournament dates and game times can change.
         </footer>
       </article>
     </div>
