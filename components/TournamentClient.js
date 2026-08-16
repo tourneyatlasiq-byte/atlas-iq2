@@ -430,10 +430,11 @@ export function TournamentClient({ tournaments, actions, summary, record, provid
       {addingFacility && (
         <QuickAddFacility
           onClose={() => setAddingFacility(false)}
-          onCreated={(facility) => {
+          onFacilityReady={(facility) => {
             setAddingFacility(false);
-            // Create-and-link: remember the new id so the form selects it as
-            // soon as the refreshed list arrives.
+            // The facility may be newly created or an existing catalog record
+            // the coach chose instead. Either way the tournament links to it
+            // the same way: remember the id so the form selects it.
             if (facility?.id) setJustCreatedFacilityId(facility.id);
             router.refresh();
           }}

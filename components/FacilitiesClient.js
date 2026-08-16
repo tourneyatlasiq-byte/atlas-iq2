@@ -1419,6 +1419,18 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
         <form action={onSubmit}>
           {row && <input type="hidden" name="id" value={row.id} />}
 
+          {/* The server runs the matcher independently, so an acknowledged
+              creation has to say which matches were acknowledged. Scoped to the
+              ids actually shown: a duplicate created between submits is still
+              caught. */}
+          {isNew && acknowledged && duplicates.length > 0 && (
+            <input
+              type="hidden"
+              name="acknowledged_duplicate_ids"
+              value={duplicates.map((d) => d.facility.id).join(",")}
+            />
+          )}
+
           {prefill?.externalId && (
             <>
               <input type="hidden" name="external_place_id" value={prefill.externalId} />

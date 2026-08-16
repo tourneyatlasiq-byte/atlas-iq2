@@ -12,19 +12,62 @@ import { createFacility } from "../lib/actions/facilities";
  *
  * Facilities are canonical shared records, so this uses the same createFacility
  * action as the Facilities module rather than a parallel write path.
+ *
+ * Duplicate handling lives on the server. This screen carries no catalog, so
+ * when createFacility reports a probable match it comes back with the rows to
+ * show. The coach either uses the existing facility — which links it to the
+ * tournament without writing anything — or explicitly confirms it is a
+ * different place, which resubmits acknowledging only the ids they were shown.
+ *
+ * The form stays mounted throughout. Its inputs are uncontrolled, so the values
+ * the coach typed survive the round trip without being lifted into state, and
+ * TournamentForm behind this modal never unmounts.
  */
-export function QuickAddFacility({ onClose, onCreated }) {
+export function QuickAddFacility({ onClose, onFacilityReady }) {
   const [error, setError] = useState(null);
+  const [duplicates, setDuplicates] = useState(null);
+  const [lastForm, setLastForm] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function submit(formData) {
+  function send(formData) {
     setError(null);
     startTransition(async () => {
       const result = await createFacility(formData);
-      if (result?.ok) onCreated?.(result.facility);
-      else setError(result?.error ?? "Could not create that facility.");
+      if (result?.ok) {
+        onFacilityReady?.(result.facility);
+        return;
+      }
+      if (result?.duplicate) {
+        setLastForm(formData);
+        setDuplicates(result.duplicates ?? []);
+        setConfirming(false);
+        return;
+      }
+      setError(result?.error ?? "Could not create that facility.");
     });
   }
+
+  function submit(formData) {
+    setDuplicates(null);
+    setConfirming(false);
+    send(formData);
+  }
+
+  /** Link the existing catalog record. Nothing is written. */
+  function useExisting(f) {
+    onFacilityReady?.({ id: f.id, name: f.name, city: f.city, state: f.state });
+  }
+
+  /** Resubmit, acknowledging only the ids actually shown to the coach. */
+  function createAnyway() {
+    if (!lastForm) return;
+    lastForm.set("acknowledged_duplicate_ids", duplicates.map((d) => d.id).join(","));
+    send(lastForm);
+  }
+
+  const line = (f) =>
+    [f.street_address, [f.city, f.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
@@ -39,6 +82,66 @@ export function QuickAddFacility({ onClose, onCreated }) {
 
           <div className="modal-body">
             {error && <div className="alert alert-error">{error}</div>}
+
+            {duplicates && duplicates.length > 0 && (
+              <div className="alert alert-error qa-dupes">
+                <strong>This facility may already be in Season Tempo</strong>
+                <ul className="qa-dupe-list">
+                  {duplicates.map((d) => (
+                    <li key={d.id}>
+                      <span className="qa-dupe-text">
+                        <span className="qa-dupe-name">{d.name}</span>
+                        {line(d) && <span className="qa-dupe-meta">{line(d)}</span>}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => useExisting(d)}
+                        disabled={pending}
+                      >
+                        Use this facility
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                {confirming ? (
+                  <div className="qa-dupe-confirm">
+                    <p className="field-note">
+                      Only continue if this is genuinely a different place. Facilities are shared,
+                      so a duplicate affects every organization.
+                    </p>
+                    <div className="qa-dupe-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setConfirming(false)}
+                        disabled={pending}
+                      >
+                        Go back
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger-ghost"
+                        onClick={createAnyway}
+                        disabled={pending}
+                      >
+                        {pending ? "Creating…" : "Yes, create it"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setConfirming(true)}
+                    disabled={pending}
+                  >
+                    Create a different facility
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="field">
               <label htmlFor="qa-name">Facility name</label>
