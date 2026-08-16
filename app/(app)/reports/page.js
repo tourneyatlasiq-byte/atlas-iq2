@@ -42,8 +42,10 @@ export default async function ReportsPage() {
         },
         {
           name: "Tournament Schedule",
-          description: "Tournaments and games for the season, with dates, locations and results.",
-          status: "Next",
+          description:
+            "The season's committed tournaments with dates, locations and game times as they're entered.",
+          href: "/reports/tournament-schedule",
+          audience: "For parents",
         },
       ],
     },
