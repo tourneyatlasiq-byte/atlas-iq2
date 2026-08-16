@@ -41,7 +41,8 @@ const duesUnlinked = (n, amount) =>
 
 (async () => {
   const mod = await import(pathToFileURL(path.resolve("lib/finance-rules.js")).href);
-  const { duesProfile, categoryAllocation, expectedOtherIncome, reconcileDues } = mod;
+  const { duesProfile, categoryAllocation, expectedOtherIncome, reconcileDues,
+          incomeCategoryBucket } = mod;
 
   console.log("\nParent budget report regression cases\n");
 
@@ -340,6 +341,31 @@ const duesUnlinked = (n, amount) =>
   // The float versions these replaced, kept as a record of what was wrong.
   assertEq("float baseline really does drift (documents the defect)",
     [0.1 + 0.2 === 0.3, 0.1 + 0.2 + 0.3 === 0.6], [false, false]);
+
+  /* ===================================================================
+     Income category classification. budget_items.category is free text, so
+     exact matching on "Fundraising"/"Sponsors" missed a real combined
+     category and buried its money in `other`.
+     =================================================================== */
+  console.log("\nIncome category classification\n");
+
+  assertEq("exact 'Fundraising'", incomeCategoryBucket("Fundraising"), "fundraising");
+  assertEq("exact 'Sponsors'", incomeCategoryBucket("Sponsors"), "sponsors");
+  assertEq("production combined category classifies as fundraising",
+    incomeCategoryBucket("Fundraising & Sponsors"), "fundraising");
+  assertEq("reversed combined category follows the author's ordering",
+    incomeCategoryBucket("Sponsors & Fundraising"), "sponsors");
+  assertEq("singular and plural variants", 
+    ["Sponsor", "Sponsorships", "Fundraiser", "Fund-Raising"].map(incomeCategoryBucket),
+    ["sponsors", "sponsors", "fundraising", "fundraising"]);
+  assertEq("case and punctuation are ignored",
+    ["FUNDRAISING", "fundraising/sponsors", "  Sponsors  "].map(incomeCategoryBucket),
+    ["fundraising", "fundraising", "sponsors"]);
+  assertEq("genuinely neither stays in other",
+    ["Grants", "Concessions", "Other", ""].map(incomeCategoryBucket),
+    ["other", "other", "other", "other"]);
+  assertEq("null and undefined are safe",
+    [incomeCategoryBucket(null), incomeCategoryBucket(undefined)], ["other", "other"]);
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
