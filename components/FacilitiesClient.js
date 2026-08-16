@@ -18,6 +18,7 @@ import {
   approveFacilityCorrection,
   rejectFacilityCorrection,
 } from "../lib/actions/facilities";
+import { findCatalogDuplicates, DUPLICATE_RULES } from "../lib/facility-matching";
 import {
   EDITABLE_FIELDS,
   FIELD_LABELS,
@@ -28,6 +29,13 @@ import {
   facilityMapsUrl,
   displayableSurface,
 } from "../lib/facility-fields";
+
+/** Plain-English reason a duplicate warning fired. */
+const DUPLICATE_REASONS = {
+  exact_name_locality: "same name, same city",
+  same_address: "same street address",
+  token_subset: "nearly the same name",
+};
 
 const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
 
@@ -92,8 +100,6 @@ const NOTE_CATEGORIES = [
   { key: "seating_notes", label: "Seating / shade" },
   { key: "internal_notes", label: "General notes" },
 ];
-
-const normalize = (s) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -1146,6 +1152,11 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
   const [search, setSearch] = useState("");
   const [name, setName] = useState(row?.name ?? "");
   const [city, setCity] = useState(row?.city ?? "");
+  // Street and state are controlled so the duplicate matcher can see them.
+  // The rule that catches both known production duplicates is address-based,
+  // and it cannot fire on values the component never reads.
+  const [street, setStreet] = useState(row?.street_address ?? "");
+  const [stateCode, setStateCode] = useState(row?.state ?? "");
   const [acknowledged, setAcknowledged] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const [externalResults, setExternalResults] = useState([]);
@@ -1157,6 +1168,8 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
     setPrefill(details);
     setName(details.name ?? "");
     setCity(details.city ?? "");
+    setStreet(details.streetAddress ?? "");
+    setStateCode(details.state ?? "");
     setStep("form");
   }
 
@@ -1196,18 +1209,23 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
       .slice(0, 8);
   }, [facilities, search]);
 
-  // Same normalized name in the same city — a warning, never a block.
-  const duplicates = useMemo(() => {
-    const n = normalize(name);
-    if (!n) return [];
-    const c = city.trim().toLowerCase();
-    return facilities.filter(
-      (f) =>
-        f.id !== row?.id &&
-        normalize(f.name) === n &&
-        (!c || (f.city ?? "").trim().toLowerCase() === c)
-    );
-  }, [facilities, name, city, row]);
+  /**
+   * Probable duplicates, using the same rules the import matcher applies.
+   *
+   * The previous check here was exact normalized name within the same city,
+   * which missed both duplicates that actually reached production — they share
+   * an address but not a name. cross_city_name is excluded on purpose: two
+   * towns in one state can each have a Riverside Park.
+   */
+  const duplicates = useMemo(
+    () =>
+      findCatalogDuplicates(
+        facilities,
+        { name, city, state: stateCode, street_address: street },
+        { excludeId: row?.id }
+      ).filter((m) => DUPLICATE_RULES.includes(m.rule)),
+    [facilities, name, city, stateCode, street, row]
+  );
 
   if (step === "search") {
     return (
@@ -1427,14 +1445,14 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
             {duplicates.length > 0 && (
               <div className="alert alert-error">
                 <strong>
-                  {duplicates.length === 1 ? "A facility" : `${duplicates.length} facilities`} with
-                  this name already {duplicates.length === 1 ? "exists" : "exist"}
+                  {duplicates.length === 1 ? "This may already be in Season Tempo" : `${duplicates.length} facilities look like this one`}
                   {city.trim() ? ` in ${city.trim()}` : ""}:
                 </strong>
                 <ul className="dupe-list">
-                  {duplicates.map((d) => (
+                  {duplicates.map(({ facility: d, rule }) => (
                     <li key={d.id}>
                       {d.name}{cityState(d) ? ` — ${cityState(d)}` : ""}
+                      <span className="muted"> · {DUPLICATE_REASONS[rule]}</span>
                       <button type="button" className="btn btn-ghost" onClick={() => onPickExisting(d)}>
                         Use this one
                       </button>
@@ -1461,7 +1479,8 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
 
             <div className="field">
               <label htmlFor="f-street">Street address</label>
-              <input id="f-street" name="street_address" defaultValue={prefill?.streetAddress ?? row?.street_address ?? ""} />
+              <input id="f-street" name="street_address" value={street}
+                     onChange={(e) => setStreet(e.target.value)} />
             </div>
 
             <div className="field-row">
@@ -1471,7 +1490,8 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               </div>
               <div className="field">
                 <label htmlFor="f-state">State</label>
-                <input id="f-state" name="state" maxLength={2} placeholder="GA" defaultValue={prefill?.state ?? row?.state ?? ""} />
+                <input id="f-state" name="state" maxLength={2} placeholder="GA" value={stateCode}
+                       onChange={(e) => setStateCode(e.target.value)} />
               </div>
             </div>
 
