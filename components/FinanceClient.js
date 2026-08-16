@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo } from "react";
+import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { useActionFeedback } from "../lib/useActionFeedback";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
@@ -146,13 +146,57 @@ export function FinanceClient({
   }, [overlayOpen, editBudget, editTxn, editPay, detailTxn]);
 
 
-  function selectAction(id) {
-    setActionId(id);
-    if (id) setTab("payments");
+  /**
+   * The tab strip, used as the scroll target for summary CTAs.
+   *
+   * Summary links sit above the tabs and change content below them. On a short
+   * viewport the tab content is off-screen, so clicking "View player balances"
+   * switched the tab correctly but looked like nothing had happened.
+   */
+  const tabsRef = useRef(null);
+
+  /**
+   * Switch tab and bring the result into view.
+   *
+   * rAF defers the scroll until after React has committed the new tab, so we
+   * scroll to the rendered destination rather than the previous layout.
+   * Honours prefers-reduced-motion.
+   */
+  function goToTab(key) {
+    setTab(key);
+    requestAnimationFrame(() => {
+      const reduce =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      tabsRef.current?.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "start",
+      });
+    });
   }
 
+  function selectAction(id) {
+    setActionId(id);
+    if (id) goToTab("payments");
+  }
+
+  /**
+   * Payments narrowed to the selected action.
+   *
+   * Matched on player_id, not row id. The three actions carry different record
+   * shapes in `affected`: "outstanding" and "not-started" hold player_payments
+   * rows, while "no-dues" holds team_season_players rows. Comparing `a.id` to
+   * `p.id` therefore compared keys from two different tables and could never
+   * match for "no-dues". player_id is the one identifier both shapes share.
+   *
+   * Note this narrows correctly but still yields an empty list for "no-dues",
+   * because those players have no player_payments row by definition. The empty
+   * state below distinguishes that from a team with no dues set up at all.
+   */
   const visiblePayments = activeAction
-    ? payments.filter((p) => activeAction.affected.some((a) => a.id === p.id))
+    ? payments.filter((p) =>
+        activeAction.affected.some((a) => a.player_id != null && a.player_id === p.player_id)
+      )
     : payments;
 
   return (
@@ -206,7 +250,7 @@ export function FinanceClient({
                   : "All dues collected"}
               </span>
               {dues.outstanding > 0 && (
-                <button className="fin-lead-link" onClick={() => { setTab("payments"); selectAction("outstanding"); }}>
+                <button className="fin-lead-link" onClick={() => selectAction("outstanding")}>
                   View player balances →
                 </button>
               )}
@@ -221,19 +265,19 @@ export function FinanceClient({
                 number, and showing it here under this label is precisely how
                 Home and Finance drifted apart before. */}
             <div className="fin-secondary">
-              <button className="fin-metric" onClick={() => setTab("funds")}>
+              <button className="fin-metric" onClick={() => goToTab("funds")}>
                 <span className="fin-metric-label">Money received</span>
                 <span className="fin-metric-value">{summaryMoney(funds.total)}</span>
                 <span className="fin-metric-sub">this season</span>
               </button>
 
-              <button className="fin-metric" onClick={() => setTab("budget")}>
+              <button className="fin-metric" onClick={() => goToTab("budget")}>
                 <span className="fin-metric-label">Spent</span>
                 <span className="fin-metric-value">{summaryMoney(summary.actualExpenses)}</span>
                 <span className="fin-metric-sub">of {summaryMoney(summary.budgetedExpenses)} planned</span>
               </button>
 
-              <button className="fin-metric" onClick={() => setTab("budget")}>
+              <button className="fin-metric" onClick={() => goToTab("budget")}>
                 <span className="fin-metric-label">Budget available</span>
                 <span className="fin-metric-value">{summaryMoney(summary.availableBudget)}</span>
                 <span className="fin-metric-sub">after planned commitments</span>
@@ -296,7 +340,7 @@ export function FinanceClient({
         />
       )}
 
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" ref={tabsRef}>
         {[
           { key: "budget", label: "Budget" },
           { key: "funds", label: "Money In" },
@@ -357,6 +401,9 @@ export function FinanceClient({
           onOpen={(p) => openDetail(p)}
           onBulk={(fd) => run(setDuesForAll, fd, { success: "Dues set for the players who needed them" })}
           pending={pending}
+          filtered={Boolean(activeAction)}
+          filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
+          onClearFilter={() => setActionId(null)}
         />
       )}
 
@@ -1248,7 +1295,7 @@ const PAYMENT_VIEWS = [
  * Progress replaces three numeric columns a coach had to compare. Exact
  * amounts and payment history remain in the drawer.
  */
-export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending }) {
+export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending, filtered = false, filterLabel = null, onClearFilter }) {
   const [view, setView] = useState("all");
   const [bulkAmount, setBulkAmount] = useState("");
 
@@ -1290,7 +1337,28 @@ export function PaymentsTab({ payments, canWrite, onAdd, onOpen, onBulk, pending
       )}
 
       <div className="card card-flush">
-        {payments.length === 0 ? (
+        {payments.length === 0 && filtered ? (
+          /*
+             Filtered to nothing. The first-run prompt below must not appear
+             here: it tells a coach who already has dues recorded that they
+             have none, and invites them to set dues for everyone. That is
+             what "Player dues not set" used to land on, because those players
+             have no player_payments row to list.
+          */
+          <div className="empty">
+            <h3>No player payments match this filter</h3>
+            <p>
+              {filterLabel
+                ? `These players are ${filterLabel}, so they have no payment record to show yet.`
+                : "No payment records match the selected filter."}
+            </p>
+            {onClearFilter && (
+              <button className="btn" onClick={onClearFilter}>
+                Show all players
+              </button>
+            )}
+          </div>
+        ) : payments.length === 0 ? (
           <div className="empty">
             <h3>No player payments yet</h3>
             <p>
