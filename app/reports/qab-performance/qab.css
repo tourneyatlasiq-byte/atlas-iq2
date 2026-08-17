@@ -32,6 +32,11 @@
 .qab-c-date { white-space: nowrap; color: #475569; }
 .qab-c-res { white-space: nowrap; }
 
+/* Games played. Deliberately the narrowest column on the page: it is sample
+   size sitting beside PA, not a figure competing with QAB%. A fixed width
+   keeps it from taking room the player name needs, and adds no row height. */
+.qab-c-g { width: 2.6em; }
+
 /* Result is context beside a game, never an aggregate. Word, not just colour,
    so it survives a greyscale print. */
 .qab-res {

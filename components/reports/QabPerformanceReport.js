@@ -141,7 +141,7 @@ export function QabPerformanceReport({ report }) {
 
             {reasons.length > 0 && (
               <section className="rpt-section">
-                <p className="rpt-h">How QABs were earned</p>
+                <p className="rpt-h">What created quality at-bats</p>
                 <p className="qab-note">
                   {reasonsCited} reasons cited across {summary.qab} quality at-bats. One at-bat can
                   cite more than one reason.
@@ -169,6 +169,10 @@ export function QabPerformanceReport({ report }) {
                 <thead>
                   <tr>
                     <th>Player</th>
+                    {/* Games in which this player batted. Sample-size context
+                        beside PA, not a statistic and not a ranking key — the
+                        sort is unchanged. */}
+                    <th className="qab-num qab-c-g">G</th>
                     <th className="qab-num">QAB</th>
                     <th className="qab-num">PA</th>
                     <th className="qab-num">QAB%</th>
@@ -181,6 +185,7 @@ export function QabPerformanceReport({ report }) {
                        sits beside it so the coach reads sample size herself. */
                     <tr key={p.name}>
                       <td>{p.name}</td>
+                      <td className="qab-num qab-c-g">{p.games ?? "—"}</td>
                       <td className="qab-num">{p.qab}</td>
                       <td className="qab-num">{p.pa}</td>
                       <td className="qab-num qab-strong">{pct(p.qabPct)}</td>

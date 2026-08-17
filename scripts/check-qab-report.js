@@ -29,6 +29,18 @@ function assertEq(label, actual, expected) {
   }
 }
 
+/**
+ * A per-player history of n games, carrying the same per-game fields the real
+ * playerGameHistory() produces — so if the payload ever passed the array
+ * through instead of its length, the allowlist assertions would catch it.
+ */
+function hist(n) {
+  return Array.from({ length: n }, (_, i) => ({
+    gameId: `g${i + 1}`, opponent: `Opponent ${i + 1}`, gameDate: "2026-08-05",
+    battingOrder: 1, playerId: "p?", name: "Player", pa: 2, qab: 1, qabPct: 50,
+  }));
+}
+
 /** Northgate's real season, as the derivation returns it. */
 function northgate() {
   return {
@@ -54,14 +66,16 @@ function northgate() {
       { gameId: "g6", gameDate: "2026-08-04", opponent: "Test", result: "W", qab: 1, pa: 1, qabPct: 100 },
     ],
     players: [
-      // Real production spread, including the small samples.
-      { playerId: "p1", name: "Bella Ramos", qab: 11, pa: 14, qabPct: 78.6, history: [{ x: 1 }], recentForm: { qabPct: 80 } },
-      { playerId: "p2", name: "Gia Castellano", qab: 8, pa: 10, qabPct: 80, history: [], recentForm: null },
-      { playerId: "p3", name: "Jada Sinclair", qab: 6, pa: 10, qabPct: 60, history: [], recentForm: null },
-      { playerId: "p4", name: "Delaney Boyd", qab: 6, pa: 7, qabPct: 85.7, history: [], recentForm: null },
-      { playerId: "p5", name: "Cora Lindqvist", qab: 1, pa: 3, qabPct: 33.3, history: [], recentForm: null },
-      { playerId: "p6", name: "Solo Sample", qab: 1, pa: 1, qabPct: 100, history: [], recentForm: null },
-      { playerId: "p7", name: "Zero Sample", qab: 0, pa: 4, qabPct: 0, history: [], recentForm: null },
+      // Real production spread, including the small samples. history LENGTH is
+      // the games-batted count the report now reads, so these mirror the real
+      // per-player game counts rather than being placeholders.
+      { playerId: "p1", name: "Bella Ramos", qab: 11, pa: 14, qabPct: 78.6, history: hist(6), recentForm: { qabPct: 80 } },
+      { playerId: "p2", name: "Gia Castellano", qab: 8, pa: 10, qabPct: 80, history: hist(5), recentForm: null },
+      { playerId: "p3", name: "Jada Sinclair", qab: 6, pa: 10, qabPct: 60, history: hist(5), recentForm: null },
+      { playerId: "p4", name: "Delaney Boyd", qab: 6, pa: 7, qabPct: 85.7, history: hist(5), recentForm: null },
+      { playerId: "p5", name: "Cora Lindqvist", qab: 1, pa: 3, qabPct: 33.3, history: hist(2), recentForm: null },
+      { playerId: "p6", name: "Solo Sample", qab: 1, pa: 1, qabPct: 100, history: hist(1), recentForm: null },
+      { playerId: "p7", name: "Zero Sample", qab: 0, pa: 4, qabPct: 0, history: hist(3), recentForm: null },
     ],
     gamesCompleted: 3,
     record: { w: 3, l: 1, t: 0 },
@@ -121,7 +135,22 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
   assertEq("a genuine 0% is shown, not suppressed",
     [by("Zero Sample").pa, by("Zero Sample").qabPct], [4, 0]);
   assertEq("no player row carries a threshold or eligibility flag",
-    Object.keys(by("Cora Lindqvist")).sort(), ["name", "pa", "qab", "qabPct"]);
+    Object.keys(by("Cora Lindqvist")).sort(), ["games", "name", "pa", "qab", "qabPct"]);
+
+  /* 3b. Games played: read from the derivation's history, never recomputed. */
+  assertEq("games is the length of the history the derivation already built",
+    [by("Bella Ramos").games, by("Gia Castellano").games, by("Cora Lindqvist").games],
+    [6, 5, 2]);
+  assertEq("games is not inferred from PA — 3 PA across 2 games, 4 PA across 3",
+    [[by("Cora Lindqvist").games, by("Cora Lindqvist").pa],
+     [by("Zero Sample").games, by("Zero Sample").pa]],
+    [[2, 3], [3, 4]]);
+  assertEq("a 1-game player is carried, not suppressed",
+    [by("Solo Sample").games, by("Solo Sample").pa], [1, 1]);
+  assertEq("games never exceeds the season's tracked game count",
+    r.players.every((p) => p.games <= r.summary.games), true);
+  assertEq("games is a number, never a nested object or array",
+    r.players.every((p) => typeof p.games === "number"), true);
 
   /* 5. Deterministic order: QAB% desc, PA desc, name. */
   assertEq("sorted by QAB%, then PA, then name",
@@ -182,6 +211,18 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
   const r3 = await (await loadWith(noReasons)).qabPerformanceReport("s");
   assertEq("no reasons cited yields an empty list, not invented distribution",
     [r3.reasons.length, r3.reasonsCited], [0, 0]);
+
+  /* A derivation that stops supplying history must not print a false zero. */
+  const noHistory = northgate();
+  noHistory.players = noHistory.players.map(({ history, ...rest }) => rest);
+  const r5 = await (await loadWith(noHistory)).qabPerformanceReport("s");
+  assertEq("missing history yields null games, never 0 beside a real PA count",
+    [r5.players.every((p) => p.games === null), r5.players.find((p) => p.name === "Bella Ramos").pa],
+    [true, 14]);
+  assertEq("player order is unaffected by a missing games count",
+    r5.players.map((p) => p.name),
+    ["Solo Sample", "Delaney Boyd", "Gia Castellano", "Bella Ramos",
+     "Jada Sinclair", "Cora Lindqvist", "Zero Sample"]);
 
   const untracked = northgate();
   untracked.team = { pa: 0, qab: 0, qabPct: null, games: 0, players: 0, tournaments: 0 };
