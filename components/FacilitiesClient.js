@@ -5,6 +5,7 @@ import { PageHelp } from "./PageHelp";
 import { DocumentSection } from "./DocumentSection";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
+import { AddressLookup } from "./AddressLookup";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
 import { FacilityImport } from "./FacilityImport";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -1159,6 +1160,10 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
   const [stateCode, setStateCode] = useState(row?.state ?? "");
   const [acknowledged, setAcknowledged] = useState(false);
   const [prefill, setPrefill] = useState(null);
+  // Declared AFTER prefill: reading prefill above its own declaration is a
+  // temporal dead zone error, and optional chaining does not protect against
+  // it — `prefill?.zip` guards a null value, not an unreachable binding.
+  const [zip, setZip] = useState(prefill?.zip ?? row?.zip ?? "");
   const [externalResults, setExternalResults] = useState([]);
   const [externalState, setExternalState] = useState("idle");
   const [externalError, setExternalError] = useState(null);
@@ -1507,10 +1512,25 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               </div>
             </div>
 
+            {/* Shared with Quick Add so both flows validate identically.
+                Advisory only — it never blocks saving. */}
+            <AddressLookup
+              streetAddress={street}
+              city={city}
+              state={stateCode}
+              zip={zip}
+              onApply={(next) => {
+                if (next.streetAddress !== undefined) setStreet(next.streetAddress);
+                if (next.city !== undefined) setCity(next.city);
+                if (next.state !== undefined) setStateCode(next.state);
+                if (next.zip !== undefined) setZip(next.zip);
+              }}
+            />
+
             <div className="field-row">
               <div className="field">
                 <label htmlFor="f-zip">ZIP</label>
-                <input id="f-zip" name="zip" defaultValue={prefill?.zip ?? row?.zip ?? ""} />
+                <input id="f-zip" name="zip" value={zip} onChange={(e) => setZip(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="f-fields">Number of fields</label>

@@ -124,8 +124,8 @@ function assertEq(label, actual, expected) {
   assertEq("free-text location appears exactly once",
     text({ name: null, area: "Panama City, FL", address: null }), "Panama City, FL");
   assertEq("facility with a full address: address replaces city/state",
-    text({ name: "Hobgood Park", area: "Woodstock, GA", address: "6501 Bells Ferry Rd, Woodstock, GA 30189" }),
-    "Hobgood Park · 6501 Bells Ferry Rd, Woodstock, GA 30189");
+    text({ name: "Hobgood Park", area: "Woodstock, GA", address: "6688 Bells Ferry Rd, Woodstock, GA 30189" }),
+    "Hobgood Park · 6688 Bells Ferry Rd, Woodstock, GA 30189");
   assertEq("facility without an address falls back to city/state",
     text({ name: "Champions Park", area: "Newberry, FL", address: null }),
     "Champions Park · Newberry, FL");

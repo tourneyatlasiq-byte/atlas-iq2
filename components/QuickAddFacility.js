@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AddressLookup } from "./AddressLookup";
 import { createFacility } from "../lib/actions/facilities";
 
 /**
@@ -28,6 +29,12 @@ export function QuickAddFacility({ onClose, onFacilityReady }) {
   const [duplicates, setDuplicates] = useState(null);
   const [lastForm, setLastForm] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  // Controlled so the shared AddressLookup can read them and apply a
+  // confirmed suggestion back into the form.
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [stateCode, setStateCode] = useState("");
+  const [zip, setZip] = useState("");
   const [pending, startTransition] = useTransition();
 
   function send(formData) {
@@ -151,17 +158,32 @@ export function QuickAddFacility({ onClose, onFacilityReady }) {
             <div className="field-row">
               <div className="field">
                 <label htmlFor="qa-city">City</label>
-                <input id="qa-city" name="city" required />
+                <input id="qa-city" name="city" required value={city} onChange={(e) => setCity(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="qa-state">State</label>
-                <input id="qa-state" name="state" maxLength={2} placeholder="GA" required />
+                <input id="qa-state" name="state" maxLength={2} placeholder="GA" required value={stateCode} onChange={(e) => setStateCode(e.target.value)} />
               </div>
             </div>
 
             <div className="field">
               <label htmlFor="qa-street">Street address</label>
-              <input id="qa-street" name="street_address" />
+              <input id="qa-street" name="street_address" value={street} onChange={(e) => setStreet(e.target.value)} />
+
+              {/* Same component, same rules as the full Facilities form. */}
+              <AddressLookup
+                streetAddress={street}
+                city={city}
+                state={stateCode}
+                zip={zip}
+                onApply={(next) => {
+                  if (next.streetAddress !== undefined) setStreet(next.streetAddress);
+                  if (next.city !== undefined) setCity(next.city);
+                  if (next.state !== undefined) setStateCode(next.state);
+                  if (next.zip !== undefined) setZip(next.zip);
+                }}
+              />
+              <input type="hidden" name="zip" value={zip} />
             </div>
 
             <p className="field-note">

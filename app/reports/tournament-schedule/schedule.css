@@ -46,7 +46,7 @@
 .sch-place-name { font-weight: 600; }
 .sch-dot { color: #cbd5e1; }
 /* Inline with the facility name rather than on its own line — a typical
-   "Hobgood Park · 6501 Bells Ferry Rd, Woodstock, GA 30189" fits the content
+   "Hobgood Park · 6688 Bells Ferry Rd, Woodstock, GA 30189" fits the content
    column on one line, and that is one line saved on every tournament. It wraps
    naturally when a long address needs the room. */
 .sch-address { font-size: 12px; color: #64748b; }
