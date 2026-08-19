@@ -345,3 +345,247 @@
    tighter to the label than a standalone section heading would. */
 .mk-who .mk-eyebrow { margin-bottom: 8px; }
 .mk-who p + p { margin-top: 14px; }
+
+/* ==========================================================================
+   Homepage — 2026 redesign.
+
+   The product screenshots are the visual language. Everything else is type,
+   space and one hairline. No gradients, no glass, no device frames, no
+   decorative shapes. Exactly one colour inversion on the page, spent on QAB.
+   ========================================================================== */
+
+.mk-wrap { max-width: 1180px; }
+
+/* Art direction per breakpoint. A desktop capture scaled to 380px is not a
+   mobile image — each viewport gets a crop composed for it. */
+.mk-only-mob { display: none; }
+@media (max-width: 720px) {
+  .mk-only-desk { display: none; }
+  .mk-only-mob { display: block; }
+}
+
+/* --- Hero ---------------------------------------------------------------- */
+
+.mk-hero { padding: 96px 0 56px; text-align: left; }
+.mk-hero h1 {
+  max-width: 15ch;
+  font-size: clamp(38px, 5.2vw, 60px); line-height: 1.04;
+  letter-spacing: -0.022em; color: var(--navy); margin: 0;
+}
+.mk-hero .mk-lede { max-width: 60ch; margin: 20px 0 0; font-size: clamp(17px, 1.5vw, 19px); }
+.mk-hero .mk-cta { justify-content: flex-start; margin-top: 30px; }
+.mk-hero .mk-note { margin-top: 16px; }
+
+@media (max-width: 720px) {
+  .mk-hero { padding: 56px 0 36px; }
+  .mk-hero h1 { font-size: 32px; max-width: none; }
+  .mk-cta { flex-direction: column; align-items: stretch; }
+  .mk-cta .btn { justify-content: center; width: 100%; }
+}
+
+/* --- The product, interrupting the hero ---------------------------------- */
+
+.mk-shot { padding: 0 0 96px; }
+.mk-shot-frame {
+  border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 24px 60px -30px rgba(11, 35, 65, 0.35);
+}
+.mk-shot-image { display: block; width: 100%; height: auto; }
+
+@media (max-width: 720px) { .mk-shot { padding-bottom: 56px; } }
+
+/* --- Sections ------------------------------------------------------------ */
+
+.mk-section { padding: 96px 0; }
+.mk-white { background: var(--surface); }
+.mk-narrow { max-width: 660px; }
+
+.mk-section h2 {
+  font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15;
+  letter-spacing: -0.02em; color: var(--navy);
+}
+.mk-section p { font-size: 17px; line-height: 1.72; }
+.mk-emphasis { font-size: 20px; font-weight: 600; color: var(--navy); line-height: 1.55; }
+.mk-h2-lead { margin: 0 0 34px; }
+
+@media (max-width: 720px) {
+  .mk-section { padding: 56px 0; }
+  .mk-section p { font-size: 16px; }
+  .mk-emphasis { font-size: 18px; }
+}
+
+/* --- The season narrative ------------------------------------------------ */
+
+/* One hairline down the gutter, with a node at each beat. This is the entire
+   "connected" device — no diagram, no arrows, nothing decorative. */
+.mk-beats { list-style: none; margin: 0; padding: 0 0 0 30px; position: relative; }
+.mk-beats::before {
+  content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px;
+  width: 1px; background: var(--border);
+}
+
+.mk-beat {
+  position: relative;
+  display: grid; grid-template-columns: 0.85fr 1.15fr;
+  align-items: center; gap: 56px;
+  padding: 44px 0;
+}
+.mk-beat + .mk-beat { border-top: 1px solid #eef2f7; }
+.mk-beat::before {
+  content: ""; position: absolute; left: -30px; top: 54px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--navy); outline: 4px solid var(--surface);
+}
+.mk-beat.flip .mk-beat-copy { order: 2; }
+.mk-beat.flip .mk-beat-visual { order: 1; }
+
+.mk-beat-label {
+  margin: 0 0 8px; font-size: 11.5px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold);
+}
+.mk-beat-title {
+  margin: 0 0 12px; font-family: var(--font-display, inherit);
+  font-size: clamp(21px, 2.3vw, 27px); line-height: 1.2;
+  letter-spacing: -0.015em; color: var(--navy);
+}
+.mk-beat-body { margin: 0; font-size: 16.5px; line-height: 1.68; color: var(--slate); }
+
+.mk-beat-visual { position: relative; min-width: 0; }
+.mk-beat-visual > img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 18px 44px -26px rgba(11, 35, 65, 0.3);
+}
+/* A second real screen, overlapping — both were true at the same moment. */
+.mk-beat-inset {
+  position: absolute; right: -14px; bottom: -22px; width: 54%;
+  border-radius: 10px;
+  box-shadow: 0 20px 44px -20px rgba(11, 35, 65, 0.42);
+}
+/* The phone is shown at its own proportions, never stretched to a card. */
+.mk-beat.phone .mk-beat-visual > img {
+  width: auto; max-width: 300px; margin: 0 auto; border-radius: 22px;
+}
+.mk-beat.wide { grid-template-columns: 0.8fr 1.2fr; }
+
+@media (max-width: 900px) {
+  .mk-beats { padding-left: 0; }
+  .mk-beats::before { display: none; }
+  .mk-beat {
+    grid-template-columns: 1fr; gap: 22px; padding: 32px 0 32px 16px;
+    border-left: 2px solid var(--border);
+  }
+  .mk-beat::before { display: none; }
+  .mk-beat.flip .mk-beat-copy { order: 0; }
+  .mk-beat.flip .mk-beat-visual { order: 0; }
+  .mk-beat-inset { position: static; width: 72%; margin: 12px 0 0 auto; display: block; }
+  .mk-beat.phone .mk-beat-visual > img { max-width: 260px; }
+}
+
+/* --- Breadth: an editorial contents list, not six boxes ------------------ */
+
+.mk-areas {
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: 56px; border-top: 1px solid var(--border);
+}
+.mk-area { padding: 20px 0; border-bottom: 1px solid var(--border); }
+.mk-area-name {
+  margin: 0 0 4px; font-size: 16.5px; font-weight: 700; color: var(--navy);
+}
+.mk-area-body { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--slate); }
+.mk-more { margin-top: 28px; font-size: 15.5px; }
+
+@media (max-width: 720px) {
+  .mk-areas { grid-template-columns: 1fr; column-gap: 0; }
+  .mk-area { padding: 16px 0; }
+}
+
+/* --- QAB: the one inversion --------------------------------------------- */
+
+.mk-qab { background: var(--navy); color: #fff; padding: 116px 0; }
+.mk-qab-grid {
+  display: grid; grid-template-columns: 0.9fr 1.1fr;
+  gap: 64px; align-items: center;
+}
+.mk-qab-copy h2 {
+  margin: 0 0 20px; font-size: clamp(28px, 3.2vw, 38px); line-height: 1.15;
+  letter-spacing: -0.02em; color: #fff;
+}
+.mk-qab-copy p {
+  margin: 0 0 16px; font-size: 17.5px; line-height: 1.7;
+  color: rgba(255, 255, 255, 0.78);
+}
+.mk-qab-copy p:last-child { margin-bottom: 0; }
+
+/* Stated, not shouted. No pricing implied. */
+.mk-premium {
+  display: inline-block; vertical-align: middle; margin-left: 12px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--gold); color: var(--navy);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+.mk-qab-shots { display: flex; align-items: flex-end; gap: 26px; }
+.mk-qab-phone {
+  display: block; width: 44%; max-width: 260px; height: auto;
+  border-radius: 20px; box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.65);
+}
+/* Capture on the left, what it produced on the right. */
+.mk-qab-reasons {
+  display: block; flex: 1; min-width: 0; height: auto;
+  border-radius: 12px; background: #fff;
+  box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.65);
+}
+
+@media (max-width: 900px) {
+  .mk-qab { padding: 72px 0; }
+  .mk-qab-grid { grid-template-columns: 1fr; gap: 34px; }
+  .mk-qab-shots { flex-direction: column; align-items: stretch; gap: 20px; }
+  .mk-qab-phone { width: 62%; max-width: 240px; margin: 0 auto; }
+}
+
+/* --- Reports: a document, not an interface ------------------------------- */
+
+.mk-report-grid {
+  display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 64px; align-items: center;
+}
+.mk-report-copy h2 { margin: 0 0 18px; }
+.mk-report-paper { position: relative; }
+.mk-report-image {
+  display: block; width: 100%; height: auto; position: relative; z-index: 1;
+  border: 1px solid #e8edf3; border-radius: 4px;
+  box-shadow: 0 18px 44px -24px rgba(11, 35, 65, 0.28);
+  transform: rotate(-1.2deg);
+}
+/* A second sheet behind, so it reads as paper rather than a screenshot. */
+.mk-report-paper::before {
+  content: ""; position: absolute; inset: 14px -10px -10px 14px;
+  background: #fff; border: 1px solid #eef2f7; border-radius: 4px;
+  transform: rotate(1.6deg);
+}
+
+@media (max-width: 900px) {
+  .mk-report-grid { grid-template-columns: 1fr; gap: 32px; }
+  .mk-report-image { transform: none; }
+  .mk-report-paper::before { display: none; }
+}
+
+/* --- Early access and close --------------------------------------------- */
+
+.mk-access { padding: 72px 0; }
+.mk-access p { margin: 0; font-size: 16px; line-height: 1.75; color: var(--slate); }
+
+.mk-final { background: var(--navy); color: #fff; padding: 104px 0; text-align: center; }
+.mk-final h2 { margin: 0 0 26px; color: #fff; font-size: clamp(26px, 3vw, 34px); }
+.mk-final .mk-note { color: rgba(255, 255, 255, 0.62); margin-top: 16px; }
+
+@media (max-width: 720px) { .mk-final { padding: 64px 0; } }
+
+/* --- Motion: three things, and none of them delay reading ---------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .mk-beat-visual > img, .mk-shot-frame { transition: box-shadow 200ms ease-out; }
+  .mk-beat-visual > img:hover { box-shadow: 0 24px 54px -24px rgba(11, 35, 65, 0.42); }
+  .mk-shot-frame:hover { box-shadow: 0 30px 70px -30px rgba(11, 35, 65, 0.42); }
+}
