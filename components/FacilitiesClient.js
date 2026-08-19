@@ -590,12 +590,29 @@ function notePreview(f) {
 }
 
 /** "Sep 12 · Fall Kickoff Classic", or null. */
+/**
+ * The SOONEST upcoming non-Declined tournament at this facility.
+ *
+ * The query orders tournaments start_date DESC, so `upcoming[0]` is the
+ * furthest-away event — this used to label that one "Next event". Harmless
+ * while no venue had two upcoming tournaments, wrong the moment one does.
+ *
+ * Returns the raw `date` alongside the display fields so the column and its
+ * sort read the same event. Two independent notions of "next" would be free to
+ * disagree, which is exactly the bug this replaces.
+ */
 function nextEventOf(f) {
-  const t = (f.upcoming ?? []).filter((x) => x.decision !== "Declined")[0];
-  if (!t) return null;
+  const upcoming = (f.upcoming ?? []).filter((x) => x.decision !== "Declined");
+  if (upcoming.length === 0) return null;
+
+  const t = upcoming.reduce((soonest, x) =>
+    String(x.start_date) < String(soonest.start_date) ? x : soonest
+  );
+
   const when = new Date(t.start_date + "T00:00:00")
     .toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return { when, name: t.name };
+
+  return { when, name: t.name, date: t.start_date };
 }
 
 /**
@@ -641,14 +658,8 @@ function OurVenuesTable({ rows, onOpen, sort, onSort }) {
         {applySort(rows, sort, {
           name: (f) => f.name,
           location: (f) => cityStateLong(f),
-          /* The SOONEST upcoming date, computed rather than read from
-             upcoming[0]: the query orders tournaments start_date DESC, so
-             index 0 is the furthest-away event, not the next one. */
-          next: (f) =>
-            (f.upcoming ?? [])
-              .filter((t) => t.decision !== "Declined")
-              .map((t) => t.start_date)
-              .sort()[0] ?? null,
+          // Same selection the column displays — one definition of "next".
+          next: (f) => nextEventOf(f)?.date ?? null,
           notes: (f) => Boolean(f.orgNotes),
           history: (f) =>
             (f.past ?? []).filter((t) => t.decision !== "Declined").length || null,
