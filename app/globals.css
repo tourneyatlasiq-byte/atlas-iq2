@@ -5181,3 +5181,57 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;
 }
 .addrlk-actions .btn { min-height: 40px; }
+
+/* --- Facilities polish ---------------------------------------------------- */
+
+/* Address block: City | State | ZIP on desktop. */
+.field-row-address { grid-template-columns: 2fr 1.4fr 1fr; }
+@media (max-width: 640px) {
+  /* City full width, then State | ZIP — three narrow columns on a phone
+     would squeeze the city name for no benefit. */
+  .field-row-address { grid-template-columns: 1fr 1fr; }
+  .field-row-address > .field:first-child { grid-column: 1 / -1; }
+}
+
+/* Duplicate warning: identifying facts stacked, action beneath.
+   The card previously named the match and said "same street address" without
+   ever showing the address, leaving no safe basis for the decision. */
+.dupe-list li {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 14px; padding: 10px 0;
+}
+.dupe-list li + li { border-top: 1px solid rgba(140, 29, 29, 0.15); }
+.dupe-facts { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dupe-name { font-weight: 700; color: var(--navy); }
+.dupe-line { font-size: 13px; line-height: 1.4; color: #6b2020; }
+.dupe-reason {
+  margin-top: 3px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #8c1d1d;
+}
+.dupe-use { flex: 0 0 auto; white-space: nowrap; }
+
+@media (max-width: 560px) {
+  /* Stacks rather than growing taller: four short lines wrap less than one
+     long one, and the action spans the width instead of crowding the text. */
+  .dupe-list li { flex-direction: column; gap: 8px; }
+  .dupe-use { width: 100%; }
+}
+
+/* Amenity tags, and a dash where nothing is recorded. */
+.fc-amen-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.fc-amen-tag {
+  font-size: 11px; font-weight: 600; line-height: 1.5;
+  padding: 1px 7px; border-radius: 999px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  color: var(--slate); white-space: nowrap;
+}
+
+/* Row affordance: the row was already clickable with nothing saying so. */
+.fc-go { width: 24px; text-align: right; }
+.fc-chev { color: var(--border); font-size: 17px; line-height: 1; }
+.facility-table tr.row-click:hover { background: #f7fafe; }
+.facility-table tr.row-click:hover .fc-chev { color: var(--blue); }
+
+/* Full state name plus a counted label reads as a place, not a code. */
+.fac-state-name { font-weight: 800; }

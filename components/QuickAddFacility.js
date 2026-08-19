@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AddressLookup } from "./AddressLookup";
+import { cityStateLong, US_STATE_OPTIONS } from "../lib/facility-fields";
 import { createFacility } from "../lib/actions/facilities";
 
 /**
@@ -73,8 +74,10 @@ export function QuickAddFacility({ onClose, onFacilityReady }) {
     send(lastForm);
   }
 
-  const line = (f) =>
-    [f.street_address, [f.city, f.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+  /* Street on one line, city/state/ZIP on the next, rather than one long
+     dot-joined string. Four short lines wrap better on a phone than one long
+     one, and the coach needs the street address to judge a duplicate at all. */
+  const locality = (f) => [cityStateLong(f), f.zip].filter(Boolean).join(" ") || null;
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
@@ -98,7 +101,10 @@ export function QuickAddFacility({ onClose, onFacilityReady }) {
                     <li key={d.id}>
                       <span className="qa-dupe-text">
                         <span className="qa-dupe-name">{d.name}</span>
-                        {line(d) && <span className="qa-dupe-meta">{line(d)}</span>}
+                        {d.street_address && (
+                          <span className="qa-dupe-meta">{d.street_address}</span>
+                        )}
+                        {locality(d) && <span className="qa-dupe-meta">{locality(d)}</span>}
                       </span>
                       <button
                         type="button"
@@ -162,7 +168,21 @@ export function QuickAddFacility({ onClose, onFacilityReady }) {
               </div>
               <div className="field">
                 <label htmlFor="qa-state">State</label>
-                <input id="qa-state" name="state" maxLength={2} placeholder="GA" required value={stateCode} onChange={(e) => setStateCode(e.target.value)} />
+                {/* Same control and same stored two-letter code as Add Facility:
+                    the two entry points must not offer different address
+                    experiences. */}
+                <select
+                  id="qa-state"
+                  name="state"
+                  required
+                  value={stateCode}
+                  onChange={(e) => setStateCode(e.target.value)}
+                >
+                  <option value="">Select state</option>
+                  {US_STATE_OPTIONS.map((s2) => (
+                    <option key={s2.code} value={s2.code}>{s2.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

@@ -29,6 +29,9 @@ import {
   formatFacilityAddress,
   facilityMapsUrl,
   displayableSurface,
+  cityStateLong,
+  stateName,
+  US_STATE_OPTIONS,
 } from "../lib/facility-fields";
 
 /** Plain-English reason a duplicate warning fired. */
@@ -218,12 +221,23 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
       byState.set(st, [...(byState.get(st) ?? []), f]);
     }
 
+    /**
+     * Most facilities first, then alphabetical by full name.
+     *
+     * Alphabetical alone put Florida above Georgia for a Georgia club, which
+     * buries the state a coach actually plays in. Ordering by count surfaces
+     * the home state without inventing one: there is no home-state field on
+     * organizations or teams, and deriving it from tournament history would
+     * rest on a single tournament for some organizations and nothing at all
+     * for a new one. Revisit if a real home state is ever stored.
+     */
     return [...byState.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
       .map(([state, rows]) => ({
         state,
+        label: stateName(state) ?? state,
         rows: rows.sort((a, b) => a.name.localeCompare(b.name)),
-      }));
+      }))
+      .sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label));
   }, [visible, stateFilter, countyFilter, query]);
 
   /** Opens the drawer, optionally jumping to a history block. */
@@ -266,6 +280,13 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
         </div>
         {canWrite && (
           <div className="foot-actions">
+            {/* Secondary to Add facility, and in the header rather than
+                floating above the tabs where it read as unrelated. */}
+            {isAdmin && (
+              <button className="btn btn-secondary" onClick={() => setImporting(true)}>
+                Upload facilities
+              </button>
+            )}
             <button className="btn btn-primary" onClick={() => setEditing("new")}>
               Add facility
             </button>
@@ -295,11 +316,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
         </p>
       )}
 
-      {view === "all" && isAdmin && (
-        <button className="fac-import-link" onClick={() => setImporting(true)}>
-          Upload facilities
-        </button>
-      )}
+
 
       <div className="view-toggle-row">
       <div className="segmented view-toggle" role="group" aria-label="Which facilities to show">
@@ -425,8 +442,10 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
                   aria-expanded={isOpen(g.state)}
                 >
                   <span className={`group-caret${isOpen(g.state) ? "" : " collapsed"}`} aria-hidden="true">▾</span>
-                  <span className="fac-state-name">{g.state}</span>
-                  <span className="group-count">{g.rows.length}</span>
+                  <span className="fac-state-name">{g.label}</span>
+                  <span className="group-count">
+                    {g.rows.length} {g.rows.length === 1 ? "facility" : "facilities"}
+                  </span>
                   <span className="fac-state-toggle">{isOpen(g.state) ? "Collapse" : "Expand"}</span>
                 </button>
 
@@ -694,10 +713,13 @@ function FacilityTable({ rows, onOpen }) {
         <tr>
           <th className="fc-name">Facility</th>
           <th className="fc-loc">Location</th>
-          <th className="fc-county">County</th>
+          {/* County left the visible table: it cost a full column and rarely
+              informs a browsing decision. The DATA is untouched — it remains
+              searchable, filterable, on the mobile sub-line, and in detail. */}
           <th className="fc-fields">Fields</th>
           <th className="fc-surface">Surface</th>
           <th className="fc-amen">Amenities</th>
+          <th className="fc-go" aria-hidden="true" />
         </tr>
       </thead>
       <tbody>
@@ -723,17 +745,27 @@ function FacilityTable({ rows, onOpen }) {
                   .join(" · ")}
               </span>
             </td>
-            <td className="fc-loc">{cityState(f) ?? <span className="muted">—</span>}</td>
-            <td className="fc-county">{f.county ?? <span className="muted">—</span>}</td>
+            {/* Full state name: "Sarasota, Florida" reads as a place, where
+                "Sarasota, FL" reads as a record. Stored values unchanged. */}
+            <td className="fc-loc">{cityStateLong(f) ?? <span className="muted">—</span>}</td>
             <td className="fc-fields">{f.field_count ?? <span className="muted">—</span>}</td>
             <td className="fc-surface">{f.surface_type ?? <span className="muted">—</span>}</td>
             <td className="fc-amen">
               {amenities(f).length ? (
-                <span className="fc-amen-list">{amenities(f).join(" · ")}</span>
+                <span className="fc-amen-tags">
+                  {amenities(f).map((a) => (
+                    <span key={a} className="fc-amen-tag">{a}</span>
+                  ))}
+                </span>
               ) : (
-                <span className="muted">Not recorded</span>
+                /* A quiet dash. "Not recorded" repeated down every row was
+                   noise that said nothing the dash does not. */
+                <span className="muted">—</span>
               )}
             </td>
+            {/* Signals the row opens. The row was already clickable with no
+                affordance saying so. */}
+            <td className="fc-go" aria-hidden="true"><span className="fc-chev">›</span></td>
           </tr>
         ))}
       </tbody>
@@ -1461,17 +1493,39 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
             )}
             {duplicates.length > 0 && (
               <div className="alert alert-error">
+                {/* The city is not repeated in the heading: each card now
+                    carries its own full location, and "in Conyers" above a
+                    card that already says Conyers is noise. */}
                 <strong>
-                  {duplicates.length === 1 ? "This may already be in Season Tempo" : `${duplicates.length} facilities look like this one`}
-                  {city.trim() ? ` in ${city.trim()}` : ""}:
+                  {duplicates.length === 1
+                    ? "This may already be in Season Tempo"
+                    : `${duplicates.length} facilities look like this one`}
                 </strong>
                 <ul className="dupe-list">
                   {duplicates.map(({ facility: d, rule }) => (
                     <li key={d.id}>
-                      {d.name}{cityState(d) ? ` — ${cityState(d)}` : ""}
-                      <span className="muted"> · {DUPLICATE_REASONS[rule]}</span>
-                      <button type="button" className="btn btn-ghost" onClick={() => onPickExisting(d)}>
-                        Use this one
+                      {/* Enough to tell two facilities apart. The warning says
+                          "same street address" but never showed the address,
+                          which left no safe way to judge. Name, street, then
+                          city with the full state name and ZIP when present. */}
+                      <div className="dupe-facts">
+                        <span className="dupe-name">{d.name}</span>
+                        {d.street_address && (
+                          <span className="dupe-line">{d.street_address}</span>
+                        )}
+                        {(cityStateLong(d) || d.zip) && (
+                          <span className="dupe-line">
+                            {[cityStateLong(d), d.zip].filter(Boolean).join(" ")}
+                          </span>
+                        )}
+                        <span className="dupe-reason">{DUPLICATE_REASONS[rule]}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary dupe-use"
+                        onClick={() => onPickExisting(d)}
+                      >
+                        Use this facility
                       </button>
                     </li>
                   ))}
@@ -1500,15 +1554,37 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                      onChange={(e) => setStreet(e.target.value)} />
             </div>
 
-            <div className="field-row">
+            <div className="field-row field-row-address">
               <div className="field">
                 <label htmlFor="f-city">City</label>
                 <input id="f-city" name="city" value={city} onChange={(e) => setCity(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="f-state">State</label>
-                <input id="f-state" name="state" maxLength={2} placeholder="GA" value={stateCode}
-                       onChange={(e) => setStateCode(e.target.value)} />
+                {/* Stores the two-letter CODE exactly as before — address
+                    verification compares state exactly, so the persisted value
+                    must not change. No default: an empty selector reads as
+                    "not chosen", where a greyed "GA" read as half-filled. */}
+                <select
+                  id="f-state"
+                  name="state"
+                  value={stateCode}
+                  onChange={(e) => setStateCode(e.target.value)}
+                >
+                  <option value="">Select state</option>
+                  {US_STATE_OPTIONS.map((s2) => (
+                    <option key={s2.code} value={s2.code}>{s2.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ZIP joins the address block. It was below the verification
+                  panel, which visually separated it from the address it
+                  belongs to. name="zip" and the controlled state are
+                  unchanged, so Geocodio's ZIP completion still applies here. */}
+              <div className="field">
+                <label htmlFor="f-zip">ZIP</label>
+                <input id="f-zip" name="zip" value={zip} onChange={(e) => setZip(e.target.value)} />
               </div>
             </div>
 
@@ -1527,15 +1603,9 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               }}
             />
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="f-zip">ZIP</label>
-                <input id="f-zip" name="zip" value={zip} onChange={(e) => setZip(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="f-fields">Number of fields</label>
-                <input id="f-fields" name="field_count" type="number" min="0" defaultValue={row?.field_count ?? ""} />
-              </div>
+            <div className="field">
+              <label htmlFor="f-fields">Number of fields</label>
+              <input id="f-fields" name="field_count" type="number" min="0" defaultValue={row?.field_count ?? ""} />
             </div>
 
             {/* Website sits with the other shared identity facts. It used to
