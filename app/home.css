@@ -415,74 +415,6 @@
   .mk-emphasis { font-size: 18px; }
 }
 
-/* --- The season narrative ------------------------------------------------ */
-
-/* One hairline down the gutter, with a node at each beat. This is the entire
-   "connected" device — no diagram, no arrows, nothing decorative. */
-.mk-beats { list-style: none; margin: 0; padding: 0 0 0 30px; position: relative; }
-.mk-beats::before {
-  content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px;
-  width: 1px; background: var(--border);
-}
-
-.mk-beat {
-  position: relative;
-  display: grid; grid-template-columns: 0.85fr 1.15fr;
-  align-items: center; gap: 56px;
-  padding: 44px 0;
-}
-.mk-beat + .mk-beat { border-top: 1px solid #eef2f7; }
-.mk-beat::before {
-  content: ""; position: absolute; left: -30px; top: 54px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--navy); outline: 4px solid var(--surface);
-}
-.mk-beat.flip .mk-beat-copy { order: 2; }
-.mk-beat.flip .mk-beat-visual { order: 1; }
-
-.mk-beat-label {
-  margin: 0 0 8px; font-size: 11.5px; font-weight: 800;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold);
-}
-.mk-beat-title {
-  margin: 0 0 12px; font-family: var(--font-display, inherit);
-  font-size: clamp(21px, 2.3vw, 27px); line-height: 1.2;
-  letter-spacing: -0.015em; color: var(--navy);
-}
-.mk-beat-body { margin: 0; font-size: 16.5px; line-height: 1.68; color: var(--slate); }
-
-.mk-beat-visual { position: relative; min-width: 0; }
-.mk-beat-visual > img {
-  display: block; width: 100%; height: auto;
-  border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: 0 18px 44px -26px rgba(11, 35, 65, 0.3);
-}
-/* A second real screen, overlapping — both were true at the same moment. */
-.mk-beat-inset {
-  position: absolute; right: -14px; bottom: -22px; width: 54%;
-  border-radius: 10px;
-  box-shadow: 0 20px 44px -20px rgba(11, 35, 65, 0.42);
-}
-/* The phone is shown at its own proportions, never stretched to a card. */
-.mk-beat.phone .mk-beat-visual > img {
-  width: auto; max-width: 300px; margin: 0 auto; border-radius: 22px;
-}
-.mk-beat.wide { grid-template-columns: 0.8fr 1.2fr; }
-
-@media (max-width: 900px) {
-  .mk-beats { padding-left: 0; }
-  .mk-beats::before { display: none; }
-  .mk-beat {
-    grid-template-columns: 1fr; gap: 22px; padding: 32px 0 32px 16px;
-    border-left: 2px solid var(--border);
-  }
-  .mk-beat::before { display: none; }
-  .mk-beat.flip .mk-beat-copy { order: 0; }
-  .mk-beat.flip .mk-beat-visual { order: 0; }
-  .mk-beat-inset { position: static; width: 72%; margin: 12px 0 0 auto; display: block; }
-  .mk-beat.phone .mk-beat-visual > img { max-width: 260px; }
-}
-
 /* --- Breadth: an editorial contents list, not six boxes ------------------ */
 
 .mk-areas {
@@ -589,3 +521,132 @@
   .mk-beat-visual > img:hover { box-shadow: 0 24px 54px -24px rgba(11, 35, 65, 0.42); }
   .mk-shot-frame:hover { box-shadow: 0 30px 70px -30px rgba(11, 35, 65, 0.42); }
 }
+
+/* --- Hero: a wider measure so the H1 lands in two lines, not four -------- */
+
+.mk-hero h1 { max-width: 22ch; }
+@media (min-width: 1100px) { .mk-hero h1 { max-width: 24ch; font-size: 58px; } }
+@media (max-width: 720px) { .mk-hero h1 { max-width: none; } }
+
+/* --- The product story --------------------------------------------------- */
+
+.mk-story-section { padding: 8px 0 88px; }
+
+.ps {
+  border: 1px solid var(--border); border-radius: 18px;
+  background: var(--surface); overflow: hidden;
+  box-shadow: 0 24px 60px -34px rgba(11, 35, 65, 0.32);
+}
+
+/* Steps read as a numbered path across the top, not as buttons in a toolbar. */
+.ps-tabs {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.ps-tab {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 16px 18px; min-height: 68px;
+  border: 0; border-right: 1px solid var(--border);
+  background: none; cursor: pointer; text-align: left;
+  font: inherit; color: var(--slate);
+  /* The active step is marked by an inset rule as well as weight and colour,
+     so it is never communicated by colour alone. */
+  box-shadow: inset 0 -3px 0 transparent;
+  transition: background 160ms ease-out, color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.ps-tab:last-child { border-right: 0; }
+.ps-tab:hover { background: var(--surface); color: var(--navy); }
+.ps-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
+.ps-tab.on {
+  background: var(--surface); color: var(--navy);
+  box-shadow: inset 0 -3px 0 var(--blue);
+}
+.ps-tab-n { font-size: 11px; font-weight: 800; letter-spacing: .09em; opacity: .55; }
+.ps-tab.on .ps-tab-n { color: var(--blue); opacity: 1; }
+.ps-tab-label { font-size: 14.5px; font-weight: 700; }
+
+.ps-panel {
+  display: grid; grid-template-columns: 0.72fr 1.28fr;
+  gap: 44px; align-items: center; padding: 40px 44px;
+}
+.ps-panel:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; }
+
+.ps-step {
+  margin: 0 0 10px; font-size: 11.5px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--gold);
+}
+.ps-title {
+  margin: 0 0 12px; font-family: var(--font-display, inherit);
+  font-size: clamp(22px, 2.4vw, 29px); line-height: 1.18;
+  letter-spacing: -0.017em; color: var(--navy);
+}
+.ps-body { margin: 0; font-size: 16.5px; line-height: 1.65; color: var(--slate); }
+
+/* A fixed aspect so switching steps can never shift the page. Each image is
+   rendered and hidden rather than swapped, so nothing flashes. */
+.ps-visual { position: relative; aspect-ratio: 16 / 10; }
+.ps-img {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden;
+  transition: opacity 220ms ease-out;
+}
+.ps-img.on { opacity: 1; visibility: visible; }
+.ps-img img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto;
+  border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 14px 34px -20px rgba(11, 35, 65, 0.34);
+}
+/* The phone keeps its own proportions rather than being stretched to a card. */
+.ps-visual.phone .ps-img img { border-radius: 20px; max-height: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ps-tab, .ps-img { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .mk-story-section { padding: 4px 0 56px; }
+  /* Chips that scroll horizontally INSIDE the frame — the page itself never
+     overflows. */
+  .ps-tabs {
+    display: flex; grid-template-columns: none;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .ps-tabs::-webkit-scrollbar { display: none; }
+  .ps-tab {
+    flex: 0 0 auto; flex-direction: row; align-items: baseline; gap: 7px;
+    min-height: 52px; padding: 14px 16px;
+  }
+  .ps-panel { grid-template-columns: 1fr; gap: 22px; padding: 24px 20px 28px; }
+  .ps-visual { aspect-ratio: 4 / 3; }
+  .ps-visual.phone { aspect-ratio: 3 / 4; }
+}
+
+/* --- Tightened sections -------------------------------------------------- */
+
+.mk-problem { padding: 72px 0; }
+.mk-problem h2 { margin-bottom: 18px; }
+.mk-access { padding: 56px 0; background: var(--bg); }
+.mk-access p { margin: 0; font-size: 16px; line-height: 1.7; color: var(--slate); }
+
+@media (max-width: 720px) {
+  .mk-problem { padding: 48px 0; }
+  .mk-access { padding: 40px 0; }
+}
+
+/* --- QAB: give the copy column room ------------------------------------- */
+
+/* V1 gave this column 0.9fr against a 1.1fr image, which broke the heading
+   into five words on five lines. */
+.mk-qab-grid { grid-template-columns: 1.05fr 0.95fr; gap: 56px; }
+.mk-qab-copy h2 { max-width: 18ch; }
+
+@media (max-width: 1000px) {
+  .mk-qab-grid { grid-template-columns: 1fr; }
+  .mk-qab-copy h2 { max-width: none; }
+}
+
+/* --- No horizontal overflow, by construction ---------------------------- */
+
+.mk, .mk-wrap { max-width: 100%; }
+.mk img { max-width: 100%; }
