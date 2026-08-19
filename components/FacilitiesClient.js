@@ -612,6 +612,9 @@ function OurVenuesTable({ rows, onOpen }) {
           <th className="fc-next">Next event</th>
           <th className="fc-notes">Team notes</th>
           <th className="fc-history">History</th>
+          {/* Both tables open the same drawer on row click, so both carry the
+              same affordance. */}
+          <th className="fc-go" aria-hidden="true" />
         </tr>
       </thead>
       <tbody>
@@ -636,7 +639,7 @@ function OurVenuesTable({ rows, onOpen }) {
               </td>
 
               <td className="fc-loc">
-                {[f.city, f.state].filter(Boolean).join(", ") || <span className="muted">—</span>}
+                {cityStateLong(f) ?? <span className="muted">—</span>}
               </td>
 
               <td className="fc-next">
@@ -673,12 +676,20 @@ function OurVenuesTable({ rows, onOpen }) {
                   <span className="fc-first">First visit</span>
                 )}
               </td>
+
+              <td className="fc-go" aria-hidden="true"><span className="fc-chev">›</span></td>
             </tr>
           );
         })}
       </tbody>
     </table>
   );
+}
+
+/** A surface the coach actually recorded. "Unknown" means they did not. */
+function recordedSurface(f) {
+  const v = f?.surface_type;
+  return v && v !== "Unknown" ? v : null;
 }
 
 function FacilityTable({ rows, onOpen }) {
@@ -740,7 +751,7 @@ function FacilityTable({ rows, onOpen }) {
                 </span>
               )}
               <span className="fc-sub">
-                {[cityState(f), f.county && `${f.county} County`, f.surface_type]
+                {[cityState(f), f.county && `${f.county} County`, recordedSurface(f)]
                   .filter(Boolean)
                   .join(" · ")}
               </span>
@@ -749,7 +760,14 @@ function FacilityTable({ rows, onOpen }) {
                 "Sarasota, FL" reads as a record. Stored values unchanged. */}
             <td className="fc-loc">{cityStateLong(f) ?? <span className="muted">—</span>}</td>
             <td className="fc-fields">{f.field_count ?? <span className="muted">—</span>}</td>
-            <td className="fc-surface">{f.surface_type ?? <span className="muted">—</span>}</td>
+            {/* "Unknown" is how a missing surface is STORED — surface_type has
+                no nulls in the catalogue, so Unknown is the only way to say
+                "not recorded". Displaying it as a dash matches the treatment
+                of every other missing field. Mixed is a real answer and shown
+                as-is. The stored value and the form option are untouched. */}
+            <td className="fc-surface">
+              {recordedSurface(f) ?? <span className="muted">—</span>}
+            </td>
             <td className="fc-amen">
               {amenities(f).length ? (
                 <span className="fc-amen-tags">
