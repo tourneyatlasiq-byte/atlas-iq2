@@ -124,6 +124,18 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
   const [surfaceFilter, setSurfaceFilter] = useState("all");
   const [amenityFilter, setAmenityFilter] = useState("all");
   const [countyFilter, setCountyFilter] = useState("all");
+  /**
+   * Column sort, per view. Null means the established default order — the
+   * directory does not start out sorted by a column nobody picked.
+   * First click ascending, second descending, one column at a time.
+   */
+  const [sort, setSort] = useState(null);
+  const toggleSort = (key) =>
+    setSort((cur) =>
+      cur?.key === key
+        ? { key, dir: cur.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
+    );
   // Default to whichever view actually has something in it. A new organization
   // has no facilities yet, and an empty tab makes the directory look empty too.
   const hasOwnVenues = facilities.some((f) => f.isOurs);
@@ -322,14 +334,14 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
       <div className="segmented view-toggle" role="group" aria-label="Which facilities to show">
         <button
           className={`segment${view === "ours" ? " on" : ""}`}
-          onClick={() => setView("ours")}
+          onClick={() => { setView("ours"); setSort(null); }}
           aria-pressed={view === "ours"}
         >
           Our Facilities <span className="seg-count">{ourCount}</span>
         </button>
         <button
           className={`segment${view === "all" ? " on" : ""}`}
-          onClick={() => setView("all")}
+          onClick={() => { setView("all"); setSort(null); }}
           aria-pressed={view === "all"}
         >
           All facilities <span className="seg-count">{facilities.length}</span>
@@ -377,7 +389,11 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           aria-label="Filter by surface"
         >
           <option value="all">All surfaces</option>
-          {SURFACES.map((s) => <option key={s} value={s}>{s}</option>)}
+          {/* "Unknown" stays the stored VALUE; only the label changes, to
+              match the dash the table now shows for an unrecorded surface. */}
+          {SURFACES.map((s) => (
+            <option key={s} value={s}>{s === "Unknown" ? "Not recorded" : s}</option>
+          ))}
         </select>
         <select
           className="filter-select"
@@ -419,7 +435,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
             )}
           </div>
         ) : view === "ours" ? (
-          <OurVenuesTable rows={visible} onOpen={openFacility} />
+          <OurVenuesTable rows={visible} onOpen={openFacility} sort={sort} onSort={toggleSort} />
         ) : groups ? (
           <>
             <div className="fac-expand-bar">
@@ -449,12 +465,12 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
                   <span className="fac-state-toggle">{isOpen(g.state) ? "Collapse" : "Expand"}</span>
                 </button>
 
-                {isOpen(g.state) && <FacilityTable rows={g.rows} onOpen={openFacility} />}
+                {isOpen(g.state) && <FacilityTable rows={g.rows} onOpen={openFacility} sort={sort} onSort={toggleSort} />}
               </div>
             ))}
           </>
         ) : (
-          <FacilityTable rows={visible} onOpen={openFacility} />
+          <FacilityTable rows={visible} onOpen={openFacility} sort={sort} onSort={toggleSort} />
         )}
       </div>
 
@@ -602,23 +618,41 @@ function historyOf(f) {
  * places, so field count and county are evaluation criteria you no longer
  * need. What matters is when you are going back and what you learned.
  */
-function OurVenuesTable({ rows, onOpen }) {
+function OurVenuesTable({ rows, onOpen, sort, onSort }) {
   return (
     <table className="table facility-table ours-table">
       <thead>
         <tr>
-          <th className="fc-name">Facility</th>
-          <th className="fc-loc">Location</th>
-          <th className="fc-next">Next event</th>
-          <th className="fc-notes">Team notes</th>
-          <th className="fc-history">History</th>
+          <SortHeader label="Facility" column="name" sort={sort} onSort={onSort} className="fc-name" />
+          <SortHeader label="Location" column="location" sort={sort} onSort={onSort} className="fc-loc" />
+          <SortHeader label="Next event" column="next" sort={sort} onSort={onSort} className="fc-next" />
+          {/* Notes are a yes/no, so the only meaningful sort is documented
+              venues first. That is a real question a coach asks. */}
+          <SortHeader label="Team notes" column="notes" sort={sort} onSort={onSort} className="fc-notes" />
+          {/* Sorts on the visit COUNT, not the rendered "3 visits · Last Aug
+              2026" text. */}
+          <SortHeader label="History" column="history" sort={sort} onSort={onSort} className="fc-history" />
           {/* Both tables open the same drawer on row click, so both carry the
               same affordance. */}
           <th className="fc-go" aria-hidden="true" />
         </tr>
       </thead>
       <tbody>
-        {rows.map((f) => {
+        {applySort(rows, sort, {
+          name: (f) => f.name,
+          location: (f) => cityStateLong(f),
+          /* The SOONEST upcoming date, computed rather than read from
+             upcoming[0]: the query orders tournaments start_date DESC, so
+             index 0 is the furthest-away event, not the next one. */
+          next: (f) =>
+            (f.upcoming ?? [])
+              .filter((t) => t.decision !== "Declined")
+              .map((t) => t.start_date)
+              .sort()[0] ?? null,
+          notes: (f) => Boolean(f.orgNotes),
+          history: (f) =>
+            (f.past ?? []).filter((t) => t.decision !== "Declined").length || null,
+        }).map((f) => {
           const next = nextEventOf(f);
           const preview = notePreview(f);
           const hist = historyOf(f);
@@ -686,13 +720,84 @@ function OurVenuesTable({ rows, onOpen }) {
   );
 }
 
+/**
+ * Column sorting for the facility directory.
+ *
+ * Presentation only: sorts the rows already produced by search and filters,
+ * and never re-queries. A column is sortable only when it has a real
+ * underlying value — sorting the rendered text of a column like Amenities
+ * would order by a string nobody chose.
+ *
+ * MISSING VALUES ALWAYS SORT LAST, in both directions. Reversing a sort to
+ * bring blanks to the top is never what someone wanted; they reversed it to
+ * see the other end of the real data.
+ */
+function applySort(rows, sort, comparators) {
+  if (!sort?.key) return rows;
+  const value = comparators[sort.key];
+  if (!value) return rows;
+
+  const dir = sort.dir === "desc" ? -1 : 1;
+  const missing = (v) => v === null || v === undefined || v === "" || v === false;
+
+  return [...rows].sort((a, b) => {
+    const av = value(a);
+    const bv = value(b);
+
+    if (missing(av) && missing(bv)) return 0;
+    if (missing(av)) return 1;
+    if (missing(bv)) return -1;
+
+    const diff =
+      typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), undefined, { numeric: true });
+
+    // Stable tiebreak so equal values never shuffle between renders.
+    return diff * dir || String(a.name ?? "").localeCompare(String(b.name ?? ""));
+  });
+}
+
+/** Header cell that toggles ascending, then descending. */
+function SortHeader({ label, column, sort, onSort, className }) {
+  const active = sort?.key === column;
+  const dir = active ? sort.dir : null;
+
+  return (
+    <th className={className} aria-sort={active ? (dir === "desc" ? "descending" : "ascending") : "none"}>
+      <button
+        type="button"
+        className={`fc-sort${active ? " on" : ""}`}
+        onClick={() => onSort(column)}
+        title={`Sort by ${label}`}
+      >
+        {label}
+        <span className="fc-sort-mark" aria-hidden="true">
+          {active ? (dir === "desc" ? "\u2193" : "\u2191") : "\u2195"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+/** Recorded amenities, in a fixed order. */
+function amenities(f) {
+  return [
+    f.lights && "Lights",
+    f.batting_cages && "Cages",
+    f.concessions && "Concessions",
+    f.restrooms && "Restrooms",
+    f.playground && "Playground",
+  ].filter(Boolean);
+}
+
 /** A surface the coach actually recorded. "Unknown" means they did not. */
 function recordedSurface(f) {
   const v = f?.surface_type;
   return v && v !== "Unknown" ? v : null;
 }
 
-function FacilityTable({ rows, onOpen }) {
+function FacilityTable({ rows, onOpen, sort, onSort }) {
   const countCell = (n, facility, which) =>
     n > 0 ? (
       <button
@@ -709,32 +814,34 @@ function FacilityTable({ rows, onOpen }) {
       <span className="muted">—</span>
     );
 
-  const amenities = (f) =>
-    [
-      f.lights && "Lights",
-      f.batting_cages && "Cages",
-      f.concessions && "Concessions",
-      f.restrooms && "Restrooms",
-      f.playground && "Playground",
-    ].filter(Boolean);
 
   return (
     <table className="table facility-table">
       <thead>
         <tr>
-          <th className="fc-name">Facility</th>
-          <th className="fc-loc">Location</th>
+          <SortHeader label="Facility" column="name" sort={sort} onSort={onSort} className="fc-name" />
+          <SortHeader label="Location" column="location" sort={sort} onSort={onSort} className="fc-loc" />
           {/* County left the visible table: it cost a full column and rarely
               informs a browsing decision. The DATA is untouched — it remains
               searchable, filterable, on the mobile sub-line, and in detail. */}
-          <th className="fc-fields">Fields</th>
-          <th className="fc-surface">Surface</th>
-          <th className="fc-amen">Amenities</th>
+          <SortHeader label="Fields" column="fields" sort={sort} onSort={onSort} className="fc-fields" />
+          <SortHeader label="Surface" column="surface" sort={sort} onSort={onSort} className="fc-surface" />
+          {/* Amenities sorts on HOW MANY are recorded, which is a real value.
+              Sorting its rendered text would order by a string nobody chose. */}
+          <SortHeader label="Amenities" column="amenities" sort={sort} onSort={onSort} className="fc-amen" />
           <th className="fc-go" aria-hidden="true" />
         </tr>
       </thead>
       <tbody>
-        {rows.map((f) => (
+        {applySort(rows, sort, {
+          name: (f) => f.name,
+          location: (f) => cityStateLong(f),
+          fields: (f) => f.field_count,
+          surface: (f) => recordedSurface(f),
+          // Zero counts as missing: a facility with none shows a dash, and it
+          // belongs with the other blanks rather than at the top.
+          amenities: (f) => amenities(f).length || null,
+        }).map((f) => (
           <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
             <td className="fc-name">
               <span className="cell-name">{f.name}</span>

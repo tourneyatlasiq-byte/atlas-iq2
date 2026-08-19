@@ -5235,3 +5235,21 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* Full state name plus a counted label reads as a place, not a code. */
 .fac-state-name { font-weight: 800; }
+
+/* Sortable column headers. The indicator sits inside the existing header
+   text, so no column is widened and no horizontal overflow is introduced. */
+.facility-table th button.fc-sort {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+}
+.facility-table th button.fc-sort:hover { color: var(--navy); }
+.fc-sort-mark { font-size: 10px; line-height: 1; color: var(--border); }
+.facility-table th button.fc-sort:hover .fc-sort-mark { color: var(--slate); }
+.facility-table th button.fc-sort.on { color: var(--navy); }
+.facility-table th button.fc-sort.on .fc-sort-mark { color: var(--blue); }
+
+@media (max-width: 640px) {
+  /* Touch target without changing the header's footprint. */
+  .facility-table th button.fc-sort { padding: 4px 0; }
+}
