@@ -25,7 +25,20 @@ import { useState, useRef } from "react";
  * never draws an approximation of the interface: a fabricated screenshot on a
  * page arguing "this is real software" would undo the argument.
  */
-const AREAS = [
+/**
+ * Primary experiences: the areas with enough interface depth that a real
+ * screen explains them better than a sentence can.
+ *
+ * FACILITIES IS DELIBERATELY ABSENT from this list, and its absence is
+ * temporary. It belongs in the primary group on strategy — a shared catalog of
+ * 180 fields, verified addresses, duplicate detection, and notes that stay
+ * private to your organization — but its capture is not approved yet. Exposing
+ * a primary control that leads to a pending state would make a finished
+ * capability look unfinished, so its status is stated in words below instead.
+ * When the capture exists it joins this array and becomes the fifth state with
+ * no other change.
+ */
+const PRIMARY = [
   {
     key: "tournaments",
     label: "Tournaments",
@@ -40,19 +53,6 @@ const AREAS = [
     alt: "A season of committed tournaments with dates, providers and facilities",
   },
   {
-    key: "team",
-    label: "Team",
-    line: "The roster, and everything attached to a player.",
-    points: [
-      "Players and staff, kept distinct",
-      "Jersey numbers and uniform sizes",
-      "Guardians and contact details",
-      "Roster carried from one season to the next",
-    ],
-    img: null,
-    alt: "Team roster screen",
-  },
-  {
     key: "finance",
     label: "Finance",
     line: "The budget, the dues, and what you have already promised to spend.",
@@ -64,19 +64,6 @@ const AREAS = [
     ],
     img: "/mk-finance.webp",
     alt: "Season budget showing paid, still to pay, and available",
-  },
-  {
-    key: "facilities",
-    label: "Facilities",
-    line: "Where you have played, and what you learned there.",
-    points: [
-      "A shared catalog of fields, with verified addresses",
-      "Your own notes on a facility, private to your organization",
-      "Tournament history at each venue",
-      "Duplicate fields caught before they are created",
-    ],
-    img: null,
-    alt: "Facilities directory screen",
   },
   {
     key: "performance",
@@ -105,27 +92,41 @@ const AREAS = [
     img: "/mk-report.webp",
     alt: "Planned Season Budget report showing the season budget and where the money goes",
   },
+];
+
+/**
+ * Supporting infrastructure. Present in every season and necessary, but a
+ * sentence explains them as well as a screen would.
+ *
+ * Rendered as PLAIN TEXT: no button, no hover, no cursor change, no focus
+ * ring. Nothing here should suggest that clicking changes the canvas above.
+ * Promotion to a primary state is an information-architecture decision, not
+ * something that should happen automatically because a screenshot appears.
+ */
+const SUPPORTING = [
+  {
+    key: "facilities",
+    label: "Facilities",
+    line: "A shared catalog of fields with verified addresses, plus notes on each one that stay private to your organization.",
+  },
+  {
+    key: "team",
+    label: "Team",
+    line: "Roster, uniforms, guardians and staff, carried from one season to the next.",
+  },
   {
     key: "files",
     label: "Files",
-    line: "The paperwork a season generates, where you will find it again.",
-    points: [
-      "Waivers, insurance and rosters",
-      "Attached to the tournament, facility or player it belongs to",
-    ],
-    img: null,
-    alt: "Files screen",
+    line: "Waivers, insurance and rosters, attached to what they belong to.",
   },
   {
     key: "contacts",
     label: "Contacts",
-    line: "The people a season depends on.",
-    points: [
-      "Tournament directors, facility contacts and team staff",
-      "Kept with the tournament or facility they relate to",
-    ],
-    img: null,
-    alt: "Contacts screen",
+    // Verified against the schema: contacts are organization-level with a
+    // category, and the categories in use are Tournament and College. There is
+    // no foreign key to a tournament or facility, so this must not claim they
+    // are filed against one.
+    line: "Tournament directors, college coaches and the people a season depends on.",
   },
 ];
 
@@ -148,7 +149,7 @@ export function ProductConsole() {
   }
 
   function onKeyDown(e) {
-    const last = AREAS.length - 1;
+    const last = PRIMARY.length - 1;
     let next = null;
     if (e.key === "ArrowDown" || e.key === "ArrowRight") next = active === last ? 0 : active + 1;
     if (e.key === "ArrowUp" || e.key === "ArrowLeft") next = active === 0 ? last : active - 1;
@@ -159,7 +160,7 @@ export function ProductConsole() {
     select(next);
   }
 
-  const area = AREAS[active];
+  const area = PRIMARY[active];
 
   return (
     <div className="pc">
@@ -174,7 +175,7 @@ export function ProductConsole() {
           shifts the page. When those captures exist they drop in without any
           geometry changing. */}
       <div className="pc-canvas">
-        {AREAS.map((a, i) => (
+        {PRIMARY.map((a, i) => (
           <div
             key={a.key}
             role="tabpanel"
@@ -183,24 +184,17 @@ export function ProductConsole() {
             hidden={i !== active}
             className="pc-canvas-slot"
           >
-            {a.img ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={a.img}
-                alt={a.alt}
-                className="pc-canvas-img"
-                loading={i === 0 ? "eager" : "lazy"}
-                decoding="async"
-              />
-            ) : (
-              /* Names what is missing rather than drawing an approximation.
-                 A fabricated screenshot on a page arguing "this is real
-                 software" would undo the argument. */
-              <div className="pc-canvas-pending">
-                <p className="pc-pending-label">{a.label}</p>
-                <p className="pc-pending-note">Screen capture coming soon</p>
-              </div>
-            )}
+            {/* Every primary area has an approved capture, so there is no
+                placeholder branch here. An area without one does not become a
+                primary control in the first place. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={a.img}
+              alt={a.alt}
+              className="pc-canvas-img"
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
           </div>
         ))}
       </div>
@@ -214,7 +208,7 @@ export function ProductConsole() {
         aria-label="Areas of Season Tempo"
         onKeyDown={onKeyDown}
       >
-        {AREAS.map((a, i) => (
+        {PRIMARY.map((a, i) => (
           <button
             key={a.key}
             ref={(el) => (tabs.current[i] = el)}
@@ -246,6 +240,21 @@ export function ProductConsole() {
         <ul className="pc-info-points">
           {area.points.map((pt) => (
             <li key={pt}>{pt}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Inside the same frame, subordinate by weight and background rather
+          than by being a separate section. Plain text: no button, no hover,
+          no focus ring, nothing that implies clicking changes the canvas. */}
+      <div className="pc-also">
+        <p className="pc-also-head">Also included</p>
+        <ul className="pc-also-list">
+          {SUPPORTING.map((a) => (
+            <li key={a.key}>
+              <span className="pc-also-name">{a.label}</span>
+              <span className="pc-also-line">{a.line}</span>
+            </li>
           ))}
         </ul>
       </div>

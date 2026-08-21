@@ -63,27 +63,11 @@
   object-fit: cover; object-position: top center;
 }
 
-/* Names what is missing rather than drawing an approximation, and does it
-   inside the stable canvas so the frame keeps its height. */
-.pc-canvas-pending {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; text-align: center;
-}
-.pc-canvas-pending::before {
-  content: ""; position: absolute; left: 50%; top: 50%;
-  width: min(420px, 70%); height: 200px; transform: translate(-50%, -50%);
-  border: 1px dashed var(--border); border-radius: 12px; background: var(--surface);
-}
-.pc-pending-label {
-  position: relative; margin: 0;
-  font-family: var(--font-display, inherit);
-  font-size: 17px; font-weight: 700; color: var(--navy);
-}
-.pc-pending-note { position: relative; margin: 0; font-size: 13px; color: var(--slate); }
-
 /* One row. The eight labels need ~752px of the 1072px available, so they size
    to their content instead of being forced into equal cells. */
+/* Four content-sized controls, not four equal cells. Roughly 425px of the
+   1072px available, so the rail reads as a few chosen experiences rather than
+   a menu filling its container. */
 .pc-rail {
   display: flex; align-items: stretch;
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -262,4 +246,41 @@
   .pr-forward { padding: 56px 0; }
   .pr-forward-grid { grid-template-columns: 1fr; gap: 28px; }
   .pr-forward-cta .btn { width: 100%; justify-content: center; }
+}
+
+/* --- Also included: supporting infrastructure ---------------------------- */
+
+/* Inside the Console frame, subordinate by weight and background. Deliberately
+   NOT interactive — no button, no hover, no cursor change, no focus ring — so
+   nothing implies that selecting one changes the canvas above.
+
+   Facilities leads this group. It belongs in the primary set on strategy, but
+   its capture is not approved yet, and a primary control leading to a pending
+   state would make a finished capability look unfinished. Its first sentence
+   carries the weight the canvas would have. */
+.pc-also {
+  padding: 18px 26px 20px;
+  background: var(--bg); border-top: 1px solid var(--border);
+}
+.pc-also-head {
+  margin: 0 0 10px; font-size: 11px; font-weight: 800;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--slate);
+}
+.pc-also-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px;
+}
+.pc-also-list li { min-width: 0; }
+.pc-also-name {
+  display: block; margin-bottom: 2px;
+  font-size: 14px; font-weight: 700; color: var(--navy);
+}
+.pc-also-line { display: block; font-size: 13px; line-height: 1.5; color: var(--slate); }
+
+@media (max-width: 900px) {
+  .pc-also { padding: 16px 18px 18px; }
+  .pc-also-list { grid-template-columns: 1fr 1fr; gap: 16px; }
+}
+@media (max-width: 560px) {
+  .pc-also-list { grid-template-columns: 1fr; gap: 14px; }
 }
