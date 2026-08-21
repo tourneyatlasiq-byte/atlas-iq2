@@ -19,19 +19,26 @@ export function MarketingHeader({ signedIn = false, appHref = "/dashboard" }) {
           <LogoLockup size={34} tone="navy" wordSize={26} />
         </Link>
 
-        <nav className="mk-nav">
+        <nav className="mk-nav" aria-label="Main">
           <Link href="/product">Product</Link>
+          {/* Pricing is hidden until the route exists — the shell is ready for
+              it, but the navigation must not send anyone to a 404. Restore by
+              uncommenting the line below. */}
+          {/* <Link href="/pricing">Pricing</Link> */}
           <Link href="/about">About</Link>
         </nav>
 
+        {/* Sign in is UTILITY navigation for someone who already has an
+            account, not an acquisition button. It sat beside "Get started" as
+            an equal-weight button, which forced every visitor to resolve an
+            identity question before reading anything, and made the two compete
+            while serving opposite people. Acquisition CTAs now live in page
+            content, where the visitor has context for them. */}
         <div className="mk-header-actions">
           {signedIn ? (
             <Link href={appHref} className="btn btn-primary">Open Season Tempo</Link>
           ) : (
-            <>
-              <Link href="/login" className="mk-signin">Sign in</Link>
-              <Link href="/login?new=1" className="btn btn-primary">Get started</Link>
-            </>
+            <Link href="/login" className="mk-signin">Sign in</Link>
           )}
         </div>
       </div>
@@ -52,13 +59,19 @@ export function MarketingFooter({ signedIn = false }) {
           <nav className="mk-footer-col" aria-label="Product">
             <p className="mk-footer-heading">Product</p>
             <Link href="/product">Product</Link>
-            <Link href="/about">About</Link>
-            {!signedIn && <Link href="/login">Sign in</Link>}
+            {/* Restore alongside the header link when /pricing exists. */}
+            {/* <Link href="/pricing">Pricing</Link> */}
           </nav>
 
           <nav className="mk-footer-col" aria-label="Company">
             <p className="mk-footer-heading">Company</p>
+            <Link href="/about">About</Link>
             <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
+            {!signedIn && <Link href="/login">Sign in</Link>}
+          </nav>
+
+          <nav className="mk-footer-col" aria-label="Legal">
+            <p className="mk-footer-heading">Legal</p>
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
           </nav>

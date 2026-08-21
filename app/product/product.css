@@ -1,0 +1,232 @@
+/* ==========================================================================
+   Product.
+
+   The Console is load-bearing: it carries breadth so the page does not stack
+   nine capabilities vertically. Two sections below it earn their own space.
+
+   Same language as the rest of the site — navy, white, one blue accent, gold
+   only where it means something. Borders rather than shadows, except on real
+   product screens, which get one soft lift each.
+   ========================================================================== */
+
+/* --- Hero: orient, do not re-pitch -------------------------------------- */
+
+.pr-hero { padding: 76px 0 40px; }
+.pr-eyebrow {
+  margin: 0 0 12px; font-size: 11.5px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--blue);
+}
+.pr-hero h1 {
+  margin: 0; max-width: 20ch;
+  font-size: clamp(32px, 4.2vw, 48px); line-height: 1.08;
+  letter-spacing: -0.022em; color: var(--navy);
+}
+.pr-lede {
+  margin: 16px 0 0; max-width: 58ch;
+  font-size: clamp(16.5px, 1.4vw, 18.5px); line-height: 1.6; color: var(--slate);
+}
+
+@media (max-width: 720px) {
+  .pr-hero { padding: 44px 0 28px; }
+  .pr-hero h1 { font-size: 30px; max-width: none; }
+}
+
+/* --- The Console --------------------------------------------------------- */
+
+.pr-console-section { padding: 0 0 88px; }
+
+.pc {
+  display: grid; grid-template-columns: 220px minmax(0, 1fr);
+  border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 26px 64px -34px rgba(11, 35, 65, 0.34);
+}
+
+/* The application's own navigation, in the application's own navy. */
+.pc-nav {
+  display: flex; flex-direction: column;
+  background: var(--navy); padding: 14px 0;
+}
+.pc-tab {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; padding: 11px 18px; min-height: 44px;
+  border: 0; background: none; cursor: pointer; text-align: left;
+  font: inherit; font-size: 14.5px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.66);
+  /* Weight, colour AND a rule — never colour alone. */
+  border-left: 3px solid transparent;
+  transition: background 150ms ease-out, color 150ms ease-out;
+}
+.pc-tab:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.pc-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
+.pc-tab.on {
+  color: #fff; font-weight: 700;
+  background: rgba(255, 255, 255, 0.09);
+  border-left-color: var(--gold);
+}
+.pc-tab-premium {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--navy); background: var(--gold);
+  border-radius: 999px; padding: 2px 6px;
+}
+
+.pc-panels { min-width: 0; }
+.pc-panel {
+  display: grid; grid-template-columns: 0.85fr 1.15fr;
+  gap: 36px; align-items: center; padding: 34px 36px;
+}
+.pc-panel[hidden] { display: none; }
+.pc-panel:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; }
+
+.pc-panel-title {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 8px;
+  font-family: var(--font-display, inherit);
+  font-size: 23px; line-height: 1.2; letter-spacing: -0.015em; color: var(--navy);
+}
+.pc-panel-line { margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: var(--slate); }
+
+/* The specifics that a stacked section would have carried. */
+.pc-panel-points { list-style: none; margin: 0; padding: 0; }
+.pc-panel-points li {
+  position: relative; padding: 5px 0 5px 20px;
+  font-size: 14.5px; line-height: 1.55; color: #334155;
+}
+.pc-panel-points li::before {
+  content: ""; position: absolute; left: 2px; top: 13px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+}
+
+.pc-panel-shot { min-width: 0; }
+.pc-panel-shot .mk-shot-frame {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  background: var(--bg);
+  box-shadow: 0 14px 34px -22px rgba(11, 35, 65, 0.32);
+}
+.pc-panel-shot .mk-shot-image { width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+
+@media (prefers-reduced-motion: reduce) { .pc-tab { transition: none; } }
+
+@media (max-width: 900px) {
+  .pr-console-section { padding-bottom: 56px; }
+  .pc { grid-template-columns: 1fr; }
+  /* Nine areas is too many for a fixed mobile bar, so the areas scroll
+     INSIDE the frame. The page itself never overflows. */
+  .pc-nav {
+    flex-direction: row; overflow-x: auto; padding: 0;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .pc-nav::-webkit-scrollbar { display: none; }
+  .pc-tab {
+    flex: 0 0 auto; width: auto; min-height: 48px; padding: 13px 16px;
+    border-left: 0; border-bottom: 3px solid transparent;
+  }
+  .pc-tab.on { border-left-color: transparent; border-bottom-color: var(--gold); }
+  .pc-panel { grid-template-columns: 1fr; gap: 20px; padding: 22px 18px 26px; }
+}
+
+/* --- How it connects ----------------------------------------------------- */
+
+.pr-connect { background: var(--surface); padding: 80px 0; }
+.pr-connect-head { max-width: 640px; }
+.pr-connect-head h2 {
+  margin: 0 0 14px; font-size: clamp(25px, 3vw, 34px); line-height: 1.15;
+  letter-spacing: -0.02em; color: var(--navy);
+}
+.pr-connect-head p { margin: 0; font-size: 17px; line-height: 1.7; color: var(--slate); }
+
+/* A roll-up, drawn as one: each step is contained by the next, and the
+   indentation says so. No value is shown travelling or repeating. */
+.pr-rollup { list-style: none; margin: 32px 0 0; padding: 0; }
+.pr-rollup li {
+  display: flex; align-items: baseline; gap: 18px;
+  padding: 14px 0 14px 0; border-top: 1px solid var(--border);
+}
+.pr-rollup li:last-child { border-bottom: 1px solid var(--border); }
+.pr-rollup li:nth-child(2) { padding-left: 30px; }
+.pr-rollup li:nth-child(3) { padding-left: 60px; }
+.pr-rollup-value {
+  flex: 0 0 auto; min-width: 5.5em;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(20px, 2.2vw, 27px); font-weight: 800;
+  color: var(--navy); font-variant-numeric: tabular-nums;
+}
+.pr-rollup-label { font-size: 15.5px; line-height: 1.5; color: var(--slate); }
+.pr-connect-foot {
+  margin: 24px 0 0; max-width: 640px;
+  font-size: 16px; line-height: 1.65; color: var(--navy); font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .pr-connect { padding: 56px 0; }
+  .pr-rollup li { flex-direction: column; gap: 2px; padding-top: 12px; padding-bottom: 12px; }
+  .pr-rollup li:nth-child(2) { padding-left: 18px; }
+  .pr-rollup li:nth-child(3) { padding-left: 36px; }
+}
+
+/* --- Game day: the one section that earns its own space ------------------ */
+
+.pr-gameday { background: var(--navy); color: #fff; padding: 96px 0; }
+.pr-gameday-head { max-width: 660px; margin-bottom: 40px; }
+.pr-gameday-head h2 {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 14px; font-size: clamp(27px, 3.2vw, 36px); line-height: 1.15;
+  letter-spacing: -0.02em; color: #fff;
+}
+.pr-gameday-head p {
+  margin: 0; font-size: 16.5px; line-height: 1.65; color: rgba(255, 255, 255, 0.72);
+}
+
+/* Asymmetric on purpose: a repeating image-left/image-right rhythm is what
+   makes a product page feel like a template. */
+.pr-gameday-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 34px 44px; align-items: start;
+}
+.pr-gd-step { min-width: 0; }
+.pr-gd-n {
+  margin: 0 0 6px; font-size: 11px; font-weight: 800;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--gold);
+}
+.pr-gd-step h3 {
+  margin: 0 0 8px; font-family: var(--font-display, inherit);
+  font-size: 21px; line-height: 1.25; color: #fff;
+}
+.pr-gd-step p { margin: 0; font-size: 16px; line-height: 1.65; color: rgba(255, 255, 255, 0.76); }
+
+.pr-gd-shot.phone { grid-row: span 2; justify-self: center; max-width: 260px; width: 100%; }
+.pr-gd-shot.wide { grid-column: 1 / -1; }
+.pr-gd-shot .mk-shot-frame {
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px; overflow: hidden;
+  background: #fff; box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.65);
+}
+.pr-gd-shot.phone .mk-shot-frame { border-radius: 20px; }
+.pr-gd-shot .mk-shot-image { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+
+@media (max-width: 900px) {
+  .pr-gameday { padding: 64px 0; }
+  .pr-gameday-grid { grid-template-columns: 1fr; gap: 26px; }
+  .pr-gd-shot.phone { grid-row: auto; max-width: 240px; }
+}
+
+/* --- Carries forward, then convert -------------------------------------- */
+
+.pr-forward { padding: 80px 0; }
+.pr-forward-grid {
+  display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center;
+}
+.pr-forward h2 {
+  margin: 0 0 12px; font-size: clamp(25px, 3vw, 33px); line-height: 1.15;
+  letter-spacing: -0.02em; color: var(--navy);
+}
+.pr-forward p { margin: 0; font-size: 17px; line-height: 1.7; color: var(--slate); }
+
+.pr-forward-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+/* Secondary, and visibly so: pricing is the next question, not a competing
+   action. */
+.pr-secondary { font-size: 15.5px; font-weight: 600; color: var(--blue); }
+.pr-forward-cta .mk-note { margin: 0; }
+
+@media (max-width: 900px) {
+  .pr-forward { padding: 56px 0; }
+  .pr-forward-grid { grid-template-columns: 1fr; gap: 28px; }
+  .pr-forward-cta .btn { width: 100%; justify-content: center; }
+}
