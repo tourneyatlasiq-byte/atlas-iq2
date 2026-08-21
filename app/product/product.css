@@ -31,97 +31,130 @@
   .pr-hero h1 { font-size: 30px; max-width: none; }
 }
 
-/* --- The Console --------------------------------------------------------- */
+/* --- The Console -------------------------------------------------------- */
 
-.pr-console-section { padding: 0 0 88px; }
+/* CANVAS FIRST. The product screen leads; the selector and copy are attached
+   beneath it inside one frame, so the component reads as a single object
+   rather than a navigation layer standing in front of a screenshot.
+
+   The canvas is a FIXED height at every breakpoint. Selecting an area without
+   a capture shows a smaller placeholder centred inside that region, so the
+   Console never collapses and the page never shifts. Real captures drop in
+   later without any geometry changing. */
+
+.pr-console-section { padding: 0 0 72px; }
 
 .pc {
-  display: grid; grid-template-columns: 220px minmax(0, 1fr);
   border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
   background: var(--surface);
-  box-shadow: 0 26px 64px -34px rgba(11, 35, 65, 0.34);
+  box-shadow: 0 26px 64px -36px rgba(11, 35, 65, 0.32);
 }
 
-/* The application's own navigation, in the application's own navy. */
-.pc-nav {
-  display: flex; flex-direction: column;
-  background: var(--navy); padding: 14px 0;
+/* 588px of a 748px component: the product holds ~79% of the visual area. */
+.pc-canvas {
+  position: relative; height: 588px;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.pc-canvas-slot { position: absolute; inset: 0; }
+.pc-canvas-slot[hidden] { display: none; }
+.pc-canvas-img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: top center;
+}
+
+/* Names what is missing rather than drawing an approximation, and does it
+   inside the stable canvas so the frame keeps its height. */
+.pc-canvas-pending {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; text-align: center;
+}
+.pc-canvas-pending::before {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: min(420px, 70%); height: 200px; transform: translate(-50%, -50%);
+  border: 1px dashed var(--border); border-radius: 12px; background: var(--surface);
+}
+.pc-pending-label {
+  position: relative; margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 17px; font-weight: 700; color: var(--navy);
+}
+.pc-pending-note { position: relative; margin: 0; font-size: 13px; color: var(--slate); }
+
+/* One row. The eight labels need ~752px of the 1072px available, so they size
+   to their content instead of being forced into equal cells. */
+.pc-rail {
+  display: flex; align-items: stretch;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 10px;
 }
 .pc-tab {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; padding: 11px 18px; min-height: 44px;
-  border: 0; background: none; cursor: pointer; text-align: left;
-  font: inherit; font-size: 14.5px; font-weight: 600;
-  color: rgba(255, 255, 255, 0.66);
-  /* Weight, colour AND a rule — never colour alone. */
-  border-left: 3px solid transparent;
-  transition: background 150ms ease-out, color 150ms ease-out;
+  position: relative; flex: 0 1 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 15px 18px; min-height: 52px;
+  border: 0; background: none; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--slate);
+  transition: color 150ms ease-out;
 }
-.pc-tab:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.pc-tab:hover { color: var(--navy); }
 .pc-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
-.pc-tab.on {
-  color: #fff; font-weight: 700;
-  background: rgba(255, 255, 255, 0.09);
-  border-left-color: var(--gold);
+.pc-tab.on { color: var(--navy); font-weight: 700; }
+/* A marker pointing UP at the canvas, tying the rail to the screen above it.
+   Weight and colour carry the state as well, so it never depends on colour. */
+.pc-tab.on::before {
+  content: ""; position: absolute; left: 14px; right: 14px; top: 0;
+  height: 3px; background: var(--gold);
 }
-.pc-tab-premium {
-  font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--navy); background: var(--gold);
-  border-radius: 999px; padding: 2px 6px;
+/* Premium as a dot: it must not change the width or alignment of the rail. */
+.pc-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--gold); flex: 0 0 auto;
 }
 
-.pc-panels { min-width: 0; }
-.pc-panel {
-  display: grid; grid-template-columns: 0.85fr 1.15fr;
-  gap: 36px; align-items: center; padding: 34px 36px;
+.pc-info {
+  display: grid; grid-template-columns: 0.9fr 1.1fr;
+  gap: 32px; padding: 22px 26px 24px;
 }
-.pc-panel[hidden] { display: none; }
-.pc-panel:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; }
-
-.pc-panel-title {
-  display: flex; align-items: center; gap: 10px; margin: 0 0 8px;
+.pc-info-title {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 5px;
   font-family: var(--font-display, inherit);
-  font-size: 23px; line-height: 1.2; letter-spacing: -0.015em; color: var(--navy);
+  font-size: 20px; line-height: 1.2; letter-spacing: -0.015em; color: var(--navy);
 }
-.pc-panel-line { margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: var(--slate); }
+.pc-info-line { margin: 0; font-size: 15px; line-height: 1.55; color: var(--slate); }
 
-/* The specifics that a stacked section would have carried. */
-.pc-panel-points { list-style: none; margin: 0; padding: 0; }
-.pc-panel-points li {
-  position: relative; padding: 5px 0 5px 20px;
-  font-size: 14.5px; line-height: 1.55; color: #334155;
+.pc-info-points {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px 22px;
 }
-.pc-panel-points li::before {
-  content: ""; position: absolute; left: 2px; top: 13px;
-  width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+.pc-info-points li {
+  position: relative; padding: 3px 0 3px 16px;
+  font-size: 14px; line-height: 1.5; color: #334155;
 }
-
-.pc-panel-shot { min-width: 0; }
-.pc-panel-shot .mk-shot-frame {
-  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
-  background: var(--bg);
-  box-shadow: 0 14px 34px -22px rgba(11, 35, 65, 0.32);
+.pc-info-points li::before {
+  content: ""; position: absolute; left: 1px; top: 11px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--blue);
 }
-.pc-panel-shot .mk-shot-image { width: 100%; height: 100%; object-fit: cover; object-position: top left; }
 
 @media (prefers-reduced-motion: reduce) { .pc-tab { transition: none; } }
 
 @media (max-width: 900px) {
-  .pr-console-section { padding-bottom: 56px; }
-  .pc { grid-template-columns: 1fr; }
-  /* Nine areas is too many for a fixed mobile bar, so the areas scroll
-     INSIDE the frame. The page itself never overflows. */
-  .pc-nav {
-    flex-direction: row; overflow-x: auto; padding: 0;
+  .pr-console-section { padding-bottom: 48px; }
+  .pc-canvas { height: 380px; }
+  /* The rail scrolls INSIDE the Console. The page never overflows, and
+     selecting an item scrolls it into view. */
+  .pc-rail {
+    overflow-x: auto; padding: 0 4px;
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
-  .pc-nav::-webkit-scrollbar { display: none; }
-  .pc-tab {
-    flex: 0 0 auto; width: auto; min-height: 48px; padding: 13px 16px;
-    border-left: 0; border-bottom: 3px solid transparent;
-  }
-  .pc-tab.on { border-left-color: transparent; border-bottom-color: var(--gold); }
-  .pc-panel { grid-template-columns: 1fr; gap: 20px; padding: 22px 18px 26px; }
+  .pc-rail::-webkit-scrollbar { display: none; }
+  .pc-tab { padding: 14px 14px; }
+  .pc-info { grid-template-columns: 1fr; gap: 14px; padding: 18px 18px 20px; }
+  .pc-info-points { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .pc-canvas { height: 300px; }
 }
 
 /* --- How it connects ----------------------------------------------------- */
