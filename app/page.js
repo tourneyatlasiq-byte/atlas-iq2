@@ -1,8 +1,7 @@
 import Link from "next/link";
 import "./home.css";
 import { getViewer } from "../lib/context";
-import { LogoLockup } from "../components/SeasonTempoLogo";
-import { SUPPORT_EMAIL } from "../lib/legal";
+import { MarketingHeader, MarketingFooter } from "../components/MarketingChrome";
 import { ProductStory } from "../components/ProductStory";
 
 export const dynamic = "force-dynamic";
@@ -36,29 +35,7 @@ export default async function HomePage() {
 
   return (
     <div className="mk">
-      <header className="mk-header">
-        <div className="mk-wrap mk-header-inner">
-          <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-            <LogoLockup size={34} tone="navy" wordSize={26} />
-          </Link>
-
-          <nav className="mk-nav">
-            <Link href="/product">Product</Link>
-            <Link href="/about">About</Link>
-          </nav>
-
-          <div className="mk-header-actions">
-            {signedIn ? (
-              <Link href={appHref} className="btn btn-primary">Open Season Tempo</Link>
-            ) : (
-              <>
-                <Link href="/login" className="mk-signin">Sign in</Link>
-                <Link href="/login?new=1" className="btn btn-primary">Get started</Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <MarketingHeader signedIn={signedIn} appHref={appHref} />
 
       {/* 1 — Hero */}
       <section className="mk-hero">
@@ -208,39 +185,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Columns rather than one strip. Every destination below is real —
-          /product, /privacy and /terms are pages; #about is still a section on
-          this page. No link exists to fill out the shape. */}
-      <footer className="mk-footer">
-        <div className="mk-wrap">
-          <div className="mk-footer-grid">
-            <div className="mk-footer-brand">
-              <LogoLockup size={30} tone="navy" wordSize={20} />
-              <p className="mk-footer-line">Run your season smarter.</p>
-            </div>
+      <MarketingFooter signedIn={signedIn} />
 
-            <nav className="mk-footer-col" aria-label="Product">
-              <p className="mk-footer-heading">Product</p>
-              <Link href="/product">Product</Link>
-              <Link href="/about">About</Link>
-              {!signedIn && <Link href="/login">Sign in</Link>}
-            </nav>
-
-            <nav className="mk-footer-col" aria-label="Company">
-              <p className="mk-footer-heading">Company</p>
-              <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
-              <Link href="/privacy">Privacy Policy</Link>
-              <Link href="/terms">Terms of Service</Link>
-            </nav>
-          </div>
-
-          <div className="mk-footer-base">
-            <span className="mk-copyright">
-              © {new Date().getFullYear()} Season Tempo. All rights reserved.
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

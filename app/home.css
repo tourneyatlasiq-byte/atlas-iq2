@@ -2,8 +2,12 @@
    Scoped under .mk so nothing here can reach the authenticated application. */
 
 .mk { background: var(--surface); color: var(--navy); }
-.mk-wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
-.mk-narrow { max-width: 680px; }
+/* ONE container for the public site. This was declared twice — 1060px here
+   and 1180px in the V2 block — so every section inherited whichever rule came
+   last, and the two halves of the stylesheet disagreed about the page width. */
+.mk-wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+/* Prose measure. Was 680px here and 660px below. */
+.mk-narrow { max-width: 660px; }
 
 /* Header */
 .mk-header {
@@ -27,7 +31,9 @@
 .mk-signin:hover { color: var(--blue); }
 
 /* Hero */
-.mk-hero { padding: 84px 0 56px; text-align: center; }
+/* Was centred here and left-aligned in the V2 block, so the hero's alignment
+   depended on stylesheet order rather than intent. */
+.mk-hero { padding: 88px 0 56px; text-align: left; }
 .mk-hero h1 {
   font-size: clamp(34px, 5.4vw, 56px); line-height: 1.06;
   letter-spacing: -0.02em; margin: 0;
@@ -71,7 +77,9 @@
 }
 
 /* Sections */
-.mk-section { padding: 68px 0; }
+/* Standard spacing tier (72). Sections opt into 88 or 56 deliberately
+   rather than every section defaulting to the largest value. */
+.mk-section { padding: 72px 0; }
 .mk-alt { background: var(--bg); border-block: 1px solid var(--border); }
 .mk-section h2 {
   font-size: clamp(24px, 3.4vw, 32px); line-height: 1.2;
@@ -109,7 +117,7 @@
 .mk-step-text { font-size: 15px; line-height: 1.6; color: var(--slate); }
 
 /* Final CTA */
-.mk-final { background: var(--navy); color: #fff; padding: 72px 0; text-align: center; }
+.mk-final { background: var(--navy); color: #fff; padding: 88px 0; text-align: center; }
 .mk-final h2 { font-size: clamp(24px, 3.4vw, 32px); margin: 0 0 12px; color: #fff; }
 .mk-final p { font-size: 16px; color: rgba(255,255,255,0.78); margin: 0 0 26px; }
 
@@ -354,7 +362,6 @@
    decorative shapes. Exactly one colour inversion on the page, spent on QAB.
    ========================================================================== */
 
-.mk-wrap { max-width: 1180px; }
 
 /* Art direction per breakpoint. A desktop capture scaled to 380px is not a
    mobile image — each viewport gets a crop composed for it. */
@@ -366,7 +373,6 @@
 
 /* --- Hero ---------------------------------------------------------------- */
 
-.mk-hero { padding: 96px 0 56px; text-align: left; }
 .mk-hero h1 {
   max-width: 15ch;
   font-size: clamp(38px, 5.2vw, 60px); line-height: 1.04;
@@ -385,28 +391,18 @@
 
 /* --- The product, interrupting the hero ---------------------------------- */
 
-.mk-shot { padding: 0 0 96px; }
-.mk-shot-frame {
-  border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
-  background: var(--surface);
-  box-shadow: 0 24px 60px -30px rgba(11, 35, 65, 0.35);
-}
-.mk-shot-image { display: block; width: 100%; height: auto; }
 
 @media (max-width: 720px) { .mk-shot { padding-bottom: 56px; } }
 
 /* --- Sections ------------------------------------------------------------ */
 
-.mk-section { padding: 96px 0; }
 .mk-white { background: var(--surface); }
-.mk-narrow { max-width: 660px; }
 
 .mk-section h2 {
   font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15;
   letter-spacing: -0.02em; color: var(--navy);
 }
 .mk-section p { font-size: 17px; line-height: 1.72; }
-.mk-emphasis { font-size: 20px; font-weight: 600; color: var(--navy); line-height: 1.55; }
 .mk-h2-lead { margin: 0 0 34px; }
 
 @media (max-width: 720px) {
@@ -426,7 +422,6 @@
   margin: 0 0 4px; font-size: 16.5px; font-weight: 700; color: var(--navy);
 }
 .mk-area-body { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--slate); }
-.mk-more { margin-top: 28px; font-size: 15.5px; }
 
 @media (max-width: 720px) {
   .mk-areas { grid-template-columns: 1fr; column-gap: 0; }
@@ -505,10 +500,9 @@
 
 /* --- Early access and close --------------------------------------------- */
 
-.mk-access { padding: 72px 0; }
+.mk-access { padding: 56px 0; background: var(--bg); }
 .mk-access p { margin: 0; font-size: 16px; line-height: 1.75; color: var(--slate); }
 
-.mk-final { background: var(--navy); color: #fff; padding: 104px 0; text-align: center; }
 .mk-final h2 { margin: 0 0 26px; color: #fff; font-size: clamp(26px, 3vw, 34px); }
 .mk-final .mk-note { color: rgba(255, 255, 255, 0.62); margin-top: 16px; }
 
@@ -626,7 +620,6 @@
 
 .mk-problem { padding: 72px 0; }
 .mk-problem h2 { margin-bottom: 18px; }
-.mk-access { padding: 56px 0; background: var(--bg); }
 .mk-access p { margin: 0; font-size: 16px; line-height: 1.7; color: var(--slate); }
 
 @media (max-width: 720px) {
@@ -638,7 +631,6 @@
 
 /* V1 gave this column 0.9fr against a 1.1fr image, which broke the heading
    into five words on five lines. */
-.mk-qab-grid { grid-template-columns: 1.05fr 0.95fr; gap: 56px; }
 .mk-qab-copy h2 { max-width: 18ch; }
 
 @media (max-width: 1000px) {
@@ -650,3 +642,17 @@
 
 .mk, .mk-wrap { max-width: 100%; }
 .mk img { max-width: 100%; }
+
+
+/* --- Spacing tiers ------------------------------------------------------- */
+
+/* Standard is 72px on .mk-section. A section takes a different tier only when
+   its importance or content volume justifies it — consistent logic rather
+   than mechanically identical sections. */
+.mk-section-major { padding-top: 88px; padding-bottom: 88px; }
+.mk-section-tight { padding-top: 56px; padding-bottom: 56px; }
+
+@media (max-width: 720px) {
+  .mk-section-major { padding-top: 48px; padding-bottom: 48px; }
+  .mk-section-tight { padding-top: 32px; padding-bottom: 32px; }
+}
