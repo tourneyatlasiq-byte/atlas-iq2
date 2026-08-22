@@ -17,7 +17,7 @@ import {
   assignExistingPlayer,
   updateRosterMember,
   setRosterActive,
-  removeRosterMember,
+  removePlayerFromSeason,
   deletePlayerPermanently,
 } from "../lib/actions/roster";
 
@@ -199,12 +199,17 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     });
   }
 
+  /**
+   * One action. The workflow decides what can be cleaned up and what has to be
+   * kept — a coach should never have to know that dues must be removed before
+   * the roster row, which is what the old order-of-operations bug required.
+   */
   function remove(row) {
     const name = row.player?.full_name ?? "this person";
-    if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nTheir player record and history in other seasons are kept.`)) return;
+    if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nAnything they have paid or played is kept. Setup-only records are cleaned up.`)) return;
     const fd = new FormData();
     fd.set("assignment_id", row.id);
-    run(removeRosterMember, fd, () => closeDetail());
+    run(removePlayerFromSeason, fd, () => closeDetail());
   }
 
   function deleteForever(row) {
