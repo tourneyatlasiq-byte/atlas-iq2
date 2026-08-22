@@ -1,0 +1,165 @@
+/* ==========================================================================
+   Art direction proof.
+
+   Editorial precision rather than showroom. The site is carried by type,
+   space and real numbers; the screenshot is evidence beneath the argument,
+   not the argument itself.
+
+   Light by default. The dark grounds we tested for several passes were
+   fighting the product: Season Tempo's interface is a light interface, and a
+   dark page spends its energy competing with its own evidence.
+   ========================================================================== */
+
+.dx {
+  background: #fff;
+  color: #0b2341;
+  /* Everything below assumes the existing families. No new fonts were
+     introduced, so the type scale is the only variable being tested. */
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dx-wrap { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+
+/* --- Type scale ---------------------------------------------------------
+   Four sizes, and deliberately nothing between annotation and statement.
+   Mid-sized type is what makes a page read as a template. */
+
+.dx-eyebrow {
+  margin: 0;
+  font-size: 11px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+
+.dx-statement {
+  margin: 26px 0 0;
+  font-family: var(--font-poppins), var(--font-inter), sans-serif;
+  font-size: clamp(46px, 6.2vw, 76px);
+  line-height: 1.02; letter-spacing: -0.035em; font-weight: 800;
+  color: #0b2341;
+}
+
+.dx-section {
+  margin: 18px 0 0;
+  font-family: var(--font-poppins), var(--font-inter), sans-serif;
+  font-size: clamp(26px, 2.9vw, 34px);
+  line-height: 1.22; letter-spacing: -0.02em; font-weight: 700;
+}
+
+.dx-body {
+  margin: 22px 0 0; max-width: 62ch;
+  font-size: 17.5px; line-height: 1.72; color: #46586f;
+}
+
+/* --- Navigation ---------------------------------------------------------
+   On the page rather than over it. No shadow, no blur, no sticky. */
+
+.dx-nav { border-bottom: 1px solid #edf1f6; }
+.dx-nav-inner {
+  display: flex; align-items: center; gap: 44px;
+  height: 76px;
+}
+.dx-mark {
+  font-family: var(--font-poppins), sans-serif;
+  font-size: 16px; font-weight: 800; letter-spacing: -0.01em;
+}
+.dx-nav-links { display: flex; gap: 30px; font-size: 14.5px; color: #46586f; }
+/* Sign in is UTILITY. It never sits beside an acquisition button as an
+   equal, because the two serve opposite people. */
+.dx-signin { margin-left: auto; font-size: 14.5px; color: #46586f; }
+
+/* --- Statement ----------------------------------------------------------
+   Asymmetric: the headline occupies the left of a twelve-column field and the
+   supporting material sits beneath it, offset. Centred layouts read as
+   templates regardless of how good the type is. */
+
+.dx-hero { padding: 118px 0 104px; }
+.dx-statement { max-width: 15ch; }
+
+.dx-hero-foot {
+  display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 56px; align-items: end;
+  margin-top: 54px;
+}
+.dx-lede {
+  margin: 0; max-width: 46ch;
+  font-size: 19px; line-height: 1.6; color: #46586f;
+}
+
+.dx-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+
+/* One button style on the whole site. No gradient, no shadow, no icon, and
+   no outlined twin beside it — a solid button next to a ghost button is the
+   most template-like pattern in the category. */
+.dx-btn {
+  display: inline-flex; align-items: center;
+  padding: 15px 30px; border-radius: 4px;
+  background: #0b2341; color: #fff;
+  font-size: 15.5px; font-weight: 600; letter-spacing: .01em;
+  text-decoration: none;
+  transition: background 160ms ease-out;
+}
+.dx-btn:hover { background: #143458; }
+.dx-note { font-size: 13.5px; color: #7c8ba1; }
+
+/* --- The argument -------------------------------------------------------
+   Type carries it; the plate confirms it. If a section only works because of
+   its screenshot, the argument has not been written yet. */
+
+.dx-argument { padding: 8px 0 112px; }
+.dx-grid {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 72px; align-items: start;
+}
+
+/* A real number set as typography. This product is full of them, and reading
+   one at statement scale is more persuasive than finding it inside a
+   screenshot. */
+.dx-figure {
+  display: block; margin: 6px 0 4px;
+  font-size: clamp(52px, 6vw, 74px); line-height: .96;
+  letter-spacing: -0.04em; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #0b2341;
+}
+
+/* --- The plate ----------------------------------------------------------
+   A hairline rule, never a shadow: a shadow makes an interface look like a
+   sticker, a rule makes it look like a printed plate. Always cropped to one
+   argument, always captioned. */
+
+.dx-plate { margin: 0; }
+.dx-plate img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid #e3e9f0; border-radius: 2px;
+}
+.dx-plate figcaption {
+  margin-top: 14px; padding-left: 1px;
+  font-size: 12px; line-height: 1.55; letter-spacing: .01em; color: #7c8ba1;
+}
+
+/* --- Transition ---------------------------------------------------------
+   Space and a rule. Not an alternating grey band, which is the single most
+   recognisable "SaaS page" tell. */
+
+.dx-next { padding: 0 0 132px; }
+.dx-rule { border: 0; border-top: 1px solid #edf1f6; margin: 0 0 42px; }
+.dx-next-head { max-width: 20ch; margin-top: 14px; color: #0b2341; }
+
+.dx-foot { border-top: 1px solid #edf1f6; padding: 30px 0 60px; }
+.dx-foot p { margin: 0; font-size: 12px; color: #9aa8ba; }
+
+/* Motion: one behaviour, and it never delays reading. */
+@media (prefers-reduced-motion: reduce) {
+  .dx-btn { transition: none; }
+}
+
+/* Desktop is the subject of this proof. This keeps it from breaking on a
+   narrower window rather than being a considered responsive treatment. */
+@media (max-width: 900px) {
+  .dx-wrap { padding: 0 24px; }
+  .dx-hero { padding: 64px 0 56px; }
+  .dx-hero-foot, .dx-grid { grid-template-columns: 1fr; gap: 34px; }
+  .dx-argument { padding-bottom: 64px; }
+  .dx-next { padding-bottom: 72px; }
+}
