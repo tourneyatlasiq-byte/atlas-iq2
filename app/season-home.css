@@ -1,0 +1,320 @@
+/* ==========================================================================
+   Home.
+
+   Light editorial ground, condensed display, Inter body, real season data,
+   restrained navy, one gold treatment, screenshots as evidence.
+
+   Promoted from the approved prototype. The art direction is unchanged: the
+   season comes first, Finance arrives as a consequence of a weekend, Saturday
+   is one continuous chapter, and the numbers carry the lower half.
+
+   Loaded alongside home.css, which supplies the shared header and footer.
+   Every class here is sp-* so nothing collides with the shell or /product.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap');
+
+.sp {
+  background: #fff; color: #0b2341;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.sp-wrap { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+
+/* --- Type --------------------------------------------------------------- */
+
+.sp-eyebrow {
+  margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+
+/* Each line is its own block and holds together. The previous proof let the
+   measure decide, which stranded "fee" on a line of its own. */
+.sp-statement { margin: 24px 0 0; }
+.sp-statement span {
+  display: block; white-space: nowrap;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(44px, 7.1vw, 94px);
+  line-height: .96; letter-spacing: -0.008em; font-weight: 700;
+  color: #0b2341;
+}
+
+.sp-section {
+  margin: 16px 0 0; max-width: 21ch;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(30px, 3.4vw, 42px);
+  line-height: 1.08; letter-spacing: -0.004em; font-weight: 700;
+}
+
+/* A real figure set at display scale. Reading it as type is more persuasive
+   than finding it inside a screenshot — the screenshot then confirms it. */
+.sp-figure {
+  display: block; margin-bottom: 2px;
+  font-size: clamp(52px, 6.4vw, 82px); line-height: .94;
+  letter-spacing: -0.015em; font-variant-numeric: tabular-nums;
+}
+.sp-figure-inline { display: inline-block; margin: 0 .12em -0.04em; }
+
+.sp-body { margin: 20px 0 0; max-width: 58ch; font-size: 17px; line-height: 1.7; color: #46586f; }
+
+/* --- Navigation --------------------------------------------------------- */
+
+.sp-nav { border-bottom: 1px solid #edf1f6; }
+.sp-nav-inner { display: flex; align-items: center; gap: 44px; height: 76px; }
+.sp-mark {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 21px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+}
+.sp-nav-links { display: flex; gap: 30px; font-size: 14.5px; color: #46586f; }
+.sp-signin { margin-left: auto; font-size: 14.5px; color: #46586f; }
+
+/* --- Statement ---------------------------------------------------------- */
+
+.sp-hero { padding: 96px 0 88px; }
+/* Two columns: the promise and the action on the left, the season's real
+   results on the right. The open right side was what made the first viewport
+   feel unfinished — a second column of type solves it without a screenshot,
+   card or ornament. */
+.sp-hero-foot {
+  display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: 72px; align-items: start; margin-top: 52px;
+}
+.sp-hero-left { display: flex; flex-direction: column; gap: 30px; }
+.sp-lede { margin: 0; max-width: 46ch; font-size: 19px; line-height: 1.6; color: #46586f; }
+.sp-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 13px; }
+.sp-btn {
+  display: inline-flex; padding: 15px 30px; border-radius: 4px;
+  background: #0b2341; color: #fff; font-size: 15.5px; font-weight: 600;
+}
+.sp-note { font-size: 13.5px; color: #7c8ba1; }
+
+/* --- Real results ------------------------------------------------------- */
+
+/* A box score, not an application table. The gold rule is the single
+   deliberate use of the colour on this page. */
+.sp-results { margin-top: 0; }
+.sp-results ul { list-style: none; margin: 0; padding: 0; border-top: 2px solid #f4b400; }
+.sp-results li {
+  display: grid; grid-template-columns: 62px 1fr 20px 46px;
+  gap: 14px; align-items: baseline;
+  padding: 9px 0; border-bottom: 1px solid #edf1f6;
+}
+.sp-r-date {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+.sp-r-opp { font-size: 15px; color: #0b2341; }
+.sp-r-res {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 700; text-align: center;
+}
+.sp-r-res.w { color: #0b2341; }
+.sp-r-res.l { color: #b0bccb; }
+.sp-r-score {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 600; text-align: right;
+  font-variant-numeric: tabular-nums; color: #46586f;
+}
+.sp-results-note {
+  margin: 12px 0 0; font-size: 11.5px; letter-spacing: .04em; color: #9aa8ba;
+}
+
+/* --- The season --------------------------------------------------------- */
+
+/* Full-width evidence: the schedule is the one thing that should feel large,
+   because breadth is the argument. */
+.sp-season { padding: 8px 0 104px; }
+.sp-lead { max-width: 640px; margin-bottom: 46px; }
+
+/* --- Finance as a consequence ------------------------------------------- */
+
+.sp-consequence { padding: 0 0 104px; }
+.sp-split {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 68px; align-items: center;
+}
+
+/* --- Plates -------------------------------------------------------------
+   A hairline rule, never a shadow. A shadow makes an interface look like a
+   sticker; a rule makes it look like a printed plate. Always captioned. */
+
+.sp-plate { margin: 0; }
+.sp-plate img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid #e3e9f0; border-radius: 2px;
+}
+.sp-plate figcaption {
+  margin-top: 13px; font-size: 12px; line-height: 1.55; color: #7c8ba1;
+}
+.sp-plate-wide img { width: 100%; }
+
+/* --- Transition --------------------------------------------------------- */
+
+.sp-next { padding: 0 0 128px; }
+.sp-rule { border: 0; border-top: 1px solid #edf1f6; margin: 0 0 40px; }
+.sp-next-head { max-width: 22ch; margin-top: 12px; }
+
+@media (max-width: 900px) {
+  .sp-wrap { padding: 0 24px; }
+  .sp-hero { padding: 56px 0 48px; }
+  .sp-hero-foot, .sp-split { grid-template-columns: 1fr; gap: 32px; }
+  .sp-statement span { white-space: normal; }
+  .sp-season, .sp-consequence { padding-bottom: 56px; }
+  .sp-next { padding-bottom: 64px; }
+}
+
+/* The paid figure sits beside the committed one at the same scale but lower
+   contrast: the point is the gap between them, not either number alone. */
+.sp-muted { color: #93a2b5; }
+
+/* Rendered larger than the season plate. The relationship being discussed —
+   committed against planned, with the unassigned amount called out — has to
+   be legible without the visitor studying a small screenshot. */
+.sp-plate-tall img { max-width: 560px; }
+
+
+/* --- Hero additions ------------------------------------------------------ */
+
+.sp-results-head {
+  margin: 0 0 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 17px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; color: #0b2341;
+}
+
+/* A closing line under the composition, in the manner of a plate credit. */
+.sp-attrib {
+  display: flex; gap: 26px; flex-wrap: wrap;
+  margin: 56px 0 0; padding-top: 16px;
+  border-top: 1px solid #edf1f6;
+  font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: #a7b3c2;
+}
+
+/* --- Saturday ------------------------------------------------------------ */
+
+.sp-saturday { padding: 0 0 120px; }
+
+/* The chapter opener is set larger than a section head and smaller than the
+   statement — it is a turn in the story, not a new argument. */
+.sp-chapter {
+  margin: 14px 0 0; max-width: 16ch;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(40px, 5.2vw, 68px);
+  line-height: 1; letter-spacing: -0.008em; font-weight: 700;
+}
+.sp-chapter-body { margin-top: 22px; max-width: 54ch; }
+
+.sp-split-tight { margin-top: 72px; align-items: center; gap: 76px; }
+
+/* The phone keeps its own proportion and is deliberately small. It is a
+   phone in a dugout, not a hero product shot. */
+.sp-plate-phone img { max-width: 268px; border-radius: 16px; }
+.sp-plate-phone { justify-self: center; }
+
+.sp-monday {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 40px; margin-top: 96px;
+}
+.sp-monday-lead { max-width: 640px; }
+/* Wide and shallow, like a figure in a printed report. */
+.sp-plate-reasons img { width: 100%; }
+
+@media (max-width: 900px) {
+  .sp-hero-left { gap: 26px; }
+  .sp-attrib { gap: 14px; margin-top: 36px; }
+  .sp-saturday { padding-bottom: 64px; }
+  .sp-split-tight { margin-top: 44px; gap: 32px; }
+  .sp-monday { margin-top: 56px; }
+}
+
+/* --- The tally ------------------------------------------------------------
+   The arithmetic set as the statement. Three clauses, each a real figure,
+   and the relationship between them is the argument. */
+
+.sp-tally {
+  display: flex; flex-wrap: wrap; gap: 0 40px; margin: 16px 0 0;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(26px, 3vw, 38px); line-height: 1.15;
+  letter-spacing: -0.004em; font-weight: 600; color: #46586f;
+}
+.sp-tally b {
+  font-weight: 700; color: #0b2341;
+  font-size: 1.5em; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+.sp-tally-note { margin-top: 18px; max-width: 46ch; }
+
+/* --- What the season gives back -------------------------------------------
+   Documents, not screens: square corners, a paper edge, no shadow. What
+   leaves the product is a printed page, and it should look like one. */
+
+.sp-give { padding: 0 0 128px; }
+.sp-docs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 56px; margin-top: 60px; align-items: start;
+}
+.sp-doc { margin: 0; }
+.sp-doc img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid #e8edf3; border-radius: 2px;
+}
+.sp-doc figcaption {
+  margin-top: 13px; font-size: 12px; line-height: 1.55; color: #7c8ba1;
+}
+
+@media (max-width: 900px) {
+  .sp-tally { gap: 0 24px; }
+  .sp-give { padding-bottom: 64px; }
+  .sp-docs { grid-template-columns: 1fr; gap: 40px; margin-top: 40px; }
+}
+
+
+/* --- Shared shell, harmonised -------------------------------------------
+   The header and footer keep every piece of their functionality — logo,
+   navigation, Support, Privacy, Terms, copyright — but their headings adopt
+   the condensed face so the page reads as one system rather than a new design
+   bolted onto an old chrome. */
+
+.mk-footer { border-top: 1px solid #edf1f6; padding: 64px 0 34px; }
+.mk-footer-heading {
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: 14px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: #0b2341;
+}
+.mk-footer-line { font-size: 13.5px; color: #7c8ba1; }
+.mk-footer-col a { font-size: 13.5px; color: #46586f; }
+.mk-footer-col a:hover { color: #0b2341; }
+.mk-copyright { font-size: 12px; color: #a7b3c2; }
+
+.mk-header { border-bottom: 1px solid #edf1f6; }
+.mk-nav a, .mk-signin { font-size: 14.5px; color: #46586f; }
+.mk-nav a:hover, .mk-signin:hover { color: #0b2341; }
+
+/* --- Conclusion -----------------------------------------------------------
+   Type only. The composition reserves room beneath the button for a starting
+   price and a /pricing link, so adding them later is copy rather than a
+   redesign. */
+
+.sp-close { padding: 0 0 128px; }
+.sp-close-head {
+  margin: 0; max-width: 12ch;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(46px, 6.4vw, 86px);
+  line-height: .96; letter-spacing: -0.01em; font-weight: 700;
+  color: #0b2341;
+}
+.sp-close-body {
+  margin: 26px 0 0; max-width: 54ch;
+  font-size: 18px; line-height: 1.66; color: #46586f;
+}
+.sp-close-cta {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
+  margin-top: 34px;
+}
+
+@media (max-width: 900px) {
+  .sp-close { padding-bottom: 64px; }
+  .sp-close-head { max-width: none; }
+}
