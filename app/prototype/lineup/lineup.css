@@ -1,0 +1,238 @@
+/* ==========================================================================
+   The Lineup — prototype.
+
+   One persistent stage, one isolated object at a time, a terse specification
+   beneath, and a row of module names. The stage never resizes, so changing
+   modules cannot move the page.
+
+   Typography note: this deliberately runs on the EXISTING Poppins/Inter
+   system, unchanged. Whether the type supports this direction is one of the
+   questions the prototype exists to answer, and changing two variables at once
+   would make that impossible to judge.
+   ========================================================================== */
+
+.proto { background: #fff; min-height: 100vh; }
+.proto-wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+.proto-head { padding: 40px 0 24px; border-bottom: 1px solid var(--border); }
+.proto-head h1 { margin: 6px 0 4px; font-size: 26px; color: var(--navy); }
+.proto-eyebrow {
+  margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: #b91c1c;
+}
+.proto-note { margin: 0; font-size: 14px; color: var(--slate); }
+.proto-head, .proto-foot { padding-left: 24px; padding-right: 24px; }
+
+/* --- Hero, in the register it would really use --------------------------- */
+
+.proto-hero { padding: 92px 0 68px; }
+.proto-h1 {
+  margin: 0; max-width: 22ch;
+  font-size: clamp(38px, 5.2vw, 62px); line-height: 1.03;
+  letter-spacing: -0.028em; color: var(--navy);
+}
+/* One line. It has to say what the product is without a paragraph. */
+.proto-lede {
+  margin: 18px 0 0; max-width: 46ch;
+  font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--slate);
+}
+
+.proto-block { padding: 40px 0 88px; }
+.proto-block-alt { background: var(--bg); }
+.proto-label {
+  margin: 0 0 18px; font-size: 11px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--slate);
+}
+.proto-foot { padding: 32px 0 64px; border-top: 1px solid var(--border); }
+.proto-foot p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--slate); }
+
+/* --- The stage ----------------------------------------------------------- */
+
+.ln { border-radius: 20px; overflow: hidden; }
+
+.ln-stage {
+  position: relative; height: 540px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 44px 56px;
+}
+.ln-dark .ln-stage { background: #08182c; }
+.ln-light .ln-stage { background: var(--bg); border: 1px solid var(--border); border-bottom: 0; }
+
+/* Every object is rendered and cross-faded rather than swapped, so nothing
+   flashes and the stage height never changes. */
+.ln-object {
+  position: absolute; inset: 40px 56px 74px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 240ms ease-out, transform 240ms ease-out;
+}
+.ln-object.on { opacity: 1; visibility: visible; transform: none; }
+
+.ln-object img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto;
+  border-radius: 12px;
+}
+/* The tournament card is already dark, so on the dark stage it needs an edge
+   to separate from the ground. */
+.ln-dark .ln-object img { box-shadow: 0 40px 90px -40px rgba(0, 0, 0, .85); }
+.ln-light .ln-object img { box-shadow: 0 26px 60px -34px rgba(11, 35, 65, .42); }
+
+/* The phone keeps its own proportion and reads at full height. */
+.ln-object.tall img { max-height: 100%; border-radius: 22px; }
+/* The report is a document, not a screen: square corners, paper edge. */
+.ln-object.doc img { border-radius: 3px; }
+.ln-light .ln-object.doc img { border: 1px solid #e8edf3; }
+
+/* --- Specification ------------------------------------------------------- */
+
+.ln-detail { padding: 26px 32px 24px; }
+.ln-dark .ln-detail { background: #0b2038; }
+.ln-light .ln-detail { background: #fff; border: 1px solid var(--border); border-top: 0; border-bottom: 0; }
+
+.ln-detail-head { margin-bottom: 14px; }
+.ln-name {
+  display: flex; align-items: center; gap: 12px; margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 26px; line-height: 1.15; letter-spacing: -0.02em;
+}
+.ln-dark .ln-name { color: #fff; }
+.ln-light .ln-name { color: var(--navy); }
+
+.ln-premium {
+  font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  background: var(--gold); color: #0b2341; border-radius: 999px; padding: 3px 9px;
+}
+
+/* Terse pairs, in a coach's language. Blanca's spec table is the model:
+   confidence through density, not paragraphs. */
+.ln-spec { margin: 0; display: grid; gap: 0; }
+.ln-spec-row {
+  display: grid; grid-template-columns: 88px minmax(0, 1fr);
+  gap: 20px; padding: 9px 0;
+  animation: ln-row 320ms ease-out both;
+  animation-delay: calc(var(--i) * 45ms);
+}
+.ln-dark .ln-spec-row + .ln-spec-row { border-top: 1px solid rgba(255, 255, 255, .09); }
+.ln-light .ln-spec-row + .ln-spec-row { border-top: 1px solid var(--border); }
+
+.ln-spec dt {
+  font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  padding-top: 3px;
+}
+.ln-dark .ln-spec dt { color: var(--gold); }
+.ln-light .ln-spec dt { color: var(--blue); }
+
+.ln-spec dd { margin: 0; font-size: 15.5px; line-height: 1.55; }
+.ln-dark .ln-spec dd { color: rgba(255, 255, 255, .82); }
+.ln-light .ln-spec dd { color: #334155; }
+
+@keyframes ln-row {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- The rail ------------------------------------------------------------ */
+
+.ln-rail {
+  display: flex; align-items: center; gap: 2px;
+  padding: 4px 22px 6px;
+}
+.ln-dark .ln-rail { background: #0b2038; }
+.ln-light .ln-rail { background: #fff; border: 1px solid var(--border); border-top: 0; }
+
+.ln-tab {
+  position: relative; flex: 0 0 auto;
+  padding: 16px 16px 18px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap;
+  transition: color 160ms ease-out;
+}
+.ln-dark .ln-tab { color: rgba(255, 255, 255, .5); }
+.ln-dark .ln-tab:hover, .ln-dark .ln-tab.on { color: #fff; }
+.ln-light .ln-tab { color: var(--slate); }
+.ln-light .ln-tab:hover, .ln-light .ln-tab.on { color: var(--navy); }
+.ln-tab.on { font-weight: 700; }
+/* Weight and colour AND a rule: never colour alone. */
+.ln-tab.on::after {
+  content: ""; position: absolute; left: 16px; right: 16px; bottom: 8px;
+  height: 2px; background: var(--gold);
+}
+.ln-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; }
+
+/* Named, deliberately not selectable. The capability is real; the capture is
+   not approved, and an empty state would misrepresent it. */
+.ln-soon {
+  flex: 0 0 auto; padding: 16px 16px 18px;
+  font-size: 15px; font-weight: 600; white-space: nowrap;
+}
+.ln-dark .ln-soon { color: rgba(255, 255, 255, .26); }
+.ln-light .ln-soon { color: #cbd5e1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ln-object, .ln-tab { transition: none; }
+  .ln-spec-row { animation: none; }
+}
+
+/* --- Mobile -------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .proto-hero { padding: 56px 0 40px; }
+  .proto-block { padding: 28px 0 56px; }
+
+  .ln-stage { height: 430px; padding: 22px 18px; }
+  .ln-object { inset: 22px 18px 66px; }
+  .ln-detail { padding: 20px 20px 18px; }
+  .ln-name { font-size: 22px; }
+  .ln-spec-row { grid-template-columns: 74px minmax(0, 1fr); gap: 14px; }
+  .ln-spec dd { font-size: 14.5px; }
+
+  /* The rail scrolls inside the component; the page never overflows. */
+  .ln-rail {
+    overflow-x: auto; padding: 0 12px 4px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .ln-rail::-webkit-scrollbar { display: none; }
+  .ln-tab, .ln-soon { padding: 14px 12px 16px; font-size: 14px; }
+}
+
+@media (max-width: 560px) {
+  .ln-stage { height: 380px; }
+}
+
+
+/* --- Views: named states attached to the object -------------------------- */
+
+/* NOT a carousel. No arrows, no dots over the image, no "1 of 3". The names
+   sit under the object and say what can be seen, so a visitor reads the
+   available views rather than discovering them by clicking through. */
+.ln-views {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center; gap: 2px;
+  padding: 0 20px 20px;
+}
+.ln-view {
+  padding: 7px 14px; border: 0; border-radius: 999px;
+  background: none; cursor: pointer; font: inherit;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap;
+  transition: background 160ms ease-out, color 160ms ease-out;
+}
+.ln-dark .ln-view { color: rgba(255, 255, 255, .45); }
+.ln-dark .ln-view:hover { color: rgba(255, 255, 255, .8); }
+.ln-dark .ln-view.on { color: #0b2038; background: var(--gold); }
+.ln-light .ln-view { color: var(--slate); }
+.ln-light .ln-view:hover { color: var(--navy); }
+.ln-light .ln-view.on { color: #fff; background: var(--navy); }
+.ln-view:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* A phone is shown at phone proportions and a document at document
+   proportions. Normalising them would erase something true: a lineup is set
+   on a phone in a dugout, a budget is reviewed on a laptop. */
+.ln-object.phone img { max-height: 100%; width: auto; border-radius: 20px; }
+.ln-object.wide img { max-width: 100%; height: auto; max-height: 100%; }
+
+@media (prefers-reduced-motion: reduce) { .ln-view { transition: none; } }
+
+@media (max-width: 860px) {
+  .ln-views { padding: 0 12px 14px; gap: 0; }
+  .ln-view { padding: 6px 10px; font-size: 11.5px; }
+}
