@@ -1,0 +1,161 @@
+/* ==========================================================================
+   The Arrangement.
+
+   No frame. No card. No browser chrome. No rail, tab bar or grid. The five
+   product objects ARE the layout — placed by hand at different scales, allowed
+   to overlap, each keeping the proportion the product actually gave it.
+
+   Restraint is the whole design. Generous ground, very quiet labelling, one
+   accent. If the type gets loud, five dense UI objects become noise.
+   ========================================================================== */
+
+.ar-block { padding: 0 0 8px; }
+.ar-block-alt { background: transparent; }
+.ar-label {
+  max-width: 1280px; margin: 0 auto; padding: 34px 32px 14px;
+  font-size: 11px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--slate);
+}
+
+.ar { padding: 0 0 56px; }
+.ar-dark { background: #07162a; }
+.ar-light { background: #eef2f7; }
+
+/* One shared ground. Generous, and deliberately taller than its contents so
+   the objects have air rather than filling the area. */
+.ar-ground {
+  position: relative;
+  max-width: 1280px; margin: 0 auto;
+  height: 800px;
+  padding: 0 32px;
+}
+
+/* --- The objects --------------------------------------------------------- */
+
+.ar-obj {
+  position: absolute;
+  left: var(--l); top: var(--t); width: var(--w);
+  z-index: var(--z);
+  padding: 0; border: 0; background: none; cursor: pointer;
+  transform: rotate(var(--rot));
+  opacity: var(--dim);
+  transition: transform 420ms cubic-bezier(.22, .61, .36, 1),
+              opacity 320ms ease-out, filter 320ms ease-out;
+}
+.ar-obj img {
+  display: block; width: 100%; height: auto;
+  border-radius: 4px;
+}
+/* Depth from light, not from perspective tricks. Objects further back sit
+   lower in contrast; the one in front carries the strongest shadow. */
+.ar-dark .ar-obj img { box-shadow: 0 50px 90px -46px rgba(0, 0, 0, .9); }
+.ar-light .ar-obj img { box-shadow: 0 40px 80px -44px rgba(11, 35, 65, .45); }
+
+/* Performance keeps its phone form, including the radius. */
+.ar-obj[style*="--z: 4"] img { border-radius: 14px; }
+
+.ar-obj:focus-visible { outline: 2px solid var(--gold); outline-offset: 6px; }
+.ar-obj:hover { opacity: 1; }
+
+/* Annotations, not labels on a card. */
+.ar-tag {
+  position: absolute; left: 0; bottom: -22px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.ar-dark .ar-tag { color: rgba(255, 255, 255, .5); }
+.ar-light .ar-tag { color: #64748b; }
+.ar-obj:hover .ar-tag, .ar-obj.on .ar-tag { color: var(--gold); }
+.ar-light .ar-obj:hover .ar-tag, .ar-light .ar-obj.on .ar-tag { color: var(--navy); }
+
+.ar-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--gold); }
+
+/* --- Selection ----------------------------------------------------------- */
+
+/* The selected object comes forward through scale, position and contrast —
+   but stays on the same ground rather than moving into a frame. */
+.ar-obj.on {
+  left: 50%; top: 50%; width: 46%;
+  transform: translate(-50%, -52%) rotate(0deg);
+  opacity: 1; z-index: 10;
+}
+.ar-dark .ar-obj.on img { box-shadow: 0 60px 120px -50px rgba(0, 0, 0, .95); }
+
+/* The others recede but stay visible: this is one product made of several
+   parts, and hiding them would break that. */
+.ar-obj.back { opacity: .16; filter: saturate(.5); }
+.ar-obj.back:hover { opacity: .34; }
+.ar-obj.back .ar-tag { opacity: 0; }
+
+/* --- The selected object's own states ------------------------------------ */
+
+/* Attached to the composition, not a rail. One quiet line beneath the ground. */
+.ar-states {
+  display: flex; align-items: center; justify-content: center;
+  gap: 18px; flex-wrap: wrap;
+  max-width: 1280px; margin: 0 auto; padding: 22px 32px 0;
+}
+.ar-states-name {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-display, inherit);
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+}
+.ar-dark .ar-states-name { color: #fff; }
+.ar-light .ar-states-name { color: var(--navy); }
+
+.ar-premium {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  background: var(--gold); color: #0b2341; border-radius: 999px; padding: 3px 8px;
+}
+
+.ar-states-list { display: inline-flex; gap: 2px; }
+.ar-state {
+  padding: 6px 13px; border: 0; border-radius: 999px; background: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  transition: background 160ms ease-out, color 160ms ease-out;
+}
+.ar-dark .ar-state { color: rgba(255, 255, 255, .5); }
+.ar-dark .ar-state:hover { color: #fff; }
+.ar-dark .ar-state.on { background: var(--gold); color: #0b2341; }
+.ar-light .ar-state { color: var(--slate); }
+.ar-light .ar-state:hover { color: var(--navy); }
+.ar-light .ar-state.on { background: var(--navy); color: #fff; }
+
+.ar-close {
+  padding: 6px 12px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 600; text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ar-dark .ar-close { color: rgba(255, 255, 255, .42); }
+.ar-light .ar-close { color: var(--slate); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-obj, .ar-state { transition: none; }
+}
+
+/* --- Smaller screens ----------------------------------------------------- */
+
+/* An overlapping arrangement cannot survive a phone. Rather than shrink it
+   into illegibility, the objects stack — but they keep their different scales
+   and offsets, so it still reads as a composition rather than a list. */
+@media (max-width: 1000px) {
+  .ar-ground {
+    position: static; height: auto;
+    display: flex; flex-direction: column; gap: 44px;
+    padding: 8px 24px 24px;
+  }
+  .ar-obj {
+    position: static; width: 100%; transform: none; opacity: 1;
+    align-self: center;
+  }
+  .ar-obj[style*="--z: 4"] { max-width: 240px; }        /* phone */
+  .ar-obj[style*="--z: 3"] { max-width: 100%; }          /* finance, wide */
+  .ar-obj[style*="--z: 2"] { max-width: 66%; }           /* upright */
+  .ar-obj[style*="--z: 1"] { max-width: 84%; align-self: flex-start; }
+  .ar-obj.on { width: 100%; transform: none; }
+  .ar-obj.back { opacity: .3; }
+  .ar-tag { position: static; display: block; margin-top: 10px; }
+  .ar-obj.back .ar-tag { opacity: 1; }
+  .ar-states { padding-top: 8px; }
+}
