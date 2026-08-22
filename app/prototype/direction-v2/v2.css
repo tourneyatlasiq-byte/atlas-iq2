@@ -1,0 +1,185 @@
+/* Loaded at runtime rather than through next/font: this keeps the build
+   independent of a font fetch, and the face is prototype-only until a
+   direction is chosen. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap');
+
+/* ==========================================================================
+   Direction V2 — controlled identity test.
+
+   Everything structural is carried over from /prototype/direction unchanged:
+   the same container, the same spacing, the same asymmetric composition, the
+   same plate, the same copy. The ONLY variables are the display face, and
+   then one addition per variant.
+
+   The display face is Barlow Condensed. The brief was premium sports
+   editorial, not sports graphics — so no varsity, no jersey lettering, no
+   collegiate stencil, no poster face. Barlow Condensed is a technical
+   grotesque used in editorial and transit design: condensed and confident,
+   with none of that association.
+   ========================================================================== */
+
+.v2-page { background: #fff; }
+
+/* Separator between variants. Not part of any design — scaffolding so the
+   three can be compared without imagining the differences. */
+.v2-band {
+  max-width: 1120px; margin: 0 auto; padding: 64px 40px 22px;
+  border-bottom: 2px solid #0b2341;
+}
+.v2-band-eyebrow {
+  margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: .16em;
+  text-transform: uppercase; color: #b91c1c;
+}
+.v2-band h2 {
+  margin: 0 0 4px; font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: 30px; font-weight: 700; letter-spacing: -0.01em; color: #0b2341;
+}
+.v2-band p { margin: 0; font-size: 14px; color: #64748b; }
+
+.v2 {
+  background: #fff; color: #0b2341;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.v2-wrap { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+
+/* --- Type -------------------------------------------------------------- */
+
+.v2-eyebrow {
+  margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+
+/* Condensed lets the statement run larger in the same measure, which is where
+   the energy comes from — scale that feels slightly too big for the page. */
+.v2-statement {
+  margin: 24px 0 0; max-width: 17ch;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(58px, 8.4vw, 104px);
+  line-height: .94; letter-spacing: -0.012em; font-weight: 700;
+  text-transform: none; color: #0b2341;
+}
+
+.v2-section {
+  margin: 18px 0 0;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(32px, 3.6vw, 44px);
+  line-height: 1.06; letter-spacing: -0.005em; font-weight: 700;
+}
+
+.v2-body { margin: 22px 0 0; max-width: 62ch; font-size: 17.5px; line-height: 1.72; color: #46586f; }
+
+/* --- Navigation --------------------------------------------------------- */
+
+.v2-nav { border-bottom: 1px solid #edf1f6; }
+.v2-nav-inner { display: flex; align-items: center; gap: 44px; height: 76px; }
+.v2-mark {
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: 21px; font-weight: 700; letter-spacing: .01em; text-transform: uppercase;
+}
+.v2-nav-links { display: flex; gap: 30px; font-size: 14.5px; color: #46586f; }
+.v2-signin { margin-left: auto; font-size: 14.5px; color: #46586f; }
+
+/* --- Statement ---------------------------------------------------------- */
+
+.v2-hero { padding: 104px 0 96px; }
+.v2-hero-foot {
+  display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 56px; align-items: end; margin-top: 52px;
+}
+.v2-lede { margin: 0; max-width: 46ch; font-size: 19px; line-height: 1.6; color: #46586f; }
+.v2-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.v2-btn {
+  display: inline-flex; padding: 15px 30px; border-radius: 4px;
+  background: #0b2341; color: #fff; font-size: 15.5px; font-weight: 600;
+}
+.v2-note { font-size: 13.5px; color: #7c8ba1; }
+
+/* --- Variant B: season data --------------------------------------------
+   A box score, not an application table. Real Northgate results only. The
+   gold rule above it is the single decisive use of the colour on the page. */
+
+.v2-season { margin-top: 40px; max-width: 560px; }
+.v2-season ul {
+  list-style: none; margin: 0; padding: 0;
+  border-top: 2px solid #f4b400;
+}
+.v2-season li {
+  display: grid; grid-template-columns: 64px 1fr 22px 48px;
+  gap: 14px; align-items: baseline;
+  padding: 9px 0; border-bottom: 1px solid #edf1f6;
+}
+.v2-s-date {
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: 14px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+.v2-s-opp { font-size: 15px; color: #0b2341; }
+.v2-s-res {
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: 16px; font-weight: 700; text-align: center;
+}
+.v2-s-res.w { color: #0b2341; }
+.v2-s-res.l { color: #b0bccb; }
+.v2-s-score {
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: 16px; font-weight: 600; text-align: right;
+  font-variant-numeric: tabular-nums; color: #46586f;
+}
+
+/* --- Variant C: photography ---------------------------------------------
+   Full-bleed and shallow, between the navigation and the statement. The image
+   itself is not supplied: this sandbox cannot reach an image source, and
+   inventing one would misrepresent the test. */
+
+.v2-photo { width: 100%; }
+.v2-photo-slot {
+  height: 300px; background: #0e1b28;
+  display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid #edf1f6;
+}
+.v2-photo-note {
+  margin: 0; text-align: center;
+  font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+  color: rgba(255, 255, 255, .5);
+}
+.v2-photo-note span {
+  display: block; margin-top: 8px;
+  font-size: 10.5px; letter-spacing: .1em; color: rgba(255, 255, 255, .3);
+}
+
+/* --- The argument and plate — unchanged from V1 -------------------------- */
+
+.v2-argument { padding: 8px 0 108px; }
+.v2-grid {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 72px; align-items: start;
+}
+.v2-figure {
+  display: block; margin: 8px 0 6px;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(66px, 8vw, 104px); line-height: .9;
+  letter-spacing: -0.015em; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: #0b2341;
+}
+
+.v2-plate { margin: 0; }
+.v2-plate img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid #e3e9f0; border-radius: 2px;
+}
+.v2-plate figcaption {
+  margin-top: 14px; font-size: 12px; line-height: 1.55; color: #7c8ba1;
+}
+
+.v2-next { padding: 0 0 120px; }
+.v2-rule { border: 0; border-top: 1px solid #edf1f6; margin: 0 0 42px; }
+.v2-next-head { max-width: 22ch; margin-top: 14px; }
+
+@media (max-width: 900px) {
+  .v2-wrap { padding: 0 24px; }
+  .v2-hero { padding: 56px 0 48px; }
+  .v2-hero-foot, .v2-grid { grid-template-columns: 1fr; gap: 34px; }
+  .v2-argument { padding-bottom: 56px; }
+  .v2-next { padding-bottom: 64px; }
+}
