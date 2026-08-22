@@ -5253,3 +5253,134 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   /* Touch target without changing the header's footprint. */
   .facility-table th button.fc-sort { padding: 4px 0; }
 }
+
+/* --- Player Intake -------------------------------------------------------
+   Uses the application's existing controls and tokens throughout. Intake is
+   an operational workflow inside Season Tempo, not a separate product with
+   its own visual language. */
+
+.pi { display: flex; flex-direction: column; gap: 22px; }
+
+/* Progressive: one decision at a time rather than mapping, matching and
+   conflicts competing on a single screen. */
+.pi-steps {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  list-style: none; margin: 0; padding: 0 0 4px;
+  border-bottom: 1px solid var(--border);
+}
+.pi-step {
+  display: flex; align-items: center; gap: 7px;
+  padding-bottom: 10px; font-size: 13px; color: var(--slate);
+}
+.pi-step-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--surface-sunken); color: var(--slate);
+  font-size: 11px; font-weight: 800;
+}
+.pi-step.on { color: var(--navy); font-weight: 700; box-shadow: inset 0 -2px 0 var(--blue); }
+.pi-step.on .pi-step-n { background: var(--blue); color: #fff; }
+
+.pi-panel { display: flex; flex-direction: column; gap: 16px; }
+.pi-panel h3 { margin: 0; font-size: 19px; color: var(--navy); }
+.pi-lede { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--slate); }
+
+.pi-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 40px 20px; cursor: pointer; text-align: center;
+  border: 2px dashed var(--border); border-radius: var(--radius-control);
+  background: var(--bg); transition: border-color 150ms, background 150ms;
+}
+.pi-drop.over { border-color: var(--blue); background: #f3f8ff; }
+.pi-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.pi-drop:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+.pi-drop-main { font-size: 15px; font-weight: 600; color: var(--navy); }
+.pi-drop-sub { font-size: 12.5px; color: var(--slate); }
+
+.pi-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pi-table th {
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate);
+}
+.pi-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.pi-table-tight td, .pi-table-tight th { padding: 6px 8px; font-size: 13px; }
+.pi-col { color: var(--navy); font-weight: 600; }
+
+.pi-badge {
+  display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  font-size: 10.5px; font-weight: 700; color: var(--slate); white-space: nowrap;
+}
+.pi-badge-warn { background: #fff6e5; border-color: #f0d9a8; color: #8a5a00; }
+
+.pi-switch { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; }
+
+.pi-note { margin: 0; font-size: 13px; line-height: 1.6; color: var(--slate); }
+.pi-note-warn {
+  padding: 11px 13px; border-radius: var(--radius-control);
+  background: #fffaf0; border: 1px solid #f0d9a8; color: #6b4a00;
+}
+.pi-note-quiet { color: #94a3b8; font-size: 12.5px; }
+.pi-sub { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; }
+
+.pi-preview summary { cursor: pointer; font-size: 13.5px; color: var(--blue); }
+
+.pi-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pi-row {
+  padding: 13px 15px; border: 1px solid var(--border);
+  border-left: 3px solid var(--border); border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.pi-ok { border-left-color: #2f9e5f; }
+.pi-warn { border-left-color: var(--gold); }
+.pi-bad { border-left-color: #b91c1c; }
+.pi-new { border-left-color: var(--blue); }
+.pi-muted { border-left-color: var(--border); opacity: .7; }
+
+.pi-row-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pi-row-name { font-size: 15px; font-weight: 700; color: var(--navy); }
+.pi-tag {
+  padding: 2px 8px; border-radius: 999px; background: var(--surface-sunken);
+  font-size: 11px; font-weight: 700; color: var(--slate);
+}
+.pi-row-hint { margin: 4px 0 0; font-size: 13px; color: var(--slate); }
+
+.pi-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+.pi-evidence {
+  padding: 10px 12px; border-radius: var(--radius-control);
+  background: var(--bg); border: 1px solid var(--border);
+}
+.pi-evidence-label {
+  margin: 0 0 6px; font-size: 10.5px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--slate);
+}
+.pi-evidence dl { margin: 0; display: grid; gap: 3px; }
+.pi-evidence dt { font-size: 11.5px; color: var(--slate); }
+.pi-evidence dd { margin: 0 0 4px; font-size: 13.5px; color: var(--navy); }
+
+.pi-choice { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.pi-choice .btn { min-height: 38px; font-size: 13.5px; }
+.pi-choice .btn.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+.pi-diff { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+.pi-diff li { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; flex-wrap: wrap; }
+.pi-diff-verb { font-weight: 700; color: #2f9e5f; min-width: 62px; }
+.pi-diff-val { color: var(--navy); font-weight: 600; }
+
+.pi-conflict { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+.pi-conflict-row + .pi-conflict-row { margin-top: 12px; }
+.pi-conflict-q { margin: 0; font-size: 13.5px; color: var(--navy); }
+
+.pi-summary { display: grid; gap: 8px; margin: 0; }
+.pi-summary > div { display: flex; justify-content: space-between; gap: 16px;
+  padding: 9px 0; border-bottom: 1px solid var(--border); }
+.pi-summary dt { font-size: 14px; color: var(--slate); }
+.pi-summary dd { margin: 0; font-size: 16px; font-weight: 700; color: var(--navy); }
+
+.pi-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+
+@media (max-width: 720px) {
+  .pi-compare { grid-template-columns: 1fr; }
+  .pi-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .pi-table { display: block; overflow-x: auto; }
+}

@@ -250,6 +250,8 @@ const JOTFORM_HEADERS = [
     sug.contactGroups, [1, 2]);
   ok("DOB is recognised but NOT auto-enabled",
     sug.mappings.find((m) => m.key === "date_of_birth").autoEnabled, false);
+  ok("DOB is the ONLY field requiring an opt-in click",
+    sug.mappings.filter((m) => m.optIn).map((m) => m.key), ["date_of_birth"]);
   ok("photos are ignored, not mapped",
     sug.ignored.filter((i) => i.key.includes("photo") || i.key.includes("headshot")).length, 2);
   ok("both position columns map to the season field",
@@ -283,6 +285,98 @@ const JOTFORM_HEADERS = [
   ok("two contact groups extracted", applied.contacts.length, 2);
   ok("positions accumulate across both columns",
     nrm.toPositions(applied.positions), ["UTIL","2B"]);
+
+
+  /* ---- End-to-end: the two files a coach actually has -------------------
+     Full pipeline — headers to write plan — on synthetic data with the real
+     30-column structure, and on a six-column sheet someone typed by hand. */
+  console.log("\nEnd to end");
+
+  const { normalizeValue } = nrm;
+  const { BY_KEY, isIgnored } = reg;
+
+  function runFile(headers, rows, existingPlayers = [], { includeSensitive = false } = {}) {
+    const sug = map.suggestMappings(headers);
+    const active = sug.mappings.filter((m) => m.autoEnabled || (includeSensitive && m.sensitive));
+    return rows.map((cells) => {
+      const raw = Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? ""]));
+      const mapped = map.applyMappings(raw, active);
+      const row = { contacts: [] };
+      for (const [k, v] of Object.entries(mapped)) {
+        if (k === "contacts") continue;
+        const field = BY_KEY.get(k);
+        if (!field || isIgnored(k)) continue;
+        row[k] = normalizeValue(field.type, v);
+      }
+      if (!row.full_name) row.full_name = nrm.composeFullName(row);
+      row.contacts = mapped.contacts ?? [];
+      const m2 = mat.matchPlayer(row, existingPlayers);
+      return { row, match: m2, plan: pln.buildRowPlan({
+        row, match: m2, existingPlayer: m2.candidate ?? null }) };
+    });
+  }
+
+  // Synthetic values, real structure. No PII from the actual export.
+  const jf = runFile(JOTFORM_HEADERS, [[
+    "Aug 20, 2026","Wren","Wrenny","Calder","44","11","2028","Apr 3, 2010",
+    "Utility","Second Base","Right","Right","5'8","North Ridge","Elmton",
+    "Robin Calder","Mother","(470) 555-0101","robin@example.test","Yes",
+    "Alex Calder","Father","(470) 555-0102","alex@example.test",
+    "Text","wren@example.test","(470) 555-0103","wrenny_88",
+    "https://example.test/u/1","https://example.test/u/2",
+  ]]);
+
+  ok("JotForm row resolves a player name", jf[0].row.full_name, "Wrenny Calder");
+  ok("both guardians captured generically", jf[0].row.contacts.length, 2);
+  ok("positions normalised to season codes", jf[0].row.positions, ["UTIL","2B"]);
+  ok("DOB omitted unless the coach opts in", jf[0].row.date_of_birth, undefined);
+  ok("JotForm row is NOT executable (structured names + contacts pending)",
+    jf[0].plan.executable, false);
+  ok("only permitted tables appear",
+    [...new Set(jf[0].plan.writes.map((w) => w.table))].sort(),
+    ["player_contacts","players","team_season_players"]);
+
+  const jfDob = runFile(JOTFORM_HEADERS, [[
+    "Aug 20, 2026","Wren","Wrenny","Calder","44","","2028","Apr 3, 2010",
+    "Utility","","Right","Right","","","","","","","","No","","","","","",
+    "","","","",""]], [], { includeSensitive: true });
+  ok("opting in imports the date of birth", jfDob[0].row.date_of_birth, "2010-04-03");
+
+  // The six-column sheet a coach types themselves.
+  const SIMPLE = ["Player","#","Grad Year","Position","Parent","Email"];
+  const simple = runFile(SIMPLE, [
+    ["Wrenny Calder","44","2028","Shortstop","Robin Calder","robin@example.test"],
+    ["Ada Nkemelu","7","2029","Catcher","Sam Nkemelu","sam@example.test"],
+  ]);
+
+  ok("simple sheet: every column mapped", map.suggestMappings(SIMPLE).unmapped, []);
+  ok("simple sheet: nothing requires an opt-in click",
+    map.suggestMappings(SIMPLE).mappings.filter((m) => m.optIn), []);
+  ok("simple sheet: the parent email is labelled sensitive but still included",
+    map.suggestMappings(SIMPLE).mappings.find((m) => m.key === "contact_email").autoEnabled, true);
+  ok("simple sheet: player names resolve",
+    simple.map((r) => r.row.full_name), ["Wrenny Calder","Ada Nkemelu"]);
+  ok("simple sheet: positions normalised", simple[0].row.positions, ["SS"]);
+  ok("simple sheet: both rows are NEW", simple.map((r) => r.match.classification), ["new","new"]);
+  ok("simple sheet is blocked ONLY by the contact column",
+    simple[0].plan.pending, ["contact_*"]);
+
+  // Without a parent column there is nothing pending: fully executable today.
+  const minimal = runFile(["Player","#","Grad Year","Position"],
+    [["Wrenny Calder","44","2028","Shortstop"]]);
+  ok("a name/number/year/position sheet is executable TODAY",
+    minimal[0].plan.executable, true);
+  ok("...writing only the player and the membership",
+    minimal[0].plan.writes.map((w) => w.table), ["players","team_season_players"]);
+
+  // Existing player: gaps filled, nothing overwritten.
+  const known = [{ id:"e1", full_name:"Ada Nkemelu", grad_year:2029 }];
+  const second = runFile(["Player","#","Grad Year","Position"],
+    [["Ada Nkemelu","7","2029","Catcher"]], known);
+  ok("a known player is matched, not duplicated", second[0].match.classification, "confident");
+  ok("only the season record changes when the player is complete",
+    second[0].plan.writes.filter((w) => Object.keys(w.values).length).map((w) => w.table),
+    ["team_season_players"]);
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);

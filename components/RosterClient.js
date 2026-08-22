@@ -6,6 +6,7 @@ import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { addPickupToRoster } from "../lib/actions/participants";
 import { RosterImport } from "./RosterImport";
+import { PlayerIntake } from "./PlayerIntake";
 import { PlayerRecruiting } from "./PlayerRecruiting";
 import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
@@ -116,6 +117,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
   const [importing, setImporting] = useState(false);
+  const [intaking, setIntaking] = useState(false);
   const [importResult, setImportResult] = useState(null);
   // Offered after adding a player when dues are already in use this season.
   const [duesPrompt, setDuesPrompt] = useState(null);
@@ -234,6 +236,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           <div className="foot-actions">
             <button className="btn btn-ghost" onClick={() => setImporting(true)}>
               Upload roster
+            </button>
+            {/* Team -> Import players. Sits beside the existing template
+                upload; this one maps any spreadsheet's own columns. */}
+            <button className="btn btn-ghost" onClick={() => setIntaking(true)}>
+              Import players
             </button>
             <button className="btn btn-primary" onClick={() => setAdding(true)}>
               Add player or coach
@@ -554,6 +561,37 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           }
           onCancel={() => setImporting(false)}
         />
+      )}
+
+      {/* The new mapping-based intake, alongside the existing fixed-template
+          import rather than replacing it: this one cannot write yet, so
+          removing the working importer would take a capability away. */}
+      {intaking && (
+        <div className="drawer-scrim" onClick={(e) => {
+          if (e.target === e.currentTarget) setIntaking(false);
+        }}>
+          <div className="drawer drawer-wide" role="dialog" aria-modal="true"
+               aria-label="Import players from a spreadsheet">
+            <div className="drawer-head">
+              <h2>Import players</h2>
+              <button type="button" className="icon-btn" aria-label="Close"
+                      onClick={() => setIntaking(false)}>&times;</button>
+            </div>
+            <div className="drawer-body">
+              <PlayerIntake
+                existingPlayers={(rows ?? []).map((r) => ({
+                  id: r.player?.id,
+                  full_name: r.player?.full_name,
+                  grad_year: r.player?.grad_year,
+                  date_of_birth: r.player?.date_of_birth,
+                  parent_email: r.player?.parent_email,
+                }))}
+                seasonName={seasonName}
+                onCancel={() => setIntaking(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {adding && (
