@@ -567,10 +567,10 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           import rather than replacing it: this one cannot write yet, so
           removing the working importer would take a capability away. */}
       {intaking && (
-        <div className="drawer-scrim" onClick={(e) => {
+        <div className="drawer-backdrop" onClick={(e) => {
           if (e.target === e.currentTarget) setIntaking(false);
         }}>
-          <div className="drawer drawer-wide" role="dialog" aria-modal="true"
+          <div className="drawer drawer-intake" role="dialog" aria-modal="true"
                aria-label="Import players from a spreadsheet">
             <div className="drawer-head">
               <h2>Import players</h2>

@@ -123,9 +123,27 @@ const JOTFORM_HEADERS = [
     mat.matchPlayer({ full_name:"Aubs Rivers", grad_year:2027 }, existing).classification, M.CONFLICT);
   ok("CONFLICTING DOB is CONFLICT, never NEW",
     mat.matchPlayer({ full_name:"Aubs Rivers", date_of_birth:"2011-01-01" }, existing).classification, M.CONFLICT);
-  ok("conflicting contact email is CONFLICT",
-    mat.matchPlayer({ full_name:"Aubs Rivers", contacts:[{ email:"other@example.test" }] }, existing).classification,
-    M.CONFLICT);
+  // Superseded by coach testing: a parent's email changing does not make the
+  // child a different person.
+  ok("a DIFFERENT contact email alone is NOT a player conflict",
+    mat.matchPlayer({ full_name:"Aubs Rivers", grad_year:2028,
+      contacts:[{ email:"other@example.test" }] }, existing).classification, M.CONFIDENT);
+  ok("...and with no other evidence it still only needs review",
+    mat.matchPlayer({ full_name:"Aubs Rivers",
+      contacts:[{ email:"other@example.test" }] }, existing).classification, M.POSSIBLE);
+
+  /* ---- Near-miss spellings propose a candidate, never a duplicate -------- */
+  ok("one character out proposes the existing player",
+    mat.matchPlayer({ full_name:"Aubs Rivera", grad_year:2028 }, existing).classification, M.POSSIBLE);
+  ok("...and names the candidate so the coach can compare",
+    mat.matchPlayer({ full_name:"Aubs Riverr", grad_year:2028 }, existing).candidate?.id, "p1");
+  ok("a two-character difference on a long name proposes too",
+    mat.matchPlayer({ full_name:"Aubrey Riverss" }, existing).classification, M.POSSIBLE);
+  ok("a genuinely different short name stays NEW",
+    mat.matchPlayer({ full_name:"Mia Vale" }, existing).classification, M.NEW);
+  ok("fuzzy never auto-merges: it only ever yields POSSIBLE",
+    mat.matchPlayer({ full_name:"Aubs Riverr", grad_year:2028,
+      date_of_birth:"2010-04-03" }, existing).classification, M.POSSIBLE);
   ok("two namesakes -> POSSIBLE, no candidate chosen",
     mat.matchPlayer({ full_name:"Sam Reed" }, existing).candidate, null);
   ok("unknown name -> NEW",
@@ -417,6 +435,101 @@ const JOTFORM_HEADERS = [
   ok("none unmapped", post.unmapped, []);
   ok("exactly one column asks the coach to opt in",
     post.mappings.filter((m) => m.optIn).map((m) => m.header), ["Date of Birth"]);
+
+
+  /* ---- Identity is not a field decision --------------------------------- */
+  console.log("\nIdentity vs field values");
+
+  const clash = { full_name:"Aubs Rivers", grad_year:2029, contacts:[] };
+  const clashMatch = mat.matchPlayer(clash, existing);
+  ok("wrong existing grad year -> CONFLICT", clashMatch.classification, M.CONFLICT);
+
+  const idOnly = pln.buildRowPlan({ row:clash, match:clashMatch,
+    existingPlayer:existing[0], identity:"same" });
+  ok("SAME PLAYER alone does not resolve the field", idOnly.executable, false);
+  ok("...and says a decision is still needed",
+    idOnly.blockers.some((b) => b.includes("undecided")), true);
+  ok("...and writes nothing for the disputed field",
+    idOnly.writes[0].values.grad_year, undefined);
+
+  const keepMine = pln.buildRowPlan({ row:clash, match:clashMatch,
+    existingPlayer:existing[0], identity:"same", decisions:{ grad_year:"existing" } });
+  ok("keeping the Season Tempo value leaves it unwritten",
+    keepMine.writes[0].values.grad_year, undefined);
+  ok("...and the row becomes executable", keepMine.executable, true);
+  ok("...and the resolved value is stated as the existing one",
+    keepMine.resolved.find((r) => r.key === "grad_year").chosen, 2028);
+
+  const useFile = pln.buildRowPlan({ row:clash, match:clashMatch,
+    existingPlayer:existing[0], identity:"same", decisions:{ grad_year:"incoming" } });
+  ok("choosing the file writes the imported year", useFile.writes[0].values.grad_year, 2029);
+  ok("...and the resolved value reflects it",
+    useFile.resolved.find((r) => r.key === "grad_year").chosen, 2029);
+
+  const dobClash = { full_name:"Aubs Rivers", date_of_birth:"2010-07-18", contacts:[] };
+  const dobMatch = mat.matchPlayer(dobClash, existing);
+  const keepDob = pln.buildRowPlan({ row:dobClash, match:dobMatch,
+    existingPlayer:existing[0], identity:"same", decisions:{ date_of_birth:"existing" } });
+  ok("keeping the Season Tempo DOB does not overwrite it",
+    keepDob.writes[0].values.date_of_birth, undefined);
+  ok("...and states the retained value",
+    keepDob.resolved.find((r) => r.key === "date_of_birth").chosen, "2010-04-03");
+
+  const different = pln.buildRowPlan({ row:clash, match:clashMatch,
+    existingPlayer:existing[0], identity:"new" });
+  ok("DIFFERENT PLAYER creates a new record and touches nothing existing",
+    different.writes[0].op, "insert");
+  ok("...with no target id", different.writes[0].targetId, null);
+
+  const sparse = mat.matchPlayer({ full_name:"Ana Cole", contacts:[] }, existing);
+  ok("a sparse existing record still needs confirmation", sparse.classification, M.POSSIBLE);
+  ok("...and is not executable until answered",
+    pln.buildRowPlan({ row:{ full_name:"Ana Cole", contacts:[] }, match:sparse,
+      existingPlayer:existing[1] }).executable, false);
+
+  const emailOnly = { full_name:"Aubs Rivers", grad_year:2028, date_of_birth:"2010-04-03",
+    contacts:[{ full_name:"New Parent", email:"different@example.test" }] };
+  const emailMatch = mat.matchPlayer(emailOnly, existing);
+  ok("a different parent email does not make the player a different person",
+    emailMatch.classification, M.CONFIDENT);
+
+
+  /* ---- Manual mapping and headerless files ------------------------------ */
+  console.log("\nManual mapping");
+
+  ok("real-world header wording is recognised",
+    map.suggestMappings(["Athlete","Uniform #","School Year"]).mappings.map((m) => m.key),
+    ["full_name","jersey_number","grad_year"]);
+  ok("a genuinely unknown header is offered for manual mapping, not guessed",
+    map.suggestMappings(["Athlete","Random Column"]).unmapped, ["Random Column"]);
+  ok("selectable fields cover player, season and contact",
+    map.selectableFields().map((g) => g.group).sort(),
+    ["Parent or guardian","Player","This season"]);
+  ok("ignored fields are never offered as a choice",
+    map.selectableFields().flatMap((g) => g.fields).filter((f) => f.key.startsWith("_ignore")), []);
+
+  ok("a header row is detected", map.looksLikeHeaders(
+    ["Player","Jersey Number","Graduation Year"], ["Ada","7","2029"]), true);
+  ok("a data row is NOT mistaken for headers", map.looksLikeHeaders(
+    ["Ada Nkemelu","7","2029"], ["Wren Calder","44","2028"]), false);
+  ok("headerless columns are labelled A, B, C",
+    map.columnLabels(3), ["Column A","Column B","Column C"]);
+
+  // A coach maps "Athlete" to the player name by hand.
+  const manual = map.applyMappings(
+    { "Athlete":"Ada Nkemelu", "Uniform #":"7" },
+    [{ header:"Athlete", key:"full_name", index:null, level:"player" },
+     { header:"Uniform #", key:"jersey_number", index:null, level:"season" }]);
+  ok("a manual mapping produces the right values",
+    [manual.full_name, manual.jersey_number], ["Ada Nkemelu","7"]);
+
+  // And overrides an incorrect automatic suggestion.
+  const auto = map.suggestMappings(["Email"]);
+  ok("auto maps a bare Email column to the contact", auto.mappings[0].key, "contact_email");
+  const overridden = map.applyMappings({ "Email":"ada@example.test" },
+    [{ header:"Email", key:"player_email", index:null, level:"player" }]);
+  ok("the coach can redirect it to the player instead",
+    overridden.player_email, "ada@example.test");
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);

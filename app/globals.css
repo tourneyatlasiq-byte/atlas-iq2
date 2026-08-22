@@ -5384,3 +5384,38 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .pi-actions .btn { flex: 1 1 auto; justify-content: center; }
   .pi-table { display: block; overflow-x: auto; }
 }
+
+/* Intake needs more room than a detail drawer: mapping tables and
+   side-by-side comparisons do not fit in 480px. It is still a drawer, so it
+   opens over the page rather than below the roster — the first coach test
+   scrolled past it entirely, believing nothing had happened. */
+.drawer-intake { max-width: 860px; }
+
+/* Manual mapping, headerless files, and the resolved-value preview. */
+.pi-headers { padding: 4px 0 2px; }
+.pi-select {
+  width: 100%; max-width: 260px; min-height: 36px;
+  padding: 6px 8px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface);
+  font: inherit; font-size: 13.5px; color: var(--navy);
+}
+.pi-sample {
+  display: block; margin-top: 3px; font-size: 12px; font-weight: 400; color: #94a3b8;
+}
+.pi-versus { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 10px; }
+.pi-versus > div {
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--bg);
+}
+.pi-versus-src {
+  display: block; font-size: 10.5px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--slate);
+}
+.pi-versus-val { display: block; margin-top: 2px; font-size: 15px; font-weight: 700; color: var(--navy); }
+.pi-outcome { margin: 8px 0 0; font-size: 13px; color: #2f9e5f; }
+.pi-add { color: #2f9e5f; }
+.pi-keep { color: var(--slate); }
+.pi-none { color: #94a3b8; }
+.pi-pend { color: #8a5a00; }
+
+@media (max-width: 720px) { .pi-versus { grid-template-columns: 1fr; } }

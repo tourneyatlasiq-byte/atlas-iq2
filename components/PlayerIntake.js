@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { readSpreadsheet } from "../lib/spreadsheet";
 import { BY_KEY, isIgnored } from "../lib/intake/registry";
-import { suggestMappings, applyMappings } from "../lib/intake/map-headers";
+import { suggestMappings, applyMappings, looksLikeHeaders, columnLabels, selectableFields }
+  from "../lib/intake/map-headers";
 import { normalizeValue, composeFullName } from "../lib/intake/normalize";
 import { matchPlayer, matchContact, CLASS, CONTACT } from "../lib/intake/match";
 import { buildRowPlan, summarize } from "../lib/intake/plan";
@@ -39,13 +40,13 @@ const STEPS = [
 /* Coach-facing language. The engine's vocabulary stays in the engine. */
 const MATCH_COPY = {
   [CLASS.CONFIDENT]: { label: "Matched", tone: "ok",
-    hint: "Already on file. Missing details can be filled in." },
+    hint: "Already in Season Tempo. Missing details can be filled in." },
   [CLASS.POSSIBLE]: { label: "Needs review", tone: "warn",
     hint: "Might be someone you already have. Please confirm." },
   [CLASS.CONFLICT]: { label: "Conflict", tone: "bad",
     hint: "The name matches, but other details disagree." },
   [CLASS.NEW]: { label: "New player", tone: "new",
-    hint: "Nobody on file matches this name." },
+    hint: "Nobody in Season Tempo matches this name." },
   [CLASS.INVALID]: { label: "Skipped", tone: "muted",
     hint: "No player name in this row." },
 };
@@ -56,6 +57,10 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
   const [grid, setGrid] = useState(null);
   const [error, setError] = useState(null);
   const [dragging, setDragging] = useState(false);
+  // The coach can declare the file has no header row; columns become A, B, C…
+  const [hasHeaders, setHasHeaders] = useState(true);
+  // Manual mapping wins over auto-detection: { [header]: fieldKey | "" }
+  const [overrides, setOverrides] = useState({});
 
   // Which mapped columns the coach has switched on. Opt-in fields start off;
   // sensitive fields are labelled but included, since a parent email is the
@@ -75,9 +80,15 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
     const result = await readSpreadsheet(f);
     if (result.error) { setError(result.error); return; }
 
-    const [header, ...body] = result.grid;
-    if (!header?.length) { setError("That file has no header row."); return; }
-    if (body.length === 0) { setError("No rows found below the header."); return; }
+    const [first, ...rest] = result.grid;
+    if (!first?.length) { setError("That file appears to be empty."); return; }
+
+    // If the first row looks like data rather than headers, keep it as data
+    // and label the columns instead. The coach can flip this either way.
+    const headersDetected = looksLikeHeaders(first, rest[0] ?? []);
+    const header = headersDetected ? first : columnLabels(first.length);
+    const body = headersDetected ? rest : result.grid;
+    if (body.length === 0) { setError("No player rows found."); return; }
     if (body.length > MAX_ROWS) {
       setError(`That file has ${body.length} rows. Split it into files of ${MAX_ROWS} or fewer.`);
       return;
@@ -85,7 +96,9 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
 
     const sug = suggestMappings(header);
     setFile({ name: f.name, rows: body.length, cols: header.length });
-    setGrid({ header, body, ...sug });
+    setHasHeaders(headersDetected);
+    setOverrides({});
+    setGrid({ header, body, raw: result.grid, ...sug });
     setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled).map(keyOf)));
     setStep("map");
   }
@@ -94,10 +107,37 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
 
   /* ---- Run the engine over every row ---------------------------------- */
 
+  /**
+   * Auto-detection is a convenience; the coach's choice is the authority.
+   * A general importer cannot require anyone to name a column exactly
+   * "Graduation Year".
+   */
+  const effective = useMemo(() => {
+    if (!grid) return [];
+    const out = [];
+    for (const header of grid.header) {
+      const over = overrides[header];
+      if (over === "") continue;                       // explicitly not imported
+      if (over) {
+        const field = BY_KEY.get(over);
+        if (!field) continue;
+        const auto = grid.mappings.find((m) => m.header === header);
+        out.push({ header, key: over, index: field.repeatable ? (auto?.index ?? 1) : null,
+                   level: field.level, sensitive: field.sensitive, optIn: field.optIn,
+                   pendingMigration: field.pendingMigration, autoEnabled: !field.optIn,
+                   confidence: "manual" });
+        continue;
+      }
+      const auto = grid.mappings.find((m) => m.header === header);
+      if (auto) out.push(auto);
+    }
+    return out;
+  }, [grid, overrides]);
+
   const analysed = useMemo(() => {
     if (!grid) return [];
 
-    const active = grid.mappings.filter((m) => enabled.has(keyOf(m)));
+    const active = effective.filter((m) => enabled.has(keyOf(m)));
 
     return grid.body.map((cells, i) => {
       const raw = Object.fromEntries(grid.header.map((h, c) => [h, cells[c] ?? ""]));
@@ -134,14 +174,16 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
         row, match, existingPlayer: candidate,
         existingContacts: candidate?.contacts ?? [],
         decisions: decisions[i] ?? {},
+        identity: identity[i] ?? null,
       });
 
       return { i, row, match, candidate, contactChecks, plan };
     });
-  }, [grid, enabled, existingPlayers, decisions]);
+  }, [grid, effective, enabled, existingPlayers, decisions, identity]);
 
   const stats = useMemo(() => summarize(analysed.map((a) => a.plan)), [analysed]);
 
+  // Identity only. Field values are decided separately, in Review.
   const needsIdentity = analysed.filter(
     (a) => (a.match.classification === CLASS.POSSIBLE || a.match.classification === CLASS.CONFLICT)
       && !identity[a.i]);
@@ -177,7 +219,18 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
 
       {step === "map" && grid && (
         <MapFields
-          file={file} grid={grid} enabled={enabled} setEnabled={setEnabled}
+          file={file} grid={grid} effective={effective} enabled={enabled} setEnabled={setEnabled}
+          overrides={overrides} setOverrides={setOverrides}
+          hasHeaders={hasHeaders} onToggleHeaders={() => {
+            const next = !hasHeaders;
+            const header = next ? grid.raw[0] : columnLabels(grid.raw[0].length);
+            const body = next ? grid.raw.slice(1) : grid.raw;
+            const sug = suggestMappings(header);
+            setHasHeaders(next);
+            setOverrides({});
+            setGrid({ header, body, raw: grid.raw, ...sug });
+            setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled).map(keyOf)));
+          }}
           keyOf={keyOf} onBack={() => { setStep("upload"); setGrid(null); setFile(null); }}
           onNext={() => setStep("match")}
         />
@@ -242,7 +295,10 @@ function Upload({ dragging, setDragging, onFile, onCancel }) {
 
 /* ---- Step 2 ------------------------------------------------------------ */
 
-function MapFields({ file, grid, enabled, setEnabled, keyOf, onBack, onNext }) {
+function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setOverrides,
+                    hasHeaders, onToggleHeaders, keyOf, onBack, onNext }) {
+  const groups = selectableFields();
+
   const toggle = (m) => {
     const k = keyOf(m);
     const next = new Set(enabled);
@@ -250,43 +306,86 @@ function MapFields({ file, grid, enabled, setEnabled, keyOf, onBack, onNext }) {
     setEnabled(next);
   };
 
-  const groups = grid.contactGroups ?? [];
-  // Two representative rows are enough to confirm the right file. Showing the
-  // whole sheet would put every family's details on screen for no benefit.
-  const preview = grid.body.slice(0, 2);
-  const previewCols = grid.header.slice(0, 4);
+  const setField = (header, key) => {
+    setOverrides({ ...overrides, [header]: key });
+    if (key) {
+      const field = BY_KEY.get(key);
+      const next = new Set(enabled);
+      // A field the coach chose deliberately is included, unless it is one of
+      // the opt-in fields, which stay a separate decision.
+      if (!field?.optIn) next.add(`${key}${field?.repeatable ? 1 : ""}`);
+      setEnabled(next);
+    }
+  };
+
+  const chosen = (header) => {
+    if (overrides[header] !== undefined) return overrides[header];
+    return effective.find((m) => m.header === header)?.key ?? "";
+  };
+
+  // Two or three values per column so a coach can tell what it holds — the
+  // only reliable way to map "Column C" in a file with no headers.
+  const sample = (i) => grid.body.slice(0, 3).map((r) => r[i]).filter(Boolean).slice(0, 2);
+
+  const mappedCount = grid.header.filter((h) => chosen(h)).length;
 
   return (
     <div className="pi-panel">
       <h3>Map your columns</h3>
       <p className="pi-lede">
         <strong>{file.name}</strong> · {file.rows} rows · {file.cols} columns.
-        We recognised {grid.mappings.length} of them.
+        We recognised {mappedCount}. Change anything that looks wrong.
       </p>
+
+      <label className="pi-switch pi-headers">
+        <input type="checkbox" checked={!hasHeaders} onChange={onToggleHeaders} />
+        <span>My file doesn&rsquo;t have column headers</span>
+      </label>
 
       <table className="pi-table">
         <thead>
-          <tr><th>Your column</th><th>Season Tempo field</th><th>Include</th></tr>
+          <tr><th>Spreadsheet column</th><th>Import as</th><th>Include</th></tr>
         </thead>
         <tbody>
-          {grid.mappings.map((m) => {
-            const field = BY_KEY.get(m.key);
-            const on = enabled.has(keyOf(m));
+          {grid.header.map((header, i) => {
+            const key = chosen(header);
+            const m = effective.find((x) => x.header === header);
+            const field = key ? BY_KEY.get(key) : null;
+            const on = m ? enabled.has(keyOf(m)) : false;
+            const vals = sample(i);
             return (
-              <tr key={m.header}>
-                <td className="pi-col">{m.header}</td>
-                <td>
-                  {field.label}
-                  {m.index ? <span className="pi-badge">Contact {m.index}</span> : null}
-                  {m.sensitive && <span className="pi-badge pi-badge-warn">Sensitive</span>}
-                  {m.confidence === "probable" && <span className="pi-badge">Best guess</span>}
+              <tr key={header}>
+                <td className="pi-col">
+                  {header}
+                  {vals.length > 0 && (
+                    <span className="pi-sample">{vals.join(" · ")}</span>
+                  )}
                 </td>
                 <td>
-                  <label className="pi-switch">
-                    <input type="checkbox" checked={on} onChange={() => toggle(m)}
-                           aria-label={`Include ${m.header}`} />
-                    <span>{on ? "Included" : "Skipped"}</span>
-                  </label>
+                  <select className="pi-select" value={key}
+                          onChange={(e) => setField(header, e.target.value)}
+                          aria-label={`Import ${header} as`}>
+                    <option value="">Don&rsquo;t import</option>
+                    {groups.map((g) => (
+                      <optgroup key={g.group} label={g.group}>
+                        {g.fields.map((f) => (
+                          <option key={f.key} value={f.key}>{f.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {m?.index > 1 && <span className="pi-badge">Contact {m.index}</span>}
+                  {field?.sensitive && <span className="pi-badge pi-badge-warn">Sensitive</span>}
+                  {m?.confidence === "probable" && <span className="pi-badge">Best guess</span>}
+                </td>
+                <td>
+                  {key ? (
+                    <label className="pi-switch">
+                      <input type="checkbox" checked={on} onChange={() => m && toggle(m)}
+                             aria-label={`Include ${header}`} />
+                      <span>{on ? "Included" : "Skipped"}</span>
+                    </label>
+                  ) : <span className="pi-note-quiet">Skipped</span>}
                 </td>
               </tr>
             );
@@ -294,44 +393,20 @@ function MapFields({ file, grid, enabled, setEnabled, keyOf, onBack, onNext }) {
         </tbody>
       </table>
 
-      {grid.mappings.some((m) => m.optIn) && (
+      {effective.some((m) => m.optIn) && (
         <p className="pi-note pi-note-warn">
-          {grid.mappings.filter((m) => m.optIn).map((m) => BY_KEY.get(m.key).label).join(" and ")}{" "}
+          {effective.filter((m) => m.optIn).map((m) => BY_KEY.get(m.key).label).join(" and ")}{" "}
           is personal information about a minor. It stays switched off unless you choose to
           include it.
         </p>
       )}
 
-      {groups.length > 1 && (
+      {(grid.contactGroups ?? []).length > 1 && (
         <p className="pi-note">
-          We found {groups.length} sets of parent or guardian columns and will keep them separate.
+          We found {grid.contactGroups.length} sets of parent or guardian columns and will keep
+          them separate.
         </p>
       )}
-
-      {grid.ignored.length > 0 && (
-        <p className="pi-note pi-note-quiet">
-          Not imported: {grid.ignored.map((i) => i.header).join(", ")}.
-        </p>
-      )}
-
-      {grid.unmapped.length > 0 && (
-        <p className="pi-note">
-          We didn&rsquo;t recognise: {grid.unmapped.join(", ")}. These will be skipped.
-        </p>
-      )}
-
-      <details className="pi-preview">
-        <summary>Check this is the right file</summary>
-        <table className="pi-table pi-table-tight">
-          <thead><tr>{previewCols.map((h) => <th key={h}>{h}</th>)}</tr></thead>
-          <tbody>
-            {preview.map((r, i) => (
-              <tr key={i}>{previewCols.map((_, c) => <td key={c}>{r[c]}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="pi-note pi-note-quiet">Showing the first rows and columns only.</p>
-      </details>
 
       <div className="pi-actions">
         <button type="button" className="btn btn-secondary" onClick={onBack}>Back</button>
@@ -377,9 +452,16 @@ function MatchPlayers({ analysed, identity, setIdentity, onBack, onNext, outstan
                   unrelated player data, and never a jersey number. */}
               {needs && a.candidate && (
                 <div className="pi-compare">
-                  <Evidence label="On file" p={a.candidate} />
+                  <Evidence label="In Season Tempo" p={a.candidate} />
                   <Evidence label="In your file" p={a.row} />
                 </div>
+              )}
+
+              {needs && (
+                <p className="pi-note pi-note-quiet">
+                  This only says whether it is the same person. Any details that differ are
+                  decided one at a time on the next screen.
+                </p>
               )}
 
               {needs && (
@@ -431,40 +513,95 @@ function ReviewChanges({ analysed, decisions, setDecisions, ambiguousContacts, o
   const decide = (i, key, choice) =>
     setDecisions({ ...decisions, [i]: { ...(decisions[i] ?? {}), [key]: choice } });
 
-  const rowsWithChanges = analysed.filter((a) =>
-    a.plan.writes.some((w) => Object.keys(w.values ?? {}).length));
+  const creating = analysed.filter((a) => a.plan.writes[0]?.op === "insert");
+  const updating = analysed.filter((a) => a.plan.writes[0]?.op === "update");
 
   return (
     <div className="pi-panel">
       <h3>Review changes</h3>
       <p className="pi-lede">
-        Nothing is saved yet. Blank cells in your file never erase what you already have.
+        {creating.length} new · {updating.length} updated. Nothing is saved yet, and a blank
+        cell in your file never erases what you already have.
       </p>
 
       <ul className="pi-rows">
-        {rowsWithChanges.map((a) => {
-          const conflicts = a.plan.blockers.filter((b) => b.startsWith("undecided"));
+        {analysed.map((a) => {
+          // Every field the file had an opinion about, and what it becomes.
+          const fills = a.plan.resolved.filter((r) => r.status === DIFF.FILL);
+          const conflicts = a.plan.resolved.filter((r) => r.status === DIFF.CONFLICT);
+          const kept = a.plan.resolved.filter((r) => r.status === DIFF.KEEP && r.existing);
+          const same = a.plan.resolved.filter((r) => r.status === DIFF.SAME);
+          if (!fills.length && !conflicts.length && !kept.length && !same.length
+              && a.plan.writes[0]?.op !== "insert") return null;
+
           return (
             <li key={a.i} className="pi-row">
               <div className="pi-row-main">
                 <span className="pi-row-name">{a.row.full_name}</span>
-                <span className="pi-tag">{MATCH_COPY[a.match.classification].label}</span>
+                <span className="pi-tag">
+                  {a.plan.writes[0]?.op === "insert" ? "New player" : "Updating"}
+                </span>
               </div>
 
-              <ul className="pi-diff">
-                {a.plan.writes.flatMap((w) =>
-                  Object.entries(w.values ?? {}).map(([k, v]) => (
-                    <li key={`${w.table}-${k}`}>
-                      <span className="pi-diff-verb">Adding</span>
-                      <span>{BY_KEY.get(k)?.label ?? k}</span>
-                      <span className="pi-diff-val">{Array.isArray(v) ? v.join(", ") : String(v)}</span>
-                    </li>
-                  )))}
-              </ul>
+              {conflicts.map((r) => (
+                <div key={r.key} className="pi-conflict-row">
+                  <p className="pi-conflict-q"><strong>{r.label}</strong></p>
+                  <div className="pi-versus">
+                    <div><span className="pi-versus-src">In Season Tempo</span>
+                         <span className="pi-versus-val">{fmt(r.existing)}</span></div>
+                    <div><span className="pi-versus-src">In your file</span>
+                         <span className="pi-versus-val">{fmt(r.incoming)}</span></div>
+                  </div>
+                  <div className="pi-choice" role="group">
+                    <button type="button"
+                      className={`btn btn-secondary${decisions[a.i]?.[r.key] === "existing" ? " on" : ""}`}
+                      onClick={() => decide(a.i, r.key, "existing")}>
+                      Keep {fmt(r.existing)}
+                    </button>
+                    <button type="button"
+                      className={`btn btn-secondary${decisions[a.i]?.[r.key] === "incoming" ? " on" : ""}`}
+                      onClick={() => decide(a.i, r.key, "incoming")}>
+                      Use {fmt(r.incoming)}
+                    </button>
+                  </div>
+                  {r.decided && (
+                    <p className="pi-outcome">Will be <strong>{fmt(r.chosen)}</strong></p>
+                  )}
+                </div>
+              ))}
 
-              {conflicts.length > 0 && (
-                <ConflictRow a={a} decisions={decisions[a.i] ?? {}} decide={decide} />
-              )}
+              <ul className="pi-diff">
+                {fills.map((r) => (
+                  <li key={r.key}>
+                    <span className="pi-diff-verb pi-add">Adding</span>
+                    <span>{r.label}</span>
+                    <span className="pi-diff-val">{fmt(r.incoming)}</span>
+                  </li>
+                ))}
+                {kept.map((r) => (
+                  <li key={r.key}>
+                    <span className="pi-diff-verb pi-keep">Keeping</span>
+                    <span>{r.label}</span>
+                    <span className="pi-diff-val">{fmt(r.existing)}</span>
+                  </li>
+                ))}
+                {same.map((r) => (
+                  <li key={r.key}>
+                    <span className="pi-diff-verb pi-none">No change</span>
+                    <span>{r.label}</span>
+                  </li>
+                ))}
+                {a.row.contacts?.length > 0 && (
+                  <li>
+                    <span className="pi-diff-verb pi-pend">Later</span>
+                    <span>
+                      {a.row.contacts.length} parent or guardian
+                      {a.row.contacts.length === 1 ? "" : "s"}
+                    </span>
+                    <span className="pi-diff-val">saved once the update is finished</span>
+                  </li>
+                )}
+              </ul>
             </li>
           );
         })}
@@ -495,31 +632,8 @@ function ReviewChanges({ analysed, decisions, setDecisions, ambiguousContacts, o
   );
 }
 
-function ConflictRow({ a, decisions, decide }) {
-  const keys = a.plan.blockers
-    .filter((b) => b.startsWith("undecided"))
-    .flatMap((b) => b.replace("undecided conflicts: ", "").split(", "));
-
-  return (
-    <div className="pi-conflict">
-      {keys.map((k) => (
-        <div key={k} className="pi-conflict-row">
-          <p className="pi-conflict-q">
-            <strong>{BY_KEY.get(k)?.label ?? k}</strong> doesn&rsquo;t match. Which is right?
-          </p>
-          <div className="pi-choice" role="group">
-            <button type="button"
-              className={`btn btn-secondary${decisions[k] === "existing" ? " on" : ""}`}
-              onClick={() => decide(a.i, k, "existing")}>Keep what we have</button>
-            <button type="button"
-              className={`btn btn-secondary${decisions[k] === "incoming" ? " on" : ""}`}
-              onClick={() => decide(a.i, k, "incoming")}>Use the file</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const fmt = (v) =>
+  v === null || v === undefined || v === "" ? "—" : Array.isArray(v) ? v.join(", ") : String(v);
 
 /* ---- Step 5 ------------------------------------------------------------ */
 
