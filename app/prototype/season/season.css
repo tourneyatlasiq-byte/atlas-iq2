@@ -154,3 +154,12 @@
   .sp-season, .sp-consequence { padding-bottom: 56px; }
   .sp-next { padding-bottom: 64px; }
 }
+
+/* The paid figure sits beside the committed one at the same scale but lower
+   contrast: the point is the gap between them, not either number alone. */
+.sp-muted { color: #93a2b5; }
+
+/* Rendered larger than the season plate. The relationship being discussed —
+   committed against planned, with the unassigned amount called out — has to
+   be legible without the visitor studying a small screenshot. */
+.sp-plate-tall img { max-width: 560px; }

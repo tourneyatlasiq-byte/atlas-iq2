@@ -105,29 +105,44 @@ export default function SeasonProof() {
         </div>
       </section>
 
-      {/* --- Finance as a consequence of the weekend --------------------- */}
+      {/* --- Finance as a consequence of the weekend ---------------------
+
+           CORRECTED. An earlier version of this section claimed the $6,365
+           was "already in the budget" and that "nobody typed it twice". The
+           data path does not support either:
+
+             $6,365   read-time aggregate of committed tournaments
+             $5,050   of that is assigned to a budget category
+             $1,315   is NOT assigned to any category
+             $22,000  Tournament Fees is a planned figure, entered separately
+
+           So the commitments are not contained in the planned budget, and the
+           plan was not derived from them. The real benefit is narrower and
+           more useful: Season Tempo knows what has been committed before any
+           invoice arrives, holds that next to what was planned, and says so
+           when a commitment has not been assigned anywhere yet. */}
       <section className="sp-consequence">
         <div className="sp-wrap sp-split">
           <div>
-            <p className="sp-eyebrow">And what it already cost you</p>
+            <p className="sp-eyebrow">Before a single invoice arrives</p>
             <h2 className="sp-section">
-              That
-              <span className="sp-figure sp-figure-inline">$6,365</span>
-              is already in the budget. Nobody typed it twice.
+              <span className="sp-figure">$6,365</span>
+              committed. <span className="sp-muted">$1,130</span> actually paid.
             </h2>
             <p className="sp-body">
-              An entry fee is entered once, on the weekend it belongs to. It counts against
-              the season the moment you commit — long before an invoice arrives, and whether or
-              not anyone has been paid.
+              A tournament counts against the season the moment you commit to it, not when
+              somebody sends a bill. Season Tempo holds what you have promised next to what you
+              planned to spend &mdash; and tells you when $1,315 of it hasn&rsquo;t been assigned
+              to a category yet.
             </p>
           </div>
 
-          <figure className="sp-plate">
+          <figure className="sp-plate sp-plate-tall">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-committed.webp"
-              alt="A season budget showing $6,365 committed to tournaments and $1,130 paid, above the expense categories" />
+            <img src="/proof/plate-commitments.webp"
+              alt="A season budget of $29,480 showing $3,544 paid, $5,660 still to pay, and a note that $1,315 in tournament commitments is not assigned to a budget category" />
             <figcaption>
-              Season budget · the same figure, arrived at from the other direction.
+              Season budget &middot; unassigned commitments are called out, not absorbed.
             </figcaption>
           </figure>
         </div>
