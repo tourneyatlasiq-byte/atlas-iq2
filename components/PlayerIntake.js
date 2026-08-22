@@ -57,7 +57,9 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
   const [error, setError] = useState(null);
   const [dragging, setDragging] = useState(false);
 
-  // Which mapped columns the coach has switched on. Sensitive fields start off.
+  // Which mapped columns the coach has switched on. Opt-in fields start off;
+  // sensitive fields are labelled but included, since a parent email is the
+  // reason its column was mapped.
   const [enabled, setEnabled] = useState(new Set());
   // Row index -> "same" | "new"  for possible/conflict rows.
   const [identity, setIdentity] = useState({});

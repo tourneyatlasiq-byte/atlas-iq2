@@ -378,6 +378,46 @@ const JOTFORM_HEADERS = [
     second[0].plan.writes.filter((w) => Object.keys(w.values).length).map((w) => w.table),
     ["team_season_players"]);
 
+
+  /* ---- Registry integrity after the optIn split ------------------------- */
+  console.log("\nRegistry integrity");
+
+  ok("optIn is declared on every field",
+    reg.FIELDS.filter((f) => f.optIn === undefined).map((f) => f.key), []);
+  ok("DOB is the only optIn field",
+    reg.FIELDS.filter((f) => f.optIn).map((f) => f.key), ["date_of_birth"]);
+  ok("sensitive is broader than optIn, and still labels contact fields",
+    reg.FIELDS.filter((f) => f.sensitive).map((f) => f.key).sort(),
+    ["contact_email","contact_phone","date_of_birth","player_email","player_phone"]);
+  ok("a sensitive field that is not optIn still auto-enables",
+    map.suggestMappings(["Parent Email"]).mappings[0].autoEnabled, true);
+  ok("...and is still flagged sensitive so it can be disclosed",
+    map.suggestMappings(["Parent Email"]).mappings[0].sensitive, true);
+  ok("the review step can still name every sensitive column",
+    map.suggestMappings(JOTFORM_HEADERS).sensitive.length > 0, true);
+
+  /* ---- Nothing writable is pending, nothing pending is writable --------- */
+  ok("writable fields never carry a pending destination",
+    reg.writableFields().filter((f) => f.pendingMigration).map((f) => f.key), []);
+  ok("every pending field names a destination it cannot use yet",
+    reg.pendingFields().filter((f) => !f.destination).map((f) => f.key), []);
+
+  /* ---- A plan with pending fields can never be executable ---------------- */
+  let escaped = false;
+  try {
+    pln.assertPlanSafe({ writes: [{ table: "players", values: {} }],
+                         pending: ["last_name"], executable: true });
+    escaped = true;
+  } catch { /* expected */ }
+  ok("a pending plan claiming to be executable throws", escaped, false);
+
+  /* ---- 30 JotForm columns after the optIn change ------------------------ */
+  const post = map.suggestMappings(JOTFORM_HEADERS);
+  ok("all 30 still resolve", post.mappings.length + post.ignored.length, 30);
+  ok("none unmapped", post.unmapped, []);
+  ok("exactly one column asks the coach to opt in",
+    post.mappings.filter((m) => m.optIn).map((m) => m.header), ["Date of Birth"]);
+
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
