@@ -236,16 +236,34 @@ const JOTFORM_HEADERS = [
     contacts:[{ full_name:"Kit Frost", email:"kit@example.test" }] };
   const contactPlan = pln.buildRowPlan({
     row:contactRow, match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
-  ok("contacts are planned but blocked pending migration", contactPlan.executable, false);
-  truthy("player_contacts appears in the plan",
-    contactPlan.writes.some((w) => w.table === "player_contacts"));
+  // TRANSITIONAL: one contact writes to the flat parent_* fields today.
+  ok("a single contact is executable now, via the flat fields",
+    contactPlan.executable, true);
+  ok("...writing parent_name and parent_email on the player",
+    Object.keys(contactPlan.writes[0].values).filter((k) => k.startsWith("parent_")).sort(),
+    ["parent_email","parent_name"]);
+  ok("...and creating no player_contacts row yet",
+    contactPlan.writes.some((w) => w.table === "player_contacts"), false);
+
+  const twoContacts = pln.buildRowPlan({
+    row: { full_name:"Nia Frost", contacts:[
+      { full_name:"Kit Frost", email:"kit@example.test" },
+      { full_name:"Ari Frost", email:"ari@example.test" }] },
+    match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
+  ok("a SECOND contact is still pending", twoContacts.executable, false);
+  ok("...and is the only thing pending", twoContacts.pending, ["additional contacts"]);
+  ok("...and is never concatenated into notes",
+    twoContacts.writes[0].values.notes, undefined);
 
   /* ---- A8 prohibition --------------------------------------------------- */
   console.log("\nA8 prohibition");
   const allPlans = [newPlan, fillPlan, conflictPlan, pendingPlan, contactPlan];
   const tables = [...new Set(allPlans.flatMap((p) => p.writes.map((w) => w.table)))].sort();
-  ok("only three tables are ever written",
-    tables, ["player_contacts","players","team_season_players"]);
+  // The invariant is that nothing OUTSIDE the permitted set appears — not that
+  // every permitted table appears in every batch.
+  ok("nothing outside the permitted set is ever written",
+    tables.filter((t) => ![...pln.ALLOWED_TABLES,
+                          ...Object.keys(pln.CONDITIONAL_TABLES)].includes(t)), []);
   ok("no forbidden table appears in any plan",
     allPlans.flatMap((p) => p.writes.map((w) => w.table))
             .filter((t) => pln.FORBIDDEN_TABLES.includes(t)), []);
@@ -352,7 +370,7 @@ const JOTFORM_HEADERS = [
     jf[0].plan.executable, false);
   ok("only permitted tables appear",
     [...new Set(jf[0].plan.writes.map((w) => w.table))].sort(),
-    ["player_contacts","players","team_season_players"]);
+    ["player_contacts","player_links","players","team_season_players"]);
 
   const jfDob = runFile(JOTFORM_HEADERS, [[
     "Aug 20, 2026","Wren","Wrenny","Calder","44","","2028","Apr 3, 2010",
@@ -376,8 +394,10 @@ const JOTFORM_HEADERS = [
     simple.map((r) => r.row.full_name), ["Wrenny Calder","Ada Nkemelu"]);
   ok("simple sheet: positions normalised", simple[0].row.positions, ["SS"]);
   ok("simple sheet: both rows are NEW", simple.map((r) => r.match.classification), ["new","new"]);
-  ok("simple sheet is blocked ONLY by the contact column",
-    simple[0].plan.pending, ["contact_*"]);
+  ok("simple sheet with one parent is fully executable today",
+    simple[0].plan.executable, true);
+  ok("...writing the parent to the flat fields",
+    simple[0].plan.writes[0].values.parent_email, "robin@example.test");
 
   // Without a parent column there is nothing pending: fully executable today.
   const minimal = runFile(["Player","#","Grad Year","Position"],
@@ -502,9 +522,9 @@ const JOTFORM_HEADERS = [
     ["full_name","jersey_number","grad_year"]);
   ok("a genuinely unknown header is offered for manual mapping, not guessed",
     map.suggestMappings(["Athlete","Random Column"]).unmapped, ["Random Column"]);
-  ok("selectable fields cover player, season and contact",
+  ok("selectable fields cover every level a coach can map",
     map.selectableFields().map((g) => g.group).sort(),
-    ["Parent or guardian","Player","This season"]);
+    ["Links","Parent or guardian","Player","This season"]);
   ok("ignored fields are never offered as a choice",
     map.selectableFields().flatMap((g) => g.fields).filter((f) => f.key.startsWith("_ignore")), []);
 
@@ -530,6 +550,113 @@ const JOTFORM_HEADERS = [
     [{ header:"Email", key:"player_email", index:null, level:"player" }]);
   ok("the coach can redirect it to the player instead",
     overridden.player_email, "ada@example.test");
+
+
+  /* ---- Completeness: registry <-> dropdown ------------------------------ */
+  console.log("\nRegistry and dropdown completeness");
+
+  const offered = new Set(map.selectableFields().flatMap((g) => g.fields).map((f) => f.key));
+  const selectable = reg.FIELDS.filter((f) => f.importable && !reg.isIgnored(f.key));
+
+  ok("EVERY importable registry field is offered in the dropdown",
+    selectable.filter((f) => !offered.has(f.key)).map((f) => f.key), []);
+  ok("EVERY dropdown option resolves to a registered field",
+    [...offered].filter((k) => !reg.BY_KEY.get(k)), []);
+  ok("no dropdown option is an ignored column",
+    [...offered].filter((k) => reg.isIgnored(k)), []);
+  ok("every dropdown option has a destination",
+    [...offered].filter((k) => !reg.BY_KEY.get(k)?.destination), []);
+  ok("the X handle is now selectable", offered.has("social_handle"), true);
+  ok("player or staff is now selectable", offered.has("person_type"), true);
+
+  /* ---- X handles -------------------------------------------------------- */
+  console.log("\nX handle");
+
+  const forms = ["@wrenny_88","wrenny_88","x.com/wrenny_88",
+                 "https://twitter.com/wrenny_88","https://www.x.com/wrenny_88?s=20"];
+  ok("all supported forms resolve to one URL",
+    [...new Set(forms.map((f) => nrm.parseXHandle(f).url))], ["https://x.com/wrenny_88"]);
+  ok("the coach's original value is preserved exactly",
+    forms.map((f) => nrm.parseXHandle(f).label), forms);
+  ok("the username is never altered",
+    nrm.parseXHandle("@Wrenny_88").handle, "Wrenny_88");
+  for (const bad of ["x.com/wrenny/status/1","https://instagram.com/wrenny","not a handle!",
+                     "way_too_long_a_username_here"]) {
+    ok(`"${bad}" is not guessed at`, nrm.parseXHandle(bad), null);
+  }
+
+  const xRow = { full_name:"Nia Frost", social_handle:"@nia_frost", contacts:[] };
+  const xPlan = pln.buildRowPlan({ row:xRow,
+    match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
+  ok("a handle produces a player_links write",
+    xPlan.writes.filter((w) => w.table === "player_links").length, 1);
+  ok("...with link_type X, a composed URL and the original label",
+    xPlan.writes.find((w) => w.table === "player_links").values,
+    { link_type:"X", url:"https://x.com/nia_frost", label:"@nia_frost" });
+
+  const badX = pln.buildRowPlan({
+    row:{ full_name:"Nia Frost", social_handle:"not a handle!", contacts:[] },
+    match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
+  ok("an unresolvable handle blocks the row for review", badX.executable, false);
+  ok("...and writes no link", badX.writes.some((w) => w.table === "player_links"), false);
+
+  /* ---- player_links is conditional, not open ---------------------------- */
+  console.log("\nplayer_links is conditionally permitted");
+
+  let threw = false;
+  try { pln.assertPlanSafe({ writes:[{ table:"player_links", values:{} }], pending:[] }); }
+  catch { threw = true; }
+  ok("a player_links write WITHOUT a link type throws", threw, true);
+
+  threw = false;
+  try {
+    pln.assertPlanSafe({ writes:[{ table:"player_links", linkType:"Instagram", values:{} }], pending:[] });
+  } catch { threw = true; }
+  ok("an unsupported link type throws", threw, true);
+
+  ok("a supported link type is permitted",
+    pln.assertPlanSafe({ writes:[{ table:"player_links", linkType:"X", values:{} }], pending:[] }), true);
+  ok("player_links has left the blanket prohibition",
+    pln.FORBIDDEN_TABLES.includes("player_links"), false);
+  ok("...but is not generally allowed either",
+    pln.ALLOWED_TABLES.includes("player_links"), false);
+  ok("an arbitrary field cannot reach it: only linkType fields carry one",
+    reg.FIELDS.filter((f) => f.linkType).map((f) => f.key), ["social_handle"]);
+
+  /* ---- person_type ------------------------------------------------------ */
+  console.log("\nPlayer or staff");
+
+  ok("stored values are lowercase, as production holds them",
+    ["Player","coach","Manager"].map((v) => nrm.parsePersonType(v).person_type),
+    ["player","coach","manager"]);
+  ok("a named staff role sets the PAIR",
+    nrm.parsePersonType("Head Coach"), { person_type:"coach", other_role_label:"Head Coach" });
+  ok("\"Staff\" is a UI grouping and is refused", nrm.parsePersonType("Staff"), null);
+  ok("an unknown role is refused rather than defaulted",
+    nrm.parsePersonType("Bench Boss"), null);
+
+  const staffPlan = pln.buildRowPlan({
+    row:{ full_name:"Robin Calder", person_type:"Head Coach", contacts:[] },
+    match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
+  ok("the pair is written together",
+    [staffPlan.writes[0].values.person_type, staffPlan.writes[0].values.other_role_label],
+    ["coach","Head Coach"]);
+
+  const badRole = pln.buildRowPlan({
+    row:{ full_name:"Robin Calder", person_type:"Bench Boss", contacts:[] },
+    match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
+  ok("an unrecognised role blocks the row", badRole.executable, false);
+  ok("...and never silently defaults to player",
+    badRole.writes[0].values.person_type, undefined);
+
+  /* ---- forbidden destinations still forbidden --------------------------- */
+  for (const t of ["player_payments","payment_log","tournament_participants","profiles",
+                   "player_guardians","invites","documents","plate_appearances",
+                   "player_college_interests","player_stats","games","budget_transactions"]) {
+    let t2 = false;
+    try { pln.assertPlanSafe({ writes:[{ table:t, values:{} }], pending:[] }); } catch { t2 = true; }
+    ok(`${t} still throws`, t2, true);
+  }
 
   console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);

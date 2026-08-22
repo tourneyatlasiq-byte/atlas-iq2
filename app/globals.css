@@ -5419,3 +5419,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .pi-pend { color: #8a5a00; }
 
 @media (max-width: 720px) { .pi-versus { grid-template-columns: 1fr; } }
+
+/* Unchanged information is collapsed to one quiet line: the review screen
+   should surface exceptions, not celebrate every field that matched. */
+.pi-diff .pi-quiet { opacity: .62; font-size: 12.5px; }

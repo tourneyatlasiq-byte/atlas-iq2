@@ -578,19 +578,23 @@ function ReviewChanges({ analysed, decisions, setDecisions, ambiguousContacts, o
                     <span className="pi-diff-val">{fmt(r.incoming)}</span>
                   </li>
                 ))}
-                {kept.map((r) => (
-                  <li key={r.key}>
+                {kept.length > 0 && (
+                  <li className="pi-quiet">
                     <span className="pi-diff-verb pi-keep">Keeping</span>
-                    <span>{r.label}</span>
-                    <span className="pi-diff-val">{fmt(r.existing)}</span>
+                    <span>
+                      {kept.length} existing value{kept.length === 1 ? "" : "s"} your file
+                      left blank
+                    </span>
                   </li>
-                ))}
-                {same.map((r) => (
-                  <li key={r.key}>
+                )}
+                {same.length > 0 && (
+                  <li className="pi-quiet">
                     <span className="pi-diff-verb pi-none">No change</span>
-                    <span>{r.label}</span>
+                    <span>
+                      {same.length} field{same.length === 1 ? "" : "s"} already match
+                    </span>
                   </li>
-                ))}
+                )}
                 {a.row.contacts?.length > 0 && (
                   <li>
                     <span className="pi-diff-verb pi-pend">Later</span>
