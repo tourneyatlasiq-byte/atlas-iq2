@@ -76,7 +76,9 @@
    feel unfinished — a second column of type solves it without a screenshot,
    card or ornament. */
 .sp-hero-foot {
-  display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  /* 468 / 500 rather than 528 / 440. The statement above uses 87% of the
+     measure; a table at 42% read as placed rather than composed. */
+  display: grid; grid-template-columns: minmax(0, 468px) minmax(0, 500px);
   gap: 72px; align-items: start; margin-top: 52px;
 }
 .sp-hero-left { display: flex; flex-direction: column; gap: 30px; }
@@ -95,25 +97,25 @@
 .sp-results { margin-top: 0; }
 .sp-results ul { list-style: none; margin: 0; padding: 0; border-top: 2px solid #f4b400; }
 .sp-results li {
-  display: grid; grid-template-columns: 62px 1fr 20px 46px;
-  gap: 14px; align-items: baseline;
-  padding: 9px 0; border-bottom: 1px solid #edf1f6;
+  display: grid; grid-template-columns: 70px 1fr 24px 54px;
+  gap: 16px; align-items: baseline;
+  padding: 10px 0; border-bottom: 1px solid #edf1f6;
 }
 .sp-r-date {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 14px; font-weight: 600; letter-spacing: .07em;
+  font-size: 15.5px; font-weight: 600; letter-spacing: .07em;
   text-transform: uppercase; color: #7c8ba1;
 }
-.sp-r-opp { font-size: 15px; color: #0b2341; }
+.sp-r-opp { font-size: 16.5px; color: #0b2341; }
 .sp-r-res {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 16px; font-weight: 700; text-align: center;
+  font-size: 19px; font-weight: 700; text-align: center;
 }
 .sp-r-res.w { color: #0b2341; }
 .sp-r-res.l { color: #b0bccb; }
 .sp-r-score {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 16px; font-weight: 600; text-align: right;
+  font-size: 19px; font-weight: 600; text-align: right;
   font-variant-numeric: tabular-nums; color: #46586f;
 }
 .sp-results-note {
@@ -159,6 +161,7 @@
   .sp-wrap { padding: 0 24px; }
   .sp-hero { padding: 56px 0 48px; }
   .sp-hero-foot, .sp-split { grid-template-columns: 1fr; gap: 32px; }
+  .sp-tally { font-size: 22px; }
   .sp-statement span { white-space: normal; }
   .sp-season, .sp-consequence { padding-bottom: 56px; }
   .sp-next { padding-bottom: 64px; }
@@ -179,7 +182,7 @@
 .sp-results-head {
   margin: 0 0 10px;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 17px; font-weight: 700; letter-spacing: .03em;
+  font-size: 20px; font-weight: 700; letter-spacing: .03em;
   text-transform: uppercase; color: #0b2341;
 }
 
@@ -206,12 +209,22 @@
 }
 .sp-chapter-body { margin-top: 22px; max-width: 54ch; }
 
-.sp-split-tight { margin-top: 72px; align-items: center; gap: 76px; }
+/* One composition. The phone is top-aligned so its column stops padding
+   itself out, and the chart spans both columns beneath. */
+.sp-perf {
+  display: grid;
+  grid-template-columns: minmax(0, 430px) minmax(0, 530px);
+  gap: 56px 72px; align-items: start; margin-top: 64px;
+}
+.sp-perf-copy { align-self: start; }
+.sp-perf .sp-plate-reasons { grid-column: 1 / -1; margin-top: 8px; }
 
 /* The phone keeps its own proportion and is deliberately small. It is a
    phone in a dugout, not a hero product shot. */
-.sp-plate-phone img { max-width: 268px; border-radius: 16px; }
-.sp-plate-phone { justify-self: center; }
+/* 340px, up from 268. Still a phone in a dugout rather than a hero product
+   shot, but no longer the smallest object on the page. */
+.sp-plate-phone img { max-width: 340px; border-radius: 18px; }
+.sp-plate-phone { justify-self: start; }
 
 .sp-monday {
   display: grid; grid-template-columns: minmax(0, 1fr);
@@ -225,8 +238,10 @@
   .sp-hero-left { gap: 26px; }
   .sp-attrib { gap: 14px; margin-top: 36px; }
   .sp-saturday { padding-bottom: 64px; }
-  .sp-split-tight { margin-top: 44px; gap: 32px; }
-  .sp-monday { margin-top: 56px; }
+  .sp-perf { grid-template-columns: 1fr; gap: 32px; margin-top: 40px; }
+  .sp-perf .sp-plate-reasons { grid-column: auto; margin-top: 0; }
+  .sp-plate-phone { justify-self: center; }
+  .sp-plate-phone img { max-width: 280px; }
 }
 
 /* --- The tally ------------------------------------------------------------
@@ -234,17 +249,21 @@
    and the relationship between them is the argument. */
 
 .sp-tally {
-  display: flex; flex-wrap: wrap; gap: 0 40px; margin: 16px 0 0;
+  /* Integrated into the argument, NOT demoted to supporting text. It reads
+     as the second focal point of the section: the figures stay large and the
+     numerals stay larger still. */
+  display: flex; flex-direction: column; gap: 4px; margin: 30px 0 0;
+  padding-top: 22px; border-top: 2px solid #f4b400;
   font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
-  font-size: clamp(26px, 3vw, 38px); line-height: 1.15;
+  font-size: clamp(22px, 2.3vw, 29px); line-height: 1.18;
   letter-spacing: -0.004em; font-weight: 600; color: #46586f;
 }
 .sp-tally b {
   font-weight: 700; color: #0b2341;
-  font-size: 1.5em; letter-spacing: -0.015em;
+  font-size: 1.62em; letter-spacing: -0.018em;
   font-variant-numeric: tabular-nums;
 }
-.sp-tally-note { margin-top: 18px; max-width: 46ch; }
+
 
 /* --- What the season gives back -------------------------------------------
    Documents, not screens: square corners, a paper edge, no shadow. What
@@ -252,8 +271,10 @@
 
 .sp-give { padding: 0 0 128px; }
 .sp-docs {
+  /* ~600px each within the 1040px measure: still 28% below the 831px source,
+     so they render sharper than before rather than upscaled. */
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 56px; margin-top: 60px; align-items: start;
+  gap: 40px; margin-top: 60px; align-items: start;
 }
 .sp-doc { margin: 0; }
 .sp-doc img {

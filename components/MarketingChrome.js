@@ -11,7 +11,9 @@ import { SUPPORT_EMAIL } from "../lib/legal";
  *
  * Product now routes to a real page rather than a homepage anchor.
  */
-export function MarketingHeader({ signedIn = false, appHref = "/dashboard" }) {
+/* No appHref: the header no longer renders a destination for a signed-in
+   visitor, so it has nothing to link to. Callers may still pass it harmlessly. */
+export function MarketingHeader({ signedIn = false }) {
   return (
     <header className="mk-header">
       <div className="mk-wrap mk-header-inner">
@@ -34,12 +36,13 @@ export function MarketingHeader({ signedIn = false, appHref = "/dashboard" }) {
             identity question before reading anything, and made the two compete
             while serving opposite people. Acquisition CTAs now live in page
             content, where the visitor has context for them. */}
+        {/* Nothing for a signed-in visitor. The saturated blue button that
+            used to sit here was the only loud element on an otherwise
+            restrained page, and someone already signed in does not need the
+            marketing header to tell them where the application is — the
+            footer carries that. Logged out keeps Sign in. */}
         <div className="mk-header-actions">
-          {signedIn ? (
-            <Link href={appHref} className="btn btn-primary">Open Season Tempo</Link>
-          ) : (
-            <Link href="/login" className="mk-signin">Sign in</Link>
-          )}
+          {!signedIn && <Link href="/login" className="mk-signin">Sign in</Link>}
         </div>
       </div>
     </header>

@@ -182,7 +182,17 @@ export default async function HomePage() {
           <h2 className="sp-chapter">Then Saturday happens.</h2>
         </div>
 
-        <div className="sp-wrap sp-split sp-split-tight">
+        {/* ONE composition, not three horizontal layers. The phone sat at
+            268px inside a 402px column — 134px of dead space around the
+            object carrying the differentiator, and the smallest plate on a
+            page whose others run 815px and wider.
+
+            The tally now lives inside the right-hand argument rather than
+            announcing itself 96px below, so a coach's decision and its
+            season-long consequence read as one thought. It keeps its own
+            scale: still the second focal point of the section, just no longer
+            a separate horizontal band. */}
+        <div className="sp-wrap sp-perf">
           <figure className="sp-plate sp-plate-phone">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/proof/plate-atbat.webp"
@@ -190,7 +200,7 @@ export default async function HomePage() {
             <figcaption>Recorded between innings, on the phone in your pocket.</figcaption>
           </figure>
 
-          <div>
+          <div className="sp-perf-copy">
             <h3 className="sp-section">A hit is not the only thing worth writing down.</h3>
             <p className="sp-body">
               The batting order is set from the roster that travelled. Then the eight-pitch
@@ -198,19 +208,13 @@ export default async function HomePage() {
               that started the inning. A coach who watched it decides what it was, in the
               moment, before the detail is gone.
             </p>
-          </div>
-        </div>
 
-        {/* The deliberate rhythm break. No eyebrow, no section head, no
-            paragraph before the evidence: the figures are the entry point,
-            full width, and the chart follows them. This is the only place on
-            the page where numbers stand entirely alone. */}
-        <div className="sp-wrap sp-monday">
-          <p className="sp-tally">
-            <span><b>97</b> plate appearances.</span>
-            <span><b>56</b> quality at-bats.</span>
-            <span><b>57</b> reasons why.</span>
-          </p>
+            <p className="sp-tally">
+              <span><b>97</b> plate appearances.</span>
+              <span><b>56</b> quality at-bats.</span>
+              <span><b>57</b> reasons why.</span>
+            </p>
+          </div>
 
           <figure className="sp-plate sp-plate-reasons">
             {/* eslint-disable-next-line @next/next/no-img-element */}
