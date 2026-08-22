@@ -67,10 +67,15 @@
 /* --- Statement ---------------------------------------------------------- */
 
 .sp-hero { padding: 96px 0 88px; }
+/* Two columns: the promise and the action on the left, the season's real
+   results on the right. The open right side was what made the first viewport
+   feel unfinished — a second column of type solves it without a screenshot,
+   card or ornament. */
 .sp-hero-foot {
-  display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  gap: 56px; align-items: end; margin-top: 46px;
+  display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: 72px; align-items: start; margin-top: 52px;
 }
+.sp-hero-left { display: flex; flex-direction: column; gap: 30px; }
 .sp-lede { margin: 0; max-width: 46ch; font-size: 19px; line-height: 1.6; color: #46586f; }
 .sp-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 13px; }
 .sp-btn {
@@ -83,7 +88,7 @@
 
 /* A box score, not an application table. The gold rule is the single
    deliberate use of the colour on this page. */
-.sp-results { margin-top: 62px; max-width: 540px; }
+.sp-results { margin-top: 0; }
 .sp-results ul { list-style: none; margin: 0; padding: 0; border-top: 2px solid #f4b400; }
 .sp-results li {
   display: grid; grid-template-columns: 62px 1fr 20px 46px;
@@ -163,3 +168,59 @@
    committed against planned, with the unassigned amount called out — has to
    be legible without the visitor studying a small screenshot. */
 .sp-plate-tall img { max-width: 560px; }
+
+
+/* --- Hero additions ------------------------------------------------------ */
+
+.sp-results-head {
+  margin: 0 0 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 17px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; color: #0b2341;
+}
+
+/* A closing line under the composition, in the manner of a plate credit. */
+.sp-attrib {
+  display: flex; gap: 26px; flex-wrap: wrap;
+  margin: 56px 0 0; padding-top: 16px;
+  border-top: 1px solid #edf1f6;
+  font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: #a7b3c2;
+}
+
+/* --- Saturday ------------------------------------------------------------ */
+
+.sp-saturday { padding: 0 0 120px; }
+
+/* The chapter opener is set larger than a section head and smaller than the
+   statement — it is a turn in the story, not a new argument. */
+.sp-chapter {
+  margin: 14px 0 0; max-width: 16ch;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(40px, 5.2vw, 68px);
+  line-height: 1; letter-spacing: -0.008em; font-weight: 700;
+}
+.sp-chapter-body { margin-top: 22px; max-width: 54ch; }
+
+.sp-split-tight { margin-top: 72px; align-items: center; gap: 76px; }
+
+/* The phone keeps its own proportion and is deliberately small. It is a
+   phone in a dugout, not a hero product shot. */
+.sp-plate-phone img { max-width: 268px; border-radius: 16px; }
+.sp-plate-phone { justify-self: center; }
+
+.sp-monday {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 40px; margin-top: 96px;
+}
+.sp-monday-lead { max-width: 640px; }
+/* Wide and shallow, like a figure in a printed report. */
+.sp-plate-reasons img { width: 100%; }
+
+@media (max-width: 900px) {
+  .sp-hero-left { gap: 26px; }
+  .sp-attrib { gap: 14px; margin-top: 36px; }
+  .sp-saturday { padding-bottom: 64px; }
+  .sp-split-tight { margin-top: 44px; gap: 32px; }
+  .sp-monday { margin-top: 56px; }
+}

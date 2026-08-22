@@ -49,32 +49,42 @@ export default function SeasonProof() {
             <span>to the last at-bat.</span>
           </h1>
 
+          {/* The results strip moves INTO the first viewport as the right-hand
+              counterweight. The open space was the problem; more type and a
+              second column solve it without a screenshot, card or ornament. */}
           <div className="sp-hero-foot">
-            <p className="sp-lede">
-              Season Tempo is where a season is run — the weekends, the money, the games and
-              what came of them, in one place.
-            </p>
-            <div className="sp-actions">
-              <span className="sp-btn">Try Season Tempo</span>
-              <span className="sp-note">Free during early access.</span>
+            <div className="sp-hero-left">
+              <p className="sp-lede">
+                Season Tempo is where a season is run — the weekends, the money, the games and
+                what came of them, in one place.
+              </p>
+              <div className="sp-actions">
+                <span className="sp-btn">Try Season Tempo</span>
+                <span className="sp-note">Free during early access.</span>
+              </div>
+            </div>
+
+            <div className="sp-results">
+              <p className="sp-results-head">Fall Kickoff Classic</p>
+              <ul>
+                {RESULTS.map((g) => (
+                  <li key={g.opp}>
+                    <span className="sp-r-date">{g.date}</span>
+                    <span className="sp-r-opp">{g.opp}</span>
+                    <span className={`sp-r-res ${g.res === "W" ? "w" : "l"}`}>{g.res}</span>
+                    <span className="sp-r-score">{g.score}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="sp-results-note">Hobgood Park · Woodstock, GA</p>
             </div>
           </div>
 
-          {/* Real results as editorial texture. The gold rule above it is the
-              only use of the colour on the page. */}
-          <div className="sp-results">
-            <ul>
-              {RESULTS.map((g) => (
-                <li key={g.opp}>
-                  <span className="sp-r-date">{g.date}</span>
-                  <span className="sp-r-opp">{g.opp}</span>
-                  <span className={`sp-r-res ${g.res === "W" ? "w" : "l"}`}>{g.res}</span>
-                  <span className="sp-r-score">{g.score}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="sp-results-note">Fall Kickoff Classic · Hobgood Park · Woodstock, GA</p>
-          </div>
+          <p className="sp-attrib">
+            <span>Northgate 16U Gold</span>
+            <span>2026–27 season</span>
+            <span>Real data throughout</span>
+          </p>
         </div>
       </section>
 
@@ -148,13 +158,78 @@ export default function SeasonProof() {
         </div>
       </section>
 
-      <section className="sp-next">
+      {/* --- Saturday ----------------------------------------------------
+
+           The planned weekend becomes an actual game. Two plates, not three:
+           the lineup is described rather than shown, because a third
+           screenshot turns a chapter into a gallery.
+
+           EVERY FIGURE VERIFIED against production before it was written:
+             97 plate appearances, 56 quality at-bats  = 57.7%
+             5 games tracked, 13 players
+             57 reasons across 56 QABs (an at-bat can earn more than one)
+             walk 15 · hit 10 · situation 7 · sac fly 6 · hard hit 5 ·
+             8+ pitch 5 · sac bunt 5 · HBP 4
+           No causal claim is made anywhere: the product counts reasons, it
+           never relates them to runs or to winning. */}
+      <section className="sp-saturday">
         <div className="sp-wrap">
           <hr className="sp-rule" />
-          <p className="sp-eyebrow">Next</p>
-          <h2 className="sp-section sp-next-head">Then Saturday happens.</h2>
+          <p className="sp-eyebrow">The weekend itself</p>
+          <h2 className="sp-chapter">Then Saturday happens.</h2>
+          <p className="sp-body sp-chapter-body">
+            The batting order is set from the roster that travelled. Two games that weekend,
+            both already attached to the tournament they belong to. From here the season stops
+            being a plan and starts being something that happened.
+          </p>
+        </div>
+
+        <div className="sp-wrap sp-split sp-split-tight">
+          <figure className="sp-plate sp-plate-phone">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/proof/plate-atbat.webp"
+              alt="A phone showing a plate appearance being recorded, with hard hit ball selected among eight possible reasons" />
+            <figcaption>Recorded between innings, on the phone in your pocket.</figcaption>
+          </figure>
+
+          <div>
+            <p className="sp-eyebrow">One at-bat at a time</p>
+            <h2 className="sp-section">
+              A hit is not the only thing worth writing down.
+            </h2>
+            <p className="sp-body">
+              The eight-pitch battle that wore a pitcher out. The bunt that moved a runner to
+              third. The walk that started the inning. A coach who watched it decides what it
+              was, in the moment, before the detail is gone.
+            </p>
+          </div>
+        </div>
+
+        <div className="sp-wrap sp-monday">
+          <div className="sp-monday-lead">
+            <p className="sp-eyebrow">And by Monday</p>
+            <h2 className="sp-section">
+              <span className="sp-figure">57.7%</span>
+              of 97 plate appearances, and the reasons behind every one.
+            </h2>
+            <p className="sp-body">
+              Five games tracked, thirteen players. Fifty-seven reasons recorded across
+              fifty-six quality at-bats — a single at-bat can earn more than one. Walks
+              outnumbered hits, fifteen to ten. That is not a statistic a box score keeps.
+            </p>
+          </div>
+
+          <figure className="sp-plate sp-plate-reasons">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/proof/plate-reasons.webp"
+              alt="Reasons cited across the season: walk 15, hit 10, situation success 7, sacrifice fly 6, hard hit ball 5, eight-pitch at-bat 5, sacrifice bunt 5, hit by pitch 4" />
+            <figcaption>
+              Reasons cited · 57 across 56 quality at-bats, Northgate 16U Gold.
+            </figcaption>
+          </figure>
         </div>
       </section>
+
     </div>
   );
 }
