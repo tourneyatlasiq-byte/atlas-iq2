@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Season proof — Variant B's visual language, resequenced.
+
+   Light editorial ground, condensed display, Inter body, real season data,
+   restrained navy, one gold treatment, screenshots as evidence.
+
+   The sequence is the change: the season comes first, and Finance arrives as
+   a consequence of a weekend rather than as its own feature section.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap');
+
+.sp {
+  background: #fff; color: #0b2341;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.sp-wrap { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+
+/* --- Type --------------------------------------------------------------- */
+
+.sp-eyebrow {
+  margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+
+/* Each line is its own block and holds together. The previous proof let the
+   measure decide, which stranded "fee" on a line of its own. */
+.sp-statement { margin: 24px 0 0; }
+.sp-statement span {
+  display: block; white-space: nowrap;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(44px, 7.1vw, 94px);
+  line-height: .96; letter-spacing: -0.008em; font-weight: 700;
+  color: #0b2341;
+}
+
+.sp-section {
+  margin: 16px 0 0; max-width: 21ch;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(30px, 3.4vw, 42px);
+  line-height: 1.08; letter-spacing: -0.004em; font-weight: 700;
+}
+
+/* A real figure set at display scale. Reading it as type is more persuasive
+   than finding it inside a screenshot — the screenshot then confirms it. */
+.sp-figure {
+  display: block; margin-bottom: 2px;
+  font-size: clamp(52px, 6.4vw, 82px); line-height: .94;
+  letter-spacing: -0.015em; font-variant-numeric: tabular-nums;
+}
+.sp-figure-inline { display: inline-block; margin: 0 .12em -0.04em; }
+
+.sp-body { margin: 20px 0 0; max-width: 58ch; font-size: 17px; line-height: 1.7; color: #46586f; }
+
+/* --- Navigation --------------------------------------------------------- */
+
+.sp-nav { border-bottom: 1px solid #edf1f6; }
+.sp-nav-inner { display: flex; align-items: center; gap: 44px; height: 76px; }
+.sp-mark {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 21px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+}
+.sp-nav-links { display: flex; gap: 30px; font-size: 14.5px; color: #46586f; }
+.sp-signin { margin-left: auto; font-size: 14.5px; color: #46586f; }
+
+/* --- Statement ---------------------------------------------------------- */
+
+.sp-hero { padding: 96px 0 88px; }
+.sp-hero-foot {
+  display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 56px; align-items: end; margin-top: 46px;
+}
+.sp-lede { margin: 0; max-width: 46ch; font-size: 19px; line-height: 1.6; color: #46586f; }
+.sp-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 13px; }
+.sp-btn {
+  display: inline-flex; padding: 15px 30px; border-radius: 4px;
+  background: #0b2341; color: #fff; font-size: 15.5px; font-weight: 600;
+}
+.sp-note { font-size: 13.5px; color: #7c8ba1; }
+
+/* --- Real results ------------------------------------------------------- */
+
+/* A box score, not an application table. The gold rule is the single
+   deliberate use of the colour on this page. */
+.sp-results { margin-top: 62px; max-width: 540px; }
+.sp-results ul { list-style: none; margin: 0; padding: 0; border-top: 2px solid #f4b400; }
+.sp-results li {
+  display: grid; grid-template-columns: 62px 1fr 20px 46px;
+  gap: 14px; align-items: baseline;
+  padding: 9px 0; border-bottom: 1px solid #edf1f6;
+}
+.sp-r-date {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: #7c8ba1;
+}
+.sp-r-opp { font-size: 15px; color: #0b2341; }
+.sp-r-res {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 700; text-align: center;
+}
+.sp-r-res.w { color: #0b2341; }
+.sp-r-res.l { color: #b0bccb; }
+.sp-r-score {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 600; text-align: right;
+  font-variant-numeric: tabular-nums; color: #46586f;
+}
+.sp-results-note {
+  margin: 12px 0 0; font-size: 11.5px; letter-spacing: .04em; color: #9aa8ba;
+}
+
+/* --- The season --------------------------------------------------------- */
+
+/* Full-width evidence: the schedule is the one thing that should feel large,
+   because breadth is the argument. */
+.sp-season { padding: 8px 0 104px; }
+.sp-lead { max-width: 640px; margin-bottom: 46px; }
+
+/* --- Finance as a consequence ------------------------------------------- */
+
+.sp-consequence { padding: 0 0 104px; }
+.sp-split {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 68px; align-items: center;
+}
+
+/* --- Plates -------------------------------------------------------------
+   A hairline rule, never a shadow. A shadow makes an interface look like a
+   sticker; a rule makes it look like a printed plate. Always captioned. */
+
+.sp-plate { margin: 0; }
+.sp-plate img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid #e3e9f0; border-radius: 2px;
+}
+.sp-plate figcaption {
+  margin-top: 13px; font-size: 12px; line-height: 1.55; color: #7c8ba1;
+}
+.sp-plate-wide img { width: 100%; }
+
+/* --- Transition --------------------------------------------------------- */
+
+.sp-next { padding: 0 0 128px; }
+.sp-rule { border: 0; border-top: 1px solid #edf1f6; margin: 0 0 40px; }
+.sp-next-head { max-width: 22ch; margin-top: 12px; }
+
+@media (max-width: 900px) {
+  .sp-wrap { padding: 0 24px; }
+  .sp-hero { padding: 56px 0 48px; }
+  .sp-hero-foot, .sp-split { grid-template-columns: 1fr; gap: 32px; }
+  .sp-statement span { white-space: normal; }
+  .sp-season, .sp-consequence { padding-bottom: 56px; }
+  .sp-next { padding-bottom: 64px; }
+}
