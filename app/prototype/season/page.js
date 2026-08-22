@@ -31,7 +31,10 @@ export default function SeasonProof() {
       <header className="sp-nav">
         <div className="sp-wrap sp-nav-inner">
           <span className="sp-mark">Season Tempo</span>
-          <nav className="sp-nav-links"><span>Product</span><span>Pricing</span><span>About</span></nav>
+          {/* Pricing is absent: the route does not exist on this branch, so it
+              is not shown at all rather than displayed as a destination that
+              cannot be reached. */}
+          <nav className="sp-nav-links"><span>Product</span><span>About</span></nav>
           <span className="sp-signin">Sign in</span>
         </div>
       </header>
@@ -208,14 +211,17 @@ export default function SeasonProof() {
         <div className="sp-wrap sp-monday">
           <div className="sp-monday-lead">
             <p className="sp-eyebrow">And by Monday</p>
-            <h2 className="sp-section">
-              <span className="sp-figure">57.7%</span>
-              of 97 plate appearances, and the reasons behind every one.
-            </h2>
-            <p className="sp-body">
-              Five games tracked, thirteen players. Fifty-seven reasons recorded across
-              fifty-six quality at-bats — a single at-bat can earn more than one. Walks
-              outnumbered hits, fifteen to ten. That is not a statistic a box score keeps.
+            {/* The arithmetic IS the statement. 97 appearances produced 56
+                quality at-bats, and those 56 carried 57 reasons between them —
+                one at-bat can earn more than one. Nothing here implies a
+                reason exists for every plate appearance. */}
+            <p className="sp-tally">
+              <span><b>97</b> plate appearances.</span>
+              <span><b>56</b> quality at-bats.</span>
+              <span><b>57</b> reasons why.</span>
+            </p>
+            <p className="sp-body sp-tally-note">
+              Walks outnumbered hits, fifteen to ten. Not a number a box score keeps.
             </p>
           </div>
 
@@ -226,6 +232,44 @@ export default function SeasonProof() {
             <figcaption>
               Reasons cited · 57 across 56 quality at-bats, Northgate 16U Gold.
             </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      {/* --- What the season gives back ----------------------------------
+
+           Deliberately NOT titled Reports, and deliberately not a gallery.
+           Two documents, shown as documents rather than as screens, because
+           what leaves the product is a printed page a family reads.
+
+           The claim that nothing is assembled by hand is supported by the
+           product itself: reports read live season data each time they are
+           opened; nothing is saved or snapshotted. */}
+      <section className="sp-give">
+        <div className="sp-wrap">
+          <hr className="sp-rule" />
+          <p className="sp-eyebrow">And then somebody asks what it costs</p>
+          <h2 className="sp-chapter">By the time a parent asks,<br />it is already written.</h2>
+          <p className="sp-body sp-chapter-body">
+            A budget a family can read without a phone call. A schedule that goes on the
+            fridge. Neither is assembled — both are read from the season you have been keeping
+            since August, every time they are opened.
+          </p>
+        </div>
+
+        <div className="sp-wrap sp-docs">
+          <figure className="sp-doc">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/proof/plate-doc-budget.webp"
+              alt="A printed planned season budget for Northgate 16U Gold showing a $29,480 season, where the money goes by category, player dues and planned fundraising" />
+            <figcaption>Planned Season Budget · what the season costs, and why.</figcaption>
+          </figure>
+
+          <figure className="sp-doc">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/proof/plate-doc-schedule.webp"
+              alt="A printed 2026-27 tournament schedule listing eight committed weekends with dates, facilities, addresses and the games played at each" />
+            <figcaption>Tournament Schedule · every weekend, every field, every address.</figcaption>
           </figure>
         </div>
       </section>

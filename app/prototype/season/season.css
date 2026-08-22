@@ -224,3 +224,44 @@
   .sp-split-tight { margin-top: 44px; gap: 32px; }
   .sp-monday { margin-top: 56px; }
 }
+
+/* --- The tally ------------------------------------------------------------
+   The arithmetic set as the statement. Three clauses, each a real figure,
+   and the relationship between them is the argument. */
+
+.sp-tally {
+  display: flex; flex-wrap: wrap; gap: 0 40px; margin: 16px 0 0;
+  font-family: 'Barlow Condensed', var(--font-poppins), sans-serif;
+  font-size: clamp(26px, 3vw, 38px); line-height: 1.15;
+  letter-spacing: -0.004em; font-weight: 600; color: #46586f;
+}
+.sp-tally b {
+  font-weight: 700; color: #0b2341;
+  font-size: 1.5em; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+.sp-tally-note { margin-top: 18px; max-width: 46ch; }
+
+/* --- What the season gives back -------------------------------------------
+   Documents, not screens: square corners, a paper edge, no shadow. What
+   leaves the product is a printed page, and it should look like one. */
+
+.sp-give { padding: 0 0 128px; }
+.sp-docs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 56px; margin-top: 60px; align-items: start;
+}
+.sp-doc { margin: 0; }
+.sp-doc img {
+  display: block; width: 100%; height: auto;
+  border: 1px solid #e8edf3; border-radius: 2px;
+}
+.sp-doc figcaption {
+  margin-top: 13px; font-size: 12px; line-height: 1.55; color: #7c8ba1;
+}
+
+@media (max-width: 900px) {
+  .sp-tally { gap: 0 24px; }
+  .sp-give { padding-bottom: 64px; }
+  .sp-docs { grid-template-columns: 1fr; gap: 40px; margin-top: 40px; }
+}
