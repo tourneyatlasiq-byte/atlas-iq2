@@ -228,13 +228,16 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         </div>
         {canWrite && (
           <div className="foot-actions">
-            <button className="btn btn-ghost" onClick={() => setImporting(true)}>
-              Upload roster
-            </button>
-            {/* Team -> Import players. Sits beside the existing template
-                upload; this one maps any spreadsheet's own columns. */}
+            {/* ONE import route. "Upload roster" was the fixed-template
+                importer: 14 columns that had to match ours exactly, and it
+                silently skipped anyone already on the roster, so a corrected
+                re-upload did nothing for them. Everything it could write is
+                covered here, plus structured names, date of birth, high
+                school, staff, multiple guardians and social links. Its
+                implementation is retained and recoverable — only the way in
+                is gone. */}
             <button className="btn btn-ghost" onClick={() => setIntaking(true)}>
-              Import players
+              Import from spreadsheet
             </button>
             <button className="btn btn-primary" onClick={() => setAdding(true)}>
               Add player or coach
@@ -396,11 +399,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             </p>
             {rows.length === 0 && canWrite && (
               <div className="empty-actions">
-                <button className="btn btn-primary" onClick={() => setImporting(true)}>
-                  Upload roster
-                </button>
-                <button className="btn btn-secondary" onClick={() => setAdding(true)}>
+                <button className="btn btn-primary" onClick={() => setAdding(true)}>
                   Add player or coach
+                </button>
+                <button className="btn btn-secondary" onClick={() => setIntaking(true)}>
+                  Import from spreadsheet
                 </button>
               </div>
             )}
@@ -544,6 +547,13 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         </div>
       )}
 
+      {/* RETAINED, DELIBERATELY UNREACHABLE.
+          Nothing sets `importing` any more — the "Upload roster" button that
+          did was removed before coach testing. The implementation is kept so
+          the legacy importer can be restored with a single button if the pilot
+          surfaces a problem with the new one. Delete this, RosterImport,
+          importRoster and the template together after the pilot, not
+          piecemeal, and not as an incidental cleanup. */}
       {importing && (
         <RosterImport
           pending={pending}
@@ -566,7 +576,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           <div className="drawer drawer-intake" role="dialog" aria-modal="true"
                aria-label="Import players from a spreadsheet">
             <div className="drawer-head">
-              <h2>Import players</h2>
+              <h2>Import from spreadsheet</h2>
               <button type="button" className="icon-btn" aria-label="Close"
                       onClick={() => setIntaking(false)}>&times;</button>
             </div>

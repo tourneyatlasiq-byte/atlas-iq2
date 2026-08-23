@@ -1834,9 +1834,27 @@ a.help-task.featured:hover { background: #eef4fe; }
   padding: 6px 8px; cursor: pointer; text-align: left;
   font-family: var(--font-body); font-size: 13.5px; color: var(--navy);
 }
-.roster-action:hover { background: var(--surface-sunken); }
+/* These rows FILTER the roster, but they read as a label followed by text, so
+   the hover background alone was too quiet to say "control". The border makes
+   the row resolve into a button on hover and the underline marks the text as
+   the thing being acted on — without changing the resting state, which should
+   stay calm. A global :focus-visible rule already covers keyboard users. */
+.roster-action:hover {
+  background: var(--surface-sunken); border-color: var(--border);
+}
+.roster-action:hover .roster-action-text {
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.roster-action:active { background: var(--border); }
 .roster-action.on { background: #eef4fe; border-color: #cfe0f7; }
+.roster-action.on:hover { background: #e4eefc; }
 .roster-action-text { flex: 1; min-width: 0; }
+
+@media (hover: none) {
+  /* Touch has no hover to reveal the affordance, so the row keeps a resting
+     border instead. */
+  .roster-action { border-color: var(--border); }
+}
 
 /* --- Table --- */
 .th-sub {

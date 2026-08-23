@@ -414,6 +414,56 @@ section("Edit Details mirrors the drawer");
   ok("the add-only guardian block is retained", form.includes("isPlayer && isNew"));
 }
 
+
+// ------------------------------------------------- team page import routes
+section("Team page has exactly one import route");
+
+{
+  const ui  = read("components/RosterClient.js");
+  const css = read("app/globals.css");
+
+  // The legacy importer's ENTRY POINTS are gone; its implementation is not.
+  ok("no Upload roster button in the Team UI", !/>\s*Upload roster\s*</.test(ui));
+  ok("nothing sets importing to true any more", !/setImporting\(true\)/.test(ui));
+  ok("the legacy component is still imported (recoverable)", /import \{ RosterImport \}/.test(ui));
+  ok("...and its action is still imported", /import \{ importRoster \}/.test(ui));
+  ok("...and the render block is retained", /\{importing && \(/.test(ui));
+  ok("...and marked as deliberately unreachable", /RETAINED, DELIBERATELY UNREACHABLE/.test(ui));
+  ok("importRoster still exists server-side",
+    /export async function importRoster/.test(read("lib/actions/roster.js")));
+
+  // The single customer-facing route, renamed.
+  ok('the action reads "Import from spreadsheet"', />\s*Import from spreadsheet\s*</.test(ui));
+  ok('the old "Import players" label is gone from the Team UI',
+    !/>\s*Import players\s*</.test(ui));
+  ok("it opens the intake workflow", /setIntaking\(true\)/.test(ui));
+  ok("exactly two entry points call setIntaking(true)",
+    (ui.match(/setIntaking\(true\)/g) ?? []).length === 2);
+
+  // Empty state — a new coach's first screen.
+  const empty = ui.slice(ui.indexOf('className="empty-actions"'), ui.indexOf('className="empty-actions"') + 700);
+  ok("the empty state offers Add player or coach as PRIMARY",
+    /btn-primary[\s\S]{0,120}?Add player or coach/.test(empty));
+  ok("...and Import from spreadsheet as secondary",
+    /btn-secondary[\s\S]{0,140}?Import from spreadsheet/.test(empty));
+  ok("...and no longer offers Upload roster", !/Upload roster/.test(empty));
+
+  // Header hierarchy: Add stays primary, import secondary.
+  const head = ui.slice(ui.indexOf('className="foot-actions"'), ui.indexOf('<PageHelp />'));
+  ok("Add player or coach is the primary header action",
+    /btn-primary[\s\S]{0,120}?Add player or coach/.test(head));
+  ok("Import from spreadsheet is a ghost/secondary action",
+    /btn-ghost[\s\S]{0,160}?Import from spreadsheet/.test(head));
+
+  // Needs Action affordance.
+  ok("Needs Action rows are real buttons", /className=\{`roster-action/.test(ui));
+  ok("...with a pointer cursor", /\.roster-action \{[^}]*cursor:\s*pointer/.test(css));
+  ok("...a hover border", /\.roster-action:hover \{[^}]*border-color/.test(css));
+  ok("...an underlined label on hover",
+    /\.roster-action:hover \.roster-action-text \{[^}]*text-decoration:\s*underline/.test(css));
+  ok("...and a touch fallback", /@media \(hover: none\)[\s\S]{0,200}?\.roster-action/.test(css));
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();
