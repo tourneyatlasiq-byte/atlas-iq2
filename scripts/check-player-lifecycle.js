@@ -10,6 +10,7 @@
  *
  * Run:  node scripts/check-player-lifecycle.js
  */
+const fs = require("fs");
 const { pathToFileURL } = require("url");
 const path = require("path");
 
@@ -163,29 +164,47 @@ const outcome = (h) => (hasMeaningfulHistory(h) ? "inactive" : "removed");
   assertEq("player-level information is never in the delete set",
     deletes.some((d) => ["players", "player_contacts", "player_guardians"].includes(d.table)), false);
 
-  /* ---- Permanent-delete protection is not weakened ----------------------
-     deletePlayerPermanently is a separate action and this work does not touch
-     it. These assert the contract it must keep, so a future change to the
-     lifecycle cannot quietly relax it. */
+  /* ---- Permanent delete was REMOVED, not repaired -----------------------
+     `players` has no DELETE policy — deliberate under #177. A DELETE matching
+     zero rows raises nothing, so deletePlayerPermanently() reported success
+     having deleted nothing. The capability is gone; these assert it stays gone
+     and that removal remains the supported path. */
 
-  /** Blockers deletePlayerPermanently raises, mirrored from lib/actions/roster.js. */
-  function permanentDeleteBlocked({ otherSeasons = 0, dues = 0, documents = 0 }) {
-    return otherSeasons > 0 || dues > 0 || documents > 0;
-  }
+  const rosterSource = fs.readFileSync("lib/actions/roster.js", "utf8");
+  const rosterClient = fs.readFileSync("components/RosterClient.js", "utf8");
 
-  assertEq("a player with dues records cannot be permanently deleted",
-    permanentDeleteBlocked({ dues: 1 }), true);
-  assertEq("a player with documents cannot be permanently deleted",
-    permanentDeleteBlocked({ documents: 1 }), true);
-  assertEq("a player in another season cannot be permanently deleted",
-    permanentDeleteBlocked({ otherSeasons: 1 }), true);
-  assertEq("real payment history keeps a player protected",
-    // A payment implies a dues row, which is itself a blocker; and
-    // payment_log.payment_id RESTRICT blocks the dues delete at the database.
-    permanentDeleteBlocked({ dues: 1 }), true);
-  assertEq("season removal and permanent deletion are different actions",
-    // Season removal never calls the permanent path.
+  assertEq("deletePlayerPermanently is not exported",
+    /export\s+async\s+function\s+deletePlayerPermanently/.test(rosterSource), false);
+  assertEq("the roster UI does not import it",
+    rosterClient.includes("deletePlayerPermanently"), false);
+  assertEq("no Delete permanently button remains",
+    rosterClient.includes("Delete permanently"), false);
+  assertEq("no onDeleteForever prop remains",
+    rosterClient.includes("onDeleteForever"), false);
+  assertEq("Remove from roster is still offered",
+    rosterClient.includes("Remove from roster"), true);
+  assertEq("season removal still never deletes the person",
     deletes.some((d) => d.table === "players"), false);
+
+  /* ---- Deletion is claimed only when rows were actually removed ---------
+     The bug: `if (!error) removedPlayer = true`. Zero affected rows is not an
+     error, so this reported a deletion that never happened. Proof must be the
+     returned rows. */
+
+  /** Mirrors the corrected rule in removePlayerFromSeason. */
+  const claimsRemoval = (deletedRows) => (deletedRows ?? []).length > 0;
+
+  assertEq("no rows returned means the player was NOT removed",
+    claimsRemoval([]), false);
+  assertEq("a null result means the player was NOT removed",
+    claimsRemoval(null), false);
+  assertEq("a returned row proves removal",
+    claimsRemoval([{ id: "p1" }]), true);
+  assertEq("absence of an error is NOT proof of deletion",
+    claimsRemoval([]), false);
+  assertEq("removePlayerFromSeason verifies rows rather than trusting !error",
+    /\.delete\(\)[\s\S]{0,200}?\.select\("id"\)/.test(rosterSource)
+      && !/if \(!error\) removedPlayer = true/.test(rosterSource), true);
 
   /* ---- Georgia Power: unlinked, never orphaned -------------------------- */
 

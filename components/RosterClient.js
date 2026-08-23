@@ -20,7 +20,6 @@ import {
   updateRosterMember,
   setRosterActive,
   removePlayerFromSeason,
-  deletePlayerPermanently,
 } from "../lib/actions/roster";
 
 const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "UTIL", "DP", "FLEX"];
@@ -215,14 +214,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     run(removePlayerFromSeason, fd, () => closeDetail());
   }
 
-  function deleteForever(row) {
-    const name = row.player?.full_name ?? "this player";
-    if (!confirm(`Permanently delete ${name}?\n\nThis erases the player entirely and cannot be undone. Only do this for a record created by mistake.`)) return;
-    const fd = new FormData();
-    fd.set("player_id", row.player?.id ?? "");
-    fd.set("assignment_id", row.id);
-    run(deletePlayerPermanently, fd, () => closeDetail());
-  }
 
   return (
     <>
@@ -512,7 +503,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
           onRemove={() => remove(detail)}
-          onDeleteForever={() => deleteForever(detail)}
           paymentId={paymentIdByPlayer[detail.player_id] ?? null}
           contacts={contacts}
           recruiting={recruiting[detail.player_id ?? detail.id] ?? { links: [], interests: [] }}
@@ -651,7 +641,7 @@ function Row({ label, value }) {
   );
 }
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onDeleteForever, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
   const p = row.player ?? {};
 
   // One record type, two very different people. A coach has no jersey number,
@@ -867,9 +857,6 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
                 Edit details
               </button>
             </div>
-            <button className="btn btn-danger-ghost btn-block" onClick={onDeleteForever} disabled={pending}>
-              Delete permanently
-            </button>
           </div>
         )}
       </aside>

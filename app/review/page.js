@@ -253,7 +253,7 @@ export default async function ReviewPage() {
           <Inline kind="drawer">
             <PlayerDetail row={activePlayer} canWrite={writable} isAdmin={isAdmin}
               documentTargets={docTargets} seasonName={season.name} pending={false}
-              onClose={noop} onEdit={noop} onRemove={noop} onDeleteForever={noop} onToggleActive={noop} />
+              onClose={noop} onEdit={noop} onRemove={noop} onToggleActive={noop} />
           </Inline>
         </ReviewSection>
       )}
@@ -263,7 +263,7 @@ export default async function ReviewPage() {
           <Inline kind="drawer">
             <PlayerDetail row={inactivePlayer} canWrite={writable} isAdmin={isAdmin}
               documentTargets={docTargets} seasonName={season.name} pending={false}
-              onClose={noop} onEdit={noop} onRemove={noop} onDeleteForever={noop} onToggleActive={noop} />
+              onClose={noop} onEdit={noop} onRemove={noop} onToggleActive={noop} />
           </Inline>
         </ReviewSection>
       )}

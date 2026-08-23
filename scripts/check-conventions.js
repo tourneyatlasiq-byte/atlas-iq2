@@ -394,6 +394,61 @@ for (const f of componentFiles()) {
   }
 }
 
+/* ---- Deletes on `players`, and unverified delete success ----------------
+   `players` has no DELETE policy — deliberate under #177, protecting person
+   records. A DELETE matching zero rows is NOT an error in Postgres or
+   PostgREST, so `.delete()` on players silently did nothing while the action
+   reported success. Two guards:
+
+     1. Nothing writes a DELETE against `players` outside the one documented
+        compensating path, which C3c's atomic RPC removes entirely.
+     2. Any delete whose outcome is reported to a user proves it with the rows
+        it returned, never with `!error`. */
+{
+  for (const f of fs.readdirSync("lib/actions").filter((x) => x.endsWith(".js"))) {
+    const p = path.join("lib/actions", f);
+    const s = fs.readFileSync(p, "utf8");
+
+    const playerDeletes = (s.match(/from\("players"\)\s*\n?\s*\.delete\(\)/g) ?? []).length;
+    if (f === "roster.js") {
+      // Two deletes on players are legitimate today: the compensating path in
+      // addRosterMember (which C3c's atomic RPC removes) and the cleanup in
+      // removePlayerFromSeason. Both must PROVE what they removed, because a
+      // zero-row delete raises nothing.
+      const verified = (s.match(
+        /from\("players"\)\s*\n?\s*\.delete\(\)[\s\S]{0,200}?\.select\("id"\)/g
+      ) ?? []).length;
+      if (verified < playerDeletes) {
+        failures.push(
+          `lib/actions/${f}: ${playerDeletes - verified} DELETE call(s) on players do not ` +
+          `verify affected rows — players has no DELETE policy (#177), so a zero-row ` +
+          `delete raises nothing and success would be reported falsely`
+        );
+      }
+    } else if (playerDeletes > 0) {
+      failures.push(
+        `lib/actions/${f}: DELETE on players — the table has no DELETE policy (#177), ` +
+        `so this silently affects zero rows`
+      );
+    }
+
+    if (/if \(!error\)\s*removedPlayer\s*=\s*true/.test(s)) {
+      failures.push(
+        `lib/actions/${f}: claims a deletion from the absence of an error — ` +
+        `verify affected rows with .select() instead`
+      );
+    }
+  }
+
+  if (/export\s+async\s+function\s+deletePlayerPermanently/
+        .test(fs.readFileSync("lib/actions/roster.js", "utf8"))) {
+    failures.push(
+      "lib/actions/roster.js: deletePlayerPermanently was retired — `players` has no " +
+      "DELETE policy, so it can only ever report a deletion that did not happen"
+    );
+  }
+}
+
 /* ---- Report ------------------------------------------------------------ */
 
 for (const n of notes) console.log(`  note  ${n}`);
