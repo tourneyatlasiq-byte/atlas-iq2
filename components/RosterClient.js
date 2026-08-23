@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo } from "react";
+import { useState, useTransition, useEffect, useMemo, Fragment } from "react";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
@@ -11,6 +11,7 @@ import { PlayerRecruiting } from "./PlayerRecruiting";
 import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
+import { resolvePlayerContact } from "../lib/player-contact-rules";
 import { DocumentSection } from "./DocumentSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import {
@@ -585,6 +586,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                   grad_year: r.player?.grad_year,
                   date_of_birth: r.player?.date_of_birth,
                   parent_email: r.player?.parent_email,
+                  // matchPlayer() corroborates on contact email and already
+                  // reads this key. Feeding it the resolved contacts gives the
+                  // preview the same evidence the server matcher uses, instead
+                  // of only the legacy column.
+                  contacts: resolvePlayerContact(r.player).contacts,
                 }))}
                 seasonName={seasonName}
                 onCancel={() => setIntaking(false)}
@@ -655,9 +661,11 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
   const memberNoun = isPlayer ? "player" : p.person_type === "manager" ? "manager" : "coach";
 
   // A section with nothing in it is noise. These stay editable either way.
-  const hasContact = Boolean(
-    p.player_email || p.player_phone || (isPlayer && (p.parent_name || p.parent_email || p.parent_phone))
-  );
+  // hasAnyDetail comes from the shared resolver, which readiness also uses, so
+  // this drawer can no longer show contact details for a player the Needs
+  // Action list is calling unreachable.
+  const contactInfo = resolvePlayerContact(p);
+  const hasContact = Boolean(p.player_email || p.player_phone || (isPlayer && contactInfo.hasAnyDetail));
   const hasUniform = Boolean(row.jersey_size || row.pants_size);
 
   return (
@@ -755,24 +763,33 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
                 />
               )}
 
-              {/* Guardian details belong to a minor, never to staff. */}
-              {isPlayer && p.parent_name && <Row label="Parent / guardian" value={p.parent_name} />}
-              {isPlayer && p.parent_email && (
-                <Row
-                  label="Parent email"
-                  value={<a className="link" href={`mailto:${p.parent_email}`}>{p.parent_email}</a>}
-                />
-              )}
-              {isPlayer && p.parent_phone && (
-                <Row
-                  label="Parent phone"
-                  value={
-                    <a className="link" href={`tel:${p.parent_phone.replace(/[^\d+]/g, "")}`}>
-                      {p.parent_phone}
-                    </a>
-                  }
-                />
-              )}
+              {/* Guardian details belong to a minor, never to staff.
+                  Rows are labelled by CHANNEL, not by person, so a contact
+                  whose name was never recorded simply has no name row — no
+                  placeholder, and never the relationship standing in for a
+                  name. Nothing here is synthesized. */}
+              {isPlayer && contactInfo.contacts.map((c, i) => (
+                <Fragment key={c.id ?? `legacy-${i}`}>
+                  {c.full_name && <Row label="Parent / guardian" value={c.full_name} />}
+                  {c.relationship && <Row label="Relationship" value={c.relationship} />}
+                  {c.email && (
+                    <Row
+                      label="Parent email"
+                      value={<a className="link" href={`mailto:${c.email}`}>{c.email}</a>}
+                    />
+                  )}
+                  {c.phone && (
+                    <Row
+                      label="Parent phone"
+                      value={
+                        <a className="link" href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>
+                          {c.phone}
+                        </a>
+                      }
+                    />
+                  )}
+                </Fragment>
+              ))}
             </Section>
           )}
 

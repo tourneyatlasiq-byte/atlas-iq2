@@ -207,7 +207,9 @@ for (const f of componentFiles()) {
 {
   const checks = [
     ["lib/queries/tournaments.js", ["contact_id", "facility:facilities", "provider:tournament_providers"]],
-    ["lib/queries/roster.js", ["jersey_number", "positions", "is_active"]],
+    // player_contacts: without the embed the resolver silently falls back to
+    // the legacy columns for every player, which looks like working software.
+    ["lib/queries/roster.js", ["jersey_number", "positions", "is_active", "player_contacts"]],
     ["lib/queries/participants.js", ["participation", "jersey_number"]],
     ["lib/queries/contacts.js", ["contact_category", "organization_or_school"]],
   ];
