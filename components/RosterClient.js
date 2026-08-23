@@ -1216,10 +1216,17 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
 
             <div className="form-divider">Team &amp; Uniform</div>
 
+            {/* NOT .field-narrow here. That class is `flex: 0 0 168px`, meant
+                for a field sitting in a ROW. .modal-body is a COLUMN flex
+                container, so flex-basis resolves against the cross axis and
+                168px became the field's HEIGHT — the large blank gap coaches
+                reported between Jersey number and Positions. A plain .field
+                sizes itself; the input is capped instead. */}
             {isPlayer && (
-              <div className="field field-narrow">
+              <div className="field">
                 <label htmlFor="jersey_number">Jersey number</label>
                 <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
+                       className="input-compact"
                        defaultValue={row?.jersey_number ?? ""} />
               </div>
             )}

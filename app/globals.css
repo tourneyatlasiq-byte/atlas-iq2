@@ -5507,6 +5507,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   padding: 8px 0; border-top: 1px solid var(--border);
 }
 .compact-label { font-size: 13px; font-weight: 600; color: var(--navy); min-width: 172px; flex-shrink: 0; }
+/* Under its own section title the row needs no top rule — the title already
+   provides the separation. */
+.compact-row-flush { border-top: none; padding-top: 0; }
 .compact-value { font-size: 13px; flex: 1; min-width: 120px; }
 
 /* The player's own email and phone, above the guardian cards inside the one
@@ -5530,3 +5533,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .drawer-foot-row { flex-wrap: wrap; gap: 8px; }
   .drawer-foot-lifecycle { flex: 1 1 100%; }
 }
+
+/* A short numeric input should not span the modal. Width only — never a
+   flex-basis, which resolves against the cross axis inside .modal-body's
+   column layout and would set height instead. */
+.input-compact { max-width: 168px; }

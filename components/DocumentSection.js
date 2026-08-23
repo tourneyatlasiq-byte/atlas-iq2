@@ -51,11 +51,15 @@ export function DocumentSection({
    * still offers Add, so nothing is hidden, only the scaffolding.
    */
   if (documents.length === 0 && !uploading) {
+    // Its OWN section heading. Without one the compact row read as a third
+    // item under RECRUITING's list, so Documents looked like a recruiting
+    // field. Same title treatment as PLAYER, TEAM & UNIFORM, CONTACTS and
+    // RECRUITING; only the empty CONTENT stays compact.
     return (
-      <section className="detail-section detail-section-compact">
+      <section className="detail-section">
+        <h3 className="detail-section-title">Documents</h3>
         {error && <div className="alert alert-error">{error}</div>}
-        <div className="compact-row">
-          <span className="compact-label">Documents</span>
+        <div className="compact-row compact-row-flush">
           <span className="compact-value muted">None attached</span>
           {canWrite && (
             <button type="button" className="recruit-add" onClick={() => setUploading(true)} disabled={busy}>

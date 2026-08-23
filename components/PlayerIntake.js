@@ -711,21 +711,60 @@ function describeOutcome(o) {
 
 function Ready({ stats, analysed, pendingRows, blocked, seasonName, onBack, onCancel,
                  onImport, importing, outcome, canImport }) {
-  const creatable = analysed.filter((a) => a.match.classification === CLASS.NEW).length;
-  const updatable = analysed.filter((a) => a.match.classification === CLASS.CONFIDENT).length;
+  /**
+   * EVERY ROW GETS A DISPOSITION, and the dispositions add up to the file.
+   *
+   * These used to be counted from the raw match classification: NEW became
+   * "to add", CONFIDENT became "to update", and nothing else was shown. A
+   * possible-or-conflict row that the coach RESOLVED kept its original
+   * classification, dropped out of "still needing a decision" because it now
+   * had an identity, and appeared in neither total — so a 13-row file
+   * reported 9 and imported 13. Rows were being written that the summary
+   * never mentioned.
+   *
+   * Disposition is now read from the RESOLVED plan: what will actually happen
+   * to this row, not how it was first classified.
+   */
+  const disposition = (a) => {
+    if (!a.plan.executable) return "undecided";
+    const writesPlayer = a.plan.writes.some((w) => w.table === "players");
+    if (writesPlayer && !a.plan.writes.find((w) => w.table === "players")?.targetId) return "add";
+    if (a.plan.writes.length > 0) return "update";
+    return "unchanged";
+  };
+
+  const counts = analysed.reduce((acc, a) => {
+    const d = disposition(a);
+    acc[d] = (acc[d] ?? 0) + 1;
+    return acc;
+  }, { add: 0, update: 0, unchanged: 0, undecided: 0 });
+
+  const accounted = counts.add + counts.update + counts.unchanged + counts.undecided;
 
   return (
     <div className="pi-panel">
       <h3>Ready to import</h3>
       <p className="pi-lede">
-        {analysed.length} rows for {seasonName}: {updatable} already on file, {creatable} new.
+        {analysed.length} {analysed.length === 1 ? "row" : "rows"} for {seasonName}.
       </p>
 
       <dl className="pi-summary">
-        <div><dt>Players to add</dt><dd>{creatable}</dd></div>
-        <div><dt>Players to update</dt><dd>{updatable}</dd></div>
-        <div><dt>Still needing a decision</dt><dd>{blocked}</dd></div>
+        <div><dt>Players to add</dt><dd>{counts.add}</dd></div>
+        <div><dt>Players to update</dt><dd>{counts.update}</dd></div>
+        {counts.unchanged > 0 && (
+          <div><dt>Already up to date</dt><dd>{counts.unchanged}</dd></div>
+        )}
+        <div><dt>Still needing a decision</dt><dd>{counts.undecided}</dd></div>
       </dl>
+
+      {/* If these ever stop adding up, say so rather than quietly showing a
+          total that does not match the file the coach uploaded. */}
+      {accounted !== analysed.length && (
+        <div className="alert alert-warning">
+          <strong>These numbers don&rsquo;t add up.</strong> {accounted} of {analysed.length} rows
+          are accounted for. Please send this file to support rather than importing it.
+        </div>
+      )}
 
       {/* Plain language. The coach is not told about migrations, tables or
           pending destinations — only that some information cannot be saved

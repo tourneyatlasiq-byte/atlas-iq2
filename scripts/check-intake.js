@@ -675,6 +675,158 @@ const JOTFORM_HEADERS = [
     ok(`${t} still throws`, t2, true);
   }
 
-  console.log(`\n${ran} assertions, ${failures} failed`);
+  
+/* ---- Preferred contact method: the coach-reported P1 -------------------
+   An import reached "Ready to import" and failed at execution with
+   `player_contacts_preferred_method_check`. normalizeValue("enum") was a
+   pass-through, so a spreadsheet value went to Postgres unvalidated and the
+   database CHECK was the FIRST thing to inspect it. The CHECK is
+   case-sensitive lowercase, so ordinary exports like "Email" failed. */
+
+console.log("\nPreferred contact method");
+
+{
+  const recognised = [
+    ["Email", "email"], ["E-Mail", "email"], ["e-mail", "email"], ["EMAIL", "email"],
+    ["Text", "text"], ["SMS", "text"], ["Text Message", "text"], ["texting", "text"],
+    ["Call", "call"], ["Phone", "call"], ["Phone Call", "call"], ["telephone", "call"],
+    ["  Email  ", "email"],
+  ];
+  for (const [raw, want] of recognised) {
+    ok(`"${raw}" normalises to ${want}`, nrm.classifyContactMethod(raw).value, want);
+    ok(`"${raw}" is accepted`, nrm.classifyContactMethod(raw).ok, true);
+  }
+
+  for (const raw of ["", "   ", null, undefined]) {
+    ok(`${JSON.stringify(raw)} is absent, not an error`,
+      [nrm.classifyContactMethod(raw).ok, nrm.classifyContactMethod(raw).value], [true, null]);
+  }
+
+  // Deliberately NOT mapped: these do not say which method to use, and
+  // guessing would store a preference the coach never expressed.
+  for (const raw of ["Either", "Any", "Both", "Cell", "Mobile", "Whatever", "carrier pigeon"]) {
+    ok(`"${raw}" is refused rather than guessed`, nrm.classifyContactMethod(raw).ok, false);
+    ok(`"${raw}" stores nothing`, nrm.classifyContactMethod(raw).value, null);
+    ok(`"${raw}" keeps the coach's value for the message`,
+      nrm.classifyContactMethod(raw).raw, raw);
+  }
+
+  ok("the stored vocabulary is exactly the CHECK's",
+    nrm.CONTACT_METHODS, ["text", "email", "call"]);
+
+  // Every mapped value must be storable.
+  const allMapped = recognised.map(([, v]) => v);
+  ok("every mapped value is in the stored vocabulary",
+    allMapped.every((v) => nrm.CONTACT_METHODS.includes(v)), true);
+}
+
+console.log("\nAn unrecognised method blocks the row before Ready");
+
+{
+  const withMethod = (pm) => {
+    const row = { full_name: "Method Probe",
+                  contacts: [{ full_name: "P", email: "p@example.invalid", preferred_method: pm }] };
+    const m = mat.matchPlayer(row, []);
+    return pln.buildRowPlan({ row, match: m, existingPlayer: null,
+                          existingContacts: [], decisions: {}, identity: null });
+  };
+
+  const bad = withMethod("Either");
+  ok("an unrecognised value makes the row NOT executable", bad.executable, false);
+  ok("...and the blocker names the value the coach typed",
+    bad.blockers.some((b) => b.includes('"Either"')), true);
+  ok("...and nothing unstorable is queued for the database",
+    bad.writes.find((w) => w.table === "player_contacts")?.values?.preferred_method ?? null, null);
+
+  const good = withMethod("Email");
+  ok("a recognised value is executable", good.executable, true);
+  ok("...and is stored in the database's vocabulary",
+    good.writes.find((w) => w.table === "player_contacts").values.preferred_method, "email");
+
+  const blank = withMethod("");
+  ok("a blank method does not block the row", blank.executable, true);
+  ok("...and stores NULL",
+    blank.writes.find((w) => w.table === "player_contacts").values.preferred_method, null);
+}
+
+/* ---- Ready summary must account for every row -------------------------
+   A 13-row import reported 9 already on file, 0 new, 0 needing a decision —
+   4 rows unaccounted for, and they were going to be imported. The counts came
+   from the raw match classification, so a possible/conflict row the coach
+   RESOLVED belonged to no category at all. */
+
+console.log("\nReady summary reconciles to the row count");
+
+{
+  const disposition = (plan) => {
+    if (!plan.executable) return "undecided";
+    const pw = plan.writes.find((w) => w.table === "players");
+    if (pw && !pw.targetId) return "add";
+    if (plan.writes.length > 0) return "update";
+    return "unchanged";
+  };
+
+  const existing = [];
+  for (let i = 1; i <= 9; i += 1) {
+    existing.push({ id: `e${i}`, full_name: `Confident ${i}`, grad_year: 2028,
+                    date_of_birth: `2010-01-0${(i % 9) + 1}`, parent_email: null, contacts: [] });
+  }
+  for (let i = 1; i <= 4; i += 1) {
+    existing.push({ id: `p${i}`, full_name: `Possible ${i}`, grad_year: null,
+                    date_of_birth: null, parent_email: null, contacts: [] });
+  }
+
+  const rows = [];
+  for (let i = 1; i <= 9; i += 1) {
+    rows.push({ full_name: `Confident ${i}`, grad_year: 2028,
+                date_of_birth: `2010-01-0${(i % 9) + 1}`, contacts: [] });
+  }
+  for (let i = 1; i <= 4; i += 1) rows.push({ full_name: `Possible ${i}`, contacts: [] });
+
+  const analysed = rows.map((row) => {
+    const m = mat.matchPlayer(row, existing);
+    const needsId = m.classification === mat.CLASS.POSSIBLE || m.classification === mat.CLASS.CONFLICT;
+    const identity = needsId ? "same" : null;      // the coach resolved them
+    return { m, plan: pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+                                     existingContacts: [], decisions: {}, identity }) };
+  });
+
+  const counts = analysed.reduce((acc, a) => {
+    const d = disposition(a.plan);
+    acc[d] = (acc[d] ?? 0) + 1;
+    return acc;
+  }, { add: 0, update: 0, unchanged: 0, undecided: 0 });
+
+  const total = counts.add + counts.update + counts.unchanged + counts.undecided;
+
+  ok("the fixture reproduces the reported shape",
+    [analysed.filter((a) => a.m.classification === mat.CLASS.CONFIDENT).length,
+     analysed.filter((a) => a.m.classification === mat.CLASS.POSSIBLE).length], [9, 4]);
+
+  // The OLD logic, kept here as the thing that must never come back.
+  const oldShown = analysed.filter((a) => a.m.classification === mat.CLASS.NEW).length
+                 + analysed.filter((a) => a.m.classification === mat.CLASS.CONFIDENT).length;
+  ok("the old classification-based counts under-reported", oldShown, 9);
+  ok("...leaving rows unaccounted for", rows.length - oldShown, 4);
+
+  ok("every row now has a disposition", total, rows.length);
+  ok("...and none is silently dropped", counts.undecided + counts.add + counts.update + counts.unchanged, 13);
+
+  // An undecided row must still be counted.
+  const undecided = rows.map((row) => {
+    const m = mat.matchPlayer(row, existing);
+    return pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+                          existingContacts: [], decisions: {}, identity: null });
+  });
+  const uc = undecided.reduce((acc, plan) => {
+    const d = disposition(plan);
+    acc[d] = (acc[d] ?? 0) + 1;
+    return acc;
+  }, { add: 0, update: 0, unchanged: 0, undecided: 0 });
+  ok("unresolved rows reconcile too",
+    uc.add + uc.update + uc.unchanged + uc.undecided, rows.length);
+}
+
+console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
