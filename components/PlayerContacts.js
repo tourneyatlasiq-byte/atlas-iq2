@@ -89,9 +89,9 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
   }
 
   return (
-    <section className="drawer-section">
-      <div className="drawer-section-head">
-        <h3>Parent / guardian contacts</h3>
+    <section className="detail-section">
+      <div className="pc-head">
+        <h3 className="detail-section-title">Parent / guardian contacts</h3>
         {canWrite && editing === null && (
           <button type="button" className="btn btn-ghost btn-sm"
                   onClick={() => { setEditing("new"); setForm(BLANK); setError(null); }}
@@ -104,7 +104,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
       {error && <div className="alert alert-error">{error}</div>}
 
       {contacts.length === 0 && editing === null && (
-        <p className="muted">No contacts recorded.</p>
+        <p className="pc-empty">No contacts recorded.</p>
       )}
 
       {contacts.map((c, i) => {
@@ -117,21 +117,21 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
         }
 
         return (
-          <div className="contact-card" key={key}>
-            <div className="contact-card-head">
-              <strong>{contactHeading(c)}</strong>
+          <div className="pc-card" key={key}>
+            <div className="pc-card-head">
+              <span className="pc-name">{contactHeading(c)}</span>
               {/* An explicit primary and a derived one are different facts and
                   are labelled differently. Nothing is written to make a derived
                   primary explicit — only the coach does that. */}
-              {c.is_primary && <span className="badge">Primary</span>}
+              {c.is_primary && <span className="pc-badge">Primary</span>}
               {!c.is_primary && c.isPrimaryDerived && (
-                <span className="badge badge-quiet" title="No primary has been chosen, so this one is used">
+                <span className="pc-badge pc-badge-quiet" title="No primary has been chosen, so this one is used">
                   Primary (assumed)
                 </span>
               )}
             </div>
 
-            <dl className="contact-card-body">
+            <dl className="pc-body">
               {c.relationship && <div><dt>Relationship</dt><dd>{c.relationship}</dd></div>}
               {c.email && (
                 <div><dt>Email</dt>
@@ -144,7 +144,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
             </dl>
 
             {canWrite && editing === null && (
-              <div className="contact-card-actions">
+              <div className="pc-actions">
                 <button type="button" className="btn btn-ghost btn-sm"
                         onClick={() => beginEdit(c)} disabled={pending}>Edit</button>
                 {/* A legacy contact has no row to promote or delete yet. */}
@@ -182,7 +182,7 @@ function Editor({ form, setForm, onSave, onCancel, pending }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   return (
-    <div className="contact-card contact-card-editing">
+    <div className="pc-card pc-card-editing">
       <div className="field-row">
         <div className="field">
           <label htmlFor="c_full_name">Name</label>
@@ -204,7 +204,7 @@ function Editor({ form, setForm, onSave, onCancel, pending }) {
           <input id="c_phone" value={form.phone} onChange={set("phone")} />
         </div>
       </div>
-      <div className="contact-card-actions">
+      <div className="pc-actions">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onCancel} disabled={pending}>
           Cancel
         </button>

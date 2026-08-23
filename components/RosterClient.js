@@ -13,6 +13,7 @@ import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { resolvePlayerContact } from "../lib/player-contact-rules";
+import { composeFullName, hasStructuredName } from "../lib/intake/normalize";
 import { DocumentSection } from "./DocumentSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import {
@@ -655,6 +656,11 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
   // hasAnyDetail comes from the shared resolver, which readiness also uses, so
   // this drawer can no longer show contact details for a player the Needs
   // Action list is calling unreachable.
+  // ONE display rule, the canonical one. composeFullName() prefers a
+  // preferred first name and falls back to full_name for a legacy record, so
+  // the drawer never needs a second notion of what a player is called.
+  const displayName = composeFullName(p) ?? p.full_name ?? "—";
+
   const contactInfo = resolvePlayerContact(p);
   const hasContact = Boolean(p.player_email || p.player_phone || (isPlayer && contactInfo.hasAnyDetail));
   const hasUniform = Boolean(row.jersey_size || row.pants_size);
@@ -670,7 +676,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
       >
         <div className="drawer-head">
           <div className="drawer-head-text">
-            <h2 id="player-detail-title">{p.full_name ?? "—"}</h2>
+            <h2 id="player-detail-title">{displayName}</h2>
             <div className="drawer-head-meta">
               {row.jersey_number != null && <span className="drawer-head-dates">#{row.jersey_number}</span>}
               {row.positions?.length > 0 && <span>{row.positions.join(" / ")}</span>}
@@ -713,14 +719,19 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               rather than shown as em-dashes. They stay available in Edit. */}
           {!isPlayer && (
             <Section title="Team Role">
-              <Row label="Name" value={p.full_name} />
+              <Row label="Name" value={displayName} />
               <Row label="Role" value={staffRole(p)} />
             </Section>
           )}
 
           {isPlayer && (
           <Section title="Player Information">
-            <Row label="Name" value={p.full_name} />
+            <Row label="Name" value={displayName} />
+            {p.preferred_first_name && p.legal_first_name
+              && p.preferred_first_name !== p.legal_first_name && (
+              <Row label="Legal name" value={`${p.legal_first_name} ${p.last_name ?? ""}`.trim()} />
+            )}
+            {p.high_school && <Row label="High school" value={p.high_school} />}
             {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
             {row.jersey_number != null && <Row label="Jersey number" value={row.jersey_number} />}
 
@@ -954,6 +965,30 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
   });
   const [positions, setPositions] = useState(row?.positions ?? []);
 
+  /**
+   * Structured mode is a property of the RECORD, not a preference.
+   *
+   * A record that already carries structured names must keep full_name derived
+   * from them; one that does not is left alone. hasStructuredName() is the
+   * same predicate the rest of the system uses, so this cannot disagree with
+   * the server about which mode a record is in.
+   *
+   * A brand-new player is never structured: nothing has been entered to derive
+   * from, and inventing components from a typed name is exactly what this
+   * change exists to prevent.
+   */
+  const structuredNames = !isNew && hasStructuredName(p);
+
+  const [nameParts, setNameParts] = useState({
+    legal_first_name: p.legal_first_name ?? "",
+    preferred_first_name: p.preferred_first_name ?? "",
+    last_name: p.last_name ?? "",
+  });
+
+  // Preview only. The value actually stored is derived server-side by the same
+  // function, so what the coach sees here is what will be saved.
+  const derivedName = structuredNames ? composeFullName(nameParts) : null;
+
   function togglePosition(pos) {
     setPositions((cur) => (cur.includes(pos) ? cur.filter((x) => x !== pos) : [...cur, pos]));
   }
@@ -975,11 +1010,38 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
           </div>
 
           <div className="modal-body">
+            {/* TWO NAME MODES, and the record decides which.
+                A player that has structured names keeps full_name DERIVED from
+                them, so full_name is not offered as an editable field —
+                editing it directly is precisely what would let it drift from
+                the columns it is derived from.
+                A legacy player, and every manually added player, keeps the
+                single Name field exactly as before. full_name is NEVER parsed
+                into components: a wrong guess would be stored as though the
+                coach had typed it. */}
             <div className="field-row">
-              <div className="field">
-                <label htmlFor="full_name">Name</label>
-                <input id="full_name" name="full_name" required defaultValue={p.full_name ?? ""} />
-              </div>
+              {structuredNames ? (
+                <>
+                  <div className="field">
+                    <label htmlFor="legal_first_name">First name</label>
+                    <input id="legal_first_name" name="legal_first_name" required
+                           defaultValue={p.legal_first_name ?? ""}
+                           onChange={(e) => setNameParts((n) => ({ ...n, legal_first_name: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="last_name">Last name</label>
+                    <input id="last_name" name="last_name" required
+                           defaultValue={p.last_name ?? ""}
+                           onChange={(e) => setNameParts((n) => ({ ...n, last_name: e.target.value }))} />
+                  </div>
+                </>
+              ) : (
+                <div className="field">
+                  <label htmlFor="full_name">Name</label>
+                  <input id="full_name" name="full_name" required defaultValue={p.full_name ?? ""} />
+                </div>
+              )}
+
               <div className="field field-narrow">
                 <label htmlFor="person_type">Type</label>
                 <select id="person_type" value={type} onChange={(e) => setType(e.target.value)}>
@@ -1003,6 +1065,21 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
             </div>
 
+            {structuredNames && (
+              <>
+                <div className="field">
+                  <label htmlFor="preferred_first_name">Goes by (optional)</label>
+                  <input id="preferred_first_name" name="preferred_first_name"
+                         placeholder="Leave blank to use the first name"
+                         defaultValue={p.preferred_first_name ?? ""}
+                         onChange={(e) => setNameParts((n) => ({ ...n, preferred_first_name: e.target.value }))} />
+                </div>
+                <p className="field-note">
+                  Shown on the roster as <strong>{derivedName || "—"}</strong>. This is built from
+                  the names above, so it stays in step with them.
+                </p>
+              </>
+            )}
             {!isPlayer && (
               <>
                 <div className="field">
@@ -1073,10 +1150,23 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               <summary>More details</summary>
 
             {isPlayer && (
-              <div className="field">
-                <label htmlFor="grad_year">Grad year</label>
-                <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
-                       defaultValue={p.grad_year ?? ""} />
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="grad_year">Grad year</label>
+                  <input id="grad_year" name="grad_year" type="number" min="2020" max="2040"
+                         defaultValue={p.grad_year ?? ""} />
+                </div>
+
+                {/* EDIT ONLY. roster_add_member() has no high_school parameter,
+                    so a value typed on the Add form would be accepted by this
+                    input and silently dropped by the RPC. Giving it one needs a
+                    migration, which is outside this change. */}
+                {!isNew && (
+                  <div className="field">
+                    <label htmlFor="high_school">High school</label>
+                    <input id="high_school" name="high_school" defaultValue={p.high_school ?? ""} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -1159,7 +1249,7 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
             {isPlayer && isNew && (
               <>
                 <div className="form-divider">Parent or guardian (optional)</div>
-                <p className="field-hint">
+                <p className="field-note">
                   You can add more contacts, and choose which one is primary, once this
                   player is saved.
                 </p>
