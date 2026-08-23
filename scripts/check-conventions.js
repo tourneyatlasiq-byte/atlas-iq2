@@ -442,6 +442,16 @@ for (const f of componentFiles()) {
       );
     }
 
+    // C3d: intake_apply is only reachable through intake_apply_run, which
+    // holds the idempotency key. Calling it directly would import twice on a
+    // double-click.
+    if (/rpc\(\s*["']intake_apply["']/.test(s)) {
+      failures.push(
+        `lib/actions/${f}: calls intake_apply directly — the only application ` +
+        `path is intake_apply_run, which carries the idempotency key`
+      );
+    }
+
     if (/if \(!error\)\s*removedPlayer\s*=\s*true/.test(s)) {
       failures.push(
         `lib/actions/${f}: claims a deletion from the absence of an error — ` +

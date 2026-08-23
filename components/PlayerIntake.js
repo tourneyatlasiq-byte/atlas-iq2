@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { readSpreadsheet } from "../lib/spreadsheet";
 import { BY_KEY, isIgnored } from "../lib/intake/registry";
 import { suggestMappings, applyMappings, looksLikeHeaders, columnLabels, selectableFields }
@@ -182,6 +182,35 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
   }, [grid, effective, enabled, existingPlayers, decisions, identity]);
 
   const stats = useMemo(() => summarize(analysed.map((a) => a.plan)), [analysed]);
+
+  /**
+   * The submission key for this approved import.
+   *
+   * It must be STABLE across double-clicks, retries and timeouts — that is the
+   * whole point — and must CHANGE the moment the approved content changes. So
+   * it is derived from a signature of everything that feeds the executable
+   * payload: the parsed grid, the column mapping, which fields are enabled,
+   * the conflict decisions and the identity choices.
+   *
+   * Generating it on click would defeat it entirely: two clicks would produce
+   * two keys and import twice. Generating it once at upload would be worse in
+   * the other direction, because correcting a decision would keep the old key
+   * and the server would refuse the corrected import as changed content.
+   */
+  const planSignature = useMemo(
+    () => JSON.stringify({ grid, effective, enabled, decisions, identity }),
+    [grid, effective, enabled, decisions, identity]
+  );
+
+  const [runKey, setRunKey] = useState(null);
+
+  useEffect(() => {
+    setRunKey(
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
+  }, [planSignature]);
 
   // Identity only. Field values are decided separately, in Review.
   const needsIdentity = analysed.filter(
