@@ -520,6 +520,89 @@ section("Every blocker is visible before Ready");
     /\.drawer-body \{[^}]*overscroll-behavior: contain/.test(css));
 }
 
+
+// ------------------------------------------- roster row -> real player id
+section("The drawer acts on a player id, never an assignment id");
+
+{
+  const q  = read("lib/queries/roster.js");
+  const ui = read("components/RosterClient.js");
+
+  ok("listSeasonRoster selects player_id", /`id, player_id, jersey_number/.test(q));
+  ok("...so a roster row carries one", /player_id/.test(q));
+
+  // The fallback that silently substituted the assignment id. Comments
+  // explaining why it was removed are documentation, not code.
+  const uiCode2 = ui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("no consumer falls back to detail.id", !/detail\.player_id \?\? detail\.id/.test(uiCode2));
+  ok("no child falls back to row.id", !/playerId \?\? row\.player_id \?\? row\.id/.test(ui));
+  ok("a single explicit id is derived", /const detailPlayerId = detail\?\.player_id \?\? null/.test(ui));
+  ok("...and it fails visibly rather than substituting",
+    /detail\?\.player_id \?\? null/.test(ui));
+
+  // Every drawer consumer must use it.
+  for (const [what, re] of [
+    ["dues",            /paymentIdByPlayer\[detailPlayerId\]/],
+    ["recruiting / X",  /recruiting\[detailPlayerId\]/],
+    ["played with us",  /p\.player_id === detailPlayerId/],
+    ["onRoster",        /r\.player_id === detailPlayerId/],
+    ["contacts + recruiting children", /playerId=\{detailPlayerId\}/],
+  ]) {
+    ok(`${what} uses the player id`, re.test(ui));
+  }
+  ok("PlayerContacts receives it without a fallback",
+    /playerId=\{playerId \?\? row\.player_id\}/.test(ui));
+}
+
+// ------------------------------------------------------ date of birth
+section("Date of birth imports without a checkbox");
+
+{
+  const reg = read("lib/intake/registry.js");
+  const ss  = read("lib/spreadsheet.js");
+  const nrm = read("lib/intake/normalize.js");
+  const pl  = read("lib/intake/plan.js");
+  const act = read("lib/actions/intake.js");
+  const ui  = read("components/PlayerIntake.js");
+
+  const dob = reg.slice(reg.indexOf('key: "date_of_birth"'), reg.indexOf('key: "date_of_birth"') + 320);
+  ok("date_of_birth is no longer optIn", !/optIn:\s*true/.test(dob));
+  ok("...but is still labelled sensitive", /sensitive:\s*true/.test(dob));
+  ok("no field is gated behind opt-in any more", !/optIn:\s*true/.test(reg));
+
+  ok("Excel date cells are read as dates", /cellDates:\s*true/.test(ss));
+  ok("an unreadable date is classified, not dropped", /export function classifyDate/.test(nrm));
+  ok("...and collected by a shared helper", /export function unreadableValues/.test(nrm));
+  ok("the plan turns it into a visible blocker", /row\._unreadable/.test(pl));
+  ok("the browser preview uses the shared helper", /unreadableValues\(mapped/.test(ui));
+  ok("the server re-derives with the SAME helper", /unreadableValues\(raw/.test(act));
+}
+
+// ----------------------------------------------------- map players layout
+section("Map Players fits the drawer");
+
+{
+  const css = read("app/globals.css");
+  const ui  = read("components/PlayerIntake.js");
+
+  ok("the mapping table uses fixed layout",
+    /\.pi-table \{[^}]*table-layout: fixed/.test(css));
+  ok("columns have declared proportions",
+    /\.pi-c-source\s+\{ width: \d+%/.test(css)
+    && /\.pi-c-mapping \{ width: \d+%/.test(css)
+    && /\.pi-c-include \{ width: \d+%/.test(css));
+  ok("...and the markup declares them", /<colgroup>/.test(ui) && /pi-c-include/.test(ui));
+  ok("the flex chain can shrink", /\.pi \{[^}]*min-width: 0/.test(css));
+  ok("...including panel children", /\.pi > \*, \.pi-panel > \* \{ min-width: 0/.test(css));
+  ok("long headers and samples wrap", /\.pi-table td, \.pi-table th \{ overflow-wrap: anywhere/.test(css));
+  ok("the select no longer caps at a fixed pixel width",
+    !/\.pi-select \{[^}]*max-width: 260px/.test(css));
+  ok("the defect is NOT hidden with overflow-x: hidden",
+    !/\.pi-table[^}]*overflow-x:\s*hidden/.test(css));
+  ok("a contained scroller remains only for narrow screens",
+    /@media \(max-width: 720px\)[\s\S]{0,400}?\.pi-table \{ display: block; overflow-x: auto/.test(css));
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();

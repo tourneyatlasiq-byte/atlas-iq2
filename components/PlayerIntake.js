@@ -5,7 +5,7 @@ import { readSpreadsheet } from "../lib/spreadsheet";
 import { BY_KEY, isIgnored } from "../lib/intake/registry";
 import { suggestMappings, applyMappings, looksLikeHeaders, columnLabels, selectableFields }
   from "../lib/intake/map-headers";
-import { normalizeValue, composeFullName } from "../lib/intake/normalize";
+import { normalizeValue, composeFullName, unreadableValues } from "../lib/intake/normalize";
 import { matchPlayer, matchContact, CLASS, CONTACT } from "../lib/intake/match";
 import { buildRowPlan, summarize } from "../lib/intake/plan";
 import { DIFF } from "../lib/intake/resolve";
@@ -156,6 +156,8 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
         const composed = composeFullName(row);
         if (composed) row.full_name = composed;
       }
+      // Same helper the server uses, so preview and execution agree.
+      row._unreadable = unreadableValues(mapped, (k) => BY_KEY.get(k));
       row.contacts = (mapped.contacts ?? []).map((c) => ({
         ...c,
         full_name: normalizeValue("text", c.full_name),
@@ -449,6 +451,13 @@ function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setO
       </label>
 
       <table className="pi-table">
+        {/* Declared widths, so the Include control can never be pushed out of
+            the drawer by a long header or sample value. */}
+        <colgroup>
+          <col className="pi-c-source" />
+          <col className="pi-c-mapping" />
+          <col className="pi-c-include" />
+        </colgroup>
         <thead>
           <tr><th>Spreadsheet column</th><th>Import as</th><th>Include</th></tr>
         </thead>

@@ -115,6 +115,23 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   );
 
   const { detail, openDetail, closeDetail } = useOpenParam(openable);
+
+  /**
+   * The player id for whatever the drawer has open — and NOTHING else.
+   *
+   * This used to be `detail.player_id ?? detail.id`. A roster row is a
+   * team_season_players record whose `id` is the SEASON ASSIGNMENT, and
+   * player_id was missing from the query, so the fallback quietly handed an
+   * assignment id to everything that wanted a player: contacts, recruiting,
+   * dues, pickup history. The drawer displayed the right player and then acted
+   * on an id that matched nobody, which is how a contact shown under London
+   * came back as "does not belong to this player".
+   *
+   * There is deliberately NO fallback now. A pickup row carries player_id, a
+   * roster row carries player_id, and anything without one is a bug we want to
+   * see rather than paper over with a nearby id that happens to be a uuid.
+   */
+  const detailPlayerId = detail?.player_id ?? null;
   const [editing, setEditing] = useState(null); // row | "new" | null
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
@@ -512,14 +529,14 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
           onRemove={() => remove(detail)}
-          paymentId={paymentIdByPlayer[detail.player_id] ?? null}
+          paymentId={paymentIdByPlayer[detailPlayerId] ?? null}
           contacts={contacts}
-          recruiting={recruiting[detail.player_id ?? detail.id] ?? { links: [], interests: [] }}
+          recruiting={recruiting[detailPlayerId] ?? { links: [], interests: [] }}
           pickupHistory={
-            (pickups.find((p) => p.player_id === (detail.player_id ?? detail.id))?.tournaments) ?? []
+            (pickups.find((p) => p.player_id === detailPlayerId)?.tournaments) ?? []
           }
-          onRoster={rows.some((r) => r.player_id === (detail.player_id ?? detail.id))}
-          playerId={detail.player_id ?? detail.id}
+          onRoster={rows.some((r) => r.player_id === detailPlayerId)}
+          playerId={detailPlayerId}
           onAddToRoster={(fd) => run(addPickupToRoster, fd)}
           onToggleActive={(next) => toggleActive(detail, next)}
         />
@@ -799,7 +816,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               show, or when a coach could add a guardian. */}
           {(hasContact || (isPlayer && canWrite)) && (
             <PlayerContacts
-              playerId={playerId ?? row.player_id ?? row.id}
+              playerId={playerId ?? row.player_id}
               contactInfo={contactInfo}
               canWrite={canWrite}
               pending={pending}
@@ -810,7 +827,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
 
           {isPlayer && (
           <PlayerRecruiting
-            playerId={playerId ?? row.player_id ?? row.id}
+            playerId={playerId ?? row.player_id}
             links={recruiting.links}
             interests={recruiting.interests}
             contacts={contacts}

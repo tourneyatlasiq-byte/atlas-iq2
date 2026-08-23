@@ -299,10 +299,16 @@ const JOTFORM_HEADERS = [
     [accounted, sug.unmapped], [30, []]);
   ok("contact groups discovered generically, not hard-coded",
     sug.contactGroups, [1, 2]);
-  ok("DOB is recognised but NOT auto-enabled",
-    sug.mappings.find((m) => m.key === "date_of_birth").autoEnabled, false);
-  ok("DOB is the ONLY field requiring an opt-in click",
-    sug.mappings.filter((m) => m.optIn).map((m) => m.key), ["date_of_birth"]);
+  // DOB is auto-enabled now. Readiness calls a missing date of birth the
+  // highest-priority gap and the matcher leans on it hardest, so gating it
+  // behind a checkbox meant the product asked for something it then declined
+  // to import. It stays LABELLED sensitive.
+  ok("DOB is auto-enabled when confidently mapped",
+    sug.mappings.find((m) => m.key === "date_of_birth").autoEnabled, true);
+  ok("no column requires an opt-in click",
+    sug.mappings.filter((m) => m.optIn).map((m) => m.key), []);
+  ok("DOB is still labelled sensitive",
+    sug.mappings.find((m) => m.key === "date_of_birth").sensitive, true);
   ok("photos are ignored, not mapped",
     sug.ignored.filter((i) => i.key.includes("photo") || i.key.includes("headshot")).length, 2);
   ok("both position columns map to the season field",
@@ -380,7 +386,7 @@ const JOTFORM_HEADERS = [
   ok("JotForm row resolves a player name", jf[0].row.full_name, "Wrenny Calder");
   ok("both guardians captured generically", jf[0].row.contacts.length, 2);
   ok("positions normalised to season codes", jf[0].row.positions, ["UTIL","2B"]);
-  ok("DOB omitted unless the coach opts in", jf[0].row.date_of_birth, undefined);
+  ok("DOB is included without any opt-in", jf[0].row.date_of_birth, "2010-04-03");
   ok("JotForm row is now fully executable (Migrations A and B landed)",
     jf[0].plan.executable, true);
   ok("...with nothing awaiting a migration", jf[0].plan.pending, []);
@@ -439,8 +445,8 @@ const JOTFORM_HEADERS = [
 
   ok("optIn is declared on every field",
     reg.FIELDS.filter((f) => f.optIn === undefined).map((f) => f.key), []);
-  ok("DOB is the only optIn field",
-    reg.FIELDS.filter((f) => f.optIn).map((f) => f.key), ["date_of_birth"]);
+  ok("no field is gated behind opt-in",
+    reg.FIELDS.filter((f) => f.optIn).map((f) => f.key), []);
   ok("sensitive is broader than optIn, and still labels contact fields",
     reg.FIELDS.filter((f) => f.sensitive).map((f) => f.key).sort(),
     ["contact_email","contact_phone","date_of_birth","player_email","player_phone"]);
@@ -470,8 +476,10 @@ const JOTFORM_HEADERS = [
   const post = map.suggestMappings(JOTFORM_HEADERS);
   ok("all 30 still resolve", post.mappings.length + post.ignored.length, 30);
   ok("none unmapped", post.unmapped, []);
-  ok("exactly one column asks the coach to opt in",
-    post.mappings.filter((m) => m.optIn).map((m) => m.header), ["Date of Birth"]);
+  ok("no column asks the coach to opt in",
+    post.mappings.filter((m) => m.optIn).map((m) => m.header), []);
+  ok("...and Date of Birth is among the auto-enabled columns",
+    post.mappings.filter((m) => m.autoEnabled).some((m) => m.key === "date_of_birth"), true);
 
 
   /* ---- Identity is not a field decision --------------------------------- */

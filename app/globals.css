@@ -5280,7 +5280,11 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    an operational workflow inside Season Tempo, not a separate product with
    its own visual language. */
 
-.pi { display: flex; flex-direction: column; gap: 22px; }
+/* min-width: 0 — flex items default to min-width: auto and refuse to shrink
+   below their content, which is how a wide table forced the whole panel wider
+   than the drawer that contains it. */
+.pi { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.pi > *, .pi-panel > * { min-width: 0; }
 
 /* Progressive: one decision at a time rather than mapping, matching and
    conflicts competing on a single screen. */
@@ -5302,7 +5306,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .pi-step.on { color: var(--navy); font-weight: 700; box-shadow: inset 0 -2px 0 var(--blue); }
 .pi-step.on .pi-step-n { background: var(--blue); color: #fff; }
 
-.pi-panel { display: flex; flex-direction: column; gap: 16px; }
+.pi-panel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pi-panel h3 { margin: 0; font-size: 19px; color: var(--navy); }
 .pi-lede { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--slate); }
 
@@ -5318,7 +5322,31 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .pi-drop-main { font-size: 15px; font-weight: 600; color: var(--navy); }
 .pi-drop-sub { font-size: 12.5px; color: var(--slate); }
 
-.pi-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+/* FIXED LAYOUT, EXPLICIT COLUMNS.
+   Automatic table layout sized columns to their content, so a long
+   spreadsheet header or a long sample value (an email address is one
+   unbreakable token) pushed the table wider than the drawer. .drawer-body sets
+   overflow-y: auto, and per spec the other axis then computes to auto — so the
+   overflow became horizontal scrolling on the drawer, and a coach had to
+   scroll right to reach the Include control. Meanwhile the capped select left
+   column 2 looking empty: wide where the content was, blank where it was not.
+   Proportions are declared here instead, so the controls always sit inside the
+   visible width. */
+.pi-table {
+  width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px;
+}
+.pi-table col.pi-c-source  { width: 46%; }
+.pi-table col.pi-c-mapping { width: 36%; }
+.pi-table col.pi-c-include { width: 18%; }
+
+/* Long headers and sample values wrap instead of setting a floor on the
+   table's width. Nothing is hidden — it reflows. */
+.pi-table td, .pi-table th { overflow-wrap: anywhere; }
+.pi-col { min-width: 0; }
+.pi-sample {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .pi-table th {
   text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
   font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate);
@@ -5403,6 +5431,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   .pi-compare { grid-template-columns: 1fr; }
   .pi-actions .btn { flex: 1 1 auto; justify-content: center; }
+  /* Genuinely narrow screens keep a CONTAINED horizontal scroller as a last
+     resort — the desktop case is fixed by layout, not by hiding it. */
   .pi-table { display: block; overflow-x: auto; }
 }
 
@@ -5415,7 +5445,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 /* Manual mapping, headerless files, and the resolved-value preview. */
 .pi-headers { padding: 4px 0 2px; }
 .pi-select {
-  width: 100%; max-width: 260px; min-height: 36px;
+  width: 100%; max-width: 100%; min-height: 36px;
   padding: 6px 8px; border: 1px solid var(--border);
   border-radius: var(--radius-control); background: var(--surface);
   font: inherit; font-size: 13.5px; color: var(--navy);
