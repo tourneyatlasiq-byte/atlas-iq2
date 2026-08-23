@@ -170,12 +170,46 @@ section("Authoritative contacts: edit, remove, primary");
   ok("removal verifies affected rows, not the absence of an error",
     /\.delete\(\)[\s\S]{0,300}?\.select\("id"\)/.test(src)
     && /\(deleted \?\? \[\]\)\.length === 0/.test(src));
-  ok("promotion demotes before promoting",
-    src.indexOf('update({ is_primary: false })') < src.indexOf('update({ is_primary: true })'));
-  ok("promotion verifies it actually promoted",
-    /\(promoted \?\? \[\]\)\.length === 0/.test(src));
+  ok("promotion goes through the atomic RPC",
+    /rpc\("set_primary_contact"/.test(src));
+  ok("...and no longer demotes with a separate PostgREST call",
+    !/update\(\{ is_primary: false \}\)/.test(src));
+  ok("...and no longer promotes with a separate PostgREST call",
+    !/update\(\{ is_primary: true \}\)/.test(src));
   ok("contact selection is not reimplemented — C3a is imported",
     /import \{ resolvePlayerContact \} from "\.\.\/player-contact-rules"/.test(src));
+
+  // ONE authoritative path for primary changes. readForm() is a closed
+  // allowlist of detail fields, so no form key can reach is_primary through
+  // the ordinary update.
+  const readFormBody = src.slice(src.indexOf("function readForm"), src.indexOf("/** Adds a contact"));
+  ok("readForm() cannot carry is_primary", !/is_primary/.test(readFormBody));
+  ok("the ordinary update never sets is_primary",
+    !/\.update\([^)]*is_primary/.test(src));
+
+  // is_primary is still set on CREATION, which cannot displace an existing
+  // primary: addPlayerContact only claims it when the player has none stored,
+  // and materialization replaces a legacy contact that was the only one.
+  ok("a new contact claims primary only when none is stored",
+    /is_primary: stored\.length === 0/.test(src));
+
+  const rpc = read("supabase/migrations/20260823210000_set_primary_contact.sql");
+  ok("the primary RPC is SECURITY INVOKER", /security invoker/.test(rpc));
+  ok("...not DEFINER", !/security definer/i.test(rpc));
+  ok("...checks auth_can_write()", /auth_can_write\(\)/.test(rpc));
+  ok("...verifies the contact belongs to the player",
+    /c\.id = p_contact_id and c\.player_id = p_player_id/.test(rpc));
+  ok("...demotes BEFORE promoting",
+    rpc.indexOf("set is_primary = false") < rpc.indexOf("set is_primary = true"));
+  ok("...raises when the promotion does not land", /v_promoted <> 1/.test(rpc));
+  ok("...is idempotent when already primary", /if v_already then/.test(rpc));
+  ok("...touches no contact detail field",
+    !/set[\s\S]{0,120}?(full_name|relationship|email|phone|sort_order)\s*=/.test(rpc));
+  ok("...never writes players.parent_*", !/parent_(name|email|phone)/.test(rpc));
+  ok("EXECUTE revoked from public and anon", /revoke all on function[\s\S]*from public, anon/.test(rpc));
+  ok("EXECUTE granted to authenticated", /grant execute on function[\s\S]*to authenticated/.test(rpc));
+  ok("the partial unique index is left as the final safeguard",
+    !/drop index[\s\S]*player_contacts_one_primary/i.test(rpc));
 
   // has_detail mirrors the database CHECK.
   const DETAIL = ["full_name", "relationship", "email", "phone"];
