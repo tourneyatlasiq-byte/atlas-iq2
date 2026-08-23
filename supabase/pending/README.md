@@ -1,38 +1,30 @@
 # Pending migrations
 
-SQL that has been designed and reviewed but **not applied to production**.
+SQL that has been designed and reviewed but **not yet applied to production**.
 
 A file here is not a migration yet. It moves to `supabase/migrations/` only
 after it has been applied through the MCP tool and named with the version
 Supabase actually recorded — the process established in B0 that keeps the
 repository and production history aligned.
 
-## intake_apply.sql
+**Nothing is currently pending.** This directory holds no SQL awaiting
+application.
 
-The atomic write path for Player Intake (C2). Reviewed and approved; **not
-applied**.
+## Standing rule: Import Players stays disabled
 
-Key properties, all deliberate:
+**Import Players must remain disabled until C3 idempotency is implemented and
+verified.**
 
-- `SECURITY INVOKER`, against the local precedent that every other RPC uses
-  `DEFINER`. `DEFINER` would bypass RLS on `players`, `team_season_players`,
-  `player_contacts` and `player_links` — including the B3 policies — leaving
-  the function as the only guard. As `INVOKER` it inherits every policy.
-- Whole-import atomicity. A function body is one transaction, so any exception
-  rolls back every row. The coach approved a reviewed set, not N independent
-  operations.
-- Executes decisions, makes none. Identity, conflict resolution, contact
-  identity, primary selection and `full_name` are all decided in the reviewed
-  plan and validated here.
-- Fail-closed on every payload-driven operation: contact `op`, `link_type` and
-  `is_new` each raise on anything unrecognised rather than defaulting to a
-  mutation.
-- No parameter can name a table.
-- `revoke ... from public, anon` then `grant execute ... to authenticated`.
+The write path is applied and works, which is exactly what makes this easy to
+get wrong — the only thing standing between a reviewed import and a duplicated
+roster is the button staying switched off. Without persisted run identity
+(`intake_runs`), a coach who retries an approved import writes it twice.
 
-**Before applying:** `lib/actions/intake.js` calls this function. Until it is
-applied, that action fails at the RPC call. Nothing invokes it — Import is
-disabled in the UI — so the repository is consistent either way.
+Applying a migration is not the same as shipping a feature.
 
-**Still required before enabling Import:** C3 idempotency (`intake_runs`), so a
-repeated approved import cannot write twice.
+## Previously applied from here
+
+- `intake_apply.sql` — the atomic write path for Player Intake (C2). Applied
+  as `20260823190858_intake_apply`. That migration file is now the single
+  authoritative copy; its header carries the design rationale, so it is not
+  repeated here.
