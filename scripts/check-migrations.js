@@ -35,6 +35,14 @@ const versions = files.map((f) => f.slice(0, 14));
 ok("no duplicate versions",
   versions.filter((v, i) => versions.indexOf(v) !== i), []);
 
+// The failure that actually reached main: the six recovered migrations were
+// extracted alongside their old-timestamp copies, so each existed twice under
+// two different versions. Distinct versions meant the check above passed, and
+// the directory misrepresented production while appearing healthy.
+const names = files.map((f) => f.slice(15));
+ok("no migration name appears at two versions",
+  [...new Set(names.filter((n, i) => names.indexOf(n) !== i))].sort(), []);
+
 ok("files sort in version order",
   versions.slice().sort().join() === versions.join(), true);
 
