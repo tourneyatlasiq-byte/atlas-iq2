@@ -64,10 +64,11 @@ const JOTFORM_HEADERS = [
     [true, false]);
   ok("levels are valid",
     reg.FIELDS.filter((f) => !reg.LEVELS.includes(f.level)).map((f) => f.key), []);
-  ok("pending-migration fields are exactly the new columns",
-    reg.pendingFields().map((f) => f.key).sort(),
-    ["contact_email","contact_name","contact_phone","contact_preferred","contact_relationship",
-     "high_school","last_name","legal_first_name","preferred_first_name"]);
+  // Migrations A and B landed, so nothing is pending. The guard remains so a
+  // future field can be added as pending without reworking the planner.
+  ok("no field awaits a migration", reg.pendingFields(), []);
+  ok("every importable field is now writable",
+    reg.writableFields().length, reg.FIELDS.filter((f) => f.importable).length);
 
   /* ---- A3 normalisers -------------------------------------------------- */
   console.log("\nA3 normalisers");
@@ -226,38 +227,52 @@ const JOTFORM_HEADERS = [
   ok("a CONFLICT row produces no executable write", conflictPlan.executable, false);
   truthy("and says why", conflictPlan.blockers.length > 0);
 
-  const pendingRow = { full_name:"Nia Frost", last_name:"Frost", legal_first_name:"Nia", contacts:[] };
-  const pendingPlan = pln.buildRowPlan({
-    row:pendingRow, match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
-  ok("PENDING MIGRATION makes a plan non-executable", pendingPlan.executable, false);
-  truthy("and names the fields", pendingPlan.pending.length > 0);
+  // Structured names now have real columns, so this row executes.
+  const structured = { full_name:"Nia Frost", last_name:"Frost", legal_first_name:"Nia", contacts:[] };
+  const structuredPlan = pln.buildRowPlan({
+    row:structured, match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
+  ok("structured names are executable now", structuredPlan.executable, true);
+  ok("...and nothing is pending", structuredPlan.pending, []);
+
+  // The guard itself still works: a hypothetical pending plan is refused.
+  let pendingThrew = false;
+  try {
+    pln.assertPlanSafe({ writes:[{ table:"players", values:{} }],
+                         pending:["some_future_field"], executable:true });
+  } catch { pendingThrew = true; }
+  ok("a pending plan claiming executable still throws", pendingThrew, true);
 
   const contactRow = { full_name:"Nia Frost",
     contacts:[{ full_name:"Kit Frost", email:"kit@example.test" }] };
   const contactPlan = pln.buildRowPlan({
     row:contactRow, match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
-  // TRANSITIONAL: one contact writes to the flat parent_* fields today.
-  ok("a single contact is executable now, via the flat fields",
-    contactPlan.executable, true);
-  ok("...writing parent_name and parent_email on the player",
-    Object.keys(contactPlan.writes[0].values).filter((k) => k.startsWith("parent_")).sort(),
-    ["parent_email","parent_name"]);
-  ok("...and creating no player_contacts row yet",
-    contactPlan.writes.some((w) => w.table === "player_contacts"), false);
+  // C1: ALL contacts route to player_contacts, the first included.
+  ok("a single contact is executable", contactPlan.executable, true);
+  ok("...and NEVER writes to players.parent_*",
+    Object.keys(contactPlan.writes[0].values).filter((k) => k.startsWith("parent_")), []);
+  ok("...it creates a player_contacts row",
+    contactPlan.writes.filter((w) => w.table === "player_contacts").length, 1);
+  ok("...marked primary for a new player",
+    contactPlan.writes.find((w) => w.table === "player_contacts").isPrimary, true);
 
   const twoContacts = pln.buildRowPlan({
     row: { full_name:"Nia Frost", contacts:[
       { full_name:"Kit Frost", email:"kit@example.test" },
       { full_name:"Ari Frost", email:"ari@example.test" }] },
     match:{ classification:M.NEW, candidate:null, reasons:[] }, existingPlayer:null });
-  ok("a SECOND contact is still pending", twoContacts.executable, false);
-  ok("...and is the only thing pending", twoContacts.pending, ["additional contacts"]);
-  ok("...and is never concatenated into notes",
+  ok("two contacts are now executable", twoContacts.executable, true);
+  ok("...both land in player_contacts",
+    twoContacts.writes.filter((w) => w.table === "player_contacts").length, 2);
+  ok("...exactly one is primary",
+    twoContacts.writes.filter((w) => w.table === "player_contacts" && w.isPrimary).length, 1);
+  ok("...ordered by their position in the file",
+    twoContacts.writes.filter((w) => w.table === "player_contacts").map((w) => w.sortOrder), [1, 2]);
+  ok("...and neither is concatenated into notes",
     twoContacts.writes[0].values.notes, undefined);
 
   /* ---- A8 prohibition --------------------------------------------------- */
   console.log("\nA8 prohibition");
-  const allPlans = [newPlan, fillPlan, conflictPlan, pendingPlan, contactPlan];
+  const allPlans = [newPlan, fillPlan, conflictPlan, structuredPlan, contactPlan];
   const tables = [...new Set(allPlans.flatMap((p) => p.writes.map((w) => w.table)))].sort();
   // The invariant is that nothing OUTSIDE the permitted set appears — not that
   // every permitted table appears in every batch.
@@ -366,8 +381,9 @@ const JOTFORM_HEADERS = [
   ok("both guardians captured generically", jf[0].row.contacts.length, 2);
   ok("positions normalised to season codes", jf[0].row.positions, ["UTIL","2B"]);
   ok("DOB omitted unless the coach opts in", jf[0].row.date_of_birth, undefined);
-  ok("JotForm row is NOT executable (structured names + contacts pending)",
-    jf[0].plan.executable, false);
+  ok("JotForm row is now fully executable (Migrations A and B landed)",
+    jf[0].plan.executable, true);
+  ok("...with nothing awaiting a migration", jf[0].plan.pending, []);
   ok("only permitted tables appear",
     [...new Set(jf[0].plan.writes.map((w) => w.table))].sort(),
     ["player_contacts","player_links","players","team_season_players"]);
@@ -394,10 +410,11 @@ const JOTFORM_HEADERS = [
     simple.map((r) => r.row.full_name), ["Wrenny Calder","Ada Nkemelu"]);
   ok("simple sheet: positions normalised", simple[0].row.positions, ["SS"]);
   ok("simple sheet: both rows are NEW", simple.map((r) => r.match.classification), ["new","new"]);
-  ok("simple sheet with one parent is fully executable today",
+  ok("simple sheet with one parent is fully executable",
     simple[0].plan.executable, true);
-  ok("...writing the parent to the flat fields",
-    simple[0].plan.writes[0].values.parent_email, "robin@example.test");
+  ok("...writing the parent to player_contacts, not the flat fields",
+    simple[0].plan.writes.find((w) => w.table === "player_contacts").values.email,
+    "robin@example.test");
 
   // Without a parent column there is nothing pending: fully executable today.
   const minimal = runFile(["Player","#","Grad Year","Position"],
