@@ -31,7 +31,8 @@ function contactHeading(c) {
   return "Parent or guardian";
 }
 
-export function PlayerContacts({ playerId, contactInfo, canWrite, pending: parentPending }) {
+export function PlayerContacts({ playerId, contactInfo, canWrite, pending: parentPending,
+                                 player = {}, isPlayer = true }) {
   const [busy, startTransition] = useTransition();
   const [editing, setEditing] = useState(null);   // contact id, "legacy", or "new"
   const [form, setForm] = useState(BLANK);
@@ -90,9 +91,9 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
 
   return (
     <section className="detail-section">
-      <div className="pc-head">
-        <h3 className="detail-section-title">Parent / guardian contacts</h3>
-        {canWrite && editing === null && (
+      <div className="detail-section-head">
+        <h3 className="detail-section-title">Contacts</h3>
+        {canWrite && isPlayer && editing === null && (
           <button type="button" className="btn btn-ghost btn-sm"
                   onClick={() => { setEditing("new"); setForm(BLANK); setError(null); }}
                   disabled={pending}>
@@ -103,11 +104,41 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {contacts.length === 0 && editing === null && (
-        <p className="pc-empty">No contacts recorded.</p>
+      {/* ONE section answers one question: how do I reach this family?
+          The athlete's own details and her guardians' used to sit under two
+          consecutive headings, so a coach looking for a number read two titles
+          to find one answer. resolvePlayerContact() already treats them as a
+          single set — `reachable` is satisfied by either — so presenting them
+          together matches the semantics rather than fighting them.
+          These are the ONLY place player_email / player_phone appear. */}
+      {(player.player_email || player.player_phone) && (
+        <dl className="pc-own">
+          {player.player_email && (
+            <div>
+              <dt>{isPlayer ? "Player email" : "Email"}</dt>
+              <dd><a className="link" href={`mailto:${player.player_email}`}>{player.player_email}</a></dd>
+            </div>
+          )}
+          {player.player_phone && (
+            <div>
+              <dt>{isPlayer ? "Player phone" : "Phone"}</dt>
+              <dd>
+                <a className="link" href={`tel:${player.player_phone.replace(/[^\d+]/g, "")}`}>
+                  {player.player_phone}
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
       )}
 
-      {contacts.map((c, i) => {
+      {/* Guardian cards follow. Staff have no guardians, so for them this
+          section is just their own details. */}
+      {isPlayer && contacts.length === 0 && editing === null && (
+        <p className="pc-empty">No parent or guardian contacts recorded.</p>
+      )}
+
+      {isPlayer && contacts.map((c, i) => {
         const key = c.id ?? `legacy-${i}`;
         const isEditing = editing === (c.source === "legacy" ? "legacy" : c.id);
 

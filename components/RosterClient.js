@@ -624,6 +624,25 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
 
 /* ---------------- Detail drawer ---------------- */
 
+/**
+ * A disclosure that only discloses when it is worth it.
+ *
+ * The player form used <details open={!isNew}>, which on Edit rendered an
+ * already-expanded disclosure: a "More details" summary sitting in the middle
+ * of a form where everything below it was visible anyway. It cost a line and
+ * bought nothing. Adding a player is different — the form promises "a name is
+ * all you need", and grad year, sizes and handedness genuinely can wait.
+ */
+function Disclose({ enabled, label, children }) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <details className="more-details">
+      <summary>{label}</summary>
+      {children}
+    </details>
+  );
+}
+
 function Section({ title, children }) {
   return (
     <section className="detail-section">
@@ -715,8 +734,10 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </div>
           )}
 
-          {/* Player Information — empty read-only fields are suppressed
-              rather than shown as em-dashes. They stay available in Edit. */}
+          {/* PLAYER — intrinsic identity. Empty read-only fields are
+              suppressed rather than shown as em-dashes; they stay available in
+              Edit. Season-specific values are NOT here — they belong to the
+              team and season, and live in the next section. */}
           {!isPlayer && (
             <Section title="Team Role">
               <Row label="Name" value={displayName} />
@@ -725,55 +746,51 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
           )}
 
           {isPlayer && (
-          <Section title="Player Information">
-            <Row label="Name" value={displayName} />
-            {p.preferred_first_name && p.legal_first_name
-              && p.preferred_first_name !== p.legal_first_name && (
-              <Row label="Legal name" value={`${p.legal_first_name} ${p.last_name ?? ""}`.trim()} />
-            )}
-            {p.high_school && <Row label="High school" value={p.high_school} />}
-            {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
-            {row.jersey_number != null && <Row label="Jersey number" value={row.jersey_number} />}
-
-            {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
-            {row.positions?.length > 0 && (
-              <Row label="Positions" value={row.positions.join(" / ")} />
-            )}
-            {p.throws && <Row label="Throws" value={p.throws} />}
-            {p.bats && <Row label="Bats" value={p.bats} />}
-          </Section>
-          )}
-
-          {hasContact && (
-            <Section title="Contact Information">
-              {/* Reachable, not just readable — a coach standing at a field
-                  should be able to tap rather than transcribe. */}
-              {p.player_email && (
+            <Section title="Player">
+              <Row label="Name" value={displayName} />
+              {p.preferred_first_name && p.legal_first_name
+                && p.preferred_first_name !== p.legal_first_name && (
+                <Row label="Legal name" value={`${p.legal_first_name} ${p.last_name ?? ""}`.trim()} />
+              )}
+              {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
+              {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
+              {p.high_school && <Row label="High school" value={p.high_school} />}
+              {(p.throws || p.bats) && (
                 <Row
-                  label={isPlayer ? "Player email" : "Email"}
-                  value={<a className="link" href={`mailto:${p.player_email}`}>{p.player_email}</a>}
+                  label="Throws / Bats"
+                  value={`${p.throws ?? "—"} / ${p.bats ?? "—"}`}
                 />
               )}
-              {p.player_phone && (
-                <Row
-                  label={isPlayer ? "Player phone" : "Phone"}
-                  value={
-                    <a className="link" href={`tel:${p.player_phone.replace(/[^\d+]/g, "")}`}>
-                      {p.player_phone}
-                    </a>
-                  }
-                />
-              )}
-
             </Section>
           )}
 
-          {isPlayer && (
+          {/* TEAM & UNIFORM — everything that belongs to THIS season's
+              assignment rather than to the person. Jersey number used to sit
+              in Player Information and the sizes under a separate Uniform
+              heading further down, which split one idea across two places. */}
+          {isPlayer && (row.jersey_number != null || row.positions?.length > 0
+            || row.jersey_size || row.pants_size) && (
+            <Section title="Team & Uniform">
+              {row.jersey_number != null && <Row label="Jersey number" value={row.jersey_number} />}
+              {row.positions?.length > 0 && (
+                <Row label="Positions" value={row.positions.join(" / ")} />
+              )}
+              {row.jersey_size && <Row label="Jersey size" value={row.jersey_size} />}
+              {row.pants_size && <Row label="Pants size" value={row.pants_size} />}
+            </Section>
+          )}
+
+          {/* CONTACTS — one heading. Player email/phone render here and
+              ONLY here; guardian cards follow. Shown when there is anything to
+              show, or when a coach could add a guardian. */}
+          {(hasContact || (isPlayer && canWrite)) && (
             <PlayerContacts
               playerId={playerId ?? row.player_id ?? row.id}
               contactInfo={contactInfo}
               canWrite={canWrite}
               pending={pending}
+              player={p}
+              isPlayer={isPlayer}
             />
           )}
 
@@ -785,13 +802,6 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             contacts={contacts}
             canWrite={canWrite}
           />
-          )}
-
-          {isPlayer && hasUniform && (
-            <Section title="Uniform">
-              {row.jersey_size && <Row label="Jersey size" value={row.jersey_size} />}
-              {row.pants_size && <Row label="Pants size" value={row.pants_size} />}
-            </Section>
           )}
 
           {p.notes && (
@@ -813,17 +823,6 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
 
           {/* Roster status sits last: active/inactive is already in the header,
               so this is where you act on it, not where you learn it. */}
-          <Section title="Roster Status">
-            <Row label="Status" value={row.is_active === false ? "Inactive" : "Active"} />
-            {onToggleActive && canWrite && (
-              <p className="section-body">
-                <button className="btn btn-ghost" disabled={pending} onClick={onToggleActive}>
-                  {row.is_active === false ? "Make active" : "Make inactive"}
-                </button>
-              </p>
-            )}
-          </Section>
-
           {pickupHistory.length > 0 && (
             <section className="detail-section">
               <h3 className="detail-section-title">Played with us</h3>
@@ -841,8 +840,19 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
 
         </div>
 
+        {/* THREE ACTIONS, THREE WEIGHTS — not three equal buttons. Edit
+            details is what a coach came here to do, so it stays primary.
+            Remove from roster is destructive and stays visually separate.
+            Make inactive replaces the old Roster Status section: status itself
+            is already on the header pill, so only the ACTION needed a home,
+            and a ghost button keeps it available without competing. */}
         {canWrite && (
           <div className="drawer-foot drawer-foot-stack">
+            {onToggleActive && (
+              <button className="btn btn-ghost btn-block" disabled={pending} onClick={onToggleActive}>
+                {row.is_active === false ? "Make active" : "Make inactive"}
+              </button>
+            )}
             <div className="drawer-foot-row">
               <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
                 Remove from roster
@@ -1146,8 +1156,18 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
             )}
 
-            <details className="more-details" open={!isNew}>
-              <summary>More details</summary>
+            {/* PROGRESSIVE DISCLOSURE ON ADD ONLY.
+                This was already open={!isNew}, so on Edit it rendered an
+                expanded disclosure — a "More details" summary line in the
+                middle of a form where everything below it was already
+                visible. It bought nothing and split the form arbitrarily.
+                Adding a player genuinely benefits: "a name is all you need",
+                and grad year, sizes and handedness can wait. Editing does not
+                — a coach opening Edit came to change something specific and
+                should not hunt for grad year behind a toggle. */}
+            <Disclose enabled={isNew} label="More details">
+
+            {isPlayer && <div className="form-divider">Player</div>}
 
             {isPlayer && (
               <div className="field-row">
@@ -1170,6 +1190,40 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
             )}
 
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="throws">Throws</label>
+                <select id="throws" name="throws" defaultValue={p.throws ?? ""}>
+                  <option value="">—</option>
+                  {THROWS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="bats">Bats</label>
+                <select id="bats" name="bats" defaultValue={p.bats ?? ""}>
+                  <option value="">—</option>
+                  {BATS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {isPlayer && (
+              <>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="player_email">Player email</label>
+                    <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="player_phone">Player phone</label>
+                    <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="form-divider">Team &amp; Uniform</div>
+
             <div className="field">
               <label>Positions</label>
               <div className="chip-picker">
@@ -1189,25 +1243,6 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
 
             <div className="field-row">
               <div className="field">
-                <label htmlFor="throws">Throws</label>
-                <select id="throws" name="throws" defaultValue={p.throws ?? ""}>
-                  <option value="">—</option>
-                  {THROWS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="bats">Bats</label>
-                <select id="bats" name="bats" defaultValue={p.bats ?? ""}>
-                  <option value="">—</option>
-                  {BATS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-divider">Uniform</div>
-
-            <div className="field-row">
-              <div className="field">
                 <label htmlFor="jersey_size">Jersey size</label>
                 <select id="jersey_size" name="jersey_size" defaultValue={row?.jersey_size ?? ""}>
                   <option value="">—</option>
@@ -1222,23 +1257,6 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                 </select>
               </div>
             </div>
-
-            {isPlayer && (
-              <>
-                <div className="form-divider">Contact</div>
-
-                <div className="field-row">
-                  <div className="field">
-                    <label htmlFor="player_email">Player email</label>
-                    <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="player_phone">Player phone</label>
-                    <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
-                  </div>
-                </div>
-              </>
-            )}
 
             {/* ADD ONLY. A brand-new player has no contacts, so one optional
                 block is unambiguous and saves a second trip. On an existing
@@ -1284,7 +1302,7 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               <label htmlFor="notes">Notes</label>
               <textarea id="notes" name="notes" rows={3} defaultValue={p.notes ?? ""} />
             </div>
-            </details>
+            </Disclose>
           </div>
 
           <div className="modal-foot">

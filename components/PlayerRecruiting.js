@@ -39,10 +39,37 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
 
   const contactFor = (id) => contacts.find((c) => c.id === id) ?? null;
 
+  /**
+   * Collapsed when there is nothing to show.
+   *
+   * Most players have neither a recruiting link nor a college interest, and
+   * two labelled "None" rows plus a heading cost roughly a fifth of a phone
+   * screen to say so. Collapsed, it is one line that still names the section
+   * and still offers the way in — the capability is not hidden, only the empty
+   * scaffolding around it.
+   *
+   * As soon as either exists the section behaves exactly as before.
+   */
+  const isEmpty = links.length === 0 && interests.length === 0;
+  const [open, setOpen] = useState(!isEmpty);
+
   return (
     <>
       {error && <div className="alert alert-error">{error}</div>}
 
+      {isEmpty && !open ? (
+        <section className="detail-section detail-section-compact">
+          <div className="compact-row">
+            <span className="compact-label">Recruiting</span>
+            <span className="compact-value muted">No links or college interests</span>
+            {canWrite && (
+              <button type="button" className="recruit-add" onClick={() => setOpen(true)}>
+                Add
+              </button>
+            )}
+          </div>
+        </section>
+      ) : (
       <section className="detail-section">
         <h3 className="detail-section-title">Recruiting</h3>
 
@@ -148,6 +175,7 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
           )}
         </div>
       </section>
+      )}
 
       {addingLink && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setAddingLink(false)}>

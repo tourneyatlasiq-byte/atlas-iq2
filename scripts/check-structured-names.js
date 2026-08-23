@@ -271,6 +271,122 @@ section("Contact card uses real, Season Tempo-specific classes");
     !/parent_(name|email|phone)/.test(ui));
 }
 
+
+// ------------------------------------------------------ drawer architecture
+section("Drawer information architecture");
+
+{
+  const ui  = read("components/RosterClient.js");
+  const pc  = read("components/PlayerContacts.js");
+  const doc = read("components/DocumentSection.js");
+  const rec = read("components/PlayerRecruiting.js");
+  const css = read("app/globals.css");
+
+  // Section order, by first appearance in the drawer.
+  const drawer = ui.slice(ui.indexOf("export function PlayerDetail"), ui.indexOf("function AddPersonFlow"));
+  const at = (needle) => drawer.indexOf(needle);
+
+  ok("PLAYER comes before TEAM & UNIFORM",
+    at('<Section title="Player">') > -1
+    && at('<Section title="Player">') < at('<Section title="Team & Uniform">'));
+  ok("TEAM & UNIFORM comes before CONTACTS",
+    at('<Section title="Team & Uniform">') < at("<PlayerContacts"));
+  ok("CONTACTS comes before RECRUITING",
+    at("<PlayerContacts") < at("<PlayerRecruiting"));
+  ok("RECRUITING comes before DOCUMENTS",
+    at("<PlayerRecruiting") < at("<DocumentSection"));
+
+  // The two headings that used to stack.
+  ok('the "Player Information" heading is gone', !drawer.includes('title="Player Information"'));
+  ok('the "Contact Information" heading is gone', !drawer.includes('title="Contact Information"'));
+  ok("the standalone Uniform section is gone", !drawer.includes('<Section title="Uniform">'));
+  ok("the Roster Status section is gone", !drawer.includes('title="Roster Status"'));
+
+  // Season fields grouped, not mixed into intrinsic player data.
+  const teamSection = drawer.slice(at('<Section title="Team & Uniform">'), at("<PlayerContacts"));
+  for (const f of ["jersey_number", "positions", "jersey_size", "pants_size"]) {
+    ok(`TEAM & UNIFORM contains ${f}`, teamSection.includes(f));
+  }
+  // Bounded by PLAYER's own closing tag — slicing to the next section's title
+  // would sweep in that section's render guard, which legitimately names
+  // jersey_number.
+  const playerStart = at('<Section title="Player">');
+  const playerSection = drawer.slice(playerStart, drawer.indexOf("</Section>", playerStart));
+  ok("PLAYER contains high school", playerSection.includes("high_school"));
+  ok("PLAYER contains throws / bats", playerSection.includes("Throws / Bats"));
+  ok("PLAYER does NOT contain jersey number", !playerSection.includes("jersey_number"));
+
+  // No duplication: player email/phone live in exactly one place.
+  ok("player email/phone are NOT rendered in the drawer body",
+    !drawer.includes("mailto:${p.player_email}"));
+  ok("...they are rendered by the Contacts section", pc.includes("player.player_email"));
+  ok("the Contacts heading is a single consolidated one",
+    pc.includes('detail-section-title">Contacts<'));
+  ok("guardian cards still come from player_contacts only",
+    !/parent_(name|email|phone)/.test(pc));
+
+  // Footer hierarchy: three weights, not three equal buttons.
+  const foot = drawer.slice(drawer.indexOf('className="drawer-foot'));
+  ok("Edit details remains the primary action", /btn-primary[^>]*onClick=\{onEdit\}/.test(foot));
+  ok("Remove from roster remains secondary", /btn-secondary[^>]*onClick=\{onRemove\}/.test(foot));
+  ok("Make inactive is a ghost action in the footer", /btn-ghost[^>]*onClick=\{onToggleActive\}/.test(foot));
+  ok("...and the toggle capability is preserved", foot.includes("Make active"));
+
+  // Compact empty states — collapsed, never removed.
+  ok("Documents collapses when empty", /documents\.length === 0 && !uploading/.test(doc));
+  ok("...and still offers Add", /compact-row[\s\S]{0,400}?setUploading\(true\)/.test(doc));
+  ok("Recruiting collapses when both are empty",
+    /links\.length === 0 && interests\.length === 0/.test(rec));
+  ok("...and still offers Add", /compact-row[\s\S]{0,400}?setOpen\(true\)/.test(rec));
+  ok("Notes is still hidden when empty", drawer.includes("{p.notes && ("));
+
+  for (const c of ["compact-row", "compact-label", "compact-value",
+                   "detail-section-compact", "pc-own", "btn-sm"]) {
+    ok(`.${c} is defined in CSS`, new RegExp(`\\.${c}[ ,:{]`).test(css));
+  }
+  ok(".pc-head was removed in favour of .detail-section-head",
+    !css.includes(".pc-head") && !pc.includes("pc-head"));
+  ok("...and Contacts uses the shared section-head pattern",
+    pc.includes('className="detail-section-head"'));
+}
+
+// -------------------------------------------------- edit details structure
+section("Edit Details mirrors the drawer");
+
+{
+  const ui = read("components/RosterClient.js");
+  const form = ui.slice(ui.indexOf("export function PlayerForm"));
+  const at = (n) => form.indexOf(n);
+
+  ok("a Player group exists", at('form-divider">Player<') > -1);
+  ok("a Team & Uniform group exists", at("form-divider\">Team &amp; Uniform<") > -1
+    || at('form-divider">Team &amp; Uniform<') > -1);
+  ok("Player comes before Team & Uniform",
+    at('form-divider">Player<') < at('form-divider">Team &amp; Uniform<'));
+  ok("the arbitrary Uniform divider is gone", at('form-divider">Uniform<') === -1);
+  ok("the arbitrary Contact divider is gone", at('form-divider">Contact<') === -1);
+
+  const player = form.slice(at('form-divider">Player<'), at('form-divider">Team &amp; Uniform<'));
+  for (const f of ["grad_year", "high_school", "throws", "bats", "player_email", "player_phone"]) {
+    ok(`Player group contains ${f}`, player.includes(f));
+  }
+  const team = form.slice(at('form-divider">Team &amp; Uniform<'));
+  for (const f of ["Positions", "jersey_size", "pants_size"]) {
+    ok(`Team & Uniform group contains ${f}`, team.includes(f));
+  }
+
+  ok("disclosure applies on ADD only", /<Disclose enabled=\{isNew\}/.test(form));
+  ok("...so nothing is hidden behind a toggle when editing",
+    !/<details className="more-details" open=\{!isNew\}/.test(ui));
+
+  // Separate workflows stay separate.
+  ok("no guardian contact management in the modal", !form.includes("PlayerContacts"));
+  ok("no recruiting editing in the modal", !form.includes("PlayerRecruiting"));
+  ok("no document management in the modal", !form.includes("DocumentSection"));
+  ok("no roster removal in the modal", !form.includes("onRemove"));
+  ok("the add-only guardian block is retained", form.includes("isPlayer && isNew"));
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();

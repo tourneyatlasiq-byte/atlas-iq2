@@ -44,6 +44,29 @@ export function DocumentSection({
     return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   }
 
+  /**
+   * An empty Documents section used a full heading, a button and a sentence to
+   * say there is nothing here — about a fifth of a phone screen for no
+   * information. Collapsed it is one row that still names the section and
+   * still offers Add, so nothing is hidden, only the scaffolding.
+   */
+  if (documents.length === 0 && !uploading) {
+    return (
+      <section className="detail-section detail-section-compact">
+        {error && <div className="alert alert-error">{error}</div>}
+        <div className="compact-row">
+          <span className="compact-label">Documents</span>
+          <span className="compact-value muted">None attached</span>
+          {canWrite && (
+            <button type="button" className="recruit-add" onClick={() => setUploading(true)} disabled={busy}>
+              Add
+            </button>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="detail-section">
       <div className="detail-section-head">
