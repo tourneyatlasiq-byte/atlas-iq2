@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useTransition } from "react";
 import { readSpreadsheet } from "../lib/spreadsheet";
 import { BY_KEY, isIgnored } from "../lib/intake/registry";
 import { suggestMappings, applyMappings, looksLikeHeaders, columnLabels, selectableFields }
@@ -9,6 +9,7 @@ import { normalizeValue, composeFullName } from "../lib/intake/normalize";
 import { matchPlayer, matchContact, CLASS, CONTACT } from "../lib/intake/match";
 import { buildRowPlan, summarize } from "../lib/intake/plan";
 import { DIFF } from "../lib/intake/resolve";
+import { applyIntake } from "../lib/actions/intake";
 
 /**
  * Player Intake — a preview workflow around the frozen A1–A8 engine.
@@ -203,6 +204,31 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
   );
 
   const [runKey, setRunKey] = useState(null);
+  const [importing, startImport] = useTransition();
+  const [outcome, setOutcome] = useState(null);   // the completed counters
+
+  /**
+   * Apply the reviewed import.
+   *
+   * The run key is passed unchanged, so a double-click, a retry after a
+   * timeout or an ordinary resubmit all reach intake_apply_run() with the same
+   * key and the second one is answered from the recorded run rather than
+   * executed again.
+   */
+  function submitImport() {
+    if (importing || outcome) return;
+    setError(null);
+    startImport(async () => {
+      const res = await applyIntake({
+        rows: analysed.map((a) => ({ ...a.row, contacts: a.row.contacts ?? [] })),
+        decisions,
+        identity,
+        runKey,
+      });
+      if (res?.ok) setOutcome(res);
+      else setError(res?.error ?? "That import couldn't be saved.");
+    });
+  }
 
   useEffect(() => {
     setRunKey(
@@ -286,6 +312,8 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
           stats={stats} analysed={analysed} pendingRows={pendingRows}
           blocked={blockedByData} seasonName={seasonName}
           onBack={() => setStep("review")} onCancel={onCancel}
+          onImport={submitImport} importing={importing} outcome={outcome}
+          canImport={Boolean(runKey)}
         />
       )}
     </div>
@@ -670,7 +698,19 @@ const fmt = (v) =>
 
 /* ---- Step 5 ------------------------------------------------------------ */
 
-function Ready({ stats, analysed, pendingRows, blocked, seasonName, onBack, onCancel }) {
+/** Plain counts, only the ones that are non-zero. */
+function describeOutcome(o) {
+  const bits = [];
+  if (o.created) bits.push(`${o.created} ${o.created === 1 ? "player" : "players"} added`);
+  if (o.updated) bits.push(`${o.updated} updated`);
+  if (o.contacts_added) bits.push(`${o.contacts_added} ${o.contacts_added === 1 ? "contact" : "contacts"} added`);
+  if (o.contacts_updated) bits.push(`${o.contacts_updated} ${o.contacts_updated === 1 ? "contact" : "contacts"} updated`);
+  if (o.links_added) bits.push(`${o.links_added} ${o.links_added === 1 ? "link" : "links"} added`);
+  return bits.length ? `${bits.join(", ")}.` : "Nothing needed changing.";
+}
+
+function Ready({ stats, analysed, pendingRows, blocked, seasonName, onBack, onCancel,
+                 onImport, importing, outcome, canImport }) {
   const creatable = analysed.filter((a) => a.match.classification === CLASS.NEW).length;
   const updatable = analysed.filter((a) => a.match.classification === CLASS.CONFIDENT).length;
 
@@ -698,19 +738,38 @@ function Ready({ stats, analysed, pendingRows, blocked, seasonName, onBack, onCa
         </div>
       )}
 
-      <div className="alert alert-info">
-        <strong>Importing isn&rsquo;t switched on yet.</strong> This step checks your file and
-        shows exactly what would change. Saving to your roster becomes available once the
-        Season Tempo update is complete.
-      </div>
+      {/* CONFIRMATION. Counts of what actually happened, from the database,
+          not from what the preview predicted. */}
+      {outcome && (
+        <div className="alert alert-success">
+          <strong>
+            {outcome.replayed
+              ? "This import was already saved."
+              : "Import complete."}
+          </strong>{" "}
+          {describeOutcome(outcome)}
+          {outcome.replayed && (
+            <> Nothing was added a second time.</>
+          )}
+        </div>
+      )}
 
       <div className="pi-actions">
-        <button type="button" className="btn btn-secondary" onClick={onBack}>Back</button>
-        <button type="button" className="btn btn-primary" disabled aria-disabled="true"
-                title="Available once the Season Tempo update is complete">
-          Import {stats.rows} players
+        {!outcome && (
+          <button type="button" className="btn btn-secondary" onClick={onBack} disabled={importing}>
+            Back
+          </button>
+        )}
+        {!outcome && (
+          <button type="button" className="btn btn-primary"
+                  onClick={onImport}
+                  disabled={importing || blocked || !canImport}>
+            {importing ? "Importing…" : `Import ${stats.rows} ${stats.rows === 1 ? "player" : "players"}`}
+          </button>
+        )}
+        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={importing}>
+          {outcome ? "Done" : "Close"}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>Close</button>
       </div>
     </div>
   );
