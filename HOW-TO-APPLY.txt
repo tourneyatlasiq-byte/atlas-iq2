@@ -1,0 +1,27 @@
+ONE DELETION, THEN EXTRACT.
+
+Rather than deleting six files individually, delete the whole folder and let
+this package replace it. The package contains the complete, verified 95-file
+directory, so nothing is lost.
+
+  1. In your clone, delete the entire folder:
+         supabase/migrations
+
+  2. Extract this package into the clone root, so that:
+         supabase/migrations/   <- restored, 95 .sql files + README.md
+         scripts/check-migrations.js
+         package.json           <- overwrites (one line changed)
+
+  3. In GitHub Desktop, Changes should show roughly:
+         ~96 additions under supabase/migrations/
+           6 deletions (the old-timestamp filenames)
+           1 addition  scripts/check-migrations.js
+           1 modified  package.json
+       and NOTHING under app/, components/ or lib/.
+
+  4. Confirm before committing:
+         supabase/migrations contains exactly 95 .sql files plus README.md
+         no filename begins 20260813120000, 20260813120100, 20260813120200,
+                            20260813180000, 20260814190000 or 20260814210000
+
+Do not commit until step 4 checks out.
