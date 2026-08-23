@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useTransition } from "react";
+import { useMemo, useState, useEffect, useTransition, useRef } from "react";
 import { readSpreadsheet } from "../lib/spreadsheet";
 import { BY_KEY, isIgnored } from "../lib/intake/registry";
 import { suggestMappings, applyMappings, looksLikeHeaders, columnLabels, selectableFields }
@@ -204,6 +204,41 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
   );
 
   const [runKey, setRunKey] = useState(null);
+  /**
+   * Put the coach at the top of each step.
+   *
+   * window.scrollTo() is the obvious thing and does NOTHING here: this
+   * component renders inside .drawer-body, which is `overflow-y: auto` on a
+   * fixed, full-height drawer, so the page itself never scrolls. Arriving at
+   * Matching part-way down a long list — or at the bottom of it — is what a
+   * coach reported.
+   *
+   * The scroll owner is resolved at runtime by walking up from this element
+   * and asking the browser which ancestor actually scrolls, so this keeps
+   * working if the panel is ever moved out of the drawer. window is reset too,
+   * for the case where the page IS the scroller.
+   */
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    let node = el.parentElement;
+    while (node && node !== document.body) {
+      const { overflowY } = window.getComputedStyle(node);
+      const scrollable = overflowY === "auto" || overflowY === "scroll";
+      if (scrollable && node.scrollHeight > node.clientHeight) {
+        node.scrollTop = 0;
+        break;
+      }
+      node = node.parentElement;
+    }
+
+    // Harmless when the page is not the scroller; correct when it is.
+    window.scrollTo?.(0, 0);
+  }, [step]);
+
   const [importing, startImport] = useTransition();
   const [outcome, setOutcome] = useState(null);   // the completed counters
 
@@ -243,19 +278,33 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
     (a) => (a.match.classification === CLASS.POSSIBLE || a.match.classification === CLASS.CONFLICT)
       && !identity[a.i]);
 
-  const needsDecision = analysed.filter((a) =>
-    a.plan.blockers.some((b) => b.startsWith("undecided")));
-
   const ambiguousContacts = analysed.flatMap((a) =>
     a.contactChecks.filter((c) => c.action === CONTACT.REVIEW).map((c) => ({ row: a, check: c })));
 
   const pendingRows = analysed.filter((a) => a.plan.pending.length > 0);
-  const blockedByData = needsIdentity.length + needsDecision.length;
+
+  /**
+   * ONE AUTHORITY: plan.executable.
+   *
+   * This used to be `needsIdentity.length + needsDecision.length`, which was
+   * wrong twice over. It SUMMED TWO OVERLAPPING SETS, so a row needing both an
+   * identity choice and a field decision counted as two — the reason a coach
+   * who had answered everything still saw a number. And it counted only two of
+   * the five things that can block a row: an invalid row, a contact that needs
+   * a look, and a pending field were all invisible AND uncounted, so execution
+   * refused a player the coach was never shown.
+   *
+   * Everything now derives from the same set: the Ready totals, the count on
+   * the button, and eligibility to import. If a row cannot execute it is in
+   * this list, and this list is what the coach is shown.
+   */
+  const unresolved = analysed.filter((a) => !a.plan.executable);
+  const blockedByData = unresolved.length;
 
   /* ---- Render ---------------------------------------------------------- */
 
   return (
-    <div className="pi">
+    <div className="pi" ref={rootRef}>
       <ol className="pi-steps" aria-label="Import progress">
         {STEPS.map((s, n) => (
           <li key={s.key} className={`pi-step${s.key === step ? " on" : ""}`}
@@ -302,7 +351,7 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
       {step === "review" && (
         <ReviewChanges
           analysed={analysed} decisions={decisions} setDecisions={setDecisions}
-          ambiguousContacts={ambiguousContacts} outstanding={needsDecision.length}
+          ambiguousContacts={ambiguousContacts} unresolved={unresolved}
           onBack={() => setStep("match")} onNext={() => setStep("ready")}
         />
       )}
@@ -566,12 +615,41 @@ function Evidence({ label, p }) {
 
 /* ---- Step 4 ------------------------------------------------------------ */
 
-function ReviewChanges({ analysed, decisions, setDecisions, ambiguousContacts, outstanding, onBack, onNext }) {
+/**
+ * Turn a blocker into something a coach can act on.
+ *
+ * Blockers are written for the engine. A coach should never read "plan
+ * executable", a blocker class, or anything about migrations — they should
+ * read what is wrong with THEIR row and what to do about it.
+ */
+function plainBlocker(b) {
+  if (b.startsWith("needs review:") || b.startsWith("needs confirmation:")) {
+    return "Go back to Matching and say whether this is the same player.";
+  }
+  if (b.startsWith("undecided conflicts:")) {
+    const fields = b.replace("undecided conflicts:", "").trim();
+    return `Choose which value to keep for ${fields}.`;
+  }
+  if (b.startsWith("needs a look:")) {
+    return b.replace("needs a look:", "").trim();
+  }
+  if (b === "row has no player name") {
+    return "This row has no player name. Add one to your file, or remove the row.";
+  }
+  if (b.startsWith("awaiting migration:")) {
+    return "Some information in this row can't be saved yet. Remove it from the file to import the rest.";
+  }
+  return b;
+}
+
+function ReviewChanges({ analysed, decisions, setDecisions, ambiguousContacts, unresolved, onBack, onNext }) {
   const decide = (i, key, choice) =>
     setDecisions({ ...decisions, [i]: { ...(decisions[i] ?? {}), [key]: choice } });
 
   const creating = analysed.filter((a) => a.plan.writes[0]?.op === "insert");
   const updating = analysed.filter((a) => a.plan.writes[0]?.op === "update");
+
+  const rowLabel = (a) => a.row?.full_name || `Row ${a.i + 1}`;
 
   return (
     <div className="pi-panel">
@@ -683,10 +761,40 @@ function ReviewChanges({ analysed, decisions, setDecisions, ambiguousContacts, o
         </div>
       )}
 
+      {/* NEEDS ATTENTION — every row that cannot be imported, whatever the
+          reason, named and explained.
+          Before this, only identity choices and field conflicts were shown. A
+          row with no name, an unusable contact detail, or a field we cannot
+          store yet blocked the import silently and only surfaced when the
+          coach pressed Import — naming a player they had never been asked
+          about. Anything that can stop a row now stops it HERE, visibly. */}
+      {unresolved.length > 0 && (
+        <div className="pi-attention">
+          <h4>Needs your attention ({unresolved.length})</h4>
+          <p className="pi-note pi-note-quiet">
+            These {unresolved.length === 1 ? "row can't" : "rows can't"} be imported yet.
+            Everything else is ready.
+          </p>
+          <ul className="pi-attention-list">
+            {unresolved.map((a) => (
+              <li key={a.i}>
+                <span className="pi-attention-who">{rowLabel(a)}</span>
+                <span className="pi-attention-why">
+                  {a.plan.blockers.map(plainBlocker).join(" ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="pi-actions">
         <button type="button" className="btn btn-secondary" onClick={onBack}>Back</button>
-        <button type="button" className="btn btn-primary" onClick={onNext} disabled={outstanding > 0}>
-          {outstanding > 0 ? `${outstanding} decision${outstanding === 1 ? "" : "s"} needed` : "Continue"}
+        <button type="button" className="btn btn-primary" onClick={onNext}
+                disabled={unresolved.length > 0}>
+          {unresolved.length > 0
+            ? `${unresolved.length} to resolve`
+            : "Continue"}
         </button>
       </div>
     </div>

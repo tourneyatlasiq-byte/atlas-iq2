@@ -395,7 +395,10 @@ a { color: inherit; text-decoration: none; }
   padding: 20px; border-bottom: 1px solid var(--border);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
 }
-.drawer-body { padding: 20px; overflow-y: auto; flex: 1; }
+/* `contain` stops a scroll that reaches the end of the drawer from continuing
+   into the page behind it. Combined with the body lock in RosterClient, the
+   drawer is the only thing that moves while it is open. */
+.drawer-body { padding: 20px; overflow-y: auto; overscroll-behavior: contain; flex: 1; }
 .drawer-foot {
   padding: 14px 20px; border-top: 1px solid var(--border); background: #fbfcfe;
   display: flex; justify-content: space-between; gap: 10px;
@@ -5538,3 +5541,27 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    flex-basis, which resolves against the cross axis inside .modal-body's
    column layout and would set height instead. */
 .input-compact { max-width: 168px; }
+
+/* ---- Import: rows that cannot be imported yet --------------------------
+   Every blocker a coach must clear, named and explained in their language.
+   Deliberately calm rather than alarming — these are ordinary things to fix
+   in a spreadsheet, not errors. */
+.pi-attention {
+  border: 1px solid #f0d9a8; background: #fffaf0;
+  border-radius: var(--radius-control); padding: 14px 16px;
+}
+.pi-attention h4 {
+  margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #8a5a00;
+}
+.pi-attention-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.pi-attention-list li {
+  display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: baseline;
+  padding-top: 8px; border-top: 1px solid #f0e2c4;
+}
+.pi-attention-list li:first-child { border-top: none; padding-top: 0; }
+.pi-attention-who { font-size: 13.5px; font-weight: 600; color: var(--navy); }
+.pi-attention-why { font-size: 13px; color: var(--slate); line-height: 1.5; }
+
+@media (max-width: 620px) {
+  .pi-attention-list li { grid-template-columns: 1fr; gap: 2px; }
+}

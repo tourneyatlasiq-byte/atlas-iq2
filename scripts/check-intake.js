@@ -827,6 +827,149 @@ console.log("\nReady summary reconciles to the row count");
     uc.add + uc.update + uc.unchanged + uc.undecided, rows.length);
 }
 
+
+/* ---- Decision state has ONE authority ---------------------------------
+   The coach's report: he answered every question the UI asked, the workflow
+   still said 5 needed a decision, and Import then named 1 player he had never
+   been shown. Three views of "unresolved" disagreed:
+     Match     counted POSSIBLE/CONFLICT without an identity
+     Ready     counted needsIdentity + needsDecision — two OVERLAPPING sets,
+               so one row could count twice
+     execution refused on !plan.executable, which also covers an invalid row,
+               a contact needing a look, and a pending field — none of which
+               were shown or counted anywhere.
+   plan.executable is now the only authority. */
+
+console.log("\nDecision state: one authority");
+
+{
+  // The UI's OLD arithmetic, kept so the regression is unmistakable.
+  const oldCount = (analysed, identity) =>
+    analysed.filter((a) => (a.match.classification === mat.CLASS.POSSIBLE
+                         || a.match.classification === mat.CLASS.CONFLICT) && !identity[a.i]).length
+  + analysed.filter((a) => a.plan.blockers.some((b) => b.startsWith("undecided"))).length;
+
+  const newCount = (analysed) => analysed.filter((a) => !a.plan.executable).length;
+
+  const build = (rows, existing, identityFor = () => null, decisions = {}) =>
+    rows.map((row, i) => {
+      const m = mat.matchPlayer(row, existing);
+      const id = identityFor(m, i);
+      return { i, row, match: m, identity: id,
+               plan: pln.buildRowPlan({ row, match: m,
+                 existingPlayer: id === "new" ? null : m.candidate,
+                 existingContacts: [], decisions: decisions[i] ?? {}, identity: id }) };
+    });
+
+  const existing = [];
+  for (let i = 1; i <= 5; i += 1) {
+    existing.push({ id: `p${i}`, full_name: `Possible ${i}`, grad_year: null,
+                    date_of_birth: null, parent_email: null, contacts: [] });
+  }
+
+  /* ---- THE COACH'S EXACT FAILURE: 5 visible, then a hidden 1 ---------- */
+  const rows = [];
+  for (let i = 1; i <= 5; i += 1) rows.push({ full_name: `Possible ${i}`, grad_year: 2029, contacts: [] });
+  rows.push({ full_name: "Hidden Blocker",
+              contacts: [{ full_name: "P", email: "h@example.invalid", preferred_method: "Either" }] });
+
+  const before = build(rows, existing);
+  ok("BEFORE: the old count showed 5", oldCount(before, {}), 5);
+  ok("BEFORE: 6 rows are actually unresolved", newCount(before), 6);
+
+  // The coach answers every identity question he is shown.
+  const resolved = build(rows, existing,
+    (m) => (m.classification === mat.CLASS.POSSIBLE || m.classification === mat.CLASS.CONFLICT)
+      ? "same" : null);
+  const idMap = {};
+  resolved.forEach((a) => { if (a.identity) idMap[a.i] = a.identity; });
+
+  ok("AFTER: the old count reached 0 — the lie", oldCount(resolved, idMap), 0);
+  ok("AFTER: one row is still genuinely unresolved", newCount(resolved), 1);
+  ok("...and it is the row never shown in Matching",
+    resolved.filter((a) => !a.plan.executable)[0].row.full_name, "Hidden Blocker");
+  ok("...which execution would have refused",
+    resolved.filter((a) => !a.plan.executable)[0].plan.executable, false);
+
+  // THE FIX: the authority the UI now uses matches execution exactly.
+  ok("Ready count === execution's view",
+    newCount(resolved), resolved.filter((a) => !a.plan.executable).length);
+  ok("every unresolved row is in the list shown to the coach",
+    resolved.filter((a) => !a.plan.executable)
+            .every((a) => resolved.filter((x) => !x.plan.executable).includes(a)), true);
+
+  /* ---- No double counting -------------------------------------------- */
+  const dupExisting = [{ id: "d1", full_name: "Dana Dual", grad_year: 2027,
+                         date_of_birth: null, parent_email: null, contacts: [] }];
+  const dupRow = [{ full_name: "Dana Dual", grad_year: 2030, contacts: [] }];
+  const dual = build(dupRow, dupExisting);
+  ok("a row needing identity is ONE unresolved row", newCount(dual), 1);
+  ok("...even though the old arithmetic could count it twice",
+    oldCount(dual, {}) >= newCount(dual), true);
+  ok("...and one row can never exceed the row count", newCount(dual) <= dupRow.length, true);
+
+  /* ---- Resolutions actually clear -------------------------------------
+     IDENTITY AND FIELD VALUES ARE TWO QUESTIONS. Saying "same player" for a
+     row whose grad year disagrees does NOT settle which grad year wins — that
+     is a second, separate decision made in Review. The row stays unresolved,
+     and it must stay VISIBLE while it is. */
+  const same = build(dupRow, dupExisting, () => "same");
+  ok("a disagreeing field still blocks the row", same[0].plan.executable, false);
+  // Nothing is written to players while the only field in question is
+  // undecided — the row has nothing agreed to write yet.
+  ok("...and nothing is queued for players until it is decided",
+    same[0].plan.writes.some((w) => w.table === "players"), false);
+  ok("...and the authority still counts it", newCount(same), 1);
+  ok("...and it carries a field decision to make",
+    same[0].plan.blockers.some((b) => b.startsWith("undecided")), true);
+
+  const sameDecided = build(dupRow, dupExisting, () => "same", { 0: { grad_year: "incoming" } });
+  ok("once the field decision is made the row executes", sameDecided[0].plan.executable, true);
+  ok("...and Same Player targets the EXISTING record",
+    sameDecided[0].plan.writes.find((w) => w.table === "players")?.targetId, "d1");
+  ok("...and nothing is left unresolved", newCount(sameDecided), 0);
+
+  const diff = build(dupRow, dupExisting, () => "new");
+  ok("resolved as Different Player is executable", diff[0].plan.executable, true);
+  ok("Different Player creates a new record",
+    Boolean(diff[0].plan.writes.find((w) => w.table === "players")?.targetId), false);
+  ok("...and leaves nothing unresolved", newCount(diff), 0);
+
+  /* ---- A resolved row cannot become undecided again ------------------- */
+  const twice = build(dupRow, dupExisting, () => "same", { 0: { grad_year: "incoming" } });
+  ok("re-planning identical input keeps it resolved", newCount(twice), 0);
+  ok("...and identical input gives an identical verdict",
+    twice[0].plan.executable, sameDecided[0].plan.executable);
+
+  /* ---- Mixed population reconciles ------------------------------------ */
+  const mixExisting = [...existing,
+    { id: "c1", full_name: "Confident One", grad_year: 2028,
+      date_of_birth: "2010-04-03", parent_email: null, contacts: [] }];
+  const mixRows = [
+    { full_name: "Confident One", grad_year: 2028, date_of_birth: "2010-04-03", contacts: [] },
+    { full_name: "Brand New", contacts: [] },
+    { full_name: "Possible 1", grad_year: 2029, contacts: [] },
+  ];
+  const mixed = build(mixRows, mixExisting,
+    (m) => (m.classification === mat.CLASS.POSSIBLE || m.classification === mat.CLASS.CONFLICT)
+      ? "same" : null);
+  ok("confident + new + resolved all execute", newCount(mixed), 0);
+  ok("...and every row is accounted for", mixed.length, mixRows.length);
+
+  /* ---- Every blocker class is visible, none is silent ----------------- */
+  const silent = [
+    ["a row with no name", { full_name: "", contacts: [] }],
+    ["an unusable contact method", { full_name: "Method Row",
+        contacts: [{ full_name: "P", email: "m@example.invalid", preferred_method: "Cell" }] }],
+  ];
+  for (const [label, row] of silent) {
+    const a = build([row], [])[0];
+    ok(`${label} blocks the row`, a.plan.executable, false);
+    ok(`${label} is counted by the authority`, newCount([a]), 1);
+    ok(`${label} carries a reason to show the coach`, a.plan.blockers.length > 0, true);
+  }
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

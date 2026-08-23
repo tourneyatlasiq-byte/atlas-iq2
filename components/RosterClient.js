@@ -129,7 +129,10 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
-  const overlayOpen = Boolean(detail || editing || adding);
+  // `intaking` belongs here. Without it the Import drawer was the one overlay
+  // that did NOT lock the page behind it, so scrolling ran off the end of the
+  // drawer and moved the Team page instead — and Escape did not close it.
+  const overlayOpen = Boolean(detail || editing || adding || intaking);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -137,6 +140,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       if (e.key !== "Escape") return;
       if (editing) setEditing(null);
       else if (adding) setAdding(false);
+      else if (intaking) setIntaking(false);
       else closeDetail();
     }
     const prev = document.body.style.overflow;
@@ -146,7 +150,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       document.body.style.overflow = prev;
       document.removeEventListener("keydown", onKey);
     };
-  }, [overlayOpen, editing, adding]);
+  }, [overlayOpen, editing, adding, intaking]);
 
   // Needs Action answers "what needs doing now", so it only applies to the
   // current season. A past season has nothing outstanding; a planning season

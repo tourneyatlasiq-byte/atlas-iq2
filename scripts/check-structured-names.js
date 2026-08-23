@@ -464,6 +464,62 @@ section("Team page has exactly one import route");
   ok("...and a touch fallback", /@media \(hover: none\)[\s\S]{0,200}?\.roster-action/.test(css));
 }
 
+
+// ------------------------------------------------ intake decision surfacing
+section("Every blocker is visible before Ready");
+
+{
+  const ui  = read("components/PlayerIntake.js");
+  const rc  = read("components/RosterClient.js");
+  const css = read("app/globals.css");
+
+  ok("unresolved is derived from plan.executable",
+    /const unresolved = analysed\.filter\(\(a\) => !a\.plan\.executable\)/.test(ui));
+  ok("...and the import gate uses that same set",
+    /const blockedByData = unresolved\.length/.test(ui));
+  // Comments explaining the old arithmetic are documentation, not code.
+  const uiCode = ui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("the overlapping two-set sum is gone",
+    !/needsIdentity\.length \+ needsDecision\.length/.test(uiCode));
+  ok("needsDecision no longer exists as a rival count", !/const needsDecision =/.test(ui));
+
+  ok("Review receives the unresolved rows", /unresolved=\{unresolved\}/.test(ui));
+  ok("Review renders a Needs-attention list", /pi-attention-list/.test(ui));
+  ok("...gating Continue on the same set", /disabled=\{unresolved\.length > 0\}/.test(ui));
+  ok("...and naming the row", /pi-attention-who/.test(ui));
+
+  // Coach-facing language: test the STRINGS a coach actually reads, not the
+  // identifiers around them. plan.blockers is a variable name; "blocker" in a
+  // sentence would be the problem.
+  const plainFn = ui.slice(ui.indexOf("function plainBlocker"), ui.indexOf("function ReviewChanges"));
+  const copy = (plainFn.match(/"[^"]{6,}"|`[^`]{6,}`/g) ?? []).join(" ").toLowerCase();
+  for (const jargon of ["plan.executable", "blocker", "migration", "assertplansafe",
+                        "executable", "payload", "rpc", "constraint"]) {
+    ok(`the coach never reads "${jargon}"`, !copy.includes(jargon));
+  }
+  ok("...and the translator does produce copy", copy.length > 80);
+  ok("a blocker is translated to plain English", /function plainBlocker/.test(ui));
+  ok("...including the no-name case", /This row has no player name/.test(ui));
+
+  for (const c of ["pi-attention", "pi-attention-list", "pi-attention-who", "pi-attention-why"]) {
+    ok(`.${c} is defined in CSS`, new RegExp(`\\.${c}[ ,:{]`).test(css));
+  }
+
+  // Scroll owner + body lock.
+  ok("the intake panel holds a ref", /const rootRef = useRef\(null\)/.test(ui));
+  ok("...and resets on every step change", /\}, \[step\]\)/.test(ui));
+  ok("...by resolving the real scroll owner, not just window",
+    /getComputedStyle\(node\)/.test(ui) && /scrollTop = 0/.test(ui));
+  ok("...with window as a fallback only", /window\.scrollTo\?\.\(0, 0\)/.test(ui));
+
+  ok("intaking is part of the overlay lifecycle",
+    /overlayOpen = Boolean\(detail \|\| editing \|\| adding \|\| intaking\)/.test(rc));
+  ok("...so Escape closes the import drawer", /else if \(intaking\) setIntaking\(false\)/.test(rc));
+  ok("...and it is in the effect's dependencies", /\[overlayOpen, editing, adding, intaking\]/.test(rc));
+  ok("the drawer contains its own overscroll",
+    /\.drawer-body \{[^}]*overscroll-behavior: contain/.test(css));
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();
