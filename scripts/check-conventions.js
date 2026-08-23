@@ -432,6 +432,16 @@ for (const f of componentFiles()) {
       );
     }
 
+    // C3c: player_contacts is the sole contact write store. A payload key
+    // (`parent_email: ...`) is a WRITE; `p.parent_email` is a read, which C3a
+    // still needs for the fallback until the columns are formally retired.
+    if (/\bparent_(name|email|phone)\s*:/.test(s)) {
+      failures.push(
+        `lib/actions/${f}: writes players.parent_* — player_contacts is the sole ` +
+        `contact write store after C3c`
+      );
+    }
+
     if (/if \(!error\)\s*removedPlayer\s*=\s*true/.test(s)) {
       failures.push(
         `lib/actions/${f}: claims a deletion from the absence of an error — ` +

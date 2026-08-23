@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo, Fragment } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
@@ -8,6 +8,7 @@ import { addPickupToRoster } from "../lib/actions/participants";
 import { RosterImport } from "./RosterImport";
 import { PlayerIntake } from "./PlayerIntake";
 import { PlayerRecruiting } from "./PlayerRecruiting";
+import { PlayerContacts } from "./PlayerContacts";
 import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
@@ -753,34 +754,16 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
                 />
               )}
 
-              {/* Guardian details belong to a minor, never to staff.
-                  Rows are labelled by CHANNEL, not by person, so a contact
-                  whose name was never recorded simply has no name row — no
-                  placeholder, and never the relationship standing in for a
-                  name. Nothing here is synthesized. */}
-              {isPlayer && contactInfo.contacts.map((c, i) => (
-                <Fragment key={c.id ?? `legacy-${i}`}>
-                  {c.full_name && <Row label="Parent / guardian" value={c.full_name} />}
-                  {c.relationship && <Row label="Relationship" value={c.relationship} />}
-                  {c.email && (
-                    <Row
-                      label="Parent email"
-                      value={<a className="link" href={`mailto:${c.email}`}>{c.email}</a>}
-                    />
-                  )}
-                  {c.phone && (
-                    <Row
-                      label="Parent phone"
-                      value={
-                        <a className="link" href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>
-                          {c.phone}
-                        </a>
-                      }
-                    />
-                  )}
-                </Fragment>
-              ))}
             </Section>
+          )}
+
+          {isPlayer && (
+            <PlayerContacts
+              playerId={playerId ?? row.player_id ?? row.id}
+              contactInfo={contactInfo}
+              canWrite={canWrite}
+              pending={pending}
+            />
           )}
 
           {isPlayer && (
@@ -1070,10 +1053,6 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                   </div>
                 </div>
 
-                <div className="field">
-                  <label htmlFor="parent_email">Parent email</label>
-                  <input id="parent_email" name="parent_email" type="email" defaultValue={p.parent_email ?? ""} />
-                </div>
               </>
             )}
 
@@ -1171,16 +1150,45 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </>
             )}
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="parent_name">Parent / guardian name</label>
-                <input id="parent_name" name="parent_name" defaultValue={p.parent_name ?? ""} />
-              </div>
-              <div className="field">
-                <label htmlFor="parent_phone">Parent phone</label>
-                <input id="parent_phone" name="parent_phone" defaultValue={p.parent_phone ?? ""} />
-              </div>
-            </div>
+            {/* ADD ONLY. A brand-new player has no contacts, so one optional
+                block is unambiguous and saves a second trip. On an existing
+                player this would be dishonest — they may already have several
+                contacts, and three inputs cannot show or edit them without
+                risking the ones they cannot display. That is what the Parent
+                / guardian contacts section in the player drawer is for. */}
+            {isPlayer && isNew && (
+              <>
+                <div className="form-divider">Parent or guardian (optional)</div>
+                <p className="field-hint">
+                  You can add more contacts, and choose which one is primary, once this
+                  player is saved.
+                </p>
+
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="contact_full_name">Name</label>
+                    <input id="contact_full_name" name="contact_full_name" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="contact_relationship">Relationship</label>
+                    <input id="contact_relationship" name="contact_relationship"
+                           placeholder="e.g. Mother" />
+                  </div>
+                </div>
+
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="contact_email">Email</label>
+                    <input id="contact_email" name="contact_email" type="email" />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="contact_phone">Phone</label>
+                    <input id="contact_phone" name="contact_phone" />
+                  </div>
+                </div>
+              </>
+            )}
+
 
             <div className="field">
               <label htmlFor="notes">Notes</label>
