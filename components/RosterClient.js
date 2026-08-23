@@ -847,16 +847,20 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             is already on the header pill, so only the ACTION needed a home,
             and a ghost button keeps it available without competing. */}
         {canWrite && (
-          <div className="drawer-foot drawer-foot-stack">
-            {onToggleActive && (
-              <button className="btn btn-ghost btn-block" disabled={pending} onClick={onToggleActive}>
-                {row.is_active === false ? "Make active" : "Make inactive"}
-              </button>
-            )}
+          <div className="drawer-foot">
+            {/* Lifecycle actions group on the left; Edit details stays the
+                primary action on the right. Three weights, one row. */}
             <div className="drawer-foot-row">
-              <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
-                Remove from roster
-              </button>
+              <div className="drawer-foot-lifecycle">
+                {onToggleActive && (
+                  <button className="btn btn-ghost" disabled={pending} onClick={onToggleActive}>
+                    {row.is_active === false ? "Make active" : "Make inactive"}
+                  </button>
+                )}
+                <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
+                  Remove from roster
+                </button>
+              </div>
               <button className="btn btn-primary" onClick={onEdit} disabled={pending}>
                 Edit details
               </button>
@@ -1128,16 +1132,9 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                 parent contact, so showing them is noise they must read past. */}
             {isPlayer && (
               <>
-                <div className="field-row">
-                  <div className="field">
-                    <label htmlFor="date_of_birth">Date of birth</label>
-                    <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="jersey_number">Jersey number</label>
-                    <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
-                           defaultValue={row?.jersey_number ?? ""} />
-                  </div>
+                <div className="field">
+                  <label htmlFor="date_of_birth">Date of birth</label>
+                  <input id="date_of_birth" name="date_of_birth" type="date" defaultValue={p.date_of_birth ?? ""} />
                 </div>
 
               </>
@@ -1207,22 +1204,15 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
               </div>
             </div>
 
-            {isPlayer && (
-              <>
-                <div className="field-row">
-                  <div className="field">
-                    <label htmlFor="player_email">Player email</label>
-                    <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="player_phone">Player phone</label>
-                    <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
-                  </div>
-                </div>
-              </>
-            )}
-
             <div className="form-divider">Team &amp; Uniform</div>
+
+            {isPlayer && (
+              <div className="field field-narrow">
+                <label htmlFor="jersey_number">Jersey number</label>
+                <input id="jersey_number" name="jersey_number" type="number" min="0" max="99"
+                       defaultValue={row?.jersey_number ?? ""} />
+              </div>
+            )}
 
             <div className="field">
               <label>Positions</label>
@@ -1257,6 +1247,25 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                 </select>
               </div>
             </div>
+
+            {/* CONTACT — the player's OWN details only. Guardian contacts are
+                0-to-many with a primary, and they stay in the drawer's CONTACTS
+                section rather than being duplicated into this form. */}
+            {isPlayer && (
+              <>
+                <div className="form-divider">Contact</div>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="player_email">Player email</label>
+                    <input id="player_email" name="player_email" type="email" defaultValue={p.player_email ?? ""} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="player_phone">Player phone</label>
+                    <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* ADD ONLY. A brand-new player has no contacts, so one optional
                 block is unambiguous and saves a second trip. On an existing
@@ -1298,9 +1307,11 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
             )}
 
 
+            <div className="form-divider">Notes</div>
+
             <div className="field">
-              <label htmlFor="notes">Notes</label>
-              <textarea id="notes" name="notes" rows={3} defaultValue={p.notes ?? ""} />
+              <textarea id="notes" name="notes" rows={3} aria-label="Notes"
+                        defaultValue={p.notes ?? ""} />
             </div>
             </Disclose>
           </div>

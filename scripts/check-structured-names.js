@@ -330,14 +330,25 @@ section("Drawer information architecture");
   ok("Edit details remains the primary action", /btn-primary[^>]*onClick=\{onEdit\}/.test(foot));
   ok("Remove from roster remains secondary", /btn-secondary[^>]*onClick=\{onRemove\}/.test(foot));
   ok("Make inactive is a ghost action in the footer", /btn-ghost[^>]*onClick=\{onToggleActive\}/.test(foot));
+  ok("...on the same row as Remove from roster", /drawer-foot-lifecycle/.test(foot));
+  ok("...with Edit details still last (primary, right)",
+    foot.indexOf("onToggleActive") < foot.indexOf("onRemove")
+    && foot.indexOf("onRemove") < foot.indexOf("onEdit"));
   ok("...and the toggle capability is preserved", foot.includes("Make active"));
 
   // Compact empty states — collapsed, never removed.
   ok("Documents collapses when empty", /documents\.length === 0 && !uploading/.test(doc));
   ok("...and still offers Add", /compact-row[\s\S]{0,400}?setUploading\(true\)/.test(doc));
-  ok("Recruiting collapses when both are empty",
-    /links\.length === 0 && interests\.length === 0/.test(rec));
-  ok("...and still offers Add", /compact-row[\s\S]{0,400}?setOpen\(true\)/.test(rec));
+  // Recruiting stays VISIBLE as two compact rows even when empty. Collapsing
+  // the section saved a little space and cost discoverability — a coach could
+  // not see that recruiting information was something they could add.
+  ok("Recruiting shows a Social & recruiting links row",
+    /recruit-label">Social &amp; recruiting links</.test(rec));
+  ok("...and a College interests row", /recruit-label">College interests</.test(rec));
+  ok("...each reading None when empty", (rec.match(/recruit-value muted">None</g) ?? []).length === 2);
+  ok("...each offering Add", (rec.match(/recruit-add/g) ?? []).length >= 2);
+  ok("the section is never collapsed away", !/isEmpty/.test(rec));
+  ok("populated values need no expansion", !/setOpen/.test(rec));
   ok("Notes is still hidden when empty", drawer.includes("{p.notes && ("));
 
   for (const c of ["compact-row", "compact-label", "compact-value",
@@ -364,16 +375,32 @@ section("Edit Details mirrors the drawer");
   ok("Player comes before Team & Uniform",
     at('form-divider">Player<') < at('form-divider">Team &amp; Uniform<'));
   ok("the arbitrary Uniform divider is gone", at('form-divider">Uniform<') === -1);
-  ok("the arbitrary Contact divider is gone", at('form-divider">Contact<') === -1);
+  ok("a Contact group exists", at('form-divider">Contact<') > -1);
+  ok("a Notes group exists", at('form-divider">Notes<') > -1);
+  ok("Team & Uniform comes before Contact",
+    at('form-divider">Team &amp; Uniform<') < at('form-divider">Contact<'));
+  ok("Contact comes before Notes", at('form-divider">Contact<') < at('form-divider">Notes<'));
 
   const player = form.slice(at('form-divider">Player<'), at('form-divider">Team &amp; Uniform<'));
-  for (const f of ["grad_year", "high_school", "throws", "bats", "player_email", "player_phone"]) {
+  for (const f of ["grad_year", "high_school", "throws", "bats"]) {
     ok(`Player group contains ${f}`, player.includes(f));
   }
-  const team = form.slice(at('form-divider">Team &amp; Uniform<'));
-  for (const f of ["Positions", "jersey_size", "pants_size"]) {
+  ok("Player group does NOT contain jersey number (season data)",
+    !player.includes('name="jersey_number"'));
+  ok("Player group does NOT contain player email (contact data)",
+    !player.includes('name="player_email"'));
+
+  const team = form.slice(at('form-divider">Team &amp; Uniform<'), at('form-divider">Contact<'));
+  for (const f of ["jersey_number", "Positions", "jersey_size", "pants_size"]) {
     ok(`Team & Uniform group contains ${f}`, team.includes(f));
   }
+
+  const contact = form.slice(at('form-divider">Contact<'), at('form-divider">Notes<'));
+  for (const f of ["player_email", "player_phone"]) {
+    ok(`Contact group contains ${f}`, contact.includes(f));
+  }
+  ok("Contact group holds the player's OWN details only, not guardian CRUD",
+    !contact.includes("PlayerContacts") && !contact.includes("player_contacts"));
 
   ok("disclosure applies on ADD only", /<Disclose enabled=\{isNew\}/.test(form));
   ok("...so nothing is hidden behind a toggle when editing",

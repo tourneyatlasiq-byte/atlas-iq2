@@ -5505,3 +5505,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .pc-own > div { grid-template-columns: 1fr; gap: 0; }
   .compact-label { min-width: 0; }
 }
+
+/* Drawer footer: lifecycle actions grouped left, primary action right. */
+.drawer-foot-lifecycle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .drawer-foot-row { flex-wrap: wrap; gap: 8px; }
+  .drawer-foot-lifecycle { flex: 1 1 100%; }
+}
