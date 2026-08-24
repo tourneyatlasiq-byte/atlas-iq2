@@ -34,6 +34,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
 (async () => {
 const { composeFullName, hasStructuredName, nameIsConsistent } =
   await load("lib/intake/normalize.js");
+const { planningPlayerColumns } = await load("lib/intake/registry.js");
 
 /** Mirrors nameFields() in lib/actions/roster.js. */
 const text = (v) => { const s = (v ?? "").toString().trim(); return s === "" ? null : s; };
@@ -649,8 +650,14 @@ section("Both derivations are built from one shared candidate shape");
 
   ok("the server embeds player_contacts for matching",
     /player_contacts \( id, email \)/.test(act));
-  ok("...and selects the structured name columns",
-    /legal_first_name, preferred_first_name, last_name/.test(act));
+  // The column list is now DERIVED from the registry rather than written out,
+  // so assert the derivation covers the structured names instead of matching
+  // a literal that no longer exists.
+  ok("...and derives its columns from the registry",
+    /planningPlayerColumns\(\)/.test(act));
+  ok("...which includes the structured name columns",
+    ["legal_first_name", "preferred_first_name", "last_name"]
+      .every((c) => planningPlayerColumns().includes(c)));
   ok("the server builds candidates through toCandidate",
     /\(existing \?\? \[\]\)\.map\(toCandidate\)/.test(act));
   ok("...and matches against them", /matchPlayer\(row, candidates\)/.test(act));

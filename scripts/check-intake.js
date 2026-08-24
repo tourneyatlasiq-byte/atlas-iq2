@@ -1245,9 +1245,14 @@ console.log("\nCanonical candidate shape");
   ok("a resolved list is accepted",
     mat.toCandidate({ contacts: [{ id: "c", email: "a@b.invalid" }] }).contacts,
     [{ id: "c", email: "a@b.invalid" }]);
-  ok("contacts are reduced to what matching reads",
-    Object.keys(mat.toCandidate({ contacts: [{ id: "c", email: "e", phone: "p", secret: "s" }] }).contacts[0]),
-    ["id", "email"]);
+  // Contacts are NORMALISED, not reduced: id and email are guaranteed for
+  // matching, and everything else on the contact survives. Stripping was the
+  // defect — a projection that loses fields is what broke planning.
+  ok("contacts guarantee the fields matching reads",
+    ["id", "email"].every((k) => k in
+      mat.toCandidate({ contacts: [{ id: "c", email: "e", phone: "p" }] }).contacts[0]), true);
+  ok("...without discarding the rest of the contact",
+    mat.toCandidate({ contacts: [{ id: "c", email: "e", phone: "p" }] }).contacts[0].phone, "p");
 
   // Legacy column still required: it is a matching source for un-backfilled rows.
   ok("legacy parent_email is retained for matching",
@@ -1306,6 +1311,154 @@ console.log("\nStructured-name matching (the client used to omit these)");
   ok("...while the canonical shape finds it",
     mat.matchPlayer({ full_name: "Katie Kappa", contacts: [{ email: "kappa@example.invalid" }] },
       [structured]).classification, mat.CLASS.CONFIDENT);
+}
+
+
+/* ---- Matching evidence vs the planning record --------------------------
+   toCandidate() briefly returned only the nine matching fields, and
+   match.candidate is what buildRowPlan() diffs against as existingPlayer. The
+   seven planning columns it dropped therefore had no stored value to compare:
+   an incoming `bats` looked like a FILL against nothing rather than a CONFLICT
+   against a real value, so a coach's stored value would have been overwritten
+   with no decision shown. Separately, identity was read off the players write,
+   so a row with nothing to change carried no player_id and the RPC refused it.
+
+   Matching may use a normalised VIEW. Planning must keep the whole player. */
+
+console.log("\nCandidate normalisation preserves the whole record");
+
+{
+  const storedFull = {
+    id: "av1", organization_id: "org", full_name: "Avery Myers",
+    legal_first_name: "Avery", preferred_first_name: null, last_name: "Myers",
+    grad_year: 2028, date_of_birth: null, parent_email: null,
+    person_type: "player", other_role_label: null,
+    high_school: "Denmark High", bats: "L", throws: "R",
+    player_email: "avery@example.invalid", player_phone: "(678) 240-9004",
+    notes: "keep me", a_future_column: "must survive",
+    player_contacts: [{ id: "c1", email: "erechm@example.invalid" },
+                      { id: "c2", email: "bamabell@example.invalid" }],
+  };
+  const shaped = mat.toCandidate(storedFull);
+
+  for (const k of Object.keys(storedFull)) {
+    if (k === "player_contacts") continue;
+    ok(`toCandidate preserves ${k}`, shaped[k], storedFull[k]);
+  }
+  ok("...including a column the helper has never heard of",
+    shaped.a_future_column, "must survive");
+  ok("...and it is not a reduced projection",
+    Object.keys(shaped).length >= Object.keys(storedFull).length, true);
+  ok("contacts are normalised under the name matching reads",
+    shaped.contacts.map((c) => c.email),
+    ["erechm@example.invalid", "bamabell@example.invalid"]);
+
+  /* ---- Every planning field must CONFLICT, never silently FILL ---- */
+  const pool = [shaped];
+  const EMAIL = { email: "erechm@example.invalid" };
+  const planFor = (patch, decisions = {}) => {
+    const row = { full_name: "Avery Myers", contacts: [EMAIL], ...patch };
+    const m = mat.matchPlayer(row, pool);
+    return { m, plan: pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+      existingContacts: m.candidate?.contacts ?? [], decisions, identity: null }) };
+  };
+
+  for (const [field, incoming] of [
+    ["bats", "R"], ["throws", "L"], ["high_school", "Other High"],
+    ["player_email", "new@example.invalid"], ["player_phone", "(555) 000-1111"],
+    ["notes", "overwrite me"], ["grad_year", 2030],
+  ]) {
+    const { plan } = planFor({ [field]: incoming });
+    const r = plan.resolved.find((x) => x.key === field);
+    ok(`a differing ${field} is a CONFLICT, not a fill`, r?.status, "conflict");
+    ok(`...showing the stored value`, r?.existing, storedFull[field]);
+    ok(`...and the row waits for the coach`, plan.executable, false);
+  }
+
+  // A value that agrees is neither.
+  ok("a matching bats is SAME",
+    planFor({ bats: "L" }).plan.resolved.find((r) => r.key === "bats")?.status, "same");
+}
+
+console.log("\nIdentity is carried, not inferred from a write");
+
+{
+  const stored = mat.toCandidate({
+    id: "av1", full_name: "Avery Myers", legal_first_name: "Avery", last_name: "Myers",
+    grad_year: 2028, date_of_birth: null, parent_email: null,
+    bats: "L", throws: "R", high_school: "Denmark High", notes: null,
+    player_email: null, player_phone: null, person_type: "player",
+    player_contacts: [{ id: "c1", email: "erechm@example.invalid" }],
+  });
+  const EMAIL = { email: "erechm@example.invalid" };
+
+  // Mirrors compact()'s rule: identity comes from the resolved match.
+  const identityOf = (m, chosen) =>
+    (chosen === "new" || m.classification === mat.CLASS.NEW) ? null : (m.candidate?.id ?? null);
+
+  const cases = [
+    ["DOB already identical",        { date_of_birth: null }],
+    ["blank DOB does not erase",     { date_of_birth: "" }],
+    ["only contact work",            {}],
+  ];
+  for (const [label, patch] of cases) {
+    const row = { full_name: "Avery Myers", contacts: [EMAIL], ...patch };
+    const m = mat.matchPlayer(row, [stored]);
+    const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+      existingContacts: stored.contacts, decisions: {}, identity: null });
+
+    ok(`${label}: row is executable`, plan.executable, true);
+    ok(`${label}: no players write is invented`,
+      plan.writes.some((w) => w.table === "players"), false);
+    ok(`${label}: identity is still known`, identityOf(m, null), "av1");
+    // The old rule, kept as the thing that must never return.
+    ok(`${label}: inferring from the write would have sent null`,
+      plan.writes.find((w) => w.table === "players")?.targetId ?? null, null);
+  }
+
+  // A real fill still produces a write, and the same identity.
+  const row = { full_name: "Avery Myers", date_of_birth: "2010-06-14", contacts: [EMAIL] };
+  const m = mat.matchPlayer(row, [stored]);
+  const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+    existingContacts: stored.contacts, decisions: {}, identity: null });
+  ok("a genuine fill writes to players",
+    plan.writes.find((w) => w.table === "players")?.values?.date_of_birth, "2010-06-14");
+  ok("...onto the matched record", identityOf(m, null), "av1");
+  ok("...and the matching email updates rather than duplicates",
+    plan.writes.filter((w) => w.table === "player_contacts").map((w) => w.op), ["update"]);
+}
+
+console.log("\nThe server query cannot drift from the planner");
+
+{
+  const cols = reg.planningPlayerColumns();
+  const planningFields = reg.writableFields()
+    .filter((f) => f.level === "player" && f.destination?.startsWith("players."))
+    .map((f) => f.destination.slice("players.".length));
+
+  for (const f of planningFields) {
+    ok(`the candidate query includes ${f}`, cols.includes(f), true);
+  }
+  ok("...plus identity", cols.includes("id") && cols.includes("organization_id"), true);
+  ok("...plus the legacy matching column", cols.includes("parent_email"), true);
+  ok("...plus other_role_label, written beside person_type",
+    cols.includes("other_role_label"), true);
+
+  // The seven that were missing.
+  for (const f of ["bats", "throws", "high_school", "player_email",
+                   "player_phone", "notes", "person_type"]) {
+    ok(`${f} is no longer omitted`, cols.includes(f), true);
+  }
+
+  const src = require("fs").readFileSync("lib/actions/intake.js", "utf8");
+  ok("the server derives its select from the registry",
+    /planningPlayerColumns\(\)\.join\(", "\)/.test(src), true);
+  ok("...rather than a hand-written column list",
+    !/select\("id, full_name, legal_first_name/.test(src), true);
+  ok("identity is passed explicitly to compact()",
+    /playerId: candidate\?\.id \?\? null/.test(src), true);
+  ok("...and used instead of the write's targetId",
+    /out\.player_id = playerId \?\? null/.test(src), true);
 }
 
 console.log(`\n${ran} assertions, ${failures} failed`);
