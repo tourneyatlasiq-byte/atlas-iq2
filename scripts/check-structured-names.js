@@ -552,6 +552,37 @@ section("The drawer acts on a player id, never an assignment id");
   }
   ok("PlayerContacts receives it without a fallback",
     /playerId=\{playerId \?\? row\.player_id\}/.test(ui));
+
+  /* Which identifier each drawer action uses. Not everything was broken, and
+     asserting the correct ones stops a future "fix" from changing them.
+
+     A SEASON ASSIGNMENT id is right for anything scoped to this season; a
+     PLAYER id is right for anything about the person. */
+
+  // Correct all along — read from the embedded player object.
+  ok("Documents lock to the player, not the assignment",
+    /lockTo=\{\{ kind: "player", id: p\.id/.test(ui));
+  ok("Edit Details posts the player id from the player object",
+    /name="player_id" value=\{p\.id\}/.test(ui));
+
+  // Correct all along — genuinely season-scoped.
+  ok("Make active/inactive uses the assignment id",
+    /fd\.set\("assignment_id", row\.id\)[\s\S]{0,80}?is_active/.test(ui));
+  ok("Remove from roster uses the assignment id",
+    (ui.match(/fd\.set\("assignment_id", row\.id\)/g) ?? []).length >= 2);
+  ok("Edit Details also posts the assignment id for season fields",
+    /name="assignment_id" value=\{row\.id\}/.test(ui));
+
+  // The zero-contact path: resolveFor() looks up players.id, so an assignment
+  // id produced "That player no longer exists." on the FIRST Add contact.
+  const pc = read("lib/actions/player-contacts.js");
+  const resolveFn = pc.slice(pc.indexOf("async function resolveFor"), pc.indexOf("function readForm"));
+  ok("addPlayerContact resolves the player by players.id",
+    /\.from\("players"\)/.test(resolveFn) && /\.eq\("id", playerId\)/.test(resolveFn));
+  ok("...and says so plainly when it cannot find one",
+    /That player no longer exists\./.test(pc));
+  ok("a player's FIRST stored contact becomes primary",
+    /is_primary: stored\.length === 0/.test(pc));
 }
 
 // ------------------------------------------------------ date of birth
