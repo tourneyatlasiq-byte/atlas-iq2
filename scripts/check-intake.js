@@ -1113,6 +1113,201 @@ console.log("\nA stored DOB that disagrees is still a decision");
     existingContacts: brynn.contacts, decisions: {}, identity: null }).executable, true);
 }
 
+
+/* ---- The full DOB-only import, staged -----------------------------------
+   The coach's real scenario: identify by name + contact email, add DOB.
+   14 rows, of which 2 already hold a DIFFERENT date of birth. The count of
+   rows needing a decision must be the SAME at every stage — the failure being
+   guarded against is 0 in one place and a surprise at Import. */
+
+console.log("\nDOB-only import: every stage agrees");
+
+{
+  const people = [
+    // [name, contact email, stored DOB]
+    ["Allie Cox",         "ben.cox@example.invalid",    "2010-06-10"],
+    ["Anniston Antonia",  "akantonia@example.invalid",  null],
+    ["Aubrey Bohannon",   "classicbaths@example.invalid", null],
+    ["Avery Myers",       "erechm@example.invalid",     null],
+    ["Brynn Mower",       "cmower78@example.invalid",   "2010-05-24"],
+    ["Carlyann Wilkes",   "wilkesfam28@example.invalid", null],
+    ["Elin Wilkins",      "ashleyl@example.invalid",    null],
+    ["Emilee Brinson",    "candice@example.invalid",    null],
+    ["London Martin",     "3306537@example.invalid",    null],
+    ["Maddox Henderson",  "mbh14@example.invalid",      null],
+    ["Maggie Cariaco",    "rvol2002@example.invalid",   null],
+    ["Mallory Wilson",    "scottiepal@example.invalid", null],
+    ["Olivia Cantarutti", "jc@example.invalid",         null],
+    ["Willow Mooney",     "colem0623@example.invalid",  null],
+  ];
+
+  const stored = people.map(([full_name, email, dob], i) => ({
+    id: `pl${i}`, full_name,
+    legal_first_name: full_name.split(" ")[0],
+    preferred_first_name: null, last_name: full_name.split(" ")[1],
+    grad_year: 2028, date_of_birth: dob, parent_email: null,
+    player_contacts: [{ id: `ct${i}`, email }],
+  }));
+
+  const FILE_DOB = "2010-06-14";
+  const rows = people.map(([full_name, email]) => ({
+    full_name, date_of_birth: FILE_DOB,
+    contacts: [{ full_name: null, email, phone: null }],
+  }));
+
+  // Both derivations, from the same canonical shapes.
+  const clientPop = stored.map((p) => mat.toCandidate({ ...p, contacts: p.player_contacts }));
+  const serverPop = stored.map(mat.toCandidate);
+
+  const analyse = (pop, identity = {}, decisions = {}) => rows.map((row, i) => {
+    const m = mat.matchPlayer(row, pop);
+    const id = identity[i] ?? null;
+    return { i, row, match: m, plan: pln.buildRowPlan({
+      row, match: m, existingPlayer: id === "new" ? null : m.candidate,
+      existingContacts: m.candidate?.contacts ?? [],
+      decisions: decisions[i] ?? {}, identity: id }) };
+  });
+
+  const unresolved = (an) => an.filter((a) => !a.plan.executable);
+
+  /* ---- Stage 1: nothing decided yet ---- */
+  const c1 = analyse(clientPop), s1 = analyse(serverPop);
+  ok("client: exactly 2 of 14 need a decision", unresolved(c1).length, 2);
+  ok("server: exactly 2 of 14 need a decision", unresolved(s1).length, 2);
+  ok("...and they are the SAME two rows",
+    unresolved(c1).map((a) => a.row.full_name), unresolved(s1).map((a) => a.row.full_name));
+  ok("...they are the two with a stored DOB",
+    unresolved(c1).map((a) => a.row.full_name).sort(), ["Allie Cox", "Brynn Mower"]);
+  ok("the other 12 are immediately executable", c1.length - unresolved(c1).length, 12);
+
+  // Identical blockers, not merely identical counts.
+  for (const a of unresolved(c1)) {
+    const srv = s1.find((x) => x.i === a.i);
+    ok(`${a.row.full_name}: client and server give the same blockers`,
+      a.plan.blockers, srv.plan.blockers);
+    ok(`${a.row.full_name}: it is a DOB conflict`, a.match.classification, mat.CLASS.CONFLICT);
+    const conflicts = a.plan.resolved.filter((r) => r.status === "conflict");
+    ok(`${a.row.full_name}: the coach is shown stored vs spreadsheet`,
+      conflicts.map((r) => [r.key, r.existing, r.incoming]),
+      [["date_of_birth", stored.find((p) => p.full_name === a.row.full_name).date_of_birth, FILE_DOB]]);
+  }
+
+  /* ---- Stage 2: the coach resolves both ---- */
+  const identity = {}, decisions = {};
+  for (const a of unresolved(c1)) {
+    identity[a.i] = "same";
+    decisions[a.i] = { date_of_birth: "incoming" };
+  }
+  const c2 = analyse(clientPop, identity, decisions);
+  const s2 = analyse(serverPop, identity, decisions);
+
+  ok("client: 14 of 14 executable after the decisions",
+    c2.filter((a) => a.plan.executable).length, 14);
+  ok("server: 14 of 14 executable after the decisions",
+    s2.filter((a) => a.plan.executable).length, 14);
+  ok("nothing is left unresolved anywhere", unresolved(c2).length + unresolved(s2).length, 0);
+  ok("Import discovers no new decision",
+    s2.filter((a) => !a.plan.executable).map((a) => a.row.full_name), []);
+
+  /* ---- DOB is written where it belongs ---- */
+  for (const a of c2) {
+    const w = a.plan.writes.find((x) => x.table === "players");
+    ok(`${a.row.full_name}: DOB written`, w.values.date_of_birth, FILE_DOB);
+    ok(`${a.row.full_name}: onto the existing record`, Boolean(w.targetId), true);
+  }
+
+  /* ---- The matching email must never duplicate a contact ---- */
+  const ops = s2.flatMap((a) =>
+    a.plan.writes.filter((w) => w.table === "player_contacts").map((w) => w.op));
+  ok("every matching email UPDATES its existing contact", [...new Set(ops)], ["update"]);
+  ok("...and none inserts a duplicate", ops.filter((o) => o === "insert").length, 0);
+  ok("...one contact write per row", ops.length, 14);
+}
+
+console.log("\nCanonical candidate shape");
+
+{
+  ok("the contract names every matching field",
+    mat.MATCH_EVIDENCE,
+    ["id", "full_name", "legal_first_name", "preferred_first_name", "last_name",
+     "grad_year", "date_of_birth", "parent_email", "contacts"]);
+
+  const shaped = mat.toCandidate({ id: "x", full_name: "A B" });
+  ok("every contract field is present even when the source is sparse",
+    mat.MATCH_EVIDENCE.every((k) => k in shaped), true);
+  ok("...missing scalars become null", shaped.grad_year, null);
+  ok("...and contacts default to an empty list", shaped.contacts, []);
+
+  // The two spellings the two sources use.
+  ok("a PostgREST embed is accepted",
+    mat.toCandidate({ player_contacts: [{ id: "c", email: "a@b.invalid" }] }).contacts,
+    [{ id: "c", email: "a@b.invalid" }]);
+  ok("a resolved list is accepted",
+    mat.toCandidate({ contacts: [{ id: "c", email: "a@b.invalid" }] }).contacts,
+    [{ id: "c", email: "a@b.invalid" }]);
+  ok("contacts are reduced to what matching reads",
+    Object.keys(mat.toCandidate({ contacts: [{ id: "c", email: "e", phone: "p", secret: "s" }] }).contacts[0]),
+    ["id", "email"]);
+
+  // Legacy column still required: it is a matching source for un-backfilled rows.
+  ok("legacy parent_email is retained for matching",
+    mat.toCandidate({ parent_email: "old@example.invalid" }).parent_email, "old@example.invalid");
+  const legacyOnly = mat.toCandidate({ id: "L", full_name: "Legacy Kid", parent_email: "old@example.invalid" });
+  ok("...and still corroborates a match",
+    mat.matchPlayer({ full_name: "Legacy Kid", contacts: [{ email: "old@example.invalid" }] },
+      [legacyOnly]).classification, mat.CLASS.CONFIDENT);
+
+  // A partial candidate cannot be smuggled past matchPlayer.
+  const partial = { id: "p", full_name: "Partial Person", contacts: [{ email: "x@y.invalid" }] };
+  ok("matchPlayer shapes whatever it is given",
+    mat.matchPlayer({ full_name: "Partial Person", contacts: [{ email: "x@y.invalid" }] },
+      [partial]).classification, mat.CLASS.CONFIDENT);
+}
+
+console.log("\nStructured-name matching (the client used to omit these)");
+
+{
+  // full_name absent entirely: the record is identified by its parts.
+  const structured = mat.toCandidate({
+    id: "s1", full_name: "Katherine Kappa",
+    legal_first_name: "Katherine", preferred_first_name: "Katie", last_name: "Kappa",
+    grad_year: 2029, date_of_birth: null, parent_email: null,
+    player_contacts: [{ id: "sc1", email: "kappa@example.invalid" }],
+  });
+
+  for (const [label, name] of [
+    ["the stored full name", "Katherine Kappa"],
+    ["the preferred spelling", "Katie Kappa"],
+  ]) {
+    ok(`matches confidently on ${label}`,
+      mat.matchPlayer({ full_name: name, contacts: [{ email: "kappa@example.invalid" }] },
+        [structured]).classification, mat.CLASS.CONFIDENT);
+  }
+
+  // Reversed word order is a LOOSE match. Confident requires an exact name
+  // key, so "Kappa Katherine" is offered as a candidate and still asks the
+  // coach — corroborating email is not enough to skip the question when the
+  // name itself was only approximately recognised.
+  ok("reversed word order is a candidate, not a confident match",
+    mat.matchPlayer({ full_name: "Kappa Katherine", contacts: [{ email: "kappa@example.invalid" }] },
+      [structured]).classification, mat.CLASS.POSSIBLE);
+  ok("...and it does find the right person to ask about",
+    mat.matchPlayer({ full_name: "Kappa Katherine", contacts: [{ email: "kappa@example.invalid" }] },
+      [structured]).candidate?.id, "s1");
+
+  // Without the structured columns — the old client shape — the preferred
+  // spelling does not resolve. This is what the two sides disagreed about.
+  const stripped = { id: "s1", full_name: "Katherine Kappa", grad_year: 2029,
+                     date_of_birth: null, parent_email: null,
+                     contacts: [{ id: "sc1", email: "kappa@example.invalid" }] };
+  ok("a shape without structured names misses the preferred spelling",
+    mat.matchPlayer({ full_name: "Katie Kappa", contacts: [{ email: "kappa@example.invalid" }] },
+      [stripped]).classification !== mat.CLASS.CONFIDENT, true);
+  ok("...while the canonical shape finds it",
+    mat.matchPlayer({ full_name: "Katie Kappa", contacts: [{ email: "kappa@example.invalid" }] },
+      [structured]).classification, mat.CLASS.CONFIDENT);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

@@ -662,6 +662,33 @@ section("Both derivations are built from one shared candidate shape");
   ok("...and no longer hand-rolls a shape", !/parent_email: r\.player\?\.parent_email/.test(rc));
 }
 
+
+// ---------------------------------------------- every matchPlayer caller
+section("No caller can supply a partial candidate");
+
+{
+  const mt = read("lib/intake/match.js");
+  const files = ["components/PlayerIntake.js", "lib/actions/intake.js",
+                 "components/RosterClient.js"];
+
+  ok("matchPlayer shapes its candidates itself",
+    /export function matchPlayer[\s\S]{0,600}?existing = \(existing \?\? \[\]\)\.map\(toCandidate\)/.test(mt));
+
+  // The only two production callers.
+  const callers = files.filter((f) => /matchPlayer\(/.test(read(f)));
+  ok("there are exactly two production callers", callers.length, 2);
+  ok("...the browser preview and the server action",
+    callers.sort(), ["components/PlayerIntake.js", "lib/actions/intake.js"]);
+
+  // Both are fed candidates built by the shared function.
+  ok("the server builds them with toCandidate",
+    /\.map\(toCandidate\)/.test(read("lib/actions/intake.js")));
+  ok("the browser is handed candidates built with toCandidate",
+    /toCandidate\(\{ \.\.\.r\.player/.test(read("components/RosterClient.js")));
+  ok("no production file hand-rolls a candidate literal",
+    files.every((f) => !/parent_email: r\.player\?\.parent_email/.test(read(f))), true);
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();
