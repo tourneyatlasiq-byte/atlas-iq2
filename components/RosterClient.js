@@ -13,6 +13,7 @@ import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { resolvePlayerContact } from "../lib/player-contact-rules";
+import { toCandidate } from "../lib/intake/match";
 import { composeFullName, hasStructuredName } from "../lib/intake/normalize";
 import { DocumentSection } from "./DocumentSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -603,18 +604,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
             </div>
             <div className="drawer-body">
               <PlayerIntake
-                existingPlayers={(rows ?? []).map((r) => ({
-                  id: r.player?.id,
-                  full_name: r.player?.full_name,
-                  grad_year: r.player?.grad_year,
-                  date_of_birth: r.player?.date_of_birth,
-                  parent_email: r.player?.parent_email,
-                  // matchPlayer() corroborates on contact email and already
-                  // reads this key. Feeding it the resolved contacts gives the
-                  // preview the same evidence the server matcher uses, instead
-                  // of only the legacy column.
-                  contacts: resolvePlayerContact(r.player).contacts,
-                }))}
+                // toCandidate() is the SAME function the server action uses.
+                // Hand-building this shape is what let the two drift: the
+                // structured name columns were missing here, so the preview and
+                // the server compared different spellings of the same player.
+                existingPlayers={(rows ?? []).map((r) =>
+                  toCandidate({ ...r.player, contacts: resolvePlayerContact(r.player).contacts }))}
                 seasonName={seasonName}
                 onCancel={() => setIntaking(false)}
               />

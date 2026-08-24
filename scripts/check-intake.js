@@ -978,6 +978,141 @@ console.log("\nDecision state: one authority");
   }
 }
 
+
+/* ---- Client and server must match on the SAME evidence -----------------
+   A real coach import to add DOB was refused at Import: "Avery still needs a
+   decision", for a row that had shown no issue. The browser and the server
+   each build their own plan — correctly, the server must re-derive — but they
+   were given different candidate data. The browser's candidates carried
+   resolved player_contacts; the server's select had no contacts at all and was
+   also missing the structured name columns nameKeys() reads. Contact-email
+   agreement is what promotes `possible` to `confident`, so every player whose
+   only corroboration lived in player_contacts flipped classification between
+   the two. */
+
+console.log("\nClient/server matching evidence");
+
+{
+  // Avery Myers, as production actually holds her: no DOB, no parent_email,
+  // corroborating address only in player_contacts.
+  const avery = {
+    id: "44dad248", full_name: "Avery Myers",
+    legal_first_name: "Avery", preferred_first_name: null, last_name: "Myers",
+    grad_year: 2028, date_of_birth: null, parent_email: null,
+    player_contacts: [{ id: "c1", email: "erechm@gmail.com" },
+                      { id: "c2", email: "bamabell71@yahoo.com" }],
+  };
+  // The DOB-only file: name + contact email to identify, DOB as the new value.
+  const row = { full_name: "Avery Myers", date_of_birth: "2010-06-14",
+                contacts: [{ full_name: null, email: "erechm@gmail.com", phone: null }] };
+
+  // What the server used to send matchPlayer: the raw select, no contacts.
+  const { player_contacts, ...withoutContacts } = avery;
+
+  const before = mat.matchPlayer(row, [withoutContacts]);
+  ok("BEFORE: the server could only see a name", before.classification, mat.CLASS.POSSIBLE);
+
+  // Both sides now build candidates the same way.
+  const clientCandidate = mat.toCandidate({ ...avery, contacts: avery.player_contacts });
+  const serverCandidate = mat.toCandidate(avery);       // PostgREST embed shape
+
+  ok("the two candidate shapes are identical",
+    JSON.stringify(clientCandidate), JSON.stringify(serverCandidate));
+  ok("...including every field matching reads",
+    mat.MATCH_EVIDENCE.every((k) => k in clientCandidate && k in serverCandidate), true);
+  ok("...and contacts arrive under the name matchPlayer reads",
+    Array.isArray(serverCandidate.contacts) && serverCandidate.contacts[0].email,
+    "erechm@gmail.com");
+
+  const client = mat.matchPlayer(row, [clientCandidate]);
+  const server = mat.matchPlayer(row, [serverCandidate]);
+  ok("AFTER: the client classifies confident", client.classification, mat.CLASS.CONFIDENT);
+  ok("AFTER: the server agrees", server.classification, mat.CLASS.CONFIDENT);
+  ok("...for the same reason", client.reasons, server.reasons);
+
+  const plan = pln.buildRowPlan({ row, match: server, existingPlayer: server.candidate,
+    existingContacts: serverCandidate.contacts, decisions: {}, identity: null });
+  ok("no identity decision is required",
+    plan.blockers.some((b) => b.startsWith("needs")), false);
+  ok("the row is executable", plan.executable, true);
+
+  const pw = plan.writes.find((w) => w.table === "players");
+  ok("DOB is a FILL on the existing player", pw.values.date_of_birth, "2010-06-14");
+  ok("...targeting the stored record", pw.targetId, "44dad248");
+
+  // The matching email must not become a second copy of a contact she has.
+  const cw = plan.writes.filter((w) => w.table === "player_contacts");
+  ok("the matching email updates the existing contact, it does not duplicate",
+    cw.map((w) => w.op), ["update"]);
+  ok("...against the contact that already holds it", cw[0].targetId, "c1");
+}
+
+console.log("\nEvidence drift is prevented across many players");
+
+{
+  // Several real Armor Elite players: corroboration only in player_contacts.
+  const people = [
+    ["Anniston Antonia", "akantonia2005@gmail.com"],
+    ["Carlyann Wilkes",  "wilkesfam28@gmail.com"],
+    ["Elin Wilkins",     "ashleyl@skytelcontractors.com"],
+    ["London Martin",    "3306537@gmail.com"],
+    ["Willow Mooney",    "colem0623@gmail.com"],
+  ].map(([full_name, email], i) => ({
+    id: `p${i}`, full_name, legal_first_name: full_name.split(" ")[0],
+    preferred_first_name: null, last_name: full_name.split(" ")[1],
+    grad_year: 2028, date_of_birth: null, parent_email: null,
+    player_contacts: [{ id: `c${i}`, email }],
+  }));
+
+  const candidates = people.map(mat.toCandidate);
+  const stripped = people.map(({ player_contacts, ...rest }) => rest);
+
+  let beforeBlocked = 0, afterOk = 0;
+  for (const p of people) {
+    const row = { full_name: p.full_name, date_of_birth: "2010-06-14",
+                  contacts: [{ email: p.player_contacts[0].email }] };
+    if (mat.matchPlayer(row, stripped).classification !== mat.CLASS.CONFIDENT) beforeBlocked += 1;
+
+    const m = mat.matchPlayer(row, candidates);
+    const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+      existingContacts: m.candidate?.contacts ?? [], decisions: {}, identity: null });
+    if (m.classification === mat.CLASS.CONFIDENT && plan.executable) afterOk += 1;
+  }
+  ok("every one of them used to fail server re-derivation", beforeBlocked, people.length);
+  ok("every one of them now classifies confident and executes", afterOk, people.length);
+}
+
+console.log("\nA stored DOB that disagrees is still a decision");
+
+{
+  // Corroboration present, but the file's DOB differs from the stored one.
+  const brynn = mat.toCandidate({
+    id: "b1", full_name: "Brynn Mower", legal_first_name: "Brynn", last_name: "Mower",
+    grad_year: 2028, date_of_birth: "2010-05-24", parent_email: "cmower78@gmail.com",
+    player_contacts: [{ id: "bc1", email: "cmower78@gmail.com" }],
+  });
+  const row = { full_name: "Brynn Mower", date_of_birth: "2011-01-01",
+                contacts: [{ email: "cmower78@gmail.com" }] };
+  const m = mat.matchPlayer(row, [brynn]);
+  ok("a differing stored DOB is a conflict, not a silent overwrite",
+    m.classification, mat.CLASS.CONFLICT);
+
+  const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+    existingContacts: brynn.contacts, decisions: {}, identity: null });
+  ok("...and the row waits for the coach", plan.executable, false);
+  ok("...and it is a decision the UI shows, in both derivations",
+    mat.matchPlayer(row, [brynn]).classification,
+    mat.matchPlayer(row, [mat.toCandidate({ ...brynn, player_contacts: brynn.contacts })]).classification);
+
+  // Same DOB: nothing to decide.
+  const same = { full_name: "Brynn Mower", date_of_birth: "2010-05-24",
+                 contacts: [{ email: "cmower78@gmail.com" }] };
+  const m2 = mat.matchPlayer(same, [brynn]);
+  ok("a matching DOB needs no decision", m2.classification, mat.CLASS.CONFIDENT);
+  ok("...and executes", pln.buildRowPlan({ row: same, match: m2, existingPlayer: m2.candidate,
+    existingContacts: brynn.contacts, decisions: {}, identity: null }).executable, true);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

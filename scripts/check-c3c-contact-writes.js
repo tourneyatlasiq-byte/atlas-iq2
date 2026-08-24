@@ -61,9 +61,16 @@ section("Zero live write paths to players.parent_*");
   ok("the staff guardian-field defect is gone",
     !/Parent \/ guardian name/.test(client));
 
-  // The one legitimate remaining reference: intake match corroboration.
-  ok("parent_email survives only as a READ for intake matching",
-    /parent_email: r\.player\?\.parent_email/.test(client));
+  // The one legitimate use of parent_email is intake match corroboration, and
+  // it now lives in toCandidate() — the shared shape the server also builds,
+  // so the browser and the server match on identical evidence. What matters
+  // here is unchanged: this component never WRITES a legacy contact column.
+  ok("the roster component writes no legacy contact column",
+    !/parent_(name|email|phone)\s*[:=]/.test(client));
+  ok("matching candidates are built by the shared helper",
+    /toCandidate\(/.test(client));
+  ok("...and parent_email is still read for corroboration, inside it",
+    /parent_email: player\.parent_email/.test(read("lib/intake/match.js")));
 }
 
 // ------------------------------------------------------------- atomic add

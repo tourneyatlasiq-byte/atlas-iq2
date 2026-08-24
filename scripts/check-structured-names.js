@@ -634,6 +634,34 @@ section("Map Players fits the drawer");
     /@media \(max-width: 720px\)[\s\S]{0,400}?\.pi-table \{ display: block; overflow-x: auto/.test(css));
 }
 
+
+// -------------------------------- client/server matching evidence parity
+section("Both derivations are built from one shared candidate shape");
+
+{
+  const act = read("lib/actions/intake.js");
+  const rc  = read("components/RosterClient.js");
+  const mt  = read("lib/intake/match.js");
+
+  ok("a canonical candidate shape exists", /export function toCandidate/.test(mt));
+  ok("...and the evidence is named once", /export const MATCH_EVIDENCE/.test(mt));
+  ok("...covering contacts", /"contacts"/.test(mt));
+
+  ok("the server embeds player_contacts for matching",
+    /player_contacts \( id, email \)/.test(act));
+  ok("...and selects the structured name columns",
+    /legal_first_name, preferred_first_name, last_name/.test(act));
+  ok("the server builds candidates through toCandidate",
+    /\(existing \?\? \[\]\)\.map\(toCandidate\)/.test(act));
+  ok("...and matches against them", /matchPlayer\(row, candidates\)/.test(act));
+  ok("the server still RE-DERIVES rather than trusting the client",
+    /RE-DERIVED\. The client's classification is not consulted\./.test(act));
+
+  ok("the browser builds candidates through the same function",
+    /existingPlayers=\{\(rows \?\? \[\]\)\.map\(\(r\) =>\s*\n?\s*toCandidate\(/.test(rc));
+  ok("...and no longer hand-rolls a shape", !/parent_email: r\.player\?\.parent_email/.test(rc));
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();
