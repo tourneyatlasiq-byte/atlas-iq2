@@ -5595,3 +5595,72 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 620px) {
   .pi-attention-list li { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* ---- Team page: header, needs-action, empty state, DOB column ----------- */
+
+/* A quiet divider inside CONTACTS. Deliberately a label, not a card: the
+   drawer's density was hard won and two headings do not need boxes. */
+.pc-sublabel {
+  margin: 12px 0 5px; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--slate);
+}
+.pc-sublabel:first-of-type { margin-top: 0; }
+
+/* Needs action, collapsed to one line. */
+.roster-needs { margin: 0 0 14px; }
+.roster-needs-summary {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 9px 12px; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); font-family: inherit; font-size: 13px;
+  color: var(--navy);
+}
+.roster-needs-summary:hover { background: var(--surface-sunken); }
+.roster-needs-label { font-weight: 700; flex-shrink: 0; }
+.roster-needs-lead {
+  flex: 1; min-width: 0; color: var(--slate);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.roster-needs-more { font-size: 12px; color: var(--slate); flex-shrink: 0; }
+.roster-needs-chevron {
+  font-size: 15px; color: var(--slate); flex-shrink: 0; width: 14px; text-align: center;
+}
+.roster-needs-list { margin-top: 6px; display: grid; gap: 4px; }
+
+/* Zero roster: two deliberate choices, import first. */
+.empty-choices {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  max-width: 620px; margin: 16px auto 0; text-align: left;
+}
+.empty-choice {
+  display: flex; flex-direction: column; gap: 4px; padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); cursor: pointer; font-family: inherit;
+}
+.empty-choice:hover { border-color: var(--blue); background: var(--surface-sunken); }
+.empty-choice-title { font-size: 14.5px; font-weight: 700; color: var(--navy); }
+.empty-choice-note { font-size: 12.5px; color: var(--slate); line-height: 1.5; }
+
+/* Six columns. Player gives up width to DOB; grad year needs only four
+   digits. 05/02/2011 is ten characters and sits comfortably at 14%. */
+.roster-table th.col-player,
+.roster-table td.col-player { width: 30%; padding-left: 8px; }
+.roster-table th.col-dob,
+.roster-table td.col-dob { width: 14%; white-space: nowrap; }
+.roster-table th.col-grad,
+.roster-table td.col-grad { width: 11%; }
+
+@media (max-width: 900px) {
+  /* Between tablet and desktop the six columns are tight but all readable;
+     DOB is the first to lose its breathing room, not its content. */
+  .roster-table th.col-dob, .roster-table td.col-dob { width: 15%; font-size: 13px; }
+  .roster-table th.col-uniform, .roster-table td.col-uniform { width: 17%; }
+}
+
+@media (max-width: 720px) {
+  /* DOB joins the other columns in the drawer rather than crowding the
+     two-line phone layout. */
+  .roster-table .col-dob { display: none; }
+  .empty-choices { grid-template-columns: 1fr; }
+  .roster-needs-lead { white-space: normal; }
+}

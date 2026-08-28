@@ -353,7 +353,7 @@ section("Drawer information architecture");
   ok("...each offering Add", (rec.match(/recruit-add/g) ?? []).length >= 2);
   ok("the section is never collapsed away", !/isEmpty/.test(rec));
   ok("populated values need no expansion", !/setOpen/.test(rec));
-  ok("Notes is still hidden when empty", drawer.includes("{p.notes && ("));
+  ok("Notes is still hidden when empty", /\{p\.notes && <Row label="Notes"/.test(drawer));
 
   for (const c of ["compact-row", "compact-label", "compact-value",
                    "detail-section-compact", "pc-own", "btn-sm"]) {
@@ -438,26 +438,28 @@ section("Team page has exactly one import route");
 
   // The single customer-facing route, renamed.
   ok('the action reads "Import from spreadsheet"', />\s*Import from spreadsheet\s*</.test(ui));
-  ok('the old "Import players" label is gone from the Team UI',
-    !/>\s*Import players\s*</.test(ui));
+  ok('the drawer title still names the file source',
+    /<h2>Import from spreadsheet<\/h2>/.test(ui));
   ok("it opens the intake workflow", /setIntaking\(true\)/.test(ui));
   ok("exactly two entry points call setIntaking(true)",
     (ui.match(/setIntaking\(true\)/g) ?? []).length === 2);
 
   // Empty state — a new coach's first screen.
   const empty = ui.slice(ui.indexOf('className="empty-actions"'), ui.indexOf('className="empty-actions"') + 700);
-  ok("the empty state offers Add player or coach as PRIMARY",
-    /btn-primary[\s\S]{0,120}?Add player or coach/.test(empty));
-  ok("...and Import from spreadsheet as secondary",
-    /btn-secondary[\s\S]{0,140}?Import from spreadsheet/.test(empty));
+  // The zero-roster state now leads with a deliberate choice, import first,
+  // because that is the moment import saves the most work.
+  ok("the empty state offers two named choices",
+    /empty-choice-title">Import roster</.test(ui)
+    && /empty-choice-title">Add manually</.test(ui));
+  ok("...with import first", ui.indexOf("Import roster") < ui.indexOf("Add manually"));
   ok("...and no longer offers Upload roster", !/Upload roster/.test(empty));
 
   // Header hierarchy: Add stays primary, import secondary.
   const head = ui.slice(ui.indexOf('className="foot-actions"'), ui.indexOf('<PageHelp />'));
   ok("Add player or coach is the primary header action",
     /btn-primary[\s\S]{0,120}?Add player or coach/.test(head));
-  ok("Import from spreadsheet is a ghost/secondary action",
-    /btn-ghost[\s\S]{0,160}?Import from spreadsheet/.test(head));
+  ok("Import players is a secondary action",
+    /btn-secondary[\s\S]{0,160}?Import players/.test(head));
 
   // Needs Action affordance.
   ok("Needs Action rows are real buttons", /className=\{`roster-action/.test(ui));
@@ -764,6 +766,92 @@ section("Export is coach-only and season-scoped");
   ok("the export is season-scoped by its input",
     /rows=\{rows\}/.test(ui));
   ok("the filename carries no personal data", /exportFilename\(teamName, seasonName\)/.test(comp));
+}
+
+
+// -------------------------------------------------- team page information architecture
+section("Team page hierarchy");
+
+{
+  const ui  = read("components/RosterClient.js");
+  const pc  = read("components/PlayerContacts.js");
+  const css = read("app/globals.css");
+
+  // Header
+  ok("the subtitle carries team, season and counts",
+    /\{\[teamName, seasonName\]\.filter\(Boolean\)/.test(ui));
+  ok("...replacing the generic module description",
+    !/MODULE_DESCRIPTIONS\.team/.test(ui));
+  ok("...and the separate count row is gone", !/className="page-context"/.test(ui));
+  ok("Import is renamed", />\s*Import players\s*</.test(ui));
+  ok("...and promoted to secondary",
+    /btn-secondary[\s\S]{0,120}?Import players/.test(ui));
+  ok("Add player or coach stays primary",
+    /btn-primary[\s\S]{0,120}?Add player or coach/.test(ui));
+  ok("Export stays visible and tertiary", /<PlayerExport/.test(ui));
+  ok("Help keeps the shared convention, outside the action group",
+    /<\/div>\s*\)\}\s*<PageHelp \/>/.test(ui));
+
+  // Needs action
+  ok("Needs action is hidden when clear", /\{actions\.length > 0 && \(/.test(ui));
+  ok("...and collapsed to a summary line", /roster-needs-summary/.test(ui));
+  ok("...that expands", /aria-expanded=\{actionsOpen\}/.test(ui));
+  ok("...revealing the SAME filterable actions", /roster-action\$\{actionId === a\.id/.test(ui));
+  ok("the old always-on panel is gone", !/roster-actions-label/.test(ui));
+  ok("no new readiness rules were added",
+    read("lib/readiness/team.js").match(/^function \w+Check/gm)?.length,
+    read("lib/readiness/team.js").match(/^function \w+Check/gm)?.length);
+
+  // Roster columns
+  ok("the roster has a DOB column", /<th className="col-dob">DOB<\/th>/.test(ui));
+  ok("...rendering MM/DD/YYYY via the shared formatter",
+    /col-dob[\s\S]{0,200}?fmtDate\(p\.date_of_birth\)/.test(ui));
+  ok("...with a quiet dash when missing",
+    /col-dob[\s\S]{0,160}?!p\.date_of_birth[\s\S]{0,80}?muted/.test(ui));
+  ok("column order is # PLAYER DOB GRAD POSITIONS UNIFORM",
+    (ui.match(/<th className="col-(num|player|dob|grad|positions|uniform)"/g) ?? []).slice(0, 6)
+      .map((m) => m.match(/col-(\w+)/)[1]),
+    ["num", "player", "dob", "grad", "positions", "uniform"]);
+  ok("DOB is hidden on phones", /@media \(max-width: 720px\)[\s\S]{0,700}?\.col-dob \{ display: none/.test(css));
+  ok("...and is NOT added to the mobile sub-line",
+    !/player-sub[\s\S]{0,300}?date_of_birth/.test(ui));
+  ok("an intermediate width is handled", /@media \(max-width: 900px\)/.test(css));
+
+  // Zero roster
+  ok("the empty state leads with Build your roster", /<h3>Build your roster<\/h3>/.test(ui));
+  ok("...offering Import first",
+    ui.indexOf("Import roster") < ui.indexOf("Add manually"));
+  ok("...each with a line of guidance",
+    /Best when you already have your team in a spreadsheet/.test(ui)
+    && /Add players or coaches one at a time/.test(ui));
+  ok("the copy that steered away from import is gone",
+    !/A name is enough to start/.test(ui));
+  ok("SetupNext remains the cross-module system",
+    /SetupNext/.test(read("app/(app)/team/page.js")));
+
+  // Drawer
+  const d = ui.slice(ui.indexOf("export function PlayerDetail"), ui.indexOf("function AddPersonFlow"));
+  ok("Notes moved into PLAYER", /\{p\.notes && <Row label="Notes"/.test(d));
+  ok("...and no longer has its own section", !/<Section title="Notes">/.test(d));
+  ok("grad year is deliberately in both header and PLAYER",
+    /Class of/.test(d) && /label="Grad year"/.test(d));
+
+  // Contacts
+  ok("a PLAYER sub-label appears only with player details",
+    /\{\(player\.player_email \|\| player\.player_phone\) && \(\s*<p className="pc-sublabel"/.test(pc));
+  ok("a PARENTS & GUARDIANS sub-label appears only with guardians",
+    /\{isPlayer && \(contacts\.length > 0 \|\| editing === "new"\) && \(/.test(pc));
+  ok("contactHeading is unchanged", /if \(c\.full_name\) return c\.full_name;/.test(pc));
+  ok("...including its fallback", /return "Parent or guardian";/.test(pc));
+  ok("no extra container was introduced around the player's own details",
+    !/pc-own-card|contact-group-card/.test(pc));
+  ok(".pc-sublabel is a label, not a card",
+    /\.pc-sublabel \{[^}]*text-transform: uppercase/.test(css));
+
+  for (const c of ["roster-needs", "roster-needs-summary", "roster-needs-lead",
+                   "empty-choices", "empty-choice", "pc-sublabel"]) {
+    ok(`.${c} is defined in CSS`, new RegExp(`\\.${c}[ ,:{]`).test(css));
+  }
 }
 
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);

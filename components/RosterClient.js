@@ -146,6 +146,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
   const [actionId, setActionId] = useState(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -248,7 +249,30 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       <div className="page-head">
         <div>
           <h1>Team</h1>
-          <div className="page-sub">{MODULE_DESCRIPTIONS.team}</div>
+          {/* The team's own facts, not a description of the module. A coach
+              knows what a roster is; what they cannot see at a glance is which
+              team and season they are looking at and how many people are on
+              it. This replaces the separate count row rather than repeating
+              it — the same numbers twice is noise. */}
+          <div className="page-sub">
+            {[teamName, seasonName].filter(Boolean).map((v, i) => (
+              <span key={v}>{i > 0 && <span className="tiq-dot" aria-hidden="true">·</span>}{v}</span>
+            ))}
+            <span className="tiq-dot" aria-hidden="true">·</span>
+            <strong>{summary.playerCount}</strong> active {summary.playerCount === 1 ? "player" : "players"}
+            {summary.staffCount > 0 && (
+              <>
+                <span className="tiq-dot" aria-hidden="true">·</span>
+                <strong>{summary.staffCount}</strong> {summary.staffCount === 1 ? "coach" : "coaches"}
+              </>
+            )}
+            {summary.inactiveCount > 0 && (
+              <>
+                <span className="tiq-dot" aria-hidden="true">·</span>
+                <strong>{summary.inactiveCount}</strong> inactive
+              </>
+            )}
+          </div>
         </div>
         {canWrite && (
           <div className="foot-actions">
@@ -265,8 +289,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                 school, staff, multiple guardians and social links. Its
                 implementation is retained and recoverable — only the way in
                 is gone. */}
-            <button className="btn btn-ghost" onClick={() => setIntaking(true)}>
-              Import from spreadsheet
+            {/* Three weights, left to right: Export is occasional, Import is
+                how a coach with a spreadsheet builds a roster, Add is the
+                everyday action. Import was a ghost button and read as a text
+                link beside Help, which is why it went unnoticed. */}
+            <button className="btn btn-secondary" onClick={() => setIntaking(true)}>
+              Import players
             </button>
             <button className="btn btn-primary" onClick={() => setAdding(true)}>
               Add player or coach
@@ -276,47 +304,58 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         <PageHelp />
       </div>
 
-      {/* Context, not headlines. This is a workspace — the roster is the point. */}
-      <p className="page-context">
-        <strong>{summary.playerCount}</strong> active {summary.playerCount === 1 ? "player" : "players"}
-        {summary.staffCount > 0 && (
-          <>
-            <span className="tiq-dot" aria-hidden="true">·</span>
-            <strong>{summary.staffCount}</strong> {summary.staffCount === 1 ? "coach" : "coaches"}
-          </>
-        )}
-        {summary.inactiveCount > 0 && (
-          <>
-            <span className="tiq-dot" aria-hidden="true">·</span>
-            <strong>{summary.inactiveCount}</strong> inactive
-          </>
-        )}
-      </p>
+      {/* ONE LINE UNTIL ASKED.
+          This was a labelled panel with up to three full-width buttons —
+          roughly 140px above the roster, permanently, and it said "Nothing
+          needs attention" at full size when there was nothing to say. The
+          roster is the point of this page. The actions themselves are
+          unchanged: same checks, same priorities, same filtering. */}
+      {actions.length > 0 && (
+        <div className={`roster-needs${actionsOpen ? " is-open" : ""}`}>
+          <button
+            type="button"
+            className="roster-needs-summary"
+            onClick={() => setActionsOpen((v) => !v)}
+            aria-expanded={actionsOpen}
+          >
+            <span
+              className={`briefing-dot ${
+                actions[0].priority <= 15 ? "dot-urgent"
+                  : actions[0].priority <= 30 ? "dot-attention" : "dot-planning"
+              }`}
+              aria-hidden="true"
+            />
+            <span className="roster-needs-label">Needs action</span>
+            <span className="roster-needs-lead">{rosterActionText(actions[0])}</span>
+            {actions.length > 1 && (
+              <span className="roster-needs-more">+{actions.length - 1} more</span>
+            )}
+            <span className="roster-needs-chevron" aria-hidden="true">
+              {actionsOpen ? "\u2212" : "+"}
+            </span>
+          </button>
 
-      {/* Grows and shrinks with its content rather than reserving a card. */}
-      <div className="roster-actions">
-        <p className="roster-actions-label">Needs action</p>
-
-        {actions.length === 0 ? (
-          <p className="roster-clear">Nothing needs attention</p>
-        ) : (
-          actions.slice(0, 3).map((a) => (
-            <button
-              key={a.id}
-              className={`roster-action${actionId === a.id ? " on" : ""}`}
-              onClick={() => setActionId(actionId === a.id ? null : a.id)}
-            >
-              <span
-                className={`briefing-dot ${
-                  a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
-                }`}
-                aria-hidden="true"
-              />
-              <span className="roster-action-text">{rosterActionText(a)}</span>
-            </button>
-          ))
-        )}
-      </div>
+          {actionsOpen && (
+            <div className="roster-needs-list">
+              {actions.slice(0, 3).map((a) => (
+                <button
+                  key={a.id}
+                  className={`roster-action${actionId === a.id ? " on" : ""}`}
+                  onClick={() => setActionId(actionId === a.id ? null : a.id)}
+                >
+                  <span
+                    className={`briefing-dot ${
+                      a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="roster-action-text">{rosterActionText(a)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {activeAction && (
         <FilterChip
@@ -420,21 +459,39 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       <div className="card card-flush roster-card">
         {visible.length === 0 ? (
           <div className="empty">
-            <h3>{rows.length === 0 ? "No one on the roster yet" : "No one matches"}</h3>
-            <p>
-              {rows.length === 0
-                ? `Add players, coaches and team staff for ${seasonName}. A name is enough to start.`
-                : "Try a different name or switch the status filter."}
-            </p>
-            {rows.length === 0 && canWrite && (
-              <div className="empty-actions">
-                <button className="btn btn-primary" onClick={() => setAdding(true)}>
-                  Add player or coach
-                </button>
-                <button className="btn btn-secondary" onClick={() => setIntaking(true)}>
-                  Import from spreadsheet
-                </button>
-              </div>
+            {rows.length === 0 ? (
+              <>
+                <h3>Build your roster</h3>
+                {/* IMPORT LEADS HERE, and only here. A coach arriving with a
+                    team already in a spreadsheet has the most to gain and the
+                    least reason to guess — the old copy said "a name is enough
+                    to start", which quietly sent them off to type fourteen
+                    players by hand. Elsewhere Add stays primary, because after
+                    the first day that is the everyday action. */}
+                {canWrite && (
+                  <div className="empty-choices">
+                    <button type="button" className="empty-choice"
+                            onClick={() => setIntaking(true)}>
+                      <span className="empty-choice-title">Import roster</span>
+                      <span className="empty-choice-note">
+                        Best when you already have your team in a spreadsheet.
+                      </span>
+                    </button>
+                    <button type="button" className="empty-choice"
+                            onClick={() => setAdding(true)}>
+                      <span className="empty-choice-title">Add manually</span>
+                      <span className="empty-choice-note">
+                        Add players or coaches one at a time.
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h3>No one matches</h3>
+                <p>Try a different name or switch the status filter.</p>
+              </>
             )}
           </div>
         ) : (
@@ -443,6 +500,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
               <tr>
                 <th className="col-num">#</th>
                 <th className="col-player">Player</th>
+                <th className="col-dob">DOB</th>
                 <th className="col-grad">Grad Year</th>
                 <th className="col-positions">Positions</th>
                 <th className="col-uniform">
@@ -487,6 +545,15 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
+                    </td>
+                    {/* The column stays even when most players have no date of
+                        birth. Hiding it would hide the gap, which is the
+                        opposite of useful — a quiet dash says "not recorded"
+                        without shouting. */}
+                    <td className="col-dob">
+                      {isStaff || !p.date_of_birth
+                        ? <span className="muted">—</span>
+                        : fmtDate(p.date_of_birth)}
                     </td>
                     <td className="col-grad">{isStaff ? <span className="muted">—</span> : p.grad_year ?? <span className="muted">—</span>}</td>
                     <td className="col-positions">
@@ -817,6 +884,10 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
                   value={`${p.throws ?? "—"} / ${p.bats ?? "—"}`}
                 />
               )}
+              {/* A note is about the player, so it belongs with her details
+                  rather than as its own heading between Recruiting and
+                  Documents. Hidden when empty, as before. */}
+              {p.notes && <Row label="Notes" value={p.notes} />}
             </Section>
           )}
 
@@ -860,11 +931,6 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
           />
           )}
 
-          {p.notes && (
-            <Section title="Notes">
-              <p className="section-body">{p.notes}</p>
-            </Section>
-          )}
 
           {isPlayer && (
           <DocumentSection

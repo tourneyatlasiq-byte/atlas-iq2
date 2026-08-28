@@ -111,6 +111,14 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
           single set — `reachable` is satisfied by either — so presenting them
           together matches the semantics rather than fighting them.
           These are the ONLY place player_email / player_phone appear. */}
+      {/* Two quiet sub-labels, each shown only when it has something under it.
+          The athlete's own details and her guardians' were previously an
+          unlabelled pair of rows followed by cards, so a coach scanning for a
+          parent's number met the player's first with nothing to say so. These
+          are text, not containers — the drawer stays as dense as it was. */}
+      {(player.player_email || player.player_phone) && (
+        <p className="pc-sublabel">{isPlayer ? "Player" : "Contact"}</p>
+      )}
       {(player.player_email || player.player_phone) && (
         <dl className="pc-own">
           {player.player_email && (
@@ -134,6 +142,10 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
 
       {/* Guardian cards follow. Staff have no guardians, so for them this
           section is just their own details. */}
+      {isPlayer && (contacts.length > 0 || editing === "new") && (
+        <p className="pc-sublabel">Parents &amp; guardians</p>
+      )}
+
       {isPlayer && contacts.length === 0 && editing === null && (
         <p className="pc-empty">No parent or guardian contacts recorded.</p>
       )}
