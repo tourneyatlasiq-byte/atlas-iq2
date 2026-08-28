@@ -15,6 +15,8 @@ import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { resolvePlayerContact } from "../lib/player-contact-rules";
 import { toCandidate } from "../lib/intake/match";
 import { PlayerExport } from "./PlayerExport";
+import { useTableSort, useSortedRows } from "../lib/table-sort";
+import { SortHeader } from "./SortHeader";
 import { formatPlayerAddress } from "../lib/player-export";
 import { composeFullName, hasStructuredName } from "../lib/intake/normalize";
 import { DocumentSection } from "./DocumentSection";
@@ -146,7 +148,37 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
   const [actionId, setActionId] = useState(null);
+
+  /**
+   * SORT THE VALUE, NOT THE CELL.
+   *
+   * Every accessor returns something comparable: a number, a Date, or a name.
+   * A formatted date sorts as text ("05/02/2011" before "12/09/2009"), which
+   * is wrong in a way nobody notices until they rely on it.
+   *
+   * Uniform is deliberately absent. Jersey and pants sizes are categorical —
+   * alphabetically AL, AM, AS, YL, YM, YS, which is not size order — and the
+   * column holds two of them, so any single ordering would be arbitrary. A
+   * sort that looks authoritative and means nothing is worse than no sort.
+   */
+  const ROSTER_COLUMNS = {
+    jersey: { value: (r) => (r.jersey_number == null ? null : Number(r.jersey_number)) },
+    player: { value: (r) => r.player?.full_name ?? null },
+    dob:    { value: (r) => (r.player?.date_of_birth ? new Date(r.player.date_of_birth) : null) },
+    grad:   { value: (r) => (r.player?.grad_year == null ? null : Number(r.player.grad_year)) },
+    // First position is the primary one, so it is what a coach means by
+    // "sort by position" — the full list is the tiebreak.
+    positions: { value: (r) => (r.positions?.length ? r.positions.join(" / ") : null) },
+  };
   const [actionsOpen, setActionsOpen] = useState(false);
+
+  /**
+   * Sorting is layered ON TOP of the filtered set, never instead of it.
+   * `sort` starts null, which means the roster's own ordering — active first,
+   * then jersey number — is what a coach sees until they ask for something
+   * else. Adding sorting must not quietly redefine that.
+   */
+  const { sort, toggleSort } = useTableSort(null);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
 
@@ -202,6 +234,17 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         return a.jersey_number - b.jersey_number;
       });
   }, [rows, query, filter, activeAction]);
+
+  /**
+   * Sorting applies to the CURRENTLY FILTERED rows, so choosing a sort never
+   * resets the Active/Inactive filter, the search box or a Needs-action
+   * selection. With no sort chosen this returns `visible` untouched.
+   *
+   * Row keys are unchanged (row.id), so reordering cannot confuse which
+   * player a row's actions belong to.
+   */
+  const sortedVisible = useSortedRows(visible, sort, ROSTER_COLUMNS,
+    (a, b) => String(a.player?.full_name ?? "").localeCompare(String(b.player?.full_name ?? "")));
 
   function run(action, fd, onDone) {
     setError(null);
@@ -498,11 +541,16 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           <table className="table roster-table">
             <thead>
               <tr>
-                <th className="col-num">#</th>
-                <th className="col-player">Player</th>
-                <th className="col-dob">DOB</th>
-                <th className="col-grad">Grad Year</th>
-                <th className="col-positions">Positions</th>
+                <SortHeader label="#" column="jersey" sort={sort} onSort={toggleSort}
+                            className="col-num" title="Sort by jersey number" />
+                <SortHeader label="Player" column="player" sort={sort} onSort={toggleSort}
+                            className="col-player" />
+                <SortHeader label="DOB" column="dob" sort={sort} onSort={toggleSort}
+                            className="col-dob" title="Sort by date of birth" />
+                <SortHeader label="Grad Year" column="grad" sort={sort} onSort={toggleSort}
+                            className="col-grad" />
+                <SortHeader label="Positions" column="positions" sort={sort} onSort={toggleSort}
+                            className="col-positions" />
                 <th className="col-uniform">
                   Uniform
                   <span className="th-sub">Jersey · Pants</span>
@@ -513,7 +561,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
               </tr>
             </thead>
             <tbody>
-              {visible.map((row) => {
+              {sortedVisible.map((row) => {
                 const p = row.player ?? {};
                 const isStaff = (p.person_type ?? "player") !== "player";
                 const roleName = staffRole(p);

@@ -803,7 +803,9 @@ section("Team page hierarchy");
     read("lib/readiness/team.js").match(/^function \w+Check/gm)?.length);
 
   // Roster columns
-  ok("the roster has a DOB column", /<th className="col-dob">DOB<\/th>/.test(ui));
+  // Now a sortable header rather than a plain th.
+  ok("the roster has a DOB column",
+    /<SortHeader label="DOB" column="dob"/.test(ui));
   ok("...rendering MM/DD/YYYY via the shared formatter",
     /col-dob[\s\S]{0,200}?fmtDate\(p\.date_of_birth\)/.test(ui));
   ok("...with a quiet dash when missing",
@@ -833,8 +835,9 @@ section("Team page hierarchy");
   ok("...and the guardian label is unchanged", /Parents &amp; guardians/.test(pc));
 
   ok("column order is # PLAYER DOB GRAD POSITIONS UNIFORM",
-    (ui.match(/<th className="col-(num|player|dob|grad|positions|uniform)"/g) ?? []).slice(0, 6)
-      .map((m) => m.match(/col-(\w+)/)[1]),
+    (ui.match(/className="col-(num|player|dob|grad|positions|uniform)"/g) ?? [])
+      .map((m) => m.match(/col-(\w+)/)[1])
+      .filter((c, i, a) => a.indexOf(c) === i).slice(0, 6),
     ["num", "player", "dob", "grad", "positions", "uniform"]);
   ok("DOB is hidden on phones", /@media \(max-width: 720px\)[\s\S]{0,700}?\.col-dob \{ display: none/.test(css));
   ok("...and is NOT added to the mobile sub-line",

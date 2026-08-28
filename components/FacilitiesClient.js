@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { PageHelp } from "./PageHelp";
 import { DocumentSection } from "./DocumentSection";
+import { sortRows } from "../lib/table-sort";
+import { SortHeader as SharedSortHeader } from "./SortHeader";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
 import { AddressLookup } from "./AddressLookup";
@@ -744,51 +746,22 @@ function OurVenuesTable({ rows, onOpen, sort, onSort }) {
  * see the other end of the real data.
  */
 function applySort(rows, sort, comparators) {
-  if (!sort?.key) return rows;
-  const value = comparators[sort.key];
-  if (!value) return rows;
-
-  const dir = sort.dir === "desc" ? -1 : 1;
-  const missing = (v) => v === null || v === undefined || v === "" || v === false;
-
-  return [...rows].sort((a, b) => {
-    const av = value(a);
-    const bv = value(b);
-
-    if (missing(av) && missing(bv)) return 0;
-    if (missing(av)) return 1;
-    if (missing(bv)) return -1;
-
-    const diff =
-      typeof av === "number" && typeof bv === "number"
-        ? av - bv
-        : String(av).localeCompare(String(bv), undefined, { numeric: true });
-
-    // Stable tiebreak so equal values never shuffle between renders.
-    return diff * dir || String(a.name ?? "").localeCompare(String(b.name ?? ""));
-  });
+  // Delegates to the shared sorter. The local signature is kept because this
+  // file's tables list bare accessors; only the implementation moved, so every
+  // table in the product now sorts blanks and ties the same way.
+  return sortRows(
+    rows,
+    sort,
+    Object.fromEntries(Object.entries(comparators).map(([k, value]) => [k, { value }])),
+    (a, b) => String(a.name ?? "").localeCompare(String(b.name ?? "")),
+  );
 }
 
 /** Header cell that toggles ascending, then descending. */
-function SortHeader({ label, column, sort, onSort, className }) {
-  const active = sort?.key === column;
-  const dir = active ? sort.dir : null;
-
-  return (
-    <th className={className} aria-sort={active ? (dir === "desc" ? "descending" : "ascending") : "none"}>
-      <button
-        type="button"
-        className={`fc-sort${active ? " on" : ""}`}
-        onClick={() => onSort(column)}
-        title={`Sort by ${label}`}
-      >
-        {label}
-        <span className="fc-sort-mark" aria-hidden="true">
-          {active ? (dir === "desc" ? "\u2193" : "\u2191") : "\u2195"}
-        </span>
-      </button>
-    </th>
-  );
+function SortHeader(props) {
+  // The shared header. Facilities styled its own with fc-sort classes; the
+  // shared one uses th-sort, so the two tables no longer drift apart.
+  return <SharedSortHeader {...props} />;
 }
 
 /** Recorded amenities, in a fixed order. */

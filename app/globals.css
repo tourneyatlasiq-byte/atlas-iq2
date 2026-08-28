@@ -5696,3 +5696,35 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .empty-choices { grid-template-columns: 1fr; }
   .roster-needs-lead { white-space: normal; }
 }
+
+/* ---- Sortable table headings (shared) ----------------------------------
+   The Facilities table already worked this way; this is the same treatment
+   made available to every table rather than reimplemented per page.
+
+   RESTRAINED BY DEFAULT. An unsorted column shows a faint double arrow that
+   only resolves on hover or focus — eight sortable columns should not read as
+   eight pieces of chrome. The active column is the only one that announces
+   itself. */
+.table th .th-sort,
+.roster-table th .th-sort {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0; margin: 0; border: none; background: none;
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+}
+.th-sort-label { min-width: 0; }
+.th-sort-mark {
+  font-size: 10px; line-height: 1; color: transparent; flex-shrink: 0;
+  transition: color .12s ease;
+}
+.th-sort:hover .th-sort-mark,
+.th-sort:focus-visible .th-sort-mark { color: var(--slate); }
+.th-sort.on { color: var(--navy); font-weight: 700; }
+.th-sort.on .th-sort-mark { color: var(--blue); }
+
+/* Keyboard focus is the button's, so it is visible without extra handlers. */
+.th-sort:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 3px; }
+
+@media (hover: none) {
+  /* Touch never hovers, so the affordance rests visible instead. */
+  .th-sort-mark { color: var(--border); }
+}
