@@ -14,6 +14,8 @@ import { FilterChip } from "./NeedsAction";
 import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { resolvePlayerContact } from "../lib/player-contact-rules";
 import { toCandidate } from "../lib/intake/match";
+import { PlayerExport } from "./PlayerExport";
+import { formatPlayerAddress } from "../lib/player-export";
 import { composeFullName, hasStructuredName } from "../lib/intake/normalize";
 import { DocumentSection } from "./DocumentSection";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -93,7 +95,7 @@ function uniformText(row) {
   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   // Pickups are not roster rows, so the lookup covers both. Each pickup is
@@ -250,6 +252,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         </div>
         {canWrite && (
           <div className="foot-actions">
+            {/* Export before import: data out, then data in. canWrite already
+                excludes the parent role, whose scope is a single child. */}
+            <PlayerExport rows={rows} teamName={teamName} seasonName={seasonName}
+                          canExport={canWrite} />
+
             {/* ONE import route. "Upload roster" was the fixed-template
                 importer: 14 columns that had to match ours exactly, and it
                 silently skipped anyone already on the roster, so a corrected
@@ -781,6 +788,11 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
               {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
               {p.high_school && <Row label="High school" value={p.high_school} />}
+              {/* Only when something is stored. An empty Address section is
+                  drawer height spent saying nothing. */}
+              {(p.street_address || p.street_address_2 || p.city || p.state || p.zip) && (
+                <Row label="Address" value={formatPlayerAddress(p)} />
+              )}
               {(p.throws || p.bats) && (
                 <Row
                   label="Throws / Bats"
@@ -1280,6 +1292,45 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                 </select>
               </div>
             </div>
+
+            {/* Mailing address. Colleges post recruiting material directly to
+                the player, so this belongs to the player rather than to a
+                guardian contact — it follows the athlete, not the guardian. */}
+            {isPlayer && (
+              <>
+                <div className="form-divider">Mailing address</div>
+                <div className="field">
+                  <label htmlFor="street_address">Address line 1</label>
+                  <input id="street_address" name="street_address"
+                         autoComplete="address-line1"
+                         defaultValue={p.street_address ?? ""} />
+                </div>
+                <div className="field">
+                  <label htmlFor="street_address_2">Address line 2 (optional)</label>
+                  <input id="street_address_2" name="street_address_2"
+                         autoComplete="address-line2"
+                         placeholder="Apartment, suite, unit"
+                         defaultValue={p.street_address_2 ?? ""} />
+                </div>
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="city">City</label>
+                    <input id="city" name="city" autoComplete="address-level2"
+                           defaultValue={p.city ?? ""} />
+                  </div>
+                  <div className="field field-narrow">
+                    <label htmlFor="state">State</label>
+                    <input id="state" name="state" autoComplete="address-level1"
+                           defaultValue={p.state ?? ""} />
+                  </div>
+                  <div className="field field-narrow">
+                    <label htmlFor="zip">ZIP</label>
+                    <input id="zip" name="zip" autoComplete="postal-code"
+                           inputMode="numeric" defaultValue={p.zip ?? ""} />
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* CONTACT — the player's OWN details only. Guardian contacts are
                 0-to-many with a primary, and they stay in the drawer's CONTACTS

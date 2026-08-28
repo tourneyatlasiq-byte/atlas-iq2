@@ -232,7 +232,10 @@ section("Drawer parity");
 
   const action = read("lib/actions/roster.js");
   ok("high_school is written on the update path", /player\.high_school = text\(/.test(action));
-  ok("...and is NOT sent to roster_add_member", !/high_school[\s\S]{0,200}?p_player/.test(action));
+  // Was true while roster_add_member had no high_school parameter. As of
+  // 20260828184552 the RPC accepts it, so Add Player no longer discards it.
+  ok("...and is now sent on the add path too",
+    /roster_add_member accepts high_school/.test(action));
   ok("no parent_* write was reintroduced", !/\bparent_(name|email|phone)\s*:/.test(action));
 }
 
@@ -694,6 +697,73 @@ section("No caller can supply a partial candidate");
     /toCandidate\(\{ \.\.\.r\.player/.test(read("components/RosterClient.js")));
   ok("no production file hand-rolls a candidate literal",
     files.every((f) => !/parent_email: r\.player\?\.parent_email/.test(read(f))), true);
+}
+
+
+// ------------------------------------------------------- address + export
+section("Address is stored, editable and shown only when present");
+
+{
+  const ui  = read("components/RosterClient.js");
+  const act = read("lib/actions/roster.js");
+  const q   = read("lib/queries/roster.js");
+  const exp = read("lib/player-export.js");
+  const mig = read("supabase/migrations/20260828184552_player_address_and_add_member_fields.sql");
+
+  const ADDR = ["street_address", "street_address_2", "city", "state", "zip"];
+
+  ok("the migration adds all five columns",
+    ADDR.every((c) => new RegExp(`add column if not exists ${c}\\b`).test(mig)), true);
+  ok("...and they live on players", /alter table players/.test(mig));
+
+  // Add Player can no longer silently discard a field.
+  ok("the add RPC accepts high_school",
+    /p_player ->> 'high_school'/.test(mig), true);
+  ok("...and every address column",
+    ADDR.every((c) => new RegExp(`p_player ->> '${c}'`).test(mig)), true);
+  ok("...and the structured names, completing the contract",
+    ["legal_first_name", "preferred_first_name", "last_name"]
+      .every((c) => new RegExp(`p_player ->> '${c}'`).test(mig)), true);
+  ok("the RPC stays SECURITY INVOKER", /security invoker/.test(mig));
+  ok("...and is not granted to anon", /revoke all on function public\.roster_add_member/.test(mig));
+
+  ok("the write path sends address", ADDR.every((c) => act.includes(`get("${c}")`)), true);
+  ok("high_school is no longer edit-only",
+    !/high_school is edit-only/.test(act), true);
+
+  ok("the form has an address block", /form-divider">Mailing address</.test(ui));
+  ok("...with all five inputs",
+    ADDR.every((c) => new RegExp(`name="${c}"`).test(ui)), true);
+  ok("...and autocomplete hints", /autoComplete="postal-code"/.test(ui));
+
+  ok("the drawer shows Address only when populated",
+    /\{\(p\.street_address \|\| p\.street_address_2 \|\| p\.city \|\| p\.state \|\| p\.zip\) && \(/.test(ui));
+  ok("...using the shared formatter", /formatPlayerAddress\(p\)/.test(ui));
+
+  // The roster query must not fall behind the schema again.
+  ok("the roster query derives its player columns", /planningPlayerColumns\(\)/.test(q));
+  ok("...and embeds links for export", /player_links \( id, link_type, url, label \)/.test(q));
+  ok("...and college interests", /player_college_interests \( id, college_name, notes \)/.test(q));
+
+  ok("the export never emits an internal id",
+    /no internal ids/.test(exp) || !/\bid\b.*column/.test(exp), true);
+}
+
+section("Export is coach-only and season-scoped");
+
+{
+  const comp = read("components/PlayerExport.js");
+  const ui   = read("components/RosterClient.js");
+
+  ok("the control is gated", /if \(!canExport\) return null/.test(comp));
+  ok("...on canWrite, which excludes parents", /canExport=\{canWrite\}/.test(ui));
+  ok("it builds from data already loaded under RLS",
+    !/createClient|from\(/.test(comp), true);
+  ok("...so there is no separate privileged fetch",
+    !/service_role|SUPABASE_SERVICE/.test(comp), true);
+  ok("the export is season-scoped by its input",
+    /rows=\{rows\}/.test(ui));
+  ok("the filename carries no personal data", /exportFilename\(teamName, seasonName\)/.test(comp));
 }
 
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);

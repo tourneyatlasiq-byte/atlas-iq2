@@ -66,6 +66,7 @@ export default async function TeamPage({ searchParams }) {
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       documentTargets={targets}
       seasonName={season.name}
+      teamName={team?.name}
       seasonPhase={seasonPhase}
       paymentIdByPlayer={paymentIdByPlayer}
       pickups={await pickupsForSeason(season.id)}

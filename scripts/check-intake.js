@@ -447,9 +447,13 @@ const JOTFORM_HEADERS = [
     reg.FIELDS.filter((f) => f.optIn === undefined).map((f) => f.key), []);
   ok("no field is gated behind opt-in",
     reg.FIELDS.filter((f) => f.optIn).map((f) => f.key), []);
-  ok("sensitive is broader than optIn, and still labels contact fields",
+  // A minor's home address is identity data, so it carries the sensitive
+  // LABEL. It is not gated: labelling tells a coach what they are importing;
+  // gating stopped them importing it at all.
+  ok("sensitive is broader than optIn, and labels contact and address fields",
     reg.FIELDS.filter((f) => f.sensitive).map((f) => f.key).sort(),
-    ["contact_email","contact_phone","date_of_birth","player_email","player_phone"]);
+    ["city","contact_email","contact_phone","date_of_birth","player_email",
+     "player_phone","state","street_address","street_address_2","zip"]);
   ok("a sensitive field that is not optIn still auto-enables",
     map.suggestMappings(["Parent Email"]).mappings[0].autoEnabled, true);
   ok("...and is still flagged sensitive so it can be disclosed",
@@ -1459,6 +1463,118 @@ console.log("\nThe server query cannot drift from the planner");
     /playerId: candidate\?\.id \?\? null/.test(src), true);
   ok("...and used instead of the write's targetId",
     /out\.player_id = playerId \?\? null/.test(src), true);
+}
+
+
+/* ---- Address: planning field, never matching evidence -------------------
+   Five new registry fields flow through the contract stabilised last round.
+   The point of that generalisation was that adding a field extends planning
+   automatically WITHOUT touching identity resolution. These prove it. */
+
+console.log("\nAddress is planning-only");
+
+{
+  const ADDR = ["street_address", "street_address_2", "city", "state", "zip"];
+
+  ok("address extends the planning query automatically",
+    ADDR.every((c) => reg.planningPlayerColumns().includes(c)), true);
+  ok("MATCH_EVIDENCE is unchanged by the new fields",
+    mat.MATCH_EVIDENCE,
+    ["id", "full_name", "legal_first_name", "preferred_first_name", "last_name",
+     "grad_year", "date_of_birth", "parent_email", "contacts"]);
+  ok("no address field is matching evidence",
+    ADDR.some((c) => mat.MATCH_EVIDENCE.includes(c)), false);
+
+  // Two families at one address are not one child.
+  const a = mat.toCandidate({ id: "a1", full_name: "Ana Alpha",
+    street_address: "1 Same St", city: "Cumming", state: "GA", zip: "30040",
+    player_contacts: [{ id: "ac", email: "alpha@example.invalid" }] });
+  const sameAddressDifferentChild = { full_name: "Bea Beta",
+    street_address: "1 Same St", city: "Cumming", state: "GA", zip: "30040" };
+  ok("a shared address does not make two children one player",
+    mat.matchPlayer(sameAddressDifferentChild, [a]).classification, mat.CLASS.NEW);
+
+  // A move is not a new person.
+  ok("a changed address does not break an otherwise confident match",
+    mat.matchPlayer({ full_name: "Ana Alpha", street_address: "9 New Rd",
+      contacts: [{ email: "alpha@example.invalid" }] }, [a]).classification,
+    mat.CLASS.CONFIDENT);
+
+  /* ---- blank / SAME / FILL / CONFLICT ---- */
+  const stored = mat.toCandidate({
+    id: "s1", full_name: "Cleo Gamma", legal_first_name: "Cleo", last_name: "Gamma",
+    grad_year: 2028, date_of_birth: null, parent_email: null,
+    street_address: "12 Oak Lane", street_address_2: null,
+    city: "Cumming", state: "GA", zip: "30040",
+    player_contacts: [{ id: "cc", email: "gamma@example.invalid" }],
+  });
+  const EMAIL = { email: "gamma@example.invalid" };
+  const planFor = (patch, decisions = {}) => {
+    const row = { full_name: "Cleo Gamma", contacts: [EMAIL], ...patch };
+    const m = mat.matchPlayer(row, [stored]);
+    return pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+      existingContacts: stored.contacts, decisions, identity: null });
+  };
+
+  // BLANK must not erase.
+  const blank = planFor({ street_address: "", city: "", state: "", zip: "" });
+  ok("a blank address cell writes nothing",
+    blank.writes.some((w) => w.table === "players"), false);
+  ok("...and does not block the row", blank.executable, true);
+
+  // SAME.
+  const same = planFor({ street_address: "12 Oak Lane", city: "Cumming",
+                         state: "GA", zip: "30040" });
+  for (const f of ["street_address", "city", "state", "zip"]) {
+    ok(`an identical ${f} is SAME`,
+      same.resolved.find((r) => r.key === f)?.status, "same");
+  }
+  ok("...and nothing is written", same.writes.some((w) => w.table === "players"), false);
+
+  // FILL onto a blank stored value.
+  const fill = planFor({ street_address_2: "Apt 4B" });
+  ok("an address line 2 onto a blank stored value is a FILL",
+    fill.resolved.find((r) => r.key === "street_address_2")?.status, "fill");
+  ok("...is executable without a decision", fill.executable, true);
+  ok("...and is written",
+    fill.writes.find((w) => w.table === "players")?.values?.street_address_2, "Apt 4B");
+
+  // CONFLICT on every populated field that differs.
+  for (const [f, incoming] of [
+    ["street_address", "99 Elm Street"], ["city", "Alpharetta"],
+    ["state", "TN"], ["zip", "30009"],
+  ]) {
+    const plan = planFor({ [f]: incoming });
+    const r = plan.resolved.find((x) => x.key === f);
+    ok(`a differing ${f} is a CONFLICT`, r?.status, "conflict");
+    ok(`...showing the stored value`, r?.existing, stored[f]);
+    ok(`...and blocks until the coach decides`, plan.executable, false);
+  }
+
+  // Resolving lets it through.
+  const decided = planFor({ city: "Alpharetta" }, { city: "incoming" });
+  ok("a resolved address conflict executes", decided.executable, true);
+  ok("...writing the chosen value",
+    decided.writes.find((w) => w.table === "players")?.values?.city, "Alpharetta");
+
+  /* ---- header synonyms coaches actually use ---- */
+  const headers = ["Address", "Street Address", "Address 1", "Address Line 1",
+                   "Address 2", "Apt", "City", "State", "ZIP", "Zip Code",
+                   "Postal Code", "Mailing Address"];
+  const mapped = map.suggestMappings(headers).mappings;
+  const keyFor = (h) => mapped.find((m) => m.header === h)?.key;
+  ok("Address maps to line 1", keyFor("Address"), "street_address");
+  ok("Street Address maps to line 1", keyFor("Street Address"), "street_address");
+  ok("Address 1 maps to line 1", keyFor("Address 1"), "street_address");
+  ok("Address 2 maps to line 2", keyFor("Address 2"), "street_address_2");
+  ok("Apt maps to line 2", keyFor("Apt"), "street_address_2");
+  ok("City maps to city", keyFor("City"), "city");
+  ok("State maps to state", keyFor("State"), "state");
+  ok("ZIP maps to zip", keyFor("ZIP"), "zip");
+  ok("Zip Code maps to zip", keyFor("Zip Code"), "zip");
+  ok("Postal Code maps to zip", keyFor("Postal Code"), "zip");
+  ok("every address column auto-enables", 
+    mapped.filter((m) => ADDR.includes(m.key)).every((m) => m.autoEnabled), true);
 }
 
 console.log(`\n${ran} assertions, ${failures} failed`);
