@@ -808,6 +808,30 @@ section("Team page hierarchy");
     /col-dob[\s\S]{0,200}?fmtDate\(p\.date_of_birth\)/.test(ui));
   ok("...with a quiet dash when missing",
     /col-dob[\s\S]{0,160}?!p\.date_of_birth[\s\S]{0,80}?muted/.test(ui));
+  // Bounded columns; Player takes the slack. Percentages spread every value
+  // across the viewport on a wide monitor.
+  ok("the roster table uses fixed layout", /\.roster-table \{ table-layout: fixed; \}/.test(css));
+  ok("Player is the flexible column", /td\.col-player \{ width: auto/.test(css));
+  for (const [col, px] of [["dob", 104], ["grad", 100], ["positions", 150], ["uniform", 132]]) {
+    ok(`${col} has an explicit width`, new RegExp(`td\\.col-${col} \\{ width: ${px}px`).test(css));
+  }
+  ok("the jersey number column is unchanged at 44px",
+    /td\.col-num \{\s*width: 44px/.test(css));
+  ok("ultra-wide screens bound the table, not the card",
+    /@media \(min-width: 1500px\)[\s\S]{0,400}?\.roster-table \{ max-width: 1100px/.test(css));
+  ok("760-900px trims rather than scrolls",
+    /@media \(max-width: 900px\)[\s\S]{0,600}?col-dob[\s\S]{0,40}?width: 92px/.test(css));
+  ok("no horizontal scroll was introduced",
+    !/\.roster-table[^}]*overflow-x/.test(css));
+  ok("section transitions were reduced to 14px",
+    /\.detail-section \{ margin-bottom: 14px; \}/.test(css));
+  ok("...while row padding is untouched", /\.detail-row \{ padding: 5px 0/.test(css));
+  ok("...and the section title gap is untouched",
+    /\.detail-section-title \{ margin-bottom: 12px; \}/.test(css));
+  ok("the contacts sub-label reads Player contact",
+    /"Player contact"/.test(pc));
+  ok("...and the guardian label is unchanged", /Parents &amp; guardians/.test(pc));
+
   ok("column order is # PLAYER DOB GRAD POSITIONS UNIFORM",
     (ui.match(/<th className="col-(num|player|dob|grad|positions|uniform)"/g) ?? []).slice(0, 6)
       .map((m) => m.match(/col-(\w+)/)[1]),

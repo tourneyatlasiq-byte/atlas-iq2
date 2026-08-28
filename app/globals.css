@@ -537,7 +537,10 @@ a { color: inherit; text-decoration: none; }
 .drawer-foot .btn { padding: 9px 16px; }
 
 /* Section rhythm inside the drawer */
-.detail-section { margin-bottom: 24px; }
+/* 24px -> 14px between sections. Row padding and the title gap are unchanged,
+   so nothing inside a section gets tighter; this only reclaims the gap between
+   them, which is worth roughly one extra row of information before scrolling. */
+.detail-section { margin-bottom: 14px; }
 .detail-section-title { margin-bottom: 12px; }
 .detail-row { padding: 5px 0; align-items: baseline; }
 .status-controls { margin-bottom: 22px; }
@@ -5641,20 +5644,49 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .empty-choice-title { font-size: 14.5px; font-weight: 700; color: var(--navy); }
 .empty-choice-note { font-size: 12.5px; color: var(--slate); line-height: 1.5; }
 
-/* Six columns. Player gives up width to DOB; grad year needs only four
-   digits. 05/02/2011 is ten characters and sits comfortably at 14%. */
+/* SIX COLUMNS, FIVE OF THEM BOUNDED.
+   Percentage widths spread every column across the viewport, so on a wide
+   monitor a coach travelled several hundred pixels between a date of birth and
+   a jersey size that each need about a hundred. The informational columns are
+   sized to their content instead, and Player — the only column whose content
+   genuinely varies — takes whatever is left.
+   table-layout: fixed is what makes the declared widths hold; without it the
+   browser re-derives them from content and the percentages creep back. */
+.roster-table { table-layout: fixed; }
 .roster-table th.col-player,
-.roster-table td.col-player { width: 30%; padding-left: 8px; }
+.roster-table td.col-player { width: auto; padding-left: 8px; }
 .roster-table th.col-dob,
-.roster-table td.col-dob { width: 14%; white-space: nowrap; }
+.roster-table td.col-dob { width: 104px; white-space: nowrap; }
 .roster-table th.col-grad,
-.roster-table td.col-grad { width: 11%; }
+.roster-table td.col-grad { width: 100px; }
+.roster-table th.col-positions,
+.roster-table td.col-positions { width: 150px; }
+.roster-table th.col-uniform,
+.roster-table td.col-uniform { width: 132px; }
+
+/* A long name or position list wraps rather than pushing the row wider —
+   fixed layout has no other escape, and horizontal scroll is not acceptable. */
+.roster-table td.col-player,
+.roster-table td.col-positions { overflow-wrap: anywhere; }
+
+@media (min-width: 1500px) {
+  /* Player absorbs the slack, which on a 1920 monitor made it 1028px wide —
+     the same "travel a long way between two values" problem, moved into one
+     column. Bounding the TABLE keeps the row cohesive; the card around it
+     stays full width, so the page still reads as full-bleed. */
+  .roster-table { max-width: 1100px; }
+}
 
 @media (max-width: 900px) {
-  /* Between tablet and desktop the six columns are tight but all readable;
-     DOB is the first to lose its breathing room, not its content. */
-  .roster-table th.col-dob, .roster-table td.col-dob { width: 15%; font-size: 13px; }
-  .roster-table th.col-uniform, .roster-table td.col-uniform { width: 17%; }
+  /* 760-900px is the tightest case: the five bounded columns total 530px and
+     Player needs a workable minimum. Trimming padding and the two widest
+     columns keeps everything on one line without horizontal scroll. */
+  .roster-table th, .roster-table td { padding-left: 10px; padding-right: 10px; }
+  .roster-table th.col-dob, .roster-table td.col-dob { width: 92px; font-size: 13px; }
+  .roster-table th.col-grad, .roster-table td.col-grad { width: 74px; }
+  .roster-table th.col-positions, .roster-table td.col-positions { width: 118px; }
+  .roster-table th.col-uniform, .roster-table td.col-uniform { width: 104px; }
+  .roster-table th.col-status, .roster-table td.col-status { width: 84px; }
 }
 
 @media (max-width: 720px) {

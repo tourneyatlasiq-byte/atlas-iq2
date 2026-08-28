@@ -117,7 +117,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
           parent's number met the player's first with nothing to say so. These
           are text, not containers — the drawer stays as dense as it was. */}
       {(player.player_email || player.player_phone) && (
-        <p className="pc-sublabel">{isPlayer ? "Player" : "Contact"}</p>
+        <p className="pc-sublabel">{isPlayer ? "Player contact" : "Contact"}</p>
       )}
       {(player.player_email || player.player_phone) && (
         <dl className="pc-own">
