@@ -813,16 +813,21 @@ section("Team page hierarchy");
   // Bounded columns; Player takes the slack. Percentages spread every value
   // across the viewport on a wide monitor.
   ok("the roster table uses fixed layout", /\.roster-table \{ table-layout: fixed; \}/.test(css));
-  ok("Player is the flexible column", /td\.col-player \{ width: auto/.test(css));
+  ok("Player absorbs the remaining width", /td\.col-player \{ width: auto/.test(css));
   for (const [col, px] of [["dob", 104], ["grad", 100], ["positions", 150], ["uniform", 132]]) {
     ok(`${col} has an explicit width`, new RegExp(`td\\.col-${col} \\{ width: ${px}px`).test(css));
   }
   ok("the jersey number column is unchanged at 44px",
     /td\.col-num \{\s*width: 44px/.test(css));
-  ok("ultra-wide screens bound the table, not the card",
-    /@media \(min-width: 1500px\)[\s\S]{0,400}?\.roster-table \{ max-width: 1100px/.test(css));
-  ok("760-900px trims rather than scrolls",
-    /@media \(max-width: 900px\)[\s\S]{0,600}?col-dob[\s\S]{0,40}?width: 92px/.test(css));
+  // The table must FILL its card at every width. A max-width made the header
+  // background and row separators stop short of the card edge, which read as a
+  // narrow table dropped into a wide container.
+  ok("the roster table is never capped below its card",
+    !/\.roster-table \{[^}]*max-width/.test(css));
+  ok("...so the header background and separators complete the card",
+    !/\.roster-table \{[^}]*max-width/.test(css));
+  ok("narrow widths trim rather than scroll",
+    /@media \(max-width: 1200px\)/.test(css) && /@media \(max-width: 900px\)/.test(css));
   ok("no horizontal scroll was introduced",
     !/\.roster-table[^}]*overflow-x/.test(css));
   ok("section transitions were reduced to 14px",

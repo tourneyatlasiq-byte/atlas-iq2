@@ -96,11 +96,18 @@ for (const f of fs.readdirSync("lib/actions").filter((x) => x.endsWith(".js"))) 
 
 for (const f of componentFiles()) {
   const s = read(f);
-  const th = (s.match(/<th[ >]/g) || []).length;
+  // A header cell is a literal <th> OR a <SortHeader>, which renders one.
+  // Counting only the literal tag under-reported every sortable table and
+  // produced a permanent warning that said nothing true — a checker that cries
+  // wolf is worse than no checker, because the real misalignment it exists to
+  // catch would be lost among the noise. The protection is unchanged; it now
+  // knows what a header cell looks like.
+  const th = (s.match(/<th[ >]/g) || []).length
+           + (s.match(/<SortHeader[ \n]/g) || []).length;
   const td = (s.match(/<td[ >]/g) || []).length;
   // Only meaningful where a file has a single table; note rather than fail.
   if (th > 0 && Math.abs(th - td) > 2) {
-    notes.push(`${f}: ${th} <th> vs ${td} <td> — verify each table's columns align`);
+    notes.push(`${f}: ${th} header cells vs ${td} <td> — verify each table's columns align`);
   }
 }
 
