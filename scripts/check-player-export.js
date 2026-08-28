@@ -99,21 +99,22 @@ section("Columns");
   const { columns, contactGroups } = exportColumns([member()]);
 
   ok("two contact groups even when nobody has any", contactGroups, 2);
-  // Coach-facing, not a schema dump: Role Label and Joined Date are internal
-  // detail and were removed.
-  ok("identity comes first", columns.slice(0, 5),
-    ["Full Name", "Legal First Name", "Preferred First Name", "Last Name", "Type"]);
-  ok("then team and season", columns.slice(5, 10),
+  // Coach-facing, not a schema dump. One name column; Role Label and Joined
+  // Date are internal detail.
+  ok("identity comes first", columns.slice(0, 2), ["Player Name", "Type"]);
+  ok("then team and season", columns.slice(2, 7),
     ["Jersey Number", "Positions", "Jersey Size", "Pants Size", "Status"]);
-  ok("no internal role label", columns.includes("Role Label"), false);
-  ok("no internal joined date", columns.includes("Joined Date"), false);
-  ok("then player details", columns.slice(10, 17),
+  for (const internal of ["Full Name", "Legal First Name", "Preferred First Name",
+                          "Last Name", "Role Label", "Joined Date"]) {
+    ok(`no internal column: ${internal}`, columns.includes(internal), false);
+  }
+  ok("then player details", columns.slice(7, 14),
     ["Grad Year", "Date of Birth", "High School", "Throws", "Bats",
      "Player Email", "Player Phone"]);
-  ok("then address", columns.slice(17, 22),
+  ok("then address", columns.slice(14, 19),
     ["Address Line 1", "Address Line 2", "City", "State", "ZIP"]);
-  ok("then notes", columns[22], "Notes");
-  ok("then contacts, one column per value", columns.slice(23, 29),
+  ok("then notes", columns[19], "Notes");
+  ok("then contacts, one column per value", columns.slice(20, 26),
     ["Contact 1 Name", "Contact 1 Relationship", "Contact 1 Email",
      "Contact 1 Phone", "Contact 1 Preferred Method", "Contact 1 Primary"]);
   ok("recruiting last", columns.slice(-4),
@@ -154,9 +155,9 @@ section("Row values");
   const at = (name) => r[columns.indexOf(name)];
 
   ok("the row is exactly as wide as the header", r.length, columns.length);
-  ok("full name", at("Full Name"), "Bella Ramos");
-  ok("structured names survive", [at("Legal First Name"), at("Preferred First Name"), at("Last Name")],
-    ["Isabella", "Bella", "Ramos"]);
+  ok("the player name", at("Player Name"), "Bella Ramos");
+  // Storage keeps the structured names; the EXPORT shows what she is called.
+  ok("the exported name is the display name", at("Player Name"), "Bella Ramos");
   ok("type is human readable, not the enum", at("Type"), "Player");
   ok("positions are joined the way the drawer and the importer both read them",
     at("Positions"), "C / RF");
@@ -235,7 +236,7 @@ section("Characters that break spreadsheets");
 
   const { columns, rows: body } = buildExport([nasty]);
   const at = (n) => body[0][columns.indexOf(n)];
-  ok("an apostrophe and quotes survive verbatim", at("Full Name"), 'O\u2019Brien, "Katie" <test>');
+  ok("an apostrophe and quotes survive verbatim", at("Player Name"), 'O\u2019Brien, "Katie" <test>');
   ok("accents survive", at("City"), "Ni\u00f1o Valley");
   ok("an ampersand survives", at("Address Line 1"), "12 Oak Lane #3 & 4");
   ok("newlines and tabs are preserved, not stripped",
@@ -259,6 +260,9 @@ section("Determinism and filename");
     exportFilename(null, "2026-27"), "2026-27 Players");
   ok("the filename carries no personal data",
     /Ramos|Bella|@/.test(exportFilename("Armor Elite", "2026-27")), false);
+  ok("the export is one name column wide, not four",
+    buildExport([member()]).columns.filter((c) => /name/i.test(c) && !/Contact/.test(c)),
+    ["Player Name"]);
 }
 
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
