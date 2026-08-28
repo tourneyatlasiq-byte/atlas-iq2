@@ -15,6 +15,7 @@ import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
 import { resolvePlayerContact } from "../lib/player-contact-rules";
 import { toCandidate } from "../lib/intake/match";
 import { PlayerExport } from "./PlayerExport";
+import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
 import { useTableSort, useSortedRows } from "../lib/table-sort";
 import { SortHeader } from "./SortHeader";
 import { formatPlayerAddress } from "../lib/player-export";
@@ -791,24 +792,7 @@ function Disclose({ enabled, label, children }) {
   );
 }
 
-function Section({ title, children }) {
-  return (
-    <section className="detail-section">
-      <h3 className="detail-section-title">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
-function Row({ label, value }) {
-  const empty = value === null || value === undefined || value === "";
-  return (
-    <div className="detail-row">
-      <span className="detail-row-label">{label}</span>
-      <span className="detail-row-value">{empty ? <span className="muted">—</span> : value}</span>
-    </div>
-  );
-}
 
 export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
   const p = row.player ?? {};
@@ -826,10 +810,6 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
   // ONE display rule, the canonical one. composeFullName() prefers a
   // preferred first name and falls back to full_name for a legacy record, so
   // the drawer never needs a second notion of what a player is called.
-  // Where the mouse was pressed, so a drag that ends on the backdrop does not
-  // read as a click on it.
-  const pressOnBackdrop = useRef(false);
-
   const displayName = composeFullName(p) ?? p.full_name ?? "—";
 
   const contactInfo = resolvePlayerContact(p);
@@ -837,28 +817,10 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
   const hasUniform = Boolean(row.jersey_size || row.pants_size);
 
   return (
-    /* CLOSE ONLY ON A CLICK THAT BOTH STARTED AND ENDED ON THE BACKDROP.
-       A plain onClick here closed the drawer while a coach was selecting text.
-       A browser fires `click` on the nearest common ancestor of mousedown and
-       mouseup, so drag-selecting an email and releasing a few pixels outside
-       the input fires the click on the BACKDROP — stopPropagation on the
-       drawer never runs, and the editor vanished mid-selection. Recording
-       where the press began makes an intentional backdrop click still work
-       while a drag that merely ends there does not. */
-    <div
-      className="drawer-backdrop"
-      onMouseDown={(e) => { pressOnBackdrop.current = e.target === e.currentTarget; }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && pressOnBackdrop.current) onClose();
-        pressOnBackdrop.current = false;
-      }}
-    >
-      <aside
-        className="drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="player-detail-title"
-      >
+    // The shell owns the backdrop, the press-origin guard, Escape and the
+    // body-scroll lock. This drawer was where that fix was first written; it
+    // now comes from the same place as the other five.
+    <DrawerShell onClose={onClose} labelledBy="player-detail-title">
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2 id="player-detail-title">{displayName}</h2>
@@ -1037,8 +999,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </div>
           </div>
         )}
-      </aside>
-    </div>
+    </DrawerShell>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
 import { PageHelp } from "./PageHelp";
 import { DocumentSection } from "./DocumentSection";
 import { sortRows } from "../lib/table-sort";
@@ -884,17 +885,6 @@ function FacilityTable({ rows, onOpen, sort, onSort }) {
 
 /* ---------------- Detail ---------------- */
 
-function Section({ title, children, action, anchor }) {
-  return (
-    <section className="detail-section" id={anchor ? `section-${anchor}` : undefined}>
-      <div className="detail-section-head">
-        <h3 className="detail-section-title">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 /** Tournament rows inside the history section. */
 function HistoryTable({ rows }) {
@@ -927,15 +917,6 @@ function HistoryTable({ rows }) {
   );
 }
 
-function Row({ label, value }) {
-  const empty = value === null || value === undefined || value === "";
-  return (
-    <div className="detail-row">
-      <span className="detail-row-label">{label}</span>
-      <span className="detail-row-value">{empty ? <span className="muted">—</span> : value}</span>
-    </div>
-  );
-}
 
 export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject, documents = [], documentTargets, isAdmin = false, seasonName }) {
   // Arriving from a count click, scroll straight to that block rather than
@@ -956,8 +937,7 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
   const hasFacilityInfo = Boolean(f.description || f.website || f.field_count != null || amenities.length);
 
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <aside className="drawer" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+    <DrawerShell onClose={onClose} ariaLabel="Facility details">
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2>{f.name}</h2>
@@ -1145,8 +1125,7 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
             )}
           </div>
         )}
-      </aside>
-    </div>
+    </DrawerShell>
   );
 }
 

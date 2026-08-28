@@ -1,6 +1,7 @@
 "use client";
 
 import { money } from "../lib/finance-rules";
+import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
 import { PageHelp } from "./PageHelp";
 import { useState, useTransition, useEffect } from "react";
 import { useOpenParam } from "./useOpenParam";
@@ -445,24 +446,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   );
 }
 
-function Section({ title, children }) {
-  return (
-    <section className="detail-section">
-      <h3 className="detail-section-title">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
-function Row({ label, value }) {
-  const empty = value === null || value === undefined || value === "";
-  return (
-    <div className="detail-row">
-      <span className="detail-row-label">{label}</span>
-      <span className="detail-row-value">{empty ? <span className="muted">—</span> : value}</span>
-    </div>
-  );
-}
 
 /**
  * A directions URL for a facility.
@@ -585,14 +569,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
     reveal("games");
   };
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <aside
-        className="drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="t-detail-title"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <DrawerShell onClose={onClose} labelledBy="t-detail-title">
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2 id="t-detail-title">{t.name}</h2>
@@ -624,60 +601,63 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
         </div>
 
         <div className="drawer-body">
-          {/* Four things a coach reaches for, with the answer already visible.
-              Each opens its section rather than navigating away. */}
-          <div className="t-actions">
-            <button className="t-action" onClick={() => reveal("games")}>
-              <span className="t-action-label">Games</span>
-              <span className="t-action-value">{games.length}</span>
+          {/* Three numbers a coach reaches for, each still a way into its
+              section. They were three shaded boxes in a four-column grid, with
+              the fourth cell filled by an "Edit" card whose value was a
+              non-breaking space — an empty box existing to square off a grid,
+              duplicating the footer's Edit details. The boxes are heavier than
+              anything else in the drawer system, so this reads as one strip
+              with dividers instead. Still buttons, still reveal their section. */}
+          <div className="t-metrics">
+            <button className="t-metric" onClick={() => reveal("games")}>
+              <span className="t-metric-label">Games</span>
+              <span className="t-metric-value">{games.length}</span>
             </button>
-            <button className="t-action" onClick={() => reveal("roster")}>
-              <span className="t-action-label">Roster</span>
-              <span className="t-action-value">{participants.length}</span>
+            <button className="t-metric" onClick={() => reveal("roster")}>
+              <span className="t-metric-label">Roster</span>
+              <span className="t-metric-value">{participants.length}</span>
             </button>
-            <button className="t-action" onClick={() => reveal("costs")}>
-              <span className="t-action-label">Costs</span>
-              <span className="t-action-value">{money(t.total_cost) || "—"}</span>
+            <button className="t-metric" onClick={() => reveal("costs")}>
+              <span className="t-metric-label">Costs</span>
+              <span className="t-metric-value">{money(t.total_cost) || "—"}</span>
             </button>
-            {canWrite && (
-              <button className="t-action" onClick={onEdit}>
-                <span className="t-action-label">Edit</span>
-                <span className="t-action-value">&nbsp;</span>
-              </button>
-            )}
           </div>
 
-          {/* Registration stays open: it is the one control a coach changes
-              repeatedly across an event's life. The pills above summarise;
-              these change it. */}
+          {/* STATUS, in the shared section treatment. These two selects sat
+              loose under the header as full-width controls, louder than the
+              pills above them that say the same thing. The pills stay the
+              quick read; this is the quick edit. */}
           {canWrite && (
-            <div className="field-row t-status">
-              <div className="field">
-                <label htmlFor="d-decision">Are we going?</label>
-                <select
-                  id="d-decision"
-                  value={t.decision}
-                  disabled={pending}
-                  onChange={(e) => onStatus(t.id, "decision", e.target.value)}
-                >
-                  {DECISIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
+            <section className="detail-section">
+              <h3 className="detail-section-title">Status</h3>
+                <div className="field-row t-status">
+                <div className="field">
+                  <label htmlFor="d-decision">Are we going?</label>
+                  <select
+                    id="d-decision"
+                    value={t.decision}
+                    disabled={pending}
+                    onChange={(e) => onStatus(t.id, "decision", e.target.value)}
+                  >
+                    {DECISIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="d-paid">
+                    Registration &amp; payment
+                    <HelpTip term="Registration and payment" />
+                  </label>
+                  <select
+                    id="d-paid"
+                    value={t.paid_status}
+                    disabled={pending}
+                    onChange={(e) => onStatus(t.id, "paid_status", e.target.value)}
+                  >
+                    {PAID_STATUSES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="d-paid">
-                  Registration &amp; payment
-                  <HelpTip term="Registration and payment" />
-                </label>
-                <select
-                  id="d-paid"
-                  value={t.paid_status}
-                  disabled={pending}
-                  onChange={(e) => onStatus(t.id, "paid_status", e.target.value)}
-                >
-                  {PAID_STATUSES.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-            </div>
+            </section>
           )}
 
           {/* Kept open deliberately: this is why a coach opens a tournament on
@@ -961,8 +941,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
           </div>
         )}
-      </aside>
-    </div>
+    </DrawerShell>
   );
 }
 

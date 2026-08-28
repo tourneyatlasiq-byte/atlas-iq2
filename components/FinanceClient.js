@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { DrawerShell } from "./DrawerShell";
 
 import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { useActionFeedback } from "../lib/useActionFeedback";
@@ -1321,8 +1322,7 @@ function DRow({ label, value }) {
 function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete }) {
   const counted = isActual(t);
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <aside className="drawer" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+    <DrawerShell onClose={onClose} ariaLabel="Transaction details">
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2>{t.item}</h2>
@@ -1378,8 +1378,7 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete }) 
             <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
           </div>
         )}
-      </aside>
-    </div>
+    </DrawerShell>
   );
 }
 
@@ -1947,8 +1946,7 @@ function FormerDuesTable({ rows, onOpen }) {
 
 function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry, onEdit }) {
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <aside className="drawer" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+    <DrawerShell onClose={onClose} ariaLabel="Transaction details">
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2>{p.player?.full_name ?? "Unlinked payment"}</h2>
@@ -2027,8 +2025,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
             <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit total due</button>
           </div>
         )}
-      </aside>
-    </div>
+    </DrawerShell>
   );
 }
 

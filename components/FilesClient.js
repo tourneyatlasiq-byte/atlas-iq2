@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { DrawerShell, DrawerRow as Row } from "./DrawerShell";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
@@ -311,21 +312,11 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
 
 /* ---------------- Detail ---------------- */
 
-function Row({ label, value }) {
-  const empty = value === null || value === undefined || value === "";
-  return (
-    <div className="detail-row">
-      <span className="detail-row-label">{label}</span>
-      <span className="detail-row-value">{empty ? <span className="muted">—</span> : value}</span>
-    </div>
-  );
-}
 
 export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete }) {
   const r = relatedTo(d);
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <aside className="drawer" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+    <DrawerShell onClose={onClose} ariaLabel="Document details">
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2>{d.file_name}</h2>
@@ -371,8 +362,7 @@ export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDe
             <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit details</button>
           </div>
         )}
-      </aside>
-    </div>
+    </DrawerShell>
   );
 }
 

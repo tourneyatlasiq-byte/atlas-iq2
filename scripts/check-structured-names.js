@@ -886,6 +886,80 @@ section("Team page hierarchy");
   }
 }
 
+
+// ------------------------------------------------------- drawer primitives
+section("Drawers share one shell");
+
+{
+  const shell = read("components/DrawerShell.js");
+  const drawers = ["components/RosterClient.js", "components/TournamentClient.js",
+                   "components/FacilitiesClient.js", "components/FinanceClient.js",
+                   "components/FilesClient.js"];
+
+  ok("the shell guards on where the press STARTED",
+    /onMouseDown=\{\(e\) => \{ pressOnBackdrop\.current = e\.target === e\.currentTarget/.test(shell));
+  ok("...and only closes when it also ENDS on the backdrop",
+    /e\.target === e\.currentTarget && pressOnBackdrop\.current/.test(shell));
+  ok("Escape is opt-in, so a page keeps its own precedence",
+    /closeOnEscape = false/.test(shell));
+  ok("...as is the body lock, so two effects cannot fight over it",
+    /lockScroll = false/.test(shell));
+
+  // The bug this replaces: a plain onClick on the backdrop.
+  for (const f of drawers) {
+    const src = read(f);
+    ok(`${f.split("/").pop()} uses the shell`, /<DrawerShell/.test(src));
+    ok(`...and no longer closes on a bare backdrop click`,
+      !/className="drawer-backdrop" onClick=\{onClose\}/.test(src));
+    ok(`...and drops the stopPropagation workaround`,
+      !/className="drawer" role="dialog"[\s\S]{0,120}?onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(src));
+  }
+
+  // One Section and one Row, not seven.
+  ok("a shared section primitive exists", /export function DrawerSection/.test(shell));
+  ok("...supporting a right-aligned action", /detail-section-head/.test(shell));
+  ok("a shared row primitive exists", /export function DrawerRow/.test(shell));
+  for (const f of drawers) {
+    const src = read(f);
+    ok(`${f.split("/").pop()} defines no local Section`, !/^function Section\(\{/m.test(src));
+    ok(`...and no local Row`, !/^function Row\(\{/m.test(src));
+  }
+}
+
+section("Tournament drawer body");
+
+{
+  const t = read("components/TournamentClient.js");
+  const css = read("app/globals.css");
+
+  ok("the empty Edit card is gone", !/t-action-label">Edit</.test(t));
+  ok("...along with its placeholder value", !/t-action-value">&nbsp;</.test(t));
+  ok("no second Edit affordance was added",
+    (t.match(/onClick=\{onEdit\}/g) ?? []).length, 1);
+
+  ok("the three metrics survive as buttons",
+    (t.match(/<button className="t-metric"/g) ?? []).length, 3);
+  ok("...still revealing their sections",
+    /t-metric"[\s\S]{0,80}?reveal\("games"\)/.test(t)
+    && /t-metric"[\s\S]{0,80}?reveal\("roster"\)/.test(t)
+    && /t-metric"[\s\S]{0,80}?reveal\("costs"\)/.test(t));
+  ok("...as one strip rather than three cards",
+    /\.t-metrics \{[^}]*display: flex/.test(css) && /\.t-metric \{[^}]*border-left/.test(css));
+  ok("the heavy KPI boxes are no longer used", !/className="t-action"/.test(t));
+
+  ok("status moved into a shared section",
+    /<h3 className="detail-section-title">Status<\/h3>/.test(t));
+  ok("...keeping both controls",
+    /id="d-decision"/.test(t) && /id="d-paid"/.test(t));
+  ok("the header pills remain the quick read",
+    /decision-pill/.test(t) && /paidClass\(t\.paid_status\)/.test(t));
+
+  ok("the contact section keeps its title+action pattern",
+    /section-head/.test(read("components/TournamentContact.js")));
+  ok("the footer keeps two actions",
+    /drawer-foot/.test(t) && /Edit details/.test(t));
+}
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
 })();

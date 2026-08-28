@@ -5741,3 +5741,39 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   /* Touch never hovers, so the affordance rests visible instead. */
   .th-sort-mark { color: var(--border); }
 }
+
+/* ---- Tournament: compact metric strip ----------------------------------
+   Replaces three shaded KPI boxes. They still read as clickable metrics —
+   uppercase label, prominent value, hover — but as one strip separated by
+   rules rather than three cards, which no other drawer in the product uses. */
+.t-metrics {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+  overflow: hidden; margin-bottom: 16px; background: var(--surface);
+}
+.t-metric {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 9px 14px; cursor: pointer; text-align: left;
+  font-family: var(--font-body); background: transparent; border: 0;
+  border-left: 1px solid var(--border);
+}
+.t-metric:first-child { border-left: 0; }
+.t-metric:hover { background: var(--surface-sunken); }
+.t-metric-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--slate);
+}
+.t-metric-value {
+  font-size: 17px; font-weight: 700; color: var(--navy); line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+
+/* Status sits in a normal section now, so its two selects no longer need a
+   bottom margin of their own. */
+.detail-section .t-status { margin-bottom: 0; }
+
+@media (max-width: 560px) {
+  .t-metric { padding: 8px 10px; }
+  .t-metric-value { font-size: 15px; }
+}
