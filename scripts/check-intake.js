@@ -649,8 +649,14 @@ const JOTFORM_HEADERS = [
     pln.FORBIDDEN_TABLES.includes("player_links"), false);
   ok("...but is not generally allowed either",
     pln.ALLOWED_TABLES.includes("player_links"), false);
+  // Two fields carry linkType X — a handle column and a URL column — because
+  // they describe ONE link record between them, not two links. An arbitrary
+  // field still cannot reach player_links: it must declare a linkType.
   ok("an arbitrary field cannot reach it: only linkType fields carry one",
-    reg.FIELDS.filter((f) => f.linkType).map((f) => f.key), ["social_handle"]);
+    reg.FIELDS.filter((f) => f.linkType).map((f) => f.key).sort(),
+    ["social_handle", "social_url"]);
+  ok("...and both describe the same link type",
+    [...new Set(reg.FIELDS.filter((f) => f.linkType).map((f) => f.linkType))], ["X"]);
 
   /* ---- person_type ------------------------------------------------------ */
   console.log("\nPlayer or staff");
@@ -1575,6 +1581,110 @@ console.log("\nAddress is planning-only");
   ok("Postal Code maps to zip", keyFor("Postal Code"), "zip");
   ok("every address column auto-enables", 
     mapped.filter((m) => ADDR.includes(m.key)).every((m) => m.autoEnabled), true);
+}
+
+
+/* ---- Best Guess is a suggestion, not an authorisation ------------------- */
+
+console.log("\nBest Guess requires confirmation");
+
+{
+  // Exact headers switch themselves on.
+  for (const h of ["Full Name", "Grad Year", "State", "City", "ZIP", "X Handle", "X URL"]) {
+    const m = map.suggestMappings([h]).mappings[0];
+    ok(`${h} is exact`, m.confidence, "exact");
+    ok(`${h} auto-includes`, m.autoEnabled, true);
+  }
+
+  // A probable match is still SUGGESTED, but cannot write unasked.
+  const probable = map.suggestMappings(["Kid Nickname Thing"]).mappings[0];
+  if (probable) {
+    ok("a probable match is still offered", Boolean(probable.key), true);
+    ok("...but does not auto-include", probable.autoEnabled, false);
+  }
+  ok("no probable mapping auto-includes, generally",
+    ["Statuses", "Colledge", "Playr Emial", "Guardian Relation Thing"]
+      .flatMap((h) => map.suggestMappings([h]).mappings)
+      .filter((m) => m.confidence === "probable")
+      .every((m) => m.autoEnabled === false), true);
+}
+
+/* ---- Our own export's columns are named, not guessed at ----------------- */
+
+console.log("\nExport-only columns are recognised and not imported");
+
+{
+  for (const h of ["Status", "Joined Date", "Role Label",
+                   "College Interest 1", "College Interest 1 Notes",
+                   "Contact 1 Primary", "Contact 2 Primary"]) {
+    const r = map.suggestMappings([h]);
+    ok(`${h} is not mapped to a writable field`, r.mappings.length, 0);
+    ok(`${h} is recognised rather than left unexplained`, r.ignored.length, 1);
+  }
+
+  // The specific corruption this prevents.
+  ok("Status no longer resolves to the address State",
+    map.suggestMappings(["Status"]).mappings.some((m) => m.key === "state"), false);
+  ok("College Interest no longer resolves to the address State",
+    map.suggestMappings(["College Interest 1"]).mappings.some((m) => m.key === "state"), false);
+  ok("College Interest Notes no longer resolves to player notes",
+    map.suggestMappings(["College Interest 1 Notes"]).mappings.some((m) => m.key === "notes"), false);
+  ok("State itself still maps exactly",
+    map.suggestMappings(["State"]).mappings[0].key, "state");
+}
+
+/* ---- X Handle and X URL compose ONE link ------------------------------- */
+
+console.log("\nOne X link from two columns");
+
+{
+  ok("the handle column and the URL column are distinct fields",
+    [map.suggestMappings(["X Handle"]).mappings[0].key,
+     map.suggestMappings(["X URL"]).mappings[0].key],
+    ["social_handle", "social_url"]);
+  ok("X URL is no longer an alias of the handle",
+    map.suggestMappings(["X URL"]).mappings[0].key === "social_handle", false);
+
+  const linksFor = (row) => {
+    const m = mat.matchPlayer(row, []);
+    return pln.buildRowPlan({ row, match: m, existingPlayer: null,
+      existingContacts: [], decisions: {}, identity: null });
+  };
+
+  const both = linksFor({ full_name: "A", social_handle: "@bellaramos",
+    social_url: "https://x.com/bellaramos", contacts: [] });
+  const bw = both.writes.filter((w) => w.table === "player_links");
+  ok("handle + URL produce exactly ONE link", bw.length, 1);
+  ok("...with the URL as the address", bw[0].values.url, "https://x.com/bellaramos");
+  ok("...and the coach's handle as the label", bw[0].values.label, "@bellaramos");
+
+  const urlOnly = linksFor({ full_name: "A", social_url: "https://x.com/bellaramos", contacts: [] });
+  const uw = urlOnly.writes.filter((w) => w.table === "player_links");
+  ok("URL alone is a valid link", uw.length, 1);
+  ok("...and the label is the handle, never the address", uw[0].values.label, "@bellaramos");
+
+  const handleOnly = linksFor({ full_name: "A", social_handle: "@bellaramos", contacts: [] });
+  const hw = handleOnly.writes.filter((w) => w.table === "player_links");
+  ok("a handle alone composes the address deterministically",
+    hw[0].values.url, "https://x.com/bellaramos");
+
+  ok("a twitter.com address normalises to x.com",
+    linksFor({ full_name: "A", social_url: "https://twitter.com/bellaramos", contacts: [] })
+      .writes.filter((w) => w.table === "player_links")[0].values.url,
+    "https://x.com/bellaramos");
+
+  ok("neither column means no link",
+    linksFor({ full_name: "A", contacts: [] })
+      .writes.filter((w) => w.table === "player_links").length, 0);
+
+  const bad = linksFor({ full_name: "A", social_url: "not an address", contacts: [] });
+  ok("an unreadable URL writes nothing",
+    bad.writes.filter((w) => w.table === "player_links").length, 0);
+  ok("...and is surfaced for review", bad.executable, false);
+
+  // Never two links for one player from one row.
+  ok("two columns never yield two link rows",
+    both.writes.filter((w) => w.table === "player_links").length, 1);
 }
 
 console.log(`\n${ran} assertions, ${failures} failed`);

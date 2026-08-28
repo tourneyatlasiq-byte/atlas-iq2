@@ -104,7 +104,16 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
     setStep("map");
   }
 
-  const keyOf = (m) => `${m.key}${m.index ?? ""}`;
+  /**
+   * INCLUSION BELONGS TO A SOURCE COLUMN, not to a destination field.
+   *
+   * This was `key + index`, so two columns suggesting the same destination
+   * shared one checkbox. In a Season Tempo export, Status, State and College
+   * Interest 1 all resolved to `state` — unticking Status silently unticked
+   * State, and the coach was blamed for a deselection they never made. The
+   * header is what the coach sees and what they are deciding about.
+   */
+  const keyOf = (m) => m.header;
 
   /* ---- Run the engine over every row ---------------------------------- */
 
@@ -421,7 +430,13 @@ function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setO
       const next = new Set(enabled);
       // A field the coach chose deliberately is included, unless it is one of
       // the opt-in fields, which stay a separate decision.
-      if (!field?.optIn) next.add(`${key}${field?.repeatable ? 1 : ""}`);
+      //
+      // Keyed by header, so re-mapping a Contact 2 column enables THAT column.
+      // The previous form hardcoded index 1, so a manually re-mapped "Contact
+      // 2 Email" enabled `contact_email1` while the row checked
+      // `contact_email2` — the column stayed Skipped no matter how often the
+      // coach clicked it.
+      if (!field?.optIn) next.add(header);
       setEnabled(next);
     }
   };

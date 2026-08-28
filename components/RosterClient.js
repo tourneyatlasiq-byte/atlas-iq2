@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo } from "react";
+import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
@@ -711,6 +711,10 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
   // ONE display rule, the canonical one. composeFullName() prefers a
   // preferred first name and falls back to full_name for a legacy record, so
   // the drawer never needs a second notion of what a player is called.
+  // Where the mouse was pressed, so a drag that ends on the backdrop does not
+  // read as a click on it.
+  const pressOnBackdrop = useRef(false);
+
   const displayName = composeFullName(p) ?? p.full_name ?? "—";
 
   const contactInfo = resolvePlayerContact(p);
@@ -718,13 +722,27 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
   const hasUniform = Boolean(row.jersey_size || row.pants_size);
 
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
+    /* CLOSE ONLY ON A CLICK THAT BOTH STARTED AND ENDED ON THE BACKDROP.
+       A plain onClick here closed the drawer while a coach was selecting text.
+       A browser fires `click` on the nearest common ancestor of mousedown and
+       mouseup, so drag-selecting an email and releasing a few pixels outside
+       the input fires the click on the BACKDROP — stopPropagation on the
+       drawer never runs, and the editor vanished mid-selection. Recording
+       where the press began makes an intentional backdrop click still work
+       while a drag that merely ends there does not. */
+    <div
+      className="drawer-backdrop"
+      onMouseDown={(e) => { pressOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && pressOnBackdrop.current) onClose();
+        pressOnBackdrop.current = false;
+      }}
+    >
       <aside
         className="drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="player-detail-title"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="drawer-head">
           <div className="drawer-head-text">

@@ -99,18 +99,21 @@ section("Columns");
   const { columns, contactGroups } = exportColumns([member()]);
 
   ok("two contact groups even when nobody has any", contactGroups, 2);
-  ok("identity comes first", columns.slice(0, 6),
-    ["Full Name", "Legal First Name", "Preferred First Name", "Last Name",
-     "Type", "Role Label"]);
-  ok("then team and season", columns.slice(6, 12),
-    ["Jersey Number", "Positions", "Jersey Size", "Pants Size", "Status", "Joined Date"]);
-  ok("then player details", columns.slice(12, 19),
+  // Coach-facing, not a schema dump: Role Label and Joined Date are internal
+  // detail and were removed.
+  ok("identity comes first", columns.slice(0, 5),
+    ["Full Name", "Legal First Name", "Preferred First Name", "Last Name", "Type"]);
+  ok("then team and season", columns.slice(5, 10),
+    ["Jersey Number", "Positions", "Jersey Size", "Pants Size", "Status"]);
+  ok("no internal role label", columns.includes("Role Label"), false);
+  ok("no internal joined date", columns.includes("Joined Date"), false);
+  ok("then player details", columns.slice(10, 17),
     ["Grad Year", "Date of Birth", "High School", "Throws", "Bats",
      "Player Email", "Player Phone"]);
-  ok("then address", columns.slice(19, 24),
+  ok("then address", columns.slice(17, 22),
     ["Address Line 1", "Address Line 2", "City", "State", "ZIP"]);
-  ok("then notes", columns[24], "Notes");
-  ok("then contacts, one column per value", columns.slice(25, 31),
+  ok("then notes", columns[22], "Notes");
+  ok("then contacts, one column per value", columns.slice(23, 29),
     ["Contact 1 Name", "Contact 1 Relationship", "Contact 1 Email",
      "Contact 1 Phone", "Contact 1 Preferred Method", "Contact 1 Primary"]);
   ok("recruiting last", columns.slice(-4),
@@ -158,7 +161,6 @@ section("Row values");
   ok("positions are joined the way the drawer and the importer both read them",
     at("Positions"), "C / RF");
   ok("status is a word", at("Status"), "Active");
-  ok("joined date is ISO, not a timestamp", at("Joined Date"), "2026-03-01");
   ok("date of birth is ISO", at("Date of Birth"), "2010-06-14");
   ok("address is split across its own columns",
     [at("Address Line 1"), at("Address Line 2"), at("City"), at("State"), at("ZIP")],
@@ -218,9 +220,7 @@ section("Sparse and awkward records");
 
   const staff = buildExport([member({ player: { person_type: "coach",
     other_role_label: "Assistant Coach" } })]);
-  ok("staff carry their role label",
-    staff.rows[0][staff.columns.indexOf("Role Label")], "Assistant Coach");
-  ok("...and their type", staff.rows[0][staff.columns.indexOf("Type")], "Coach");
+  ok("staff are identified by type", staff.rows[0][staff.columns.indexOf("Type")], "Coach");
 }
 
 section("Characters that break spreadsheets");
