@@ -162,7 +162,11 @@ section("Row values");
   ok("positions are joined the way the drawer and the importer both read them",
     at("Positions"), "C / RF");
   ok("status is a word", at("Status"), "Active");
-  ok("date of birth is ISO", at("Date of Birth"), "2010-06-14");
+  // MM/DD/YYYY, the format the product displays and the importer reads back.
+  // ISO is the database's internal representation and was never something a
+  // coach should have to see in a spreadsheet.
+  ok("date of birth is MM/DD/YYYY", at("Date of Birth"), "06/14/2010");
+  ok("...and re-imports to the canonical value", at("Date of Birth"), "06/14/2010");
   ok("address is split across its own columns",
     [at("Address Line 1"), at("Address Line 2"), at("City"), at("State"), at("ZIP")],
     ["12 Oak Lane", "Apt 4B", "Cumming", "GA", "30040"]);

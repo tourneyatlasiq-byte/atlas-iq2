@@ -79,7 +79,12 @@ const JOTFORM_HEADERS = [
   ok("name comparison strips punctuation and case", nrm.normName("O'Brien-Smith, Ana"), "o brien smith ana");
   ok("ISO date passes through", nrm.toDate("2010-04-03"), "2010-04-03");
   ok("named month is unambiguous", nrm.toDate("Apr 3, 2010"), "2010-04-03");
-  ok("AMBIGUOUS numeric date is rejected, not guessed", nrm.toDate("03/04/2010"), null);
+  // Slash dates are no longer rejected as ambiguous. Season Tempo displays
+  // MM/DD/YYYY, so a slash date is read as month/day in code — a defined rule,
+  // not a guess, and not the runtime's locale. 03/04/2010 is 4 March.
+  ok("a slash date is read as month/day", nrm.toDate("03/04/2010"), "2010-03-04");
+  ok("...consistently in the other order too", nrm.toDate("04/03/2010"), "2010-04-03");
+  ok("an impossible slash date is still rejected", nrm.toDate("02/30/2010"), null);
   ok("spoken positions become codes", nrm.toPositions("Utility; Second Base"), ["UTIL","2B"]);
   ok("codes pass through", nrm.toPositions("SS, CF"), ["SS","CF"]);
   ok("unknown position dropped", nrm.toPositions("Designated Hitter"), []);
@@ -1845,6 +1850,112 @@ console.log("\nPositions from a spreadsheet we did not write");
       { Name: "X", Jersey: "1", Position: cell, "Grad Year": "2029" }, active);
     ok(`external ${JSON.stringify(cell)}`, nrm.normalizeValue(f.type, mapped.positions), want);
   }
+}
+
+
+/* ---- Date of birth: the coach's format, not the database's --------------
+   toDate() had no branch for slash dates, so 05/02/2010 — the format Season
+   Tempo itself displays — fell through to null, blocked the row, and told the
+   coach to convert to YYYY-MM-DD. That is the database's internal
+   representation and not something anyone should have to type.
+
+   Slashes are read as MONTH/DAY/YEAR in code, not by locale: the same file
+   opened on a machine set to en-GB must not turn 2 May into 5 February. No
+   branch uses new Date(string), whose parsing is implementation-defined, and
+   nothing on this path uses toISOString(), which would shift the calendar day
+   backwards for anyone west of UTC. */
+
+console.log("\nDate of birth accepts the format the product shows");
+
+{
+  for (const [raw, want] of [
+    ["05/02/2010", "2010-05-02"],
+    ["5/2/2010",   "2010-05-02"],
+    ["2010-05-02", "2010-05-02"],
+    ["May 2, 2010","2010-05-02"],
+    ["1/1/2010",   "2010-01-01"],
+    ["12/31/2009", "2009-12-31"],
+    ["02/29/2008", "2008-02-29"],
+  ]) ok(`${raw} -> ${want}`, nrm.toDate(raw), want);
+
+  ok("an Excel date cell keeps its calendar day",
+    nrm.toDate(new Date(2010, 4, 2)), "2010-05-02");
+  ok("...even late in the evening",
+    nrm.toDate(new Date(2010, 4, 2, 23, 30)), "2010-05-02");
+  ok("...and on New Year's Day", nrm.toDate(new Date(2010, 0, 1)), "2010-01-01");
+
+  // The reading is fixed, not locale-dependent.
+  ok("05/02 is May 2", nrm.toDate("05/02/2010"), "2010-05-02");
+  ok("02/05 is February 5", nrm.toDate("02/05/2010"), "2010-02-05");
+
+  // Impossible and unsupported still block; nothing is guessed.
+  for (const raw of ["02/30/2010", "02/29/2010", "13/01/2010", "00/05/2010",
+                     "2010/05/02", "05-02-2010", "not a date"]) {
+    ok(`${raw} blocks`, nrm.toDate(raw), null);
+    ok(`...and is surfaced, not dropped`, nrm.classifyDate(raw).ok, false);
+  }
+  ok("a blank is absent rather than unreadable", nrm.classifyDate("").ok, true);
+
+  // No environment-dependent parsing anywhere on this path.
+  const code = require("fs").readFileSync("lib/intake/normalize.js", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("no new Date(string) parsing", /new Date\(s\)|new Date\(String/.test(code), false);
+  ok("no toISOString on the DOB path", /toISOString/.test(code), false);
+
+  // The guidance a blocked row gives.
+  const src = require("fs").readFileSync("lib/intake/plan.js", "utf8");
+  ok("a blocked date suggests MM/DD/YYYY", /MM\/DD\/YYYY/.test(src), true);
+  ok("...and no longer teaches the database format",
+    /use a format like 2010-03-04/.test(src), false);
+}
+
+console.log("\nDate of birth survives export and re-import");
+
+{
+  const XLSX = require("xlsx");
+  const exp = await load("lib/player-export.js");
+
+  const player = { id: "d1", full_name: "Dot Bee", person_type: "player",
+    grad_year: 2028, date_of_birth: "2010-05-02",
+    player_contacts: [{ id: "dc1", email: "g@example.invalid" }] };
+  const roster = [{ id: "a1", positions: ["SS"], is_active: true, player,
+    contacts: [{ id: "dc1", full_name: "G", email: "g@example.invalid",
+                 is_primary: true, sort_order: 1 }], links: [], colleges: [] }];
+
+  const { columns, rows: body } = exp.buildExport(roster);
+  ok("exported as MM/DD/YYYY", body[0][columns.indexOf("Date of Birth")], "05/02/2010");
+
+  const sheet = XLSX.utils.aoa_to_sheet([columns, ...body]);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, "Players");
+  const aoa = XLSX.utils.sheet_to_json(
+    XLSX.read(XLSX.write(book, { type: "buffer", bookType: "xlsx" }), { type: "buffer" }).Sheets.Players,
+    { header: 1, defval: "", blankrows: false });
+
+  const header = aoa[0];
+  const sug = map.suggestMappings(header);
+  const active = sug.mappings.filter((m) => m.autoEnabled);
+  const raw = Object.fromEntries(header.map((h, c) => [h, aoa[1][c] ?? ""]));
+  const mapped = map.applyMappings(raw, active);
+  const row = { contacts: [] };
+  for (const [k, v] of Object.entries(mapped)) {
+    if (k === "contacts") continue;
+    const f = reg.BY_KEY.get(k);
+    if (!f || reg.isIgnored(k)) continue;
+    row[k] = nrm.normalizeValue(f.type, v);
+  }
+  row._unreadable = nrm.unreadableValues(mapped, (k) => reg.BY_KEY.get(k));
+
+  ok("re-imports to the canonical value", row.date_of_birth, "2010-05-02");
+  ok("nothing is flagged unreadable", row._unreadable, []);
+
+  const existing = [mat.toCandidate(player)];
+  const plan = pln.buildRowPlan({ row, match: mat.matchPlayer(row, existing),
+    existingPlayer: existing[0], existingContacts: existing[0].contacts,
+    decisions: {}, identity: null });
+  ok("the row imports without a decision", plan.executable, true);
+  ok("DOB reads as SAME", plan.resolved.find((r) => r.key === "date_of_birth")?.status, "same");
+  ok("...so nothing is rewritten", plan.writes.some((w) => w.table === "players"), false);
 }
 
 console.log(`\n${ran} assertions, ${failures} failed`);
