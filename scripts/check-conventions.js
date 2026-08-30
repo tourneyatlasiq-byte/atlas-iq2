@@ -293,7 +293,12 @@ for (const f of componentFiles()) {
 
 for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/finance.js"]) {
   if (!fs.existsSync(f)) continue;
-  const src = fs.readFileSync(f, "utf8");
+  // Comments stripped first: a comment explaining why a function is NOT used
+  // was reported as using it, which teaches people to delete the explanation
+  // rather than keep the rule.
+  const src = fs.readFileSync(f, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
   if (/Math\.floor|Math\.trunc/.test(src)) {
     failures.push(`${f}: floors or truncates — money rounds to the nearest cent, never down`);
   }

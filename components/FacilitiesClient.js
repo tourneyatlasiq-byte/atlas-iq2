@@ -1895,6 +1895,18 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
         <form action={onSubmit}>
           {row && <input type="hidden" name="id" value={row.id} />}
 
+          {/* THE TYPE MUST BE SUBMITTED FROM HERE.
+              The visible selector lives on the search step, which is a
+              different modal with no <form> around it — a control there sets
+              React state and sends nothing. A hotel chosen on that step
+              arrived at the server with no type at all and was written as a
+              facility, which is the column default.
+
+              This carries the chosen type into the actual submission. The
+              selector stays where it is, because the type genuinely is the
+              first decision and it drives which fields this form renders. */}
+          <input type="hidden" name="type" value={resourceType} />
+
           {/* The server runs the matcher independently, so an acknowledged
               creation has to say which matches were acknowledged. Scoped to the
               ids actually shown: a duplicate created between submits is still

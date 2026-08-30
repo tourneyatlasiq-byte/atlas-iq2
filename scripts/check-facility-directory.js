@@ -359,6 +359,50 @@ console.log("\nLocations & Resources");
   assertEq("Facilities keep the editable Advanced controls",
     /htmlFor="f-lat"/.test(ui) && /htmlFor="f-maps"/.test(ui), true);
 
+
+  /* ---- A created record must be findable ---------------------------------
+     Found in QA: a hotel was created successfully and then did not appear
+     under Hotels. Two separate faults.
+
+     ONE — the Type never reached the server. The selector lives on the search
+     step, which is a different modal with no <form> around it, so it set React
+     state and submitted nothing; the action saw no type and used the column
+     default. The record was written as a facility.
+
+     TWO — even with the right type it would not have been Saved. Saved means a
+     real relationship, and a brand new record has no tournament, no notes and
+     no links. Creating it IS the relationship, so creation now writes an
+     organization_facilities row.
+
+     Not solved by adding created_by_organization_id to the Saved rule: the
+     importer sets that column too, and Northgate imported 178 of the 181
+     records, which would have made Saved almost identical to All. */
+
+  assertEq("the chosen type is submitted from inside the form",
+    /<input type="hidden" name="type" value=\{resourceType\} \/>/.test(ui), true);
+  // Three forms exist in this file; the one that submits a location is the
+  // one carrying the hidden type. The selector must sit BEFORE it, on the
+  // search step, which is exactly why the hidden input is needed.
+  assertEq("...and the visible selector is outside it, on the search step",
+    ui.indexOf('id="f-type"') < ui.indexOf('<input type="hidden" name="type"'), true);
+  assertEq("creating a record marks it Saved",
+    /from\("organization_facilities"\)\s*\n\s*\.upsert\(/.test(act), true);
+  assertEq("...scoped to the creating organization",
+    /organization_id: ctx\.organization\.id, facility_id: created\.id/.test(act), true);
+  assertEq("...idempotently, so a retry cannot duplicate it",
+    /onConflict: "organization_id,facility_id"/.test(act), true);
+  assertEq("...and never fails the create over a marker",
+    /Deliberately not fatal/.test(act), true);
+  assertEq("the Saved rule itself is unchanged",
+    /committedHistory\.length > 0 \|\| orgNotes !== null \|\| links\.length > 0/.test(q), true);
+  // created_by_organization_id IS read for isCurator (who may edit a shared
+  // record). What matters is that it is not part of the Saved rule, because
+  // the importer sets it on every record it creates.
+  assertEq("...so a directory record alone is still not Saved",
+    /isOurs:[^,]*created_by_organization_id/.test(q), false);
+  assertEq("...and it is still used for edit rights",
+    /isCurator: f\.created_by_organization_id === organizationId/.test(q), true);
+
   // Nav and mobile.
   assertEq("nav renamed", /label: "Locations & Resources"/.test(nav), true);
   assertEq("route unchanged", /href: "\/facilities"/.test(nav), true);

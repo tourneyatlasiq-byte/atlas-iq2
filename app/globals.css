@@ -6089,3 +6089,42 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .tr-context-choose { flex-direction: column; align-items: stretch; }
   .tr-context-choose select { min-height: 44px; }
 }
+
+/* ---- Player dues ------------------------------------------------------- */
+.tab-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dues-preview { margin-top: 8px; }
+.dues-locked-note { margin: 0 0 12px; }
+.dues-edit-note { margin-top: 8px; }
+
+@media (max-width: 720px) {
+  .tab-head-actions { width: 100%; flex-direction: column; }
+  .tab-head-actions .btn { width: 100%; min-height: 44px; }
+}
+
+/* ---- Dues: who owes, and who does not ---------------------------------- */
+.dues-payers {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 14px; max-height: 220px; overflow-y: auto;
+  padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-control); background: var(--surface);
+}
+.dues-payer {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; color: var(--navy); min-height: 28px;
+}
+.dues-payer input { flex: 0 0 auto; }
+
+/* A budget line is a plan; this says nobody has been charged. */
+.dues-budget-notice {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.dues-budget-notice p { margin: 4px 0 0; }
+.dues-budget-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 720px) {
+  .dues-payers { grid-template-columns: 1fr; max-height: 260px; }
+  .dues-payer { min-height: 40px; }
+  .dues-budget-actions { width: 100%; flex-direction: column; }
+  .dues-budget-actions .btn { width: 100%; min-height: 44px; }
+}

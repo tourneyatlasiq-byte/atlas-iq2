@@ -502,6 +502,216 @@ console.log("\nFinance hardening");
     sumMoney([2700, 100, 50]), 2850);
 }
 
+
+/* ---- Team dues allocation ------------------------------------------------
+   A coach set dues for a 14-player team by typing 48000 into a field labelled
+   "Total due for the season". The server wrote that amount to every player:
+   14 obligations of $48,000 and a season total of $672,000, fourteen times
+   what was meant. The server had always been per-player; the label was wrong,
+   and one field carried two meanings.
+
+   Money is now split in integer cents. Never floating-point division: a naive
+   split of $48,000 across 14 collects $47,999.98 or $48,000.14, and the gap is
+   real money a family is short or over. */
+
+console.log("\nTeam dues allocation");
+
+{
+  const { allocateMoney, allocateCents, cents } = mod;
+  const sumOf = (shares) => shares.reduce((t, v) => t + cents(v), 0);
+
+  // The exact case from production.
+  const lynch = allocateMoney(48000, 14);
+  assertEq("48,000 across 14 sums to 48,000 exactly", sumOf(lynch), 4800000);
+  assertEq("...as 12 at 3428.57", lynch.filter((v) => v === 3428.57).length, 12);
+  assertEq("...and 2 at 3428.58", lynch.filter((v) => v === 3428.58).length, 2);
+
+  // The split stated during planning was two cents over; the assertion in the
+  // correction caught it before anything was written.
+  assertEq("10x3428.57 + 4x3428.58 does NOT reconcile",
+    cents(3428.57) * 10 + cents(3428.58) * 4 === 4800000, false);
+
+  assertEq("1,000 across 3 sums to 1,000 exactly", sumOf(allocateMoney(1000, 3)), 100000);
+  assertEq("...as 333.34, 333.33, 333.33",
+    allocateMoney(1000, 3), [333.34, 333.33, 333.33]);
+
+  assertEq("an even split has no remainder",
+    allocateMoney(49000, 14).every((v) => v === 3500), true);
+  assertEq("one cent across three still reconciles", sumOf(allocateMoney(0.01, 3)), 1);
+  assertEq("zero players allocates nothing", allocateMoney(1000, 0), []);
+  assertEq("a single player takes the whole total", allocateMoney(48000, 1), [48000]);
+
+  // Deterministic: same input, same allocation, every time.
+  assertEq("the allocation is deterministic",
+    JSON.stringify(allocateMoney(48000, 14)) === JSON.stringify(allocateMoney(48000, 14)), true);
+  assertEq("the remainder goes to the first shares",
+    allocateMoney(48000, 14)[0] > allocateMoney(48000, 14)[13], true);
+
+  // Per-player mode keeps the historical behaviour, explicitly.
+  const perPlayer = Array.from({ length: 14 }, () => 3500);
+  assertEq("per player x count is the displayed total", sumOf(perPlayer), 4900000);
+
+  // A brute check that no total between 1 and 5,000 cents ever loses a penny
+  // across 2..20 players.
+  let mismatches = 0;
+  for (let c = 1; c <= 5000; c += 7) {
+    for (let n = 2; n <= 20; n += 1) {
+      if (allocateCents(c, n).reduce((t, v) => t + v, 0) !== c) mismatches += 1;
+    }
+  }
+  assertEq("no total loses or gains a cent across 2-20 players", mismatches, 0);
+}
+
+{
+  const fsx = require("fs");
+  const act = fsx.readFileSync("lib/actions/finance.js", "utf8");
+  const ui = fsx.readFileSync("components/FinanceClient.js", "utf8");
+  const conf = fsx.readFileSync("components/ConfirmAction.js", "utf8");
+
+  assertEq("the action reads an explicit mode", /dues_mode/.test(act), true);
+  assertEq("...defaulting to team total, the safer reading",
+    /=== "per_player" \? "per_player" : "total"/.test(act), true);
+  assertEq("...and allocates in cents for a team total",
+    /allocateMoney\(entered, ordered\.length\)/.test(act), true);
+  assertEq("...checking the sum before writing",
+    /allocated !== cents\(entered\)/.test(act), true);
+  assertEq("...over a stable order, not database order",
+    /sort\(\(a, b\) =>\s*\n?\s*String\(a\.player_id\)\.localeCompare/.test(act), true);
+  assertEq("no floating-point division survives in the action",
+    /entered \/ (ordered|eligible|toCreate)/.test(act), false);
+
+  assertEq("the UI offers both modes", /Amount per player/.test(ui) && /Team total/.test(ui), true);
+  assertEq("...the label follows the mode",
+    /duesMode === "total"\s*\n?\s*\? "Total team dues"/.test(ui), true);
+  assertEq("...one player has no mode toggle",
+    /isNew && effectiveScope === "all" && \(\s*\n\s*<div className="field">\s*\n\s*<label>Set dues by<\/label>/.test(ui), true);
+  assertEq("the preview uses the server's own function",
+    /allocateMoney\(value, n\)/.test(ui), true);
+  // Now keyed on the SELECTION: deselecting everyone must also block, since
+  // a team total with no payers has nobody to allocate to.
+  assertEq("zero selected players cannot submit",
+    /disabled=\{pending \|\| \(effectiveScope === "all" && \(isNew \? selected\.length === 0 : available\.length === 0\)\)\}/.test(ui), true);
+  assertEq("the all-set state explains where to change an amount",
+    /obligations with recorded payments cannot be changed in bulk/.test(ui), true);
+
+
+  /* ---- Editing dues that already exist ---------------------------------
+     setDuesForAll only ever creates, so a coach who set the wrong amount was
+     told "Set dues for 0 players" — true, and useless. Correcting a 14-player
+     team meant fourteen individual edits.
+
+     Bulk editing is allowed only while NONE of the affected obligations has a
+     payment. Not a technical limit: reallocating a team total when some
+     players have already paid produces a number that is no longer the total
+     the coach entered. Individual adjustment stays available and is the honest
+     path once collection has begun. */
+
+  assertEq("a bulk edit action exists", /export async function editDuesForAll/.test(act), true);
+  assertEq("...refusing whole rather than in part",
+    /REFUSE WHOLE, NOT IN PART/.test(act), true);
+  assertEq("...when any affected obligation has a payment",
+    /const paid = rows\.filter\(\(r\) => \(r\.log \?\? \[\]\)\.length > 0\)/.test(act), true);
+  assertEq("...naming who blocked it", /paidNames/.test(act), true);
+  assertEq("...and never partially updating",
+    /if \(paid\.length > 0\) \{[\s\S]{0,600}?return \{/.test(act), true);
+
+  assertEq("the edit allocates in cents like initial setup",
+    /allocateMoney\(entered, ordered\.length\)/.test(act.slice(act.indexOf("editDuesForAll"))), true);
+  assertEq("...over the same stable order",
+    /String\(a\.player_id\)\.localeCompare/.test(act.slice(act.indexOf("editDuesForAll"))), true);
+  assertEq("...checking the sum before writing",
+    /allocated !== cents\(entered\)/.test(act.slice(act.indexOf("editDuesForAll"))), true);
+  assertEq("...and it updates, never inserts",
+    /\.update\(\{ initial_cost: shares\[i\] \}\)/.test(act), true);
+  assertEq("...scoped to the season",
+    /\.eq\("id", ordered\[i\]\.id\)\s*\n?\s*\.eq\("season_id", ctx\.season\.id\)/.test(act), true);
+
+  // Adding a player later must not disturb anyone.
+  assertEq("setting dues acts only on players who have none",
+    /players\.filter\(\(p\) => !taken\.has\(p\.id\)/.test(ui), true);
+  assertEq("editing team dues acts on players who have them",
+    /teamEdit\s*\n?\s*\? players\.filter\(\(p\) => taken\.has\(p\.id\)/.test(ui), true);
+  assertEq("the create path still only inserts missing obligations",
+    /const toCreate = eligible\.filter\(\(r\) => !already\.has\(r\.player_id\)\)/.test(act), true);
+
+  // The header stops looking like first-time setup.
+  assertEq("the header states the team total once dues exist",
+    /<strong>\{money\(duesTotal\)\}<\/strong> total/.test(ui), true);
+  assertEq("...and offers Edit team dues when safe",
+    /canBulkEdit && \(/.test(ui) && /Edit team dues/.test(ui), true);
+  assertEq("...only when nothing is paid",
+    /const canBulkEdit = withDues\.length > 0 && !anyPaid/.test(ui), true);
+  assertEq("...explaining why when it is unavailable",
+    /Team dues can no longer be reallocated as a group/.test(ui), true);
+  assertEq("...and still offering dues for players who have none",
+    /Set dues for \{playersWithoutDues\}/.test(ui), true);
+  assertEq("the edit states what it will change",
+    /This replaces the amount owed by/.test(ui), true);
+  assertEq("...and that payments are untouched",
+    /Payments already recorded are not affected/.test(ui), true);
+
+  // Payment history protection is unchanged.
+  assertEq("deleting a paid obligation is still refused",
+    /payments have been recorded against it/i.test(act), true);
+
+
+  /* ---- Exemption --------------------------------------------------------
+     Two Lynch players are deliberately not charged. Deleting their obligation
+     shows "Dues not set", which is indistinguishable from an oversight;
+     setting 0 shows "Paid in Full", which claims money was received. Neither
+     is true, so exemption is stated in its own column. */
+
+  const rules = fsx.readFileSync("lib/finance-rules.js", "utf8");
+  // Must be the FIRST branch: totalDue is 0 for an exempt player, so the
+  // paid check below would otherwise claim money was received.
+  assertEq("exemption is its own state", /\? "exempt"/.test(rules), true);
+  assertEq("...checked before the paid branch",
+    rules.indexOf('? "exempt"') < rules.indexOf('? "paid"'), true);
+  assertEq("...on the record flag", /record\.exempt/.test(rules), true);
+  assertEq("...counted apart from players with no dues set",
+    /exempt: inState\("exempt"\)/.test(rules), true);
+  assertEq("...and never reported as Paid in Full",
+    /p\.exempt\s*\n?\s*\? "No dues"/.test(fsx.readFileSync("lib/queries/finance.js", "utf8")), true);
+
+  assertEq("a team total excludes exempt players from allocation",
+    /const payers = rows\.filter\(\(r\) => !r\.exempt\)/.test(act), true);
+  assertEq("...refusing when nobody is left to charge",
+    /Every player on this roster is marked as owing no dues/.test(act), true);
+  assertEq("deselected players are recorded as exempt, not skipped",
+    /exempt: true,/.test(act), true);
+  assertEq("...with zero, as the constraint requires",
+    /initial_cost: 0,\s*\n\s*exempt: true/.test(act), true);
+  assertEq("exemption is reversible one player at a time",
+    /const exempt = text\(formData\.get\("exempt"\)\) === "true"/.test(act), true);
+
+  assertEq("the coach chooses who owes before allocating",
+    /Who owes dues/.test(ui), true);
+  assertEq("...defaulting to everyone", /const payerIds = payers \?\? available\.map/.test(ui), true);
+  assertEq("...and the preview counts only the selected",
+    /const n = selected\.length;/.test(ui), true);
+  assertEq("...and says what happens to the rest",
+    /will be\s*\n?\s*recorded as owing no dues/.test(ui), true);
+
+  /* ---- Budget line is a plan, not a charge ---------------------------- */
+
+  assertEq("creating a dues budget line reports itself",
+    /duesBudget: isDuesLine/.test(act), true);
+  assertEq("...only on creation, not on edit", /const isDuesLine = !id &&/.test(act), true);
+  assertEq("...and the notice says nobody has been charged",
+    /Players have not been charged yet/.test(ui), true);
+  assertEq("...offering Set player dues when none exist",
+    /Set player dues\s*\n?\s*<\/button>/.test(ui), true);
+  assertEq("...and View player dues when they do",
+    /View player dues/.test(ui), true);
+  assertEq("...carrying the figure forward as a prefill only",
+    /setDuesPrefill\(duesBudgetNotice\.amount \?\? null\)/.test(ui), true);
+  assertEq("...with no automatic synchronisation afterwards",
+    /NOT syncing the two\s*\n\s*\* afterwards/.test(act), true);
+
+  assertEq("an inline confirmation scrolls itself into view",
+    /scrollIntoView\(\{ block: "nearest"/.test(conf), true);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

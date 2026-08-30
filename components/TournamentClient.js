@@ -124,13 +124,10 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   // page-level actions.
   const [drawerError, setDrawerError] = useState(null);
   const confirm = useConfirm();
-  const { run: runMutation, pending: mutating } = useMutation();
-  // The form submit path takes a FormData straight from a <form> and has its
-  // own success handling; it keeps its own transition rather than being bent
-  // into the shared runner's shape. `pending` above covers both because the
-  // buttons read it.
-  const [formPending, startTransition] = useTransition();
-  const pending = mutating || formPending;
+  // Every mutation here goes through the shared runner, including the form
+  // submit. It was the one exception, and the exception is what left a newly
+  // created tournament invisible until the page was reloaded.
+  const { run: runMutation, pending } = useMutation();
   const [collapsed, setCollapsed] = useState({ Declined: true });
 
   useEffect(() => {
@@ -169,21 +166,34 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     rows: shown.filter((t) => t.decision === d),
   }));
 
+  /**
+   * THE NEW TOURNAMENT HAS TO ARRIVE BEFORE IT CAN BE SHOWN.
+   *
+   * `detail` is resolved by looking the open id up in `tournaments`, which is
+   * the server-rendered list. A tournament created a moment ago is not in it
+   * yet, so setting the open param found nothing: the form closed, no drawer
+   * appeared, and the list looked unchanged. Creation had in fact succeeded
+   * every time — five attempts in production created five tournaments, one of
+   * them a duplicate of a retry — but nothing on screen said so.
+   *
+   * Routing this through the shared runner refreshes the route, so the new row
+   * arrives and the open param resolves against it. Every other mutation here
+   * already did this; the create path was the one left behind.
+   */
   function submit(formData) {
     setError(null);
-    startTransition(async () => {
-      const isNew = editing === "new";
-      const action = isNew ? addTournament : updateTournament;
-      const result = await action(formData);
+    const isNew = editing === "new";
+    const action = isNew ? addTournament : updateTournament;
 
-      if (result?.ok) {
+    runMutation(action, formData, {
+      onSuccess: (result) => {
         setEditing(null);
-        // A new tournament opens straight into its drawer — registration,
-        // costs and event roster are all there, and the coach is already
-        // where the next decision happens. Editing just closes.
-        if (isNew && result.id) openDetail({ id: result.id });
+        // The param is set now and resolves once the refreshed rows land, so
+        // the coach lands in the drawer for what they just created.
+        if (isNew && result?.id) openDetail({ id: result.id });
         else closeDetail();
-      } else setError(result?.error ?? "Something went wrong. Try again.");
+      },
+      onError: (message) => setError(message),
     });
   }
 

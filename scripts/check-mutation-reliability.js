@@ -233,5 +233,43 @@ section("Files on a phone");
   ok("the card meets the touch target", /\.files-card \{[^}]*min-height: 44px/.test(css3));
 }
 
+
+section("Creating a tournament shows it");
+
+{
+  const tui = read("components/TournamentClient.js");
+  const openParam = read("components/useOpenParam.js");
+  const code = tui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  /* Five POSTs in production created five tournaments — one of them a
+     duplicate of a retry — and the coach saw none of them. `detail` is found
+     by looking the open id up in the server-rendered rows, and a tournament
+     created a moment ago is not in them yet, so the form closed and nothing
+     appeared. Creation had worked every time. */
+
+  ok("detail is resolved from the server-rendered rows",
+     /\(rows \?\? \[\]\)\.find\(\(r\) => r\?\.id === openId\)/.test(openParam));
+  ok("...so the create path must refresh before it can show anything",
+     /runMutation\(action, formData/.test(tui));
+  ok("...and no longer hand-rolls its own transition",
+     !/startTransition\(async \(\) => \{[\s\S]{0,200}?addTournament/.test(code));
+  ok("the drawer still opens for what was just created",
+     /if \(isNew && result\?\.id\) openDetail\(\{ id: result\.id \}\)/.test(tui));
+  ok("an edit still closes instead", /else closeDetail\(\);/.test(tui));
+  ok("a failure is still reported", /onError: \(message\) => setError\(message\)/.test(tui));
+  ok("one pending source, no stale second one",
+     !/const pending = mutating \|\| formPending/.test(tui));
+
+  // A second click before the first response would create a second
+  // tournament. That is how the duplicate arose in production, and it is why
+  // the button must be dead while the request is in flight.
+  ok("the submit button is disabled while saving",
+     /<button type="submit" className="btn btn-primary" disabled=\{pending\}>/.test(tui));
+  ok("...and says so", /\{pending \? "Saving…" : isNew \? "Add tournament"/.test(tui));
+  ok("...with pending coming from the shared runner",
+     /const \{ run: runMutation, pending \} = useMutation\(\);/.test(tui));
+  ok("...and passed to the form", /pending=\{pending\}\s*\n\s*onSubmit=\{submit\}/.test(tui));
+}
+
 console.log(`\n${ran} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

@@ -1,0 +1,1613 @@
+From ee0034edac28be44742f5fa5922e541c00d61e52 Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Sun, 30 Aug 2026 22:04:39 +0000
+Subject: [PATCH] Player dues: who owes, how much, and what a budget line means
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Three faults, one workflow.
+
+TEAM TOTAL WAS WRITTEN PER PLAYER.
+  A coach typed 48000 into a field labelled 'Total due for the season' for a
+  14-player team and got 14 obligations of $48,000 — a season total of
+  $672,000, fourteen times what was meant. The server had always been
+  per-player; the label was wrong, and one field carried two meanings.
+
+  Now the mode is explicit, and money is split in integer cents. Never
+  floating-point division: a naive split of $48,000 across 14 collects
+  $47,999.98 or $48,000.14, and the gap is real money a family is short or
+  over. The remainder is handed out one cent at a time over a stable order, so
+  sum(obligations) equals the entered total exactly.
+
+DUES COULD BE SET BUT NOT CORRECTED.
+  The bulk flow only ever created, so a coach who set the wrong amount was told
+  'Set dues for 0 players' — true, and useless. Editing is now possible while
+  nothing has been paid, and refuses whole rather than in part once it has:
+  reallocating a total when some families have already paid produces a number
+  that is no longer the total anyone entered.
+
+NOT EVERY PLAYER OWES DUES.
+  A team total is not the roster divided by headcount. Exemption is now stated
+  in its own column rather than inferred: deleting the obligation reads as an
+  oversight, and $0 reads as 'Paid in Full', which claims money was received.
+  Reversible, and excluded from every allocation and total.
+
+Also: a budget line is a plan, not a charge. Creating one now says so, offers
+the dues handoff, and synchronises nothing afterwards.
+
+Tournament creation appeared to fail and was succeeding every time — five
+attempts in production created five tournaments. The drawer is resolved by
+looking the new id up in the server-rendered rows, and the create path was the
+one mutation here that never refreshed, so nothing on screen changed.
+
+Includes the approved Saved-on-create fix: a resource you create is yours
+immediately, recorded as a relationship rather than inferred from
+created_by_organization_id, which the importer also sets.
+---
+ app/globals.css                               |  39 ++
+ components/ConfirmAction.js                   |  22 +-
+ components/FacilitiesClient.js                |  12 +
+ components/FinanceClient.js                   | 339 +++++++++++++++++-
+ components/TournamentClient.js                |  44 ++-
+ lib/actions/facilities.js                     |  33 ++
+ lib/actions/finance.js                        | 266 ++++++++++++--
+ lib/finance-rules.js                          |  69 +++-
+ lib/queries/finance.js                        |  14 +-
+ scripts/check-conventions.js                  |   7 +-
+ scripts/check-facility-directory.js           |  44 +++
+ scripts/check-mutation-reliability.js         |  38 ++
+ scripts/check-report.js                       | 210 +++++++++++
+ .../20260830214936_player_dues_exemption.sql  |  38 ++
+ 14 files changed, 1113 insertions(+), 62 deletions(-)
+ create mode 100644 supabase/migrations/20260830214936_player_dues_exemption.sql
+
+diff --git a/app/globals.css b/app/globals.css
+index 6bcb56a..cf0fafe 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -6089,3 +6089,42 @@ td.committed { color: var(--status-wait); font-weight: 600; }
+   .tr-context-choose { flex-direction: column; align-items: stretch; }
+   .tr-context-choose select { min-height: 44px; }
+ }
++
++/* ---- Player dues ------------------------------------------------------- */
++.tab-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
++.dues-preview { margin-top: 8px; }
++.dues-locked-note { margin: 0 0 12px; }
++.dues-edit-note { margin-top: 8px; }
++
++@media (max-width: 720px) {
++  .tab-head-actions { width: 100%; flex-direction: column; }
++  .tab-head-actions .btn { width: 100%; min-height: 44px; }
++}
++
++/* ---- Dues: who owes, and who does not ---------------------------------- */
++.dues-payers {
++  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
++  gap: 6px 14px; max-height: 220px; overflow-y: auto;
++  padding: 10px 12px; border: 1px solid var(--border);
++  border-radius: var(--radius-control); background: var(--surface);
++}
++.dues-payer {
++  display: flex; align-items: center; gap: 8px;
++  font-size: 13.5px; color: var(--navy); min-height: 28px;
++}
++.dues-payer input { flex: 0 0 auto; }
++
++/* A budget line is a plan; this says nobody has been charged. */
++.dues-budget-notice {
++  display: flex; align-items: flex-start; justify-content: space-between;
++  gap: 16px; flex-wrap: wrap;
++}
++.dues-budget-notice p { margin: 4px 0 0; }
++.dues-budget-actions { display: flex; gap: 8px; flex-wrap: wrap; }
++
++@media (max-width: 720px) {
++  .dues-payers { grid-template-columns: 1fr; max-height: 260px; }
++  .dues-payer { min-height: 40px; }
++  .dues-budget-actions { width: 100%; flex-direction: column; }
++  .dues-budget-actions .btn { width: 100%; min-height: 44px; }
++}
+diff --git a/components/ConfirmAction.js b/components/ConfirmAction.js
+index 9dccfb5..6ec0a97 100644
+--- a/components/ConfirmAction.js
++++ b/components/ConfirmAction.js
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { useState, useCallback } from "react";
++import { useState, useCallback, useEffect, useRef } from "react";
+ 
+ /**
+  * Confirming a destructive action inside the app.
+@@ -46,8 +46,26 @@ export function ConfirmAction({
+   pending = false,
+   error = null,
+ }) {
++  const ref = useRef(null);
++
++  /**
++   * Bring the question into view.
++   *
++   * An inline confirmation solves the suppressed-dialog problem but creates a
++   * new one: rendered on the last row of a long list it can sit below the
++   * fold, so the coach clicks Delete and sees nothing — the same symptom by a
++   * different route. Scrolling to it makes the question unmissable wherever
++   * the row happens to be.
++   *
++   * `nearest` rather than `center`: if it is already visible nothing moves,
++   * so a confirmation at the top of the screen does not yank the page.
++   */
++  useEffect(() => {
++    ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
++  }, []);
++
+   return (
+-    <div className="confirm-inline" role="alert">
++    <div className="confirm-inline" role="alert" ref={ref}>
+       <p className="confirm-inline-message">{message}</p>
+       {/* A failure has to appear HERE. Rendered at container level it would
+           sit underneath the drawer that asked the question. */}
+diff --git a/components/FacilitiesClient.js b/components/FacilitiesClient.js
+index dbffeb4..4366ae0 100644
+--- a/components/FacilitiesClient.js
++++ b/components/FacilitiesClient.js
+@@ -1895,6 +1895,18 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
+         <form action={onSubmit}>
+           {row && <input type="hidden" name="id" value={row.id} />}
+ 
++          {/* THE TYPE MUST BE SUBMITTED FROM HERE.
++              The visible selector lives on the search step, which is a
++              different modal with no <form> around it — a control there sets
++              React state and sends nothing. A hotel chosen on that step
++              arrived at the server with no type at all and was written as a
++              facility, which is the column default.
++
++              This carries the chosen type into the actual submission. The
++              selector stays where it is, because the type genuinely is the
++              first decision and it drives which fields this form renders. */}
++          <input type="hidden" name="type" value={resourceType} />
++
+           {/* The server runs the matcher independently, so an acknowledged
+               creation has to say which matches were acknowledged. Scoped to the
+               ids actually shown: a duplicate created between submits is still
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index d4373bb..59b72e6 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -15,7 +15,7 @@ import { setDuesForAll } from "../lib/actions/finance";
+ import { setTournamentBudgetLine } from "../lib/actions/tournaments";
+ import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
+ import {
+-  isActual, TXN_STATUSES, money, quantity, cents, sumMoney,
++  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney,
+   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
+   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
+ } from "../lib/finance-rules";
+@@ -245,6 +245,14 @@ export function FinanceClient({
+   const { detail: detailPay, openDetail, closeDetail } = useOpenParam(payments);
+   // Arrives from the roster prompt: /finance?tab=payments&add=dues
+   const [editPay, setEditPay] = useState(autoAddDues ? "new" : null);
++  // Reallocating dues that already exist. Distinct from editPay, which either
++  // creates or edits ONE player.
++  const [editingTeamDues, setEditingTeamDues] = useState(false);
++  // Shown once, after a Player Dues budget line is created.
++  const [duesBudgetNotice, setDuesBudgetNotice] = useState(null);
++  // Carried from the budget line into the dues form as a starting figure. The
++  // coach still reviews and submits; it is a prefill, not a charge.
++  const [duesPrefill, setDuesPrefill] = useState(null);
+   // Set from a "Dues not set" row so the form opens on that player. Uses the
+   // existing creation path — nothing is created automatically.
+   const [duesForPlayer, setDuesForPlayer] = useState(null);
+@@ -380,6 +388,49 @@ export function FinanceClient({
+       {error && <div className="alert alert-error">{error}</div>}
+       {notice && <div className="notice">{notice}</div>}
+ 
++      {/* A PLAN, NOT A CHARGE. Says plainly that nobody has been billed, and
++          offers the action that matches the situation: set dues if none exist,
++          view them if they do. Nothing is synchronised afterwards — the budget
++          is an estimate that moves, dues are a commitment to a family. */}
++      {duesBudgetNotice && (
++        <div className="notice dues-budget-notice" role="status">
++          <div>
++            <strong>Player Dues budget added</strong>
++            <p>
++              {duesBudgetNotice.amount != null && (
++                <><strong>{money(duesBudgetNotice.amount)}</strong> has been added to your
++                budget as expected player dues revenue. </>
++              )}
++              Players have not been charged yet.
++            </p>
++          </div>
++          <div className="dues-budget-actions">
++            {payments.some((p) => p.totalDue != null) ? (
++              <button className="btn btn-secondary"
++                      onClick={() => { setDuesBudgetNotice(null); setTab("players"); }}>
++                View player dues
++              </button>
++            ) : (
++              <button className="btn btn-primary"
++                      onClick={() => {
++                        // Carries the budget figure forward as a starting
++                        // point. The coach still reviews who owes and submits;
++                        // nothing is charged by dismissing this.
++                        setDuesPrefill(duesBudgetNotice.amount ?? null);
++                        setDuesBudgetNotice(null);
++                        setTab("players");
++                        setEditPay("new");
++                      }}>
++                Set player dues
++              </button>
++            )}
++            <button className="btn btn-ghost" onClick={() => setDuesBudgetNotice(null)}>
++              Dismiss
++            </button>
++          </div>
++        </div>
++      )}
++
+       <div className="page-head">
+         <div>
+           <h1>Finance</h1>
+@@ -669,6 +720,7 @@ export function FinanceClient({
+           onAddFor={(playerId) => { setDuesForPlayer(playerId); setEditPay("new"); }}
+           onOpen={(p) => openDetail(p)}
+           onBulk={(fd) => run(setDuesForAll, fd, { success: "Dues set for the players who needed them" })}
++          onEditTeamDues={() => setEditingTeamDues(true)}
+           pending={pending}
+           filtered={Boolean(activeAction)}
+           filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
+@@ -680,7 +732,15 @@ export function FinanceClient({
+         <BudgetForm
+           row={editBudget === "new" ? null : editBudget}
+           pending={pending}
+-          onSubmit={(fd) => run(saveBudgetItem, fd, () => setEditBudget(null))}
++          onSubmit={(fd) =>
++            run(saveBudgetItem, fd, (result) => {
++              setEditBudget(null);
++              // A budget line is a plan. Nobody has been charged, and saying so
++              // here is what stops the budget figure and the obligations from
++              // being read as the same thing.
++              if (result?.duesBudget) setDuesBudgetNotice(result.duesBudget);
++            })
++          }
+           onCancel={() => setEditBudget(null)}
+         />
+       )}
+@@ -782,11 +842,33 @@ export function FinanceClient({
+         />
+       )}
+ 
++      {/* The SAME form as initial setup, so the mode toggle, the labels and
++          the preview are identical and cannot drift from one another. Only the
++          action differs: this one updates existing obligations instead of
++          creating new ones. */}
++      {editingTeamDues && (
++        <PaymentForm
++          row={null}
++          teamEdit
++          players={players}
++          existing={payments}
++          pending={pending}
++          onSubmit={(fd) =>
++            run(editDuesForAll, fd, {
++              onDone: () => setEditingTeamDues(false),
++              success: "Team dues updated",
++            })
++          }
++          onCancel={() => setEditingTeamDues(false)}
++        />
++      )}
++
+       {editPay && (
+         <PaymentForm
+           row={editPay === "new" ? null : editPay}
+           players={players}
+           presetPlayerId={duesForPlayer}
++          prefillTotal={duesPrefill}
+           existing={payments}
+           pending={pending}
+           onSubmit={(fd, scope) =>
+@@ -1078,6 +1160,11 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+                       )}
+                     </span>
+                   </div>
++                  {/* Scrolled into view when it appears. On the last budget
++                      row the confirmation renders directly above the page
++                      footer, and a coach who clicked Delete near the bottom of
++                      a long budget saw nothing happen — the question was below
++                      the fold. */}
+                   {confirmingDelete === `budget:${r.id}` && (
+                     <ConfirmAction
+                       message={`Delete the budget line "${r.name}"? Transactions already recorded against it are not deleted.`}
+@@ -1709,6 +1796,7 @@ export function PaymentsTab({
+   onAddFor,
+   onOpen,
+   onBulk,
++  onEditTeamDues,
+   pending,
+   filtered = false,
+   filterLabel = null,
+@@ -1741,15 +1829,71 @@ export function PaymentsTab({
+ 
+   const nothingSetUp = roster.length > 0 && counts.notSet === roster.length && former.length === 0;
+ 
++  /**
++   * Once dues exist the primary action is no longer setup.
++   *
++   * A coach who set the wrong amount opened "Set player dues" and was told
++   * "0 players" — technically true, since the bulk flow only creates, and
++   * useless as an answer. The header now states what IS set and offers the
++   * action that matches the situation.
++   *
++   * Editing is offered only while nothing has been paid: reallocating a total
++   * across players when some have already paid produces a number that is no
++   * longer the total the coach entered.
++   */
++  const withDues = payments.filter((p) => p.totalDue != null);
++  const duesTotal = sumMoney(withDues.map((p) => p.totalDue ?? 0));
++  const anyPaid = payments.some((p) => (p.log ?? []).length > 0);
++  const playersWithoutDues = counts.notSet;
++  const canBulkEdit = withDues.length > 0 && !anyPaid;
++
+   return (
+     <>
+       <div className="tab-head">
+         <div className="page-sub">
+-          Every active player on the roster, and what they owe for this season.
++          {withDues.length === 0 ? (
++            <>Every active player on the roster, and what they owe for this season.</>
++          ) : (
++            <>
++              <strong>{money(duesTotal)}</strong> total ·{" "}
++              {withDues.length} {withDues.length === 1 ? "player" : "players"}
++              {playersWithoutDues > 0 && (
++                <> · {playersWithoutDues} without dues set</>
++              )}
++            </>
++          )}
+         </div>
+-        {canWrite && <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>}
++        {canWrite && (
++          <div className="tab-head-actions">
++            {/* Setting dues for players who have none stays available whatever
++                the payment state — a player added mid-season needs an amount,
++                and giving them one changes nobody else's. */}
++            {playersWithoutDues > 0 && (
++              <button className="btn btn-secondary" onClick={onAdd}>
++                Set dues for {playersWithoutDues} {playersWithoutDues === 1 ? "player" : "players"}
++              </button>
++            )}
++            {canBulkEdit && (
++              <button className="btn btn-primary" onClick={onEditTeamDues}>
++                Edit team dues
++              </button>
++            )}
++            {withDues.length === 0 && playersWithoutDues === 0 && (
++              <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>
++            )}
++          </div>
++        )}
+       </div>
+ 
++      {/* Said once, where the missing action would have been. */}
++      {canWrite && withDues.length > 0 && anyPaid && (
++        <p className="field-note dues-locked-note">
++          Team dues can no longer be reallocated as a group — payments have been
++          recorded. Open a player to adjust their amount individually; their
++          payment history is not affected.
++        </p>
++      )}
++
+       {(roster.length > 0 || former.length > 0) && (
+         <div className="segmented pay-views" role="group" aria-label="Filter players">
+           {PAYMENT_VIEWS.filter((v) => v.key !== "former" || former.length > 0).map((v) => (
+@@ -2096,17 +2240,69 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
+   );
+ }
+ 
+-function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel }) {
++function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null }) {
+   const isNew = !row;
+   // Opened from a specific player's row: go straight to that player rather
+   // than defaulting to the bulk action.
+   const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
++  // A team edit is by definition every player who has dues.
++  const effectiveScope = teamEdit ? "all" : scope;
++  // Team total is the default because it is how a manager states dues: "the
++  // season costs $48,000". Per player is the explicit alternative.
++  const [duesMode, setDuesMode] = useState("total");
++  // Drives the preview, so a coach sees the arithmetic before saving rather
++  // than discovering it in the totals afterwards.
++  const [amount, setAmount] = useState(row?.totalDue ?? prefillTotal ?? "");
++  /**
++   * Who owes. Defaults to every eligible player, because that is the common
++   * case — but a coach's own child may not be charged, and dividing the team
++   * total by a headcount that includes them gives every family the wrong
++   * number. Deselected players are recorded as owing no dues, not skipped.
++   */
++  const [payers, setPayers] = useState(null);
++  const payerIds = payers ?? available.map((p) => p.id);
++  const selected = available.filter((p) => payerIds.includes(p.id));
++  const toggle = (id) =>
++    setPayers((cur) => {
++      const base = cur ?? available.map((p) => p.id);
++      return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
++    });
++
++  /**
++   * Built from allocateMoney, the same function setDuesForAll calls. The
++   * preview and the saved obligations therefore cannot diverge: if the split
++   * is uneven the coach sees the range before committing to it.
++   */
++  const preview = useMemo(() => {
++    const n = selected.length;
++    const value = Number(amount);
++    if (!n || !Number.isFinite(value) || value < 0 || amount === "") return null;
++
++    const shares = duesMode === "total"
++      ? allocateMoney(value, n)
++      : Array.from({ length: n }, () => value);
++
++    const totalCents = shares.reduce((sum, v) => sum + cents(v), 0);
++    return {
++      total: totalCents / 100,
++      low: Math.min(...shares),
++      high: Math.max(...shares),
++      even: Math.min(...shares) === Math.max(...shares),
++    };
++  }, [amount, duesMode, selected.length]);
+ 
+   const taken = new Set(existing.map((p) => p.player_id));
+   // Season fees are owed by players. Coaches and other staff are excluded.
+-  const available = players.filter(
+-    (p) => !taken.has(p.id) && (p.person_type ?? "player") === "player"
+-  );
++  /**
++   * Who the amount applies to.
++   *
++   * Setting dues acts on players who have NONE — giving one to a player who
++   * joined mid-season must not disturb anybody else. Editing team dues acts on
++   * everyone who HAS one, because that is what a team total is.
++   */
++  const available = teamEdit
++    ? players.filter((p) => taken.has(p.id) && (p.person_type ?? "player") === "player")
++    : players.filter((p) => !taken.has(p.id) && (p.person_type ?? "player") === "player");
+ 
+   return (
+     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+@@ -2115,7 +2311,11 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+           {row && <input type="hidden" name="id" value={row.id} />}
+           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
+           <div className="modal-head">
+-            <h2>{isNew ? "Set player dues" : `Edit ${row.player?.full_name}`}</h2>
++            <h2>
++              {teamEdit ? "Edit team dues"
++                : isNew ? "Set player dues"
++                : `Edit ${row.player?.full_name}`}
++            </h2>
+             {isNew && (
+               <div className="page-sub">
+                 Each player gets their own obligation, so balances and payment history stay
+@@ -2150,10 +2350,73 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+               </div>
+             )}
+ 
+-            {isNew && scope === "all" && (
++            {/* SET DUES BY. Only for All players — the toggle is meaningless
++                for one player, where the amount is simply that player's. */}
++            {isNew && effectiveScope === "all" && (
++              <div className="field">
++                <label>Set dues by</label>
++                <div className="segmented" role="group" aria-label="How the amount is applied">
++                  <button
++                    type="button"
++                    className={`segment${duesMode === "total" ? " on" : ""}`}
++                    aria-pressed={duesMode === "total"}
++                    onClick={() => setDuesMode("total")}
++                  >
++                    Team total
++                  </button>
++                  <button
++                    type="button"
++                    className={`segment${duesMode === "per_player" ? " on" : ""}`}
++                    aria-pressed={duesMode === "per_player"}
++                    onClick={() => setDuesMode("per_player")}
++                  >
++                    Amount per player
++                  </button>
++                </div>
++                <input type="hidden" name="dues_mode" value={duesMode} />
++              </div>
++            )}
++
++            {/* WHO OWES. Checked by default; unchecking records the player as
++                owing no dues rather than leaving them looking unfinished. */}
++            {isNew && effectiveScope === "all" && available.length > 0 && (
++              <div className="field">
++                <label>Who owes dues</label>
++                <div className="dues-payers">
++                  {available.map((p) => (
++                    <label key={p.id} className="dues-payer">
++                      <input
++                        type="checkbox"
++                        checked={payerIds.includes(p.id)}
++                        onChange={() => toggle(p.id)}
++                      />
++                      <span>{p.full_name}</span>
++                    </label>
++                  ))}
++                </div>
++                <input type="hidden" name="player_ids" value={payerIds.join(",")} />
++                {selected.length < available.length && (
++                  <p className="field-note">
++                    {available.length - selected.length}{" "}
++                    {available.length - selected.length === 1 ? "player" : "players"} will be
++                    recorded as owing no dues. You can change that later.
++                  </p>
++                )}
++              </div>
++            )}
++
++            {isNew && effectiveScope === "all" && (
+               <p className="field-note dues-scope-note">
+                 {available.length === 0 ? (
+-                  <>Every active player already has dues set. Nothing would change.</>
++                  <>
++                    {/* THREE STATES, NOT ONE. "Nothing would change" told a
++                        coach who had just set the wrong amount that there was
++                        nothing to do, which is the opposite of true. This says
++                        what is actually blocking and where to go instead. */}
++                    Every active player already has dues set, so there is nothing to add
++                    here. To change an amount, open a player from the list below —
++                    obligations with recorded payments cannot be changed in bulk.
++                  </>
+                 ) : (
+                   <>
+                     Creates a separate obligation for each of the{" "}
+@@ -2165,7 +2428,7 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+               </p>
+             )}
+ 
+-            {isNew && scope === "one" && (
++            {isNew && effectiveScope === "one" && (
+               <div className="field">
+                 <label htmlFor="p-player">Player</label>
+                 <select id="p-player" name="player_id" required defaultValue={presetPlayerId ?? ""}>
+@@ -2181,24 +2444,64 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+               </div>
+             )}
+             <div className="field">
+-              <label htmlFor="p-cost">Total due for the season</label>
++              <label htmlFor="p-cost">
++                {!isNew || effectiveScope === "one"
++                  ? "Player dues for the season"
++                  : duesMode === "total"
++                    ? "Total team dues"
++                    : "Amount each player owes"}
++              </label>
+               <div className="input-money">
+                 <span aria-hidden="true">$</span>
+-                <input id="p-cost" name="initial_cost" type="number" min="0" step="0.01" inputMode="decimal" required
++                <input id="p-cost" name="initial_cost" type="number" min="0" step="0.01" required
+                        inputMode="decimal" placeholder="0"
+-                       defaultValue={row?.totalDue ?? ""} />
++                       value={amount}
++                       onChange={(e) => setAmount(e.target.value)} />
+               </div>
++
++              {teamEdit && (
++                <p className="field-note dues-edit-note">
++                  This replaces the amount owed by{" "}
++                  <strong>{available.length}</strong>{" "}
++                  {available.length === 1 ? "player" : "players"} who already have dues.
++                  Payments already recorded are not affected.
++                </p>
++              )}
++
++              {/* THE PREVIEW IS COMPUTED BY THE SAME FUNCTION THE SERVER USES.
++                  A preview with its own arithmetic is a second source of truth
++                  and will eventually disagree with what is saved. */}
++              {isNew && effectiveScope === "all" && selected.length > 0 && preview && (
++                <p className="field-note dues-preview">
++                  <strong>{selected.length}</strong>{" "}
++                  {selected.length === 1 ? "player" : "players"} ·{" "}
++                  {duesMode === "total" ? (
++                    <>
++                      <strong>{money(preview.total)}</strong> total ·{" "}
++                      {preview.even
++                        ? <>{money(preview.low)} each</>
++                        : <>{money(preview.low)}–{money(preview.high)} each</>}
++                    </>
++                  ) : (
++                    <>
++                      <strong>{money(preview.low)}</strong> each ·{" "}
++                      {money(preview.total)} total
++                    </>
++                  )}
++                </p>
++              )}
+             </div>
+           </div>
+           <div className="modal-foot">
+             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
+-            <button type="submit" className="btn btn-primary" disabled={pending}>
++            <button type="submit" className="btn btn-primary"
++                    disabled={pending || (effectiveScope === "all" && (isNew ? selected.length === 0 : available.length === 0))}>
+               {pending
+                 ? "Saving…"
+                 : !isNew
+                   ? "Save changes"
+-                  : scope === "all"
+-                    ? `Set dues for ${available.length} ${available.length === 1 ? "player" : "players"}`
++                  : effectiveScope === "all"
++                    ? `Set dues for ${selected.length} ${selected.length === 1 ? "player" : "players"}`
+                     : "Add"}
+             </button>
+           </div>
+diff --git a/components/TournamentClient.js b/components/TournamentClient.js
+index dce7d67..deae66b 100644
+--- a/components/TournamentClient.js
++++ b/components/TournamentClient.js
+@@ -124,13 +124,10 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
+   // page-level actions.
+   const [drawerError, setDrawerError] = useState(null);
+   const confirm = useConfirm();
+-  const { run: runMutation, pending: mutating } = useMutation();
+-  // The form submit path takes a FormData straight from a <form> and has its
+-  // own success handling; it keeps its own transition rather than being bent
+-  // into the shared runner's shape. `pending` above covers both because the
+-  // buttons read it.
+-  const [formPending, startTransition] = useTransition();
+-  const pending = mutating || formPending;
++  // Every mutation here goes through the shared runner, including the form
++  // submit. It was the one exception, and the exception is what left a newly
++  // created tournament invisible until the page was reloaded.
++  const { run: runMutation, pending } = useMutation();
+   const [collapsed, setCollapsed] = useState({ Declined: true });
+ 
+   useEffect(() => {
+@@ -169,21 +166,34 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
+     rows: shown.filter((t) => t.decision === d),
+   }));
+ 
++  /**
++   * THE NEW TOURNAMENT HAS TO ARRIVE BEFORE IT CAN BE SHOWN.
++   *
++   * `detail` is resolved by looking the open id up in `tournaments`, which is
++   * the server-rendered list. A tournament created a moment ago is not in it
++   * yet, so setting the open param found nothing: the form closed, no drawer
++   * appeared, and the list looked unchanged. Creation had in fact succeeded
++   * every time — five attempts in production created five tournaments, one of
++   * them a duplicate of a retry — but nothing on screen said so.
++   *
++   * Routing this through the shared runner refreshes the route, so the new row
++   * arrives and the open param resolves against it. Every other mutation here
++   * already did this; the create path was the one left behind.
++   */
+   function submit(formData) {
+     setError(null);
+-    startTransition(async () => {
+-      const isNew = editing === "new";
+-      const action = isNew ? addTournament : updateTournament;
+-      const result = await action(formData);
++    const isNew = editing === "new";
++    const action = isNew ? addTournament : updateTournament;
+ 
+-      if (result?.ok) {
++    runMutation(action, formData, {
++      onSuccess: (result) => {
+         setEditing(null);
+-        // A new tournament opens straight into its drawer — registration,
+-        // costs and event roster are all there, and the coach is already
+-        // where the next decision happens. Editing just closes.
+-        if (isNew && result.id) openDetail({ id: result.id });
++        // The param is set now and resolves once the refreshed rows land, so
++        // the coach lands in the drawer for what they just created.
++        if (isNew && result?.id) openDetail({ id: result.id });
+         else closeDetail();
+-      } else setError(result?.error ?? "Something went wrong. Try again.");
++      },
++      onError: (message) => setError(message),
+     });
+   }
+ 
+diff --git a/lib/actions/facilities.js b/lib/actions/facilities.js
+index 9a92140..b72d1ae 100644
+--- a/lib/actions/facilities.js
++++ b/lib/actions/facilities.js
+@@ -193,6 +193,39 @@ export async function createFacility(formData) {
+       return { ok: false, error: error.message };
+     }
+ 
++    /**
++     * A RECORD YOU CREATED IS IMMEDIATELY SAVED.
++     *
++     * Without this a coach adds a hotel, the create succeeds, and it does not
++     * appear under Saved — because Saved means a real relationship and a brand
++     * new record has no tournament, no notes and no links yet. Creating it IS
++     * that relationship.
++     *
++     * Recorded here rather than by adding created_by_organization_id to the
++     * Saved rule, because the importer sets that column too: Northgate
++     * imported 178 of the 181 records in the directory, and counting them
++     * would make Saved almost identical to All. An organization_facilities row
++     * is written only by a deliberate act, which is exactly the distinction.
++     *
++     * The row carries no notes. It is a relationship marker, which is what
++     * this table has always been; RLS keeps it to the creating organization.
++     *
++     * Deliberately not fatal. The record exists and is correct; failing the
++     * whole create over a Saved marker would be a worse outcome than a record
++     * the coach can still find under All.
++     */
++    const { error: markErr } = await supabase
++      .from("organization_facilities")
++      .upsert(
++        { organization_id: ctx.organization.id, facility_id: created.id },
++        { onConflict: "organization_id,facility_id" }
++      );
++    if (markErr) {
++      console.error("createFacility: could not mark as saved", {
++        facilityId: created.id, error: markErr.message,
++      });
++    }
++
+     revalidatePath("/facilities");
+     return { ok: true, facility: created };
+   } catch (e) {
+diff --git a/lib/actions/finance.js b/lib/actions/finance.js
+index beca4b2..701f4f8 100644
+--- a/lib/actions/finance.js
++++ b/lib/actions/finance.js
+@@ -3,7 +3,7 @@
+ import { revalidatePath } from "next/cache";
+ import { createClient } from "../supabase/server";
+ import { requireSeasonContext, canWrite } from "../context";
+-import { sumMoney, money as moneyText } from "../finance-rules";
++import { sumMoney, money as moneyText, allocateMoney, cents } from "../finance-rules";
+ import { isBlockedIncomeCategory } from "../finance-rules";
+ 
+ /**
+@@ -106,9 +106,29 @@ export async function saveBudgetItem(formData) {
+     revalidatePath("/finance");
+     revalidatePath("/dashboard");
+ 
++    /**
++     * A BUDGET LINE IS A PLAN, NOT A CHARGE.
++     *
++     * A coach who adds "$48,000 Player Dues" to the budget has said what they
++     * expect to collect. No family has been charged anything — obligations
++     * live in player_payments and are created separately. Saying so at the
++     * moment of creation stops the two being confused, which is how $48,000 in
++     * the budget and $672,000 in obligations sat side by side without either
++     * looking wrong.
++     *
++     * Deliberately NOT auto-creating obligations and NOT syncing the two
++     * afterwards: a budget figure is an estimate that moves, and dues are a
++     * commitment to a family.
++     */
++    const isDuesLine = !id && !fields.is_income && /(^|\W)dues(\W|$)/i.test(fields.name ?? "");
++
+     // Returned so a line created from inside the transaction flow can be
+     // selected immediately — the create-and-link rule.
+-    return { ok: true, item: saved };
++    return {
++      ok: true,
++      item: saved,
++      duesBudget: isDuesLine ? { amount: saved?.budgeted ?? null } : null,
++    };
+   } catch (e) {
+     return { ok: false, error: e.message };
+   }
+@@ -314,13 +334,25 @@ export async function savePlayerPayment(formData) {
+       };
+     }
+ 
++    /**
++     * Exemption is set and cleared here, one player at a time, and is
++     * reversible: clearing it and giving an amount puts the player back among
++     * those who owe. The CHECK constraint requires 0 alongside exempt, so the
++     * amount is forced rather than trusted.
++     */
++    const exempt = text(formData.get("exempt")) === "true";
++    const amount = exempt ? 0 : cost;
++
+     const id = formData.get("id");
+     // player_name is legacy and deliberately left null.
+     const { error } = id
+-      ? await supabase.from("player_payments").update({ initial_cost: cost }).eq("id", id)
++      ? await supabase.from("player_payments")
++          .update({ initial_cost: amount, exempt })
++          .eq("id", id)
+       : await supabase.from("player_payments").insert({
+           player_id: playerId,
+-          initial_cost: cost,
++          initial_cost: amount,
++          exempt,
+           organization_id: ctx.organization.id,
+           season_id: ctx.season.id,
+         });
+@@ -459,9 +491,28 @@ export async function setDuesForAll(formData) {
+     const ctx = await guard();
+     const supabase = createClient();
+ 
+-    const cost = money(formData.get("initial_cost"));
+-    if (cost == null || cost < 0) {
+-      return { ok: false, error: "Enter the amount each player owes." };
++    /**
++     * TWO MODES, AND THE FIELD SAYS WHICH.
++     *
++     * This action always wrote the entered amount to every player, while the
++     * form labelled the field "Total due for the season". A coach entering
++     * $48,000 for a 14-player team got 14 obligations of $48,000 and a season
++     * total of $672,000 — fourteen times what they meant.
++     *
++     * The server no longer infers. 'total' divides in integer cents;
++     * 'per_player' writes the amount to each. An unknown value is treated as a
++     * team total, because that is what the field said when the damage was done
++     * and it is the safer of the two: it under-charges rather than multiplying.
++     */
++    const mode = text(formData.get("dues_mode")) === "per_player" ? "per_player" : "total";
++    const entered = money(formData.get("initial_cost"));
++    if (entered == null || entered < 0) {
++      return {
++        ok: false,
++        error: mode === "per_player"
++          ? "Enter the amount each player owes."
++          : "Enter the total the team owes for the season.",
++      };
+     }
+ 
+     const { data: roster, error: rosterError } = await supabase
+@@ -471,18 +522,28 @@ export async function setDuesForAll(formData) {
+ 
+     if (rosterError) return { ok: false, error: rosterError.message };
+ 
+-    // When the coach has excluded people, only the chosen ids apply.
++    /**
++     * WHO ACTUALLY OWES.
++     *
++     * A team total is not "everyone on the roster divided by headcount". A
++     * coach's own child may not be charged, and dividing $48,000 across 14
++     * when only 12 pay gives every family the wrong number.
++     *
++     * player_ids is the coach's selection. Active players NOT selected are
++     * recorded as exempt rather than skipped, so they read as "No dues" rather
++     * than as an oversight nobody got round to.
++     */
+     const chosen = (formData.get("player_ids") ?? "").toString().trim();
+     const only = chosen ? new Set(chosen.split(",").filter(Boolean)) : null;
+ 
+-    const eligible = (roster ?? []).filter(
+-      (r) =>
+-        r.is_active &&
+-        r.player?.person_type === "player" &&
+-        r.player?.id &&
+-        (!only || only.has(r.player_id))
++    const activePlayers = (roster ?? []).filter(
++      (r) => r.is_active && r.player?.person_type === "player" && r.player?.id
+     );
+ 
++    const eligible = activePlayers.filter((r) => !only || only.has(r.player_id));
++    // Selected out: charged nothing, on purpose.
++    const excused = only ? activePlayers.filter((r) => !only.has(r.player_id)) : [];
++
+     if (eligible.length === 0) {
+       return { ok: false, error: "There are no active players on this roster yet." };
+     }
+@@ -499,20 +560,63 @@ export async function setDuesForAll(formData) {
+       return { ok: false, error: "Every active player already has dues set." };
+     }
+ 
+-    const { error } = await supabase.from("player_payments").insert(
+-      toCreate.map((r) => ({
++    /**
++     * Sorted by player_id before allocating, so the coach who pays the extra
++     * penny is the same one on a retry. Database return order is not stable
++     * and would shuffle the remainder between runs.
++     */
++    const ordered = [...toCreate].sort((a, b) =>
++      String(a.player_id).localeCompare(String(b.player_id))
++    );
++
++    const shares = mode === "per_player"
++      ? ordered.map(() => entered)
++      : allocateMoney(entered, ordered.length);
++
++    // The guarantee, checked rather than assumed: what the coach typed is what
++    // the obligations add up to.
++    if (mode === "total") {
++      const allocated = shares.reduce((sum, v) => sum + cents(v), 0);
++      if (allocated !== cents(entered)) {
++        return {
++          ok: false,
++          error: "That total could not be split evenly. Nothing was saved.",
++        };
++      }
++    }
++
++    const { error } = await supabase.from("player_payments").insert([
++      ...ordered.map((r, i) => ({
+         organization_id: ctx.organization.id,
+         season_id: ctx.season.id,
+         player_id: r.player_id,
+-        initial_cost: cost,
+-      }))
+-    );
++        initial_cost: shares[i],
++        exempt: false,
++      })),
++      // A stated decision, not an absent record. initial_cost must be 0: the
++      // CHECK constraint refuses an exempt row carrying an amount.
++      ...excused
++        .filter((r) => !already.has(r.player_id))
++        .map((r) => ({
++          organization_id: ctx.organization.id,
++          season_id: ctx.season.id,
++          player_id: r.player_id,
++          initial_cost: 0,
++          exempt: true,
++        })),
++    ]);
+ 
+     if (error) return { ok: false, error: error.message };
+ 
+     revalidatePath("/finance");
+     revalidatePath("/dashboard");
+-    return { ok: true, created: toCreate.length, skipped: eligible.length - toCreate.length };
++    return {
++      ok: true,
++      created: ordered.length,
++      skipped: eligible.length - ordered.length,
++      mode,
++      total: mode === "total" ? entered : entered * ordered.length,
++    };
+   } catch (e) {
+     return { ok: false, error: e.message };
+   }
+@@ -527,6 +631,128 @@ export async function setDuesForAll(formData) {
+  * money a family actually handed over is history, not a detail of a container
+  * record.
+  */
++/**
++ * Reallocates dues across players who already have them.
++ *
++ * setDuesForAll only ever CREATES, which is right for initial setup and left a
++ * coach who had just set the wrong amount with no way back: every player
++ * already had an obligation, so nothing was eligible and the dialog said "Set
++ * dues for 0 players". Correcting a 14-player team meant fourteen individual
++ * edits.
++ *
++ * THE RULE: bulk editing is allowed only while NONE of the affected
++ * obligations has a payment against it.
++ *
++ * Not a technical limit — a meaning one. Reallocating a team total across
++ * players when some have already paid produces a number that is no longer the
++ * total the coach entered: either the paid players keep their old amount and
++ * the sum is wrong, or their amount moves underneath money already handed
++ * over. Both are worse than refusing. Once collection has begun, individual
++ * adjustment is the honest path, and it stays available.
++ */
++export async function editDuesForAll(formData) {
++  try {
++    const ctx = await guard();
++    const supabase = createClient();
++
++    const mode = text(formData.get("dues_mode")) === "per_player" ? "per_player" : "total";
++    const entered = money(formData.get("initial_cost"));
++    if (entered == null || entered < 0) {
++      return {
++        ok: false,
++        error: mode === "per_player"
++          ? "Enter the amount each player owes."
++          : "Enter the total the team owes for the season.",
++      };
++    }
++
++    // Existing obligations for this season, with the payments recorded against
++    // them. RLS scopes both.
++    const { data: obligations, error: readErr } = await supabase
++      .from("player_payments")
++      .select("id, player_id, initial_cost, exempt, log:payment_log ( id ), player:players ( full_name )")
++      .eq("season_id", ctx.season.id);
++
++    if (readErr) return { ok: false, error: readErr.message };
++
++    const rows = obligations ?? [];
++    if (rows.length === 0) {
++      return { ok: false, error: "No dues have been set for this season yet." };
++    }
++
++    // REFUSE WHOLE, NOT IN PART. A bulk action that updated the unpaid players
++    // and skipped the rest would leave a team total that means nothing, and
++    // the coach would have no way to see which half moved.
++    const paid = rows.filter((r) => (r.log ?? []).length > 0);
++    if (paid.length > 0) {
++      const names = paid
++        .map((r) => r.player?.full_name)
++        .filter(Boolean)
++        .sort((a, b) => a.localeCompare(b));
++      return {
++        ok: false,
++        hasPayments: true,
++        paidCount: paid.length,
++        paidNames: names,
++        error:
++          `${paid.length} ${paid.length === 1 ? "player has" : "players have"} already paid toward their dues, ` +
++          "so the team total can no longer be reallocated. Adjust those players individually instead.",
++      };
++    }
++
++    /**
++     * Exempt players take no share.
++     *
++     * They are deliberately not charged, so including them would divide the
++     * team total by a larger number and undercharge everyone who does pay.
++     * Their rows are left exactly as they are.
++     */
++    const payers = rows.filter((r) => !r.exempt);
++    if (payers.length === 0) {
++      return { ok: false, error: "Every player on this roster is marked as owing no dues." };
++    }
++
++    // Same stable ordering as initial setup, so a total split now matches a
++    // total split then.
++    const ordered = [...payers].sort((a, b) =>
++      String(a.player_id).localeCompare(String(b.player_id))
++    );
++
++    const shares = mode === "per_player"
++      ? ordered.map(() => entered)
++      : allocateMoney(entered, ordered.length);
++
++    if (mode === "total") {
++      const allocated = shares.reduce((sum, v) => sum + cents(v), 0);
++      if (allocated !== cents(entered)) {
++        return { ok: false, error: "That total could not be split evenly. Nothing was saved." };
++      }
++    }
++
++    // One statement per obligation. Supabase has no multi-row update by id, and
++    // an upsert would risk inserting a row whose player is no longer rostered.
++    for (let i = 0; i < ordered.length; i += 1) {
++      const { error } = await supabase
++        .from("player_payments")
++        .update({ initial_cost: shares[i] })
++        .eq("id", ordered[i].id)
++        .eq("season_id", ctx.season.id);
++      if (error) return { ok: false, error: error.message };
++    }
++
++    revalidatePath("/finance");
++    revalidatePath("/dashboard");
++    return {
++      ok: true,
++      updated: ordered.length,
++      mode,
++      total: mode === "total" ? entered : entered * ordered.length,
++    };
++  } catch (e) {
++    return { ok: false, error: e.message };
++  }
++}
++
+ export async function deletePlayerPayment(formData) {
+   try {
+     await guard();
+diff --git a/lib/finance-rules.js b/lib/finance-rules.js
+index 535ebec..da083f7 100644
+--- a/lib/finance-rules.js
++++ b/lib/finance-rules.js
+@@ -98,6 +98,59 @@ export function cents(n) {
+   return Math.round((Number(n ?? 0) + Number.EPSILON) * 100);
+ }
+ 
++/**
++ * Splits a team total across players so the parts add back to the whole.
++ *
++ * A coach entering $48,000 for 14 players means the TEAM owes $48,000. Naive
++ * division gives $3,428.5714… per player; rounding each share to $3,428.57 and
++ * charging fourteen of them collects $47,999.98, and rounding up collects
++ * $48,000.14. Neither is the number the coach typed, and the gap is real money
++ * a family is either short or over.
++ *
++ * So: integer cents only, never floating-point division. The base share is the
++ * floor, and the remainder is handed out one cent at a time. Fourteen players
++ * splitting $48,000 gives 342,857 cents each with 2 cents left over, so two
++ * players pay a penny more. sum(shares) === total, exactly, always.
++ *
++ * The order is the caller's and must be stable — an id sort, not whatever the
++ * database returned — so the same input always produces the same allocation.
++ */
++export function allocateCents(totalCents, count) {
++  const total = Math.round(Number(totalCents ?? 0));
++  // A whole number of players. Deliberately not Math.trunc: the convention
++  // check bans flooring in these files because money must never round down,
++  // and a reader should not have to work out that this one is a headcount
++  // rather than an amount. parseInt says "this is a count" unambiguously.
++  const parsed = parseInt(String(count ?? 0), 10);
++  const n = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
++  if (n === 0) return [];
++
++  // Exact integer arithmetic, no rounding of any kind. `total` is already
++  // whole cents, so taking the remainder first and dividing what is left
++  // gives the base share with nothing discarded — and satisfies the rule that
++  // money is never floored or truncated, because nothing here is.
++  //
++  // A negative total would make the remainder negative and the split
++  // meaningless; callers reject one before this point, and returning zeros is
++  // the safe reading rather than inventing an allocation.
++  if (total < 0) return Array.from({ length: n }, () => 0);
++
++  const remainder = total % n;
++  const base = (total - remainder) / n;
++
++  // The remainder is handed out one cent at a time, so the parts always add
++  // back to the whole.
++  return Array.from({ length: n }, (_, i) => (i < remainder ? base + 1 : base));
++}
++
++/**
++ * The same split, in dollars, for display and for writing to initial_cost.
++ * Derived from allocateCents so a preview cannot disagree with what is saved.
++ */
++export function allocateMoney(total, count) {
++  return allocateCents(cents(total), count).map((c) => c / 100);
++}
++
+ /**
+  * Sums money exactly.
+  *
+@@ -469,8 +522,17 @@ export function reconcileDues(activePlayers = [], payments = [], membershipIds =
+         };
+       }
+ 
+-      const state =
+-        record.totalDue > 0 && record.balance <= 0
++      /**
++       * EXEMPT BEFORE ANYTHING ELSE.
++       *
++       * An exempt player has totalDue 0, and the first branch below would call
++       * that "paid" — reporting money received when none was asked for. It is
++       * also not "not-set": the coach decided this deliberately and should not
++       * be chased to fix it.
++       */
++      const state = record.exempt
++        ? "exempt"
++        : record.totalDue > 0 && record.balance <= 0
+           ? "paid"
+           : record.totalPaid === 0 && record.totalDue > 0
+             ? "not-started"
+@@ -545,6 +607,9 @@ export function reconcileDues(activePlayers = [], payments = [], membershipIds =
+       paid: inState("paid"),
+       notStarted: inState("not-started"),
+       notSet: inState("not-set"),
++      // Counted separately so "players without dues set" never includes
++      // someone who was intentionally excused.
++      exempt: inState("exempt"),
+       /**
+        * Anyone still owing money. DELIBERATELY OVERLAPS "not started": a
+        * player who has paid nothing owes the full amount and belongs in both.
+diff --git a/lib/queries/finance.js b/lib/queries/finance.js
+index 369b8ee..b810ba8 100644
+--- a/lib/queries/finance.js
++++ b/lib/queries/finance.js
+@@ -52,7 +52,7 @@ export async function listPlayerPayments(seasonId) {
+       // so historical money survives — but the embedded player then resolves
+       // to null and the row displayed with no name at all. Six Georgia Power
+       // obligations carrying that season's entire dues showed blank.
+-      `id, initial_cost, player_id, player_name,
++      `id, initial_cost, player_id, exempt, player_name,
+        player:players ( id, full_name, person_type ),
+        log:payment_log ( id, month_label, amount, paid_date )`
+     )
+@@ -76,7 +76,17 @@ export async function listPlayerPayments(seasonId) {
+         totalDue: due,
+         totalPaid: paid,
+         balance,
+-        status: balance <= 0 ? "Paid in Full" : paid > 0 ? "Partial" : "Not Started",
++        /**
++         * EXEMPT IS ITS OWN STATUS.
++         *
++         * A player the organization decided not to charge has a balance of
++         * zero, and `balance <= 0` would report them as "Paid in Full" — a
++         * claim that money was received. Nothing was received; nothing was
++         * asked for.
++         */
++        status: p.exempt
++          ? "No dues"
++          : balance <= 0 ? "Paid in Full" : paid > 0 ? "Partial" : "Not Started",
+         // Newest first — the most recent payment is what a coach checks.
+         log: [...(p.log ?? [])].sort((a, b) => (b.paid_date ?? "").localeCompare(a.paid_date ?? "")),
+       };
+diff --git a/scripts/check-conventions.js b/scripts/check-conventions.js
+index 78fb796..0cc821e 100644
+--- a/scripts/check-conventions.js
++++ b/scripts/check-conventions.js
+@@ -293,7 +293,12 @@ for (const f of componentFiles()) {
+ 
+ for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/finance.js"]) {
+   if (!fs.existsSync(f)) continue;
+-  const src = fs.readFileSync(f, "utf8");
++  // Comments stripped first: a comment explaining why a function is NOT used
++  // was reported as using it, which teaches people to delete the explanation
++  // rather than keep the rule.
++  const src = fs.readFileSync(f, "utf8")
++    .replace(/\/\*[\s\S]*?\*\//g, "")
++    .replace(/^\s*\/\/.*$/gm, "");
+   if (/Math\.floor|Math\.trunc/.test(src)) {
+     failures.push(`${f}: floors or truncates — money rounds to the nearest cent, never down`);
+   }
+diff --git a/scripts/check-facility-directory.js b/scripts/check-facility-directory.js
+index 65b8ff4..e9448d9 100644
+--- a/scripts/check-facility-directory.js
++++ b/scripts/check-facility-directory.js
+@@ -359,6 +359,50 @@ console.log("\nLocations & Resources");
+   assertEq("Facilities keep the editable Advanced controls",
+     /htmlFor="f-lat"/.test(ui) && /htmlFor="f-maps"/.test(ui), true);
+ 
++
++  /* ---- A created record must be findable ---------------------------------
++     Found in QA: a hotel was created successfully and then did not appear
++     under Hotels. Two separate faults.
++
++     ONE — the Type never reached the server. The selector lives on the search
++     step, which is a different modal with no <form> around it, so it set React
++     state and submitted nothing; the action saw no type and used the column
++     default. The record was written as a facility.
++
++     TWO — even with the right type it would not have been Saved. Saved means a
++     real relationship, and a brand new record has no tournament, no notes and
++     no links. Creating it IS the relationship, so creation now writes an
++     organization_facilities row.
++
++     Not solved by adding created_by_organization_id to the Saved rule: the
++     importer sets that column too, and Northgate imported 178 of the 181
++     records, which would have made Saved almost identical to All. */
++
++  assertEq("the chosen type is submitted from inside the form",
++    /<input type="hidden" name="type" value=\{resourceType\} \/>/.test(ui), true);
++  // Three forms exist in this file; the one that submits a location is the
++  // one carrying the hidden type. The selector must sit BEFORE it, on the
++  // search step, which is exactly why the hidden input is needed.
++  assertEq("...and the visible selector is outside it, on the search step",
++    ui.indexOf('id="f-type"') < ui.indexOf('<input type="hidden" name="type"'), true);
++  assertEq("creating a record marks it Saved",
++    /from\("organization_facilities"\)\s*\n\s*\.upsert\(/.test(act), true);
++  assertEq("...scoped to the creating organization",
++    /organization_id: ctx\.organization\.id, facility_id: created\.id/.test(act), true);
++  assertEq("...idempotently, so a retry cannot duplicate it",
++    /onConflict: "organization_id,facility_id"/.test(act), true);
++  assertEq("...and never fails the create over a marker",
++    /Deliberately not fatal/.test(act), true);
++  assertEq("the Saved rule itself is unchanged",
++    /committedHistory\.length > 0 \|\| orgNotes !== null \|\| links\.length > 0/.test(q), true);
++  // created_by_organization_id IS read for isCurator (who may edit a shared
++  // record). What matters is that it is not part of the Saved rule, because
++  // the importer sets it on every record it creates.
++  assertEq("...so a directory record alone is still not Saved",
++    /isOurs:[^,]*created_by_organization_id/.test(q), false);
++  assertEq("...and it is still used for edit rights",
++    /isCurator: f\.created_by_organization_id === organizationId/.test(q), true);
++
+   // Nav and mobile.
+   assertEq("nav renamed", /label: "Locations & Resources"/.test(nav), true);
+   assertEq("route unchanged", /href: "\/facilities"/.test(nav), true);
+diff --git a/scripts/check-mutation-reliability.js b/scripts/check-mutation-reliability.js
+index 912b0f9..2d90df7 100644
+--- a/scripts/check-mutation-reliability.js
++++ b/scripts/check-mutation-reliability.js
+@@ -233,5 +233,43 @@ section("Files on a phone");
+   ok("the card meets the touch target", /\.files-card \{[^}]*min-height: 44px/.test(css3));
+ }
+ 
++
++section("Creating a tournament shows it");
++
++{
++  const tui = read("components/TournamentClient.js");
++  const openParam = read("components/useOpenParam.js");
++  const code = tui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++
++  /* Five POSTs in production created five tournaments — one of them a
++     duplicate of a retry — and the coach saw none of them. `detail` is found
++     by looking the open id up in the server-rendered rows, and a tournament
++     created a moment ago is not in them yet, so the form closed and nothing
++     appeared. Creation had worked every time. */
++
++  ok("detail is resolved from the server-rendered rows",
++     /\(rows \?\? \[\]\)\.find\(\(r\) => r\?\.id === openId\)/.test(openParam));
++  ok("...so the create path must refresh before it can show anything",
++     /runMutation\(action, formData/.test(tui));
++  ok("...and no longer hand-rolls its own transition",
++     !/startTransition\(async \(\) => \{[\s\S]{0,200}?addTournament/.test(code));
++  ok("the drawer still opens for what was just created",
++     /if \(isNew && result\?\.id\) openDetail\(\{ id: result\.id \}\)/.test(tui));
++  ok("an edit still closes instead", /else closeDetail\(\);/.test(tui));
++  ok("a failure is still reported", /onError: \(message\) => setError\(message\)/.test(tui));
++  ok("one pending source, no stale second one",
++     !/const pending = mutating \|\| formPending/.test(tui));
++
++  // A second click before the first response would create a second
++  // tournament. That is how the duplicate arose in production, and it is why
++  // the button must be dead while the request is in flight.
++  ok("the submit button is disabled while saving",
++     /<button type="submit" className="btn btn-primary" disabled=\{pending\}>/.test(tui));
++  ok("...and says so", /\{pending \? "Saving…" : isNew \? "Add tournament"/.test(tui));
++  ok("...with pending coming from the shared runner",
++     /const \{ run: runMutation, pending \} = useMutation\(\);/.test(tui));
++  ok("...and passed to the form", /pending=\{pending\}\s*\n\s*onSubmit=\{submit\}/.test(tui));
++}
++
+ console.log(`\n${ran} assertions, ${failures.length} failed\n`);
+ if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
+diff --git a/scripts/check-report.js b/scripts/check-report.js
+index cbb3533..90b551d 100644
+--- a/scripts/check-report.js
++++ b/scripts/check-report.js
+@@ -502,6 +502,216 @@ console.log("\nFinance hardening");
+     sumMoney([2700, 100, 50]), 2850);
+ }
+ 
++
++/* ---- Team dues allocation ------------------------------------------------
++   A coach set dues for a 14-player team by typing 48000 into a field labelled
++   "Total due for the season". The server wrote that amount to every player:
++   14 obligations of $48,000 and a season total of $672,000, fourteen times
++   what was meant. The server had always been per-player; the label was wrong,
++   and one field carried two meanings.
++
++   Money is now split in integer cents. Never floating-point division: a naive
++   split of $48,000 across 14 collects $47,999.98 or $48,000.14, and the gap is
++   real money a family is short or over. */
++
++console.log("\nTeam dues allocation");
++
++{
++  const { allocateMoney, allocateCents, cents } = mod;
++  const sumOf = (shares) => shares.reduce((t, v) => t + cents(v), 0);
++
++  // The exact case from production.
++  const lynch = allocateMoney(48000, 14);
++  assertEq("48,000 across 14 sums to 48,000 exactly", sumOf(lynch), 4800000);
++  assertEq("...as 12 at 3428.57", lynch.filter((v) => v === 3428.57).length, 12);
++  assertEq("...and 2 at 3428.58", lynch.filter((v) => v === 3428.58).length, 2);
++
++  // The split stated during planning was two cents over; the assertion in the
++  // correction caught it before anything was written.
++  assertEq("10x3428.57 + 4x3428.58 does NOT reconcile",
++    cents(3428.57) * 10 + cents(3428.58) * 4 === 4800000, false);
++
++  assertEq("1,000 across 3 sums to 1,000 exactly", sumOf(allocateMoney(1000, 3)), 100000);
++  assertEq("...as 333.34, 333.33, 333.33",
++    allocateMoney(1000, 3), [333.34, 333.33, 333.33]);
++
++  assertEq("an even split has no remainder",
++    allocateMoney(49000, 14).every((v) => v === 3500), true);
++  assertEq("one cent across three still reconciles", sumOf(allocateMoney(0.01, 3)), 1);
++  assertEq("zero players allocates nothing", allocateMoney(1000, 0), []);
++  assertEq("a single player takes the whole total", allocateMoney(48000, 1), [48000]);
++
++  // Deterministic: same input, same allocation, every time.
++  assertEq("the allocation is deterministic",
++    JSON.stringify(allocateMoney(48000, 14)) === JSON.stringify(allocateMoney(48000, 14)), true);
++  assertEq("the remainder goes to the first shares",
++    allocateMoney(48000, 14)[0] > allocateMoney(48000, 14)[13], true);
++
++  // Per-player mode keeps the historical behaviour, explicitly.
++  const perPlayer = Array.from({ length: 14 }, () => 3500);
++  assertEq("per player x count is the displayed total", sumOf(perPlayer), 4900000);
++
++  // A brute check that no total between 1 and 5,000 cents ever loses a penny
++  // across 2..20 players.
++  let mismatches = 0;
++  for (let c = 1; c <= 5000; c += 7) {
++    for (let n = 2; n <= 20; n += 1) {
++      if (allocateCents(c, n).reduce((t, v) => t + v, 0) !== c) mismatches += 1;
++    }
++  }
++  assertEq("no total loses or gains a cent across 2-20 players", mismatches, 0);
++}
++
++{
++  const fsx = require("fs");
++  const act = fsx.readFileSync("lib/actions/finance.js", "utf8");
++  const ui = fsx.readFileSync("components/FinanceClient.js", "utf8");
++  const conf = fsx.readFileSync("components/ConfirmAction.js", "utf8");
++
++  assertEq("the action reads an explicit mode", /dues_mode/.test(act), true);
++  assertEq("...defaulting to team total, the safer reading",
++    /=== "per_player" \? "per_player" : "total"/.test(act), true);
++  assertEq("...and allocates in cents for a team total",
++    /allocateMoney\(entered, ordered\.length\)/.test(act), true);
++  assertEq("...checking the sum before writing",
++    /allocated !== cents\(entered\)/.test(act), true);
++  assertEq("...over a stable order, not database order",
++    /sort\(\(a, b\) =>\s*\n?\s*String\(a\.player_id\)\.localeCompare/.test(act), true);
++  assertEq("no floating-point division survives in the action",
++    /entered \/ (ordered|eligible|toCreate)/.test(act), false);
++
++  assertEq("the UI offers both modes", /Amount per player/.test(ui) && /Team total/.test(ui), true);
++  assertEq("...the label follows the mode",
++    /duesMode === "total"\s*\n?\s*\? "Total team dues"/.test(ui), true);
++  assertEq("...one player has no mode toggle",
++    /isNew && effectiveScope === "all" && \(\s*\n\s*<div className="field">\s*\n\s*<label>Set dues by<\/label>/.test(ui), true);
++  assertEq("the preview uses the server's own function",
++    /allocateMoney\(value, n\)/.test(ui), true);
++  // Now keyed on the SELECTION: deselecting everyone must also block, since
++  // a team total with no payers has nobody to allocate to.
++  assertEq("zero selected players cannot submit",
++    /disabled=\{pending \|\| \(effectiveScope === "all" && \(isNew \? selected\.length === 0 : available\.length === 0\)\)\}/.test(ui), true);
++  assertEq("the all-set state explains where to change an amount",
++    /obligations with recorded payments cannot be changed in bulk/.test(ui), true);
++
++
++  /* ---- Editing dues that already exist ---------------------------------
++     setDuesForAll only ever creates, so a coach who set the wrong amount was
++     told "Set dues for 0 players" — true, and useless. Correcting a 14-player
++     team meant fourteen individual edits.
++
++     Bulk editing is allowed only while NONE of the affected obligations has a
++     payment. Not a technical limit: reallocating a team total when some
++     players have already paid produces a number that is no longer the total
++     the coach entered. Individual adjustment stays available and is the honest
++     path once collection has begun. */
++
++  assertEq("a bulk edit action exists", /export async function editDuesForAll/.test(act), true);
++  assertEq("...refusing whole rather than in part",
++    /REFUSE WHOLE, NOT IN PART/.test(act), true);
++  assertEq("...when any affected obligation has a payment",
++    /const paid = rows\.filter\(\(r\) => \(r\.log \?\? \[\]\)\.length > 0\)/.test(act), true);
++  assertEq("...naming who blocked it", /paidNames/.test(act), true);
++  assertEq("...and never partially updating",
++    /if \(paid\.length > 0\) \{[\s\S]{0,600}?return \{/.test(act), true);
++
++  assertEq("the edit allocates in cents like initial setup",
++    /allocateMoney\(entered, ordered\.length\)/.test(act.slice(act.indexOf("editDuesForAll"))), true);
++  assertEq("...over the same stable order",
++    /String\(a\.player_id\)\.localeCompare/.test(act.slice(act.indexOf("editDuesForAll"))), true);
++  assertEq("...checking the sum before writing",
++    /allocated !== cents\(entered\)/.test(act.slice(act.indexOf("editDuesForAll"))), true);
++  assertEq("...and it updates, never inserts",
++    /\.update\(\{ initial_cost: shares\[i\] \}\)/.test(act), true);
++  assertEq("...scoped to the season",
++    /\.eq\("id", ordered\[i\]\.id\)\s*\n?\s*\.eq\("season_id", ctx\.season\.id\)/.test(act), true);
++
++  // Adding a player later must not disturb anyone.
++  assertEq("setting dues acts only on players who have none",
++    /players\.filter\(\(p\) => !taken\.has\(p\.id\)/.test(ui), true);
++  assertEq("editing team dues acts on players who have them",
++    /teamEdit\s*\n?\s*\? players\.filter\(\(p\) => taken\.has\(p\.id\)/.test(ui), true);
++  assertEq("the create path still only inserts missing obligations",
++    /const toCreate = eligible\.filter\(\(r\) => !already\.has\(r\.player_id\)\)/.test(act), true);
++
++  // The header stops looking like first-time setup.
++  assertEq("the header states the team total once dues exist",
++    /<strong>\{money\(duesTotal\)\}<\/strong> total/.test(ui), true);
++  assertEq("...and offers Edit team dues when safe",
++    /canBulkEdit && \(/.test(ui) && /Edit team dues/.test(ui), true);
++  assertEq("...only when nothing is paid",
++    /const canBulkEdit = withDues\.length > 0 && !anyPaid/.test(ui), true);
++  assertEq("...explaining why when it is unavailable",
++    /Team dues can no longer be reallocated as a group/.test(ui), true);
++  assertEq("...and still offering dues for players who have none",
++    /Set dues for \{playersWithoutDues\}/.test(ui), true);
++  assertEq("the edit states what it will change",
++    /This replaces the amount owed by/.test(ui), true);
++  assertEq("...and that payments are untouched",
++    /Payments already recorded are not affected/.test(ui), true);
++
++  // Payment history protection is unchanged.
++  assertEq("deleting a paid obligation is still refused",
++    /payments have been recorded against it/i.test(act), true);
++
++
++  /* ---- Exemption --------------------------------------------------------
++     Two Lynch players are deliberately not charged. Deleting their obligation
++     shows "Dues not set", which is indistinguishable from an oversight;
++     setting 0 shows "Paid in Full", which claims money was received. Neither
++     is true, so exemption is stated in its own column. */
++
++  const rules = fsx.readFileSync("lib/finance-rules.js", "utf8");
++  // Must be the FIRST branch: totalDue is 0 for an exempt player, so the
++  // paid check below would otherwise claim money was received.
++  assertEq("exemption is its own state", /\? "exempt"/.test(rules), true);
++  assertEq("...checked before the paid branch",
++    rules.indexOf('? "exempt"') < rules.indexOf('? "paid"'), true);
++  assertEq("...on the record flag", /record\.exempt/.test(rules), true);
++  assertEq("...counted apart from players with no dues set",
++    /exempt: inState\("exempt"\)/.test(rules), true);
++  assertEq("...and never reported as Paid in Full",
++    /p\.exempt\s*\n?\s*\? "No dues"/.test(fsx.readFileSync("lib/queries/finance.js", "utf8")), true);
++
++  assertEq("a team total excludes exempt players from allocation",
++    /const payers = rows\.filter\(\(r\) => !r\.exempt\)/.test(act), true);
++  assertEq("...refusing when nobody is left to charge",
++    /Every player on this roster is marked as owing no dues/.test(act), true);
++  assertEq("deselected players are recorded as exempt, not skipped",
++    /exempt: true,/.test(act), true);
++  assertEq("...with zero, as the constraint requires",
++    /initial_cost: 0,\s*\n\s*exempt: true/.test(act), true);
++  assertEq("exemption is reversible one player at a time",
++    /const exempt = text\(formData\.get\("exempt"\)\) === "true"/.test(act), true);
++
++  assertEq("the coach chooses who owes before allocating",
++    /Who owes dues/.test(ui), true);
++  assertEq("...defaulting to everyone", /const payerIds = payers \?\? available\.map/.test(ui), true);
++  assertEq("...and the preview counts only the selected",
++    /const n = selected\.length;/.test(ui), true);
++  assertEq("...and says what happens to the rest",
++    /will be\s*\n?\s*recorded as owing no dues/.test(ui), true);
++
++  /* ---- Budget line is a plan, not a charge ---------------------------- */
++
++  assertEq("creating a dues budget line reports itself",
++    /duesBudget: isDuesLine/.test(act), true);
++  assertEq("...only on creation, not on edit", /const isDuesLine = !id &&/.test(act), true);
++  assertEq("...and the notice says nobody has been charged",
++    /Players have not been charged yet/.test(ui), true);
++  assertEq("...offering Set player dues when none exist",
++    /Set player dues\s*\n?\s*<\/button>/.test(ui), true);
++  assertEq("...and View player dues when they do",
++    /View player dues/.test(ui), true);
++  assertEq("...carrying the figure forward as a prefill only",
++    /setDuesPrefill\(duesBudgetNotice\.amount \?\? null\)/.test(ui), true);
++  assertEq("...with no automatic synchronisation afterwards",
++    /NOT syncing the two\s*\n\s*\* afterwards/.test(act), true);
++
++  assertEq("an inline confirmation scrolls itself into view",
++    /scrollIntoView\(\{ block: "nearest"/.test(conf), true);
++}
++
+ console.log(`\n${ran} assertions, ${failures} failed`);
+   process.exit(failures ? 1 : 0);
+ })();
+diff --git a/supabase/migrations/20260830214936_player_dues_exemption.sql b/supabase/migrations/20260830214936_player_dues_exemption.sql
+new file mode 100644
+index 0000000..9a7c2af
+--- /dev/null
++++ b/supabase/migrations/20260830214936_player_dues_exemption.sql
+@@ -0,0 +1,38 @@
++-- An intentionally dues-exempt player.
++--
++-- A coach's own child, a player on scholarship: some players are deliberately
++-- not charged. Until now there was no way to say so.
++--
++-- The two alternatives both lie:
++--
++--   Deleting the obligation shows the player under "Dues not set", which is
++--   indistinguishable from an oversight -- the coach is chased forever by a
++--   number that is supposed to be zero.
++--
++--   Setting initial_cost to 0 shows a balance of zero, and the status logic
++--   reads balance <= 0 as "Paid in Full". A player who was never charged is
++--   reported as having paid, which is not the same fact.
++--
++-- So exemption is stated, not inferred. `exempt` is its own column, default
++-- false, and it is reversible: clearing it and setting an amount puts the
++-- player back among those who owe.
++--
++-- initial_cost stays NOT NULL and is 0 for an exempt player. The amount is
++-- meaningless while exempt is true, and every total filters on the flag rather
++-- than on the number.
++alter table player_payments
++  add column if not exists exempt boolean not null default false;
++
++comment on column player_payments.exempt is
++  'The organization has decided this player does not owe dues this season. Distinct from having no obligation record (never set up) and from owing 0 (charged nothing). Reversible. Totals and allocation exclude exempt players.';
++
++-- Exemption and money are contradictory. A player who has paid cannot be
++-- exempt, and an exempt player cannot carry an amount: either would produce a
++-- season total that does not mean what it says.
++alter table player_payments drop constraint if exists player_payments_exempt_zero;
++alter table player_payments add constraint player_payments_exempt_zero
++  check (not exempt or initial_cost = 0);
++
++-- Finding who owes is the common read.
++create index if not exists idx_player_payments_season_exempt
++  on player_payments (season_id, exempt);
+-- 
+2.43.0
+

@@ -15,7 +15,7 @@ import { setDuesForAll } from "../lib/actions/finance";
 import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import {
-  isActual, TXN_STATUSES, money, quantity, cents, sumMoney,
+  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
 } from "../lib/finance-rules";
@@ -245,6 +245,14 @@ export function FinanceClient({
   const { detail: detailPay, openDetail, closeDetail } = useOpenParam(payments);
   // Arrives from the roster prompt: /finance?tab=payments&add=dues
   const [editPay, setEditPay] = useState(autoAddDues ? "new" : null);
+  // Reallocating dues that already exist. Distinct from editPay, which either
+  // creates or edits ONE player.
+  const [editingTeamDues, setEditingTeamDues] = useState(false);
+  // Shown once, after a Player Dues budget line is created.
+  const [duesBudgetNotice, setDuesBudgetNotice] = useState(null);
+  // Carried from the budget line into the dues form as a starting figure. The
+  // coach still reviews and submits; it is a prefill, not a charge.
+  const [duesPrefill, setDuesPrefill] = useState(null);
   // Set from a "Dues not set" row so the form opens on that player. Uses the
   // existing creation path — nothing is created automatically.
   const [duesForPlayer, setDuesForPlayer] = useState(null);
@@ -379,6 +387,49 @@ export function FinanceClient({
     <>
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
+
+      {/* A PLAN, NOT A CHARGE. Says plainly that nobody has been billed, and
+          offers the action that matches the situation: set dues if none exist,
+          view them if they do. Nothing is synchronised afterwards — the budget
+          is an estimate that moves, dues are a commitment to a family. */}
+      {duesBudgetNotice && (
+        <div className="notice dues-budget-notice" role="status">
+          <div>
+            <strong>Player Dues budget added</strong>
+            <p>
+              {duesBudgetNotice.amount != null && (
+                <><strong>{money(duesBudgetNotice.amount)}</strong> has been added to your
+                budget as expected player dues revenue. </>
+              )}
+              Players have not been charged yet.
+            </p>
+          </div>
+          <div className="dues-budget-actions">
+            {payments.some((p) => p.totalDue != null) ? (
+              <button className="btn btn-secondary"
+                      onClick={() => { setDuesBudgetNotice(null); setTab("players"); }}>
+                View player dues
+              </button>
+            ) : (
+              <button className="btn btn-primary"
+                      onClick={() => {
+                        // Carries the budget figure forward as a starting
+                        // point. The coach still reviews who owes and submits;
+                        // nothing is charged by dismissing this.
+                        setDuesPrefill(duesBudgetNotice.amount ?? null);
+                        setDuesBudgetNotice(null);
+                        setTab("players");
+                        setEditPay("new");
+                      }}>
+                Set player dues
+              </button>
+            )}
+            <button className="btn btn-ghost" onClick={() => setDuesBudgetNotice(null)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="page-head">
         <div>
@@ -669,6 +720,7 @@ export function FinanceClient({
           onAddFor={(playerId) => { setDuesForPlayer(playerId); setEditPay("new"); }}
           onOpen={(p) => openDetail(p)}
           onBulk={(fd) => run(setDuesForAll, fd, { success: "Dues set for the players who needed them" })}
+          onEditTeamDues={() => setEditingTeamDues(true)}
           pending={pending}
           filtered={Boolean(activeAction)}
           filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
@@ -680,7 +732,15 @@ export function FinanceClient({
         <BudgetForm
           row={editBudget === "new" ? null : editBudget}
           pending={pending}
-          onSubmit={(fd) => run(saveBudgetItem, fd, () => setEditBudget(null))}
+          onSubmit={(fd) =>
+            run(saveBudgetItem, fd, (result) => {
+              setEditBudget(null);
+              // A budget line is a plan. Nobody has been charged, and saying so
+              // here is what stops the budget figure and the obligations from
+              // being read as the same thing.
+              if (result?.duesBudget) setDuesBudgetNotice(result.duesBudget);
+            })
+          }
           onCancel={() => setEditBudget(null)}
         />
       )}
@@ -782,11 +842,33 @@ export function FinanceClient({
         />
       )}
 
+      {/* The SAME form as initial setup, so the mode toggle, the labels and
+          the preview are identical and cannot drift from one another. Only the
+          action differs: this one updates existing obligations instead of
+          creating new ones. */}
+      {editingTeamDues && (
+        <PaymentForm
+          row={null}
+          teamEdit
+          players={players}
+          existing={payments}
+          pending={pending}
+          onSubmit={(fd) =>
+            run(editDuesForAll, fd, {
+              onDone: () => setEditingTeamDues(false),
+              success: "Team dues updated",
+            })
+          }
+          onCancel={() => setEditingTeamDues(false)}
+        />
+      )}
+
       {editPay && (
         <PaymentForm
           row={editPay === "new" ? null : editPay}
           players={players}
           presetPlayerId={duesForPlayer}
+          prefillTotal={duesPrefill}
           existing={payments}
           pending={pending}
           onSubmit={(fd, scope) =>
@@ -1078,6 +1160,11 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                       )}
                     </span>
                   </div>
+                  {/* Scrolled into view when it appears. On the last budget
+                      row the confirmation renders directly above the page
+                      footer, and a coach who clicked Delete near the bottom of
+                      a long budget saw nothing happen — the question was below
+                      the fold. */}
                   {confirmingDelete === `budget:${r.id}` && (
                     <ConfirmAction
                       message={`Delete the budget line "${r.name}"? Transactions already recorded against it are not deleted.`}
@@ -1709,6 +1796,7 @@ export function PaymentsTab({
   onAddFor,
   onOpen,
   onBulk,
+  onEditTeamDues,
   pending,
   filtered = false,
   filterLabel = null,
@@ -1741,14 +1829,70 @@ export function PaymentsTab({
 
   const nothingSetUp = roster.length > 0 && counts.notSet === roster.length && former.length === 0;
 
+  /**
+   * Once dues exist the primary action is no longer setup.
+   *
+   * A coach who set the wrong amount opened "Set player dues" and was told
+   * "0 players" — technically true, since the bulk flow only creates, and
+   * useless as an answer. The header now states what IS set and offers the
+   * action that matches the situation.
+   *
+   * Editing is offered only while nothing has been paid: reallocating a total
+   * across players when some have already paid produces a number that is no
+   * longer the total the coach entered.
+   */
+  const withDues = payments.filter((p) => p.totalDue != null);
+  const duesTotal = sumMoney(withDues.map((p) => p.totalDue ?? 0));
+  const anyPaid = payments.some((p) => (p.log ?? []).length > 0);
+  const playersWithoutDues = counts.notSet;
+  const canBulkEdit = withDues.length > 0 && !anyPaid;
+
   return (
     <>
       <div className="tab-head">
         <div className="page-sub">
-          Every active player on the roster, and what they owe for this season.
+          {withDues.length === 0 ? (
+            <>Every active player on the roster, and what they owe for this season.</>
+          ) : (
+            <>
+              <strong>{money(duesTotal)}</strong> total ·{" "}
+              {withDues.length} {withDues.length === 1 ? "player" : "players"}
+              {playersWithoutDues > 0 && (
+                <> · {playersWithoutDues} without dues set</>
+              )}
+            </>
+          )}
         </div>
-        {canWrite && <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>}
+        {canWrite && (
+          <div className="tab-head-actions">
+            {/* Setting dues for players who have none stays available whatever
+                the payment state — a player added mid-season needs an amount,
+                and giving them one changes nobody else's. */}
+            {playersWithoutDues > 0 && (
+              <button className="btn btn-secondary" onClick={onAdd}>
+                Set dues for {playersWithoutDues} {playersWithoutDues === 1 ? "player" : "players"}
+              </button>
+            )}
+            {canBulkEdit && (
+              <button className="btn btn-primary" onClick={onEditTeamDues}>
+                Edit team dues
+              </button>
+            )}
+            {withDues.length === 0 && playersWithoutDues === 0 && (
+              <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Said once, where the missing action would have been. */}
+      {canWrite && withDues.length > 0 && anyPaid && (
+        <p className="field-note dues-locked-note">
+          Team dues can no longer be reallocated as a group — payments have been
+          recorded. Open a player to adjust their amount individually; their
+          payment history is not affected.
+        </p>
+      )}
 
       {(roster.length > 0 || former.length > 0) && (
         <div className="segmented pay-views" role="group" aria-label="Filter players">
@@ -2096,17 +2240,69 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
   );
 }
 
-function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel }) {
+function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null }) {
   const isNew = !row;
   // Opened from a specific player's row: go straight to that player rather
   // than defaulting to the bulk action.
   const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
+  // A team edit is by definition every player who has dues.
+  const effectiveScope = teamEdit ? "all" : scope;
+  // Team total is the default because it is how a manager states dues: "the
+  // season costs $48,000". Per player is the explicit alternative.
+  const [duesMode, setDuesMode] = useState("total");
+  // Drives the preview, so a coach sees the arithmetic before saving rather
+  // than discovering it in the totals afterwards.
+  const [amount, setAmount] = useState(row?.totalDue ?? prefillTotal ?? "");
+  /**
+   * Who owes. Defaults to every eligible player, because that is the common
+   * case — but a coach's own child may not be charged, and dividing the team
+   * total by a headcount that includes them gives every family the wrong
+   * number. Deselected players are recorded as owing no dues, not skipped.
+   */
+  const [payers, setPayers] = useState(null);
+  const payerIds = payers ?? available.map((p) => p.id);
+  const selected = available.filter((p) => payerIds.includes(p.id));
+  const toggle = (id) =>
+    setPayers((cur) => {
+      const base = cur ?? available.map((p) => p.id);
+      return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    });
+
+  /**
+   * Built from allocateMoney, the same function setDuesForAll calls. The
+   * preview and the saved obligations therefore cannot diverge: if the split
+   * is uneven the coach sees the range before committing to it.
+   */
+  const preview = useMemo(() => {
+    const n = selected.length;
+    const value = Number(amount);
+    if (!n || !Number.isFinite(value) || value < 0 || amount === "") return null;
+
+    const shares = duesMode === "total"
+      ? allocateMoney(value, n)
+      : Array.from({ length: n }, () => value);
+
+    const totalCents = shares.reduce((sum, v) => sum + cents(v), 0);
+    return {
+      total: totalCents / 100,
+      low: Math.min(...shares),
+      high: Math.max(...shares),
+      even: Math.min(...shares) === Math.max(...shares),
+    };
+  }, [amount, duesMode, selected.length]);
 
   const taken = new Set(existing.map((p) => p.player_id));
   // Season fees are owed by players. Coaches and other staff are excluded.
-  const available = players.filter(
-    (p) => !taken.has(p.id) && (p.person_type ?? "player") === "player"
-  );
+  /**
+   * Who the amount applies to.
+   *
+   * Setting dues acts on players who have NONE — giving one to a player who
+   * joined mid-season must not disturb anybody else. Editing team dues acts on
+   * everyone who HAS one, because that is what a team total is.
+   */
+  const available = teamEdit
+    ? players.filter((p) => taken.has(p.id) && (p.person_type ?? "player") === "player")
+    : players.filter((p) => !taken.has(p.id) && (p.person_type ?? "player") === "player");
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
@@ -2115,7 +2311,11 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
           {row && <input type="hidden" name="id" value={row.id} />}
           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
           <div className="modal-head">
-            <h2>{isNew ? "Set player dues" : `Edit ${row.player?.full_name}`}</h2>
+            <h2>
+              {teamEdit ? "Edit team dues"
+                : isNew ? "Set player dues"
+                : `Edit ${row.player?.full_name}`}
+            </h2>
             {isNew && (
               <div className="page-sub">
                 Each player gets their own obligation, so balances and payment history stay
@@ -2150,10 +2350,73 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
               </div>
             )}
 
-            {isNew && scope === "all" && (
+            {/* SET DUES BY. Only for All players — the toggle is meaningless
+                for one player, where the amount is simply that player's. */}
+            {isNew && effectiveScope === "all" && (
+              <div className="field">
+                <label>Set dues by</label>
+                <div className="segmented" role="group" aria-label="How the amount is applied">
+                  <button
+                    type="button"
+                    className={`segment${duesMode === "total" ? " on" : ""}`}
+                    aria-pressed={duesMode === "total"}
+                    onClick={() => setDuesMode("total")}
+                  >
+                    Team total
+                  </button>
+                  <button
+                    type="button"
+                    className={`segment${duesMode === "per_player" ? " on" : ""}`}
+                    aria-pressed={duesMode === "per_player"}
+                    onClick={() => setDuesMode("per_player")}
+                  >
+                    Amount per player
+                  </button>
+                </div>
+                <input type="hidden" name="dues_mode" value={duesMode} />
+              </div>
+            )}
+
+            {/* WHO OWES. Checked by default; unchecking records the player as
+                owing no dues rather than leaving them looking unfinished. */}
+            {isNew && effectiveScope === "all" && available.length > 0 && (
+              <div className="field">
+                <label>Who owes dues</label>
+                <div className="dues-payers">
+                  {available.map((p) => (
+                    <label key={p.id} className="dues-payer">
+                      <input
+                        type="checkbox"
+                        checked={payerIds.includes(p.id)}
+                        onChange={() => toggle(p.id)}
+                      />
+                      <span>{p.full_name}</span>
+                    </label>
+                  ))}
+                </div>
+                <input type="hidden" name="player_ids" value={payerIds.join(",")} />
+                {selected.length < available.length && (
+                  <p className="field-note">
+                    {available.length - selected.length}{" "}
+                    {available.length - selected.length === 1 ? "player" : "players"} will be
+                    recorded as owing no dues. You can change that later.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {isNew && effectiveScope === "all" && (
               <p className="field-note dues-scope-note">
                 {available.length === 0 ? (
-                  <>Every active player already has dues set. Nothing would change.</>
+                  <>
+                    {/* THREE STATES, NOT ONE. "Nothing would change" told a
+                        coach who had just set the wrong amount that there was
+                        nothing to do, which is the opposite of true. This says
+                        what is actually blocking and where to go instead. */}
+                    Every active player already has dues set, so there is nothing to add
+                    here. To change an amount, open a player from the list below —
+                    obligations with recorded payments cannot be changed in bulk.
+                  </>
                 ) : (
                   <>
                     Creates a separate obligation for each of the{" "}
@@ -2165,7 +2428,7 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
               </p>
             )}
 
-            {isNew && scope === "one" && (
+            {isNew && effectiveScope === "one" && (
               <div className="field">
                 <label htmlFor="p-player">Player</label>
                 <select id="p-player" name="player_id" required defaultValue={presetPlayerId ?? ""}>
@@ -2181,24 +2444,64 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
               </div>
             )}
             <div className="field">
-              <label htmlFor="p-cost">Total due for the season</label>
+              <label htmlFor="p-cost">
+                {!isNew || effectiveScope === "one"
+                  ? "Player dues for the season"
+                  : duesMode === "total"
+                    ? "Total team dues"
+                    : "Amount each player owes"}
+              </label>
               <div className="input-money">
                 <span aria-hidden="true">$</span>
-                <input id="p-cost" name="initial_cost" type="number" min="0" step="0.01" inputMode="decimal" required
+                <input id="p-cost" name="initial_cost" type="number" min="0" step="0.01" required
                        inputMode="decimal" placeholder="0"
-                       defaultValue={row?.totalDue ?? ""} />
+                       value={amount}
+                       onChange={(e) => setAmount(e.target.value)} />
               </div>
+
+              {teamEdit && (
+                <p className="field-note dues-edit-note">
+                  This replaces the amount owed by{" "}
+                  <strong>{available.length}</strong>{" "}
+                  {available.length === 1 ? "player" : "players"} who already have dues.
+                  Payments already recorded are not affected.
+                </p>
+              )}
+
+              {/* THE PREVIEW IS COMPUTED BY THE SAME FUNCTION THE SERVER USES.
+                  A preview with its own arithmetic is a second source of truth
+                  and will eventually disagree with what is saved. */}
+              {isNew && effectiveScope === "all" && selected.length > 0 && preview && (
+                <p className="field-note dues-preview">
+                  <strong>{selected.length}</strong>{" "}
+                  {selected.length === 1 ? "player" : "players"} ·{" "}
+                  {duesMode === "total" ? (
+                    <>
+                      <strong>{money(preview.total)}</strong> total ·{" "}
+                      {preview.even
+                        ? <>{money(preview.low)} each</>
+                        : <>{money(preview.low)}–{money(preview.high)} each</>}
+                    </>
+                  ) : (
+                    <>
+                      <strong>{money(preview.low)}</strong> each ·{" "}
+                      {money(preview.total)} total
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           </div>
           <div className="modal-foot">
             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
+            <button type="submit" className="btn btn-primary"
+                    disabled={pending || (effectiveScope === "all" && (isNew ? selected.length === 0 : available.length === 0))}>
               {pending
                 ? "Saving…"
                 : !isNew
                   ? "Save changes"
-                  : scope === "all"
-                    ? `Set dues for ${available.length} ${available.length === 1 ? "player" : "players"}`
+                  : effectiveScope === "all"
+                    ? `Set dues for ${selected.length} ${selected.length === 1 ? "player" : "players"}`
                     : "Add"}
             </button>
           </div>

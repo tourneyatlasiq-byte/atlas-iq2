@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 /**
  * Confirming a destructive action inside the app.
@@ -46,8 +46,26 @@ export function ConfirmAction({
   pending = false,
   error = null,
 }) {
+  const ref = useRef(null);
+
+  /**
+   * Bring the question into view.
+   *
+   * An inline confirmation solves the suppressed-dialog problem but creates a
+   * new one: rendered on the last row of a long list it can sit below the
+   * fold, so the coach clicks Delete and sees nothing — the same symptom by a
+   * different route. Scrolling to it makes the question unmissable wherever
+   * the row happens to be.
+   *
+   * `nearest` rather than `center`: if it is already visible nothing moves,
+   * so a confirmation at the top of the screen does not yank the page.
+   */
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
+
   return (
-    <div className="confirm-inline" role="alert">
+    <div className="confirm-inline" role="alert" ref={ref}>
       <p className="confirm-inline-message">{message}</p>
       {/* A failure has to appear HERE. Rendered at container level it would
           sit underneath the drawer that asked the question. */}
