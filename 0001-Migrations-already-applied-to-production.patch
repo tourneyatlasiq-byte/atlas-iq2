@@ -1,0 +1,773 @@
+From c2ec0a1a5b200eee2169926df6e54a08231760fb Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Sun, 30 Aug 2026 18:56:17 +0000
+Subject: [PATCH 1/5] Migrations already applied to production
+
+These four were applied to the production database before their files reached
+the repository. Recorded here so migration history matches the schema that is
+actually running.
+
+  20260830014649  intake_apply persists the mailing address, and 'updated'
+                  counts a real change instead of every row it touched
+  20260830180256  intake_runs records column mapping and per-row decisions
+  20260830181427  drop budget_items.actual, a stale second source of truth
+  20260830183041  drop player_stats, an empty legacy statistics table
+
+Nothing is reapplied. Applying migrations ahead of committing them was a
+mistake: dropping the old intake_apply_run signature would have broken live
+Import if PostgREST had not resolved the deployed five-argument call through
+the new defaulted parameters.
+---
+ ...take_apply_address_and_change_counting.sql | 496 ++++++++++++++++++
+ .../20260830180256_intake_run_provenance.sql  | 155 ++++++
+ ...181427_drop_legacy_budget_items_actual.sql |  32 ++
+ ...0260830183041_drop_legacy_player_stats.sql |  33 ++
+ 4 files changed, 716 insertions(+)
+ create mode 100644 supabase/migrations/20260830014649_intake_apply_address_and_change_counting.sql
+ create mode 100644 supabase/migrations/20260830180256_intake_run_provenance.sql
+ create mode 100644 supabase/migrations/20260830181427_drop_legacy_budget_items_actual.sql
+ create mode 100644 supabase/migrations/20260830183041_drop_legacy_player_stats.sql
+
+diff --git a/supabase/migrations/20260830014649_intake_apply_address_and_change_counting.sql b/supabase/migrations/20260830014649_intake_apply_address_and_change_counting.sql
+new file mode 100644
+index 0000000..8722c92
+--- /dev/null
++++ b/supabase/migrations/20260830014649_intake_apply_address_and_change_counting.sql
+@@ -0,0 +1,496 @@
++-- Import Players: persist the mailing address, and make `updated` mean something.
++--
++-- TWO DEFECTS, both found by auditing a real import rather than the code.
++--
++-- 1. street_address / street_address_2 / city / state / zip were supported by
++--    the registry, the planner, the form and the export, but intake_apply had
++--    no branch for them. A coach's address column was recognised, mapped,
++--    included, planned -- and dropped at the write. Fifteen players imported
++--    with a complete address in the file and null addresses in the database.
++--
++-- 2. `updated` incremented whenever the UPDATE statement found its row, which
++--    it always does for an existing player. A re-import that changed nothing
++--    reported every row as updated, so the one number a coach reads after an
++--    import could not be trusted. It now counts players whose stored values
++--    actually changed, once per player however many tables were involved.
++--
++-- The field contract is unchanged: absent key means untouched, a blank value
++-- keeps what is stored, a supplied value wins, and SAME writes nothing.
++
++create or replace function public.intake_apply(
++  p_team_id   uuid,
++  p_season_id uuid,
++  p_rows      jsonb
++)
++returns json
++language plpgsql
++security invoker
++set search_path to 'public'
++as $$
++declare
++  v_user     uuid := auth.uid();
++  v_org      uuid := public.auth_organization_id();
++  v_row      jsonb;
++  v_player   jsonb;
++  v_season   jsonb;
++  v_contact  jsonb;
++  v_link     jsonb;
++  v_contacts jsonb;
++  v_pid      uuid;
++  v_is_new   boolean;
++  v_full     text;
++  v_ptype    text;
++  v_created  int := 0;
++  v_updated  int := 0;
++  -- Change detection. v_updated used to increment whenever the UPDATE found a
++  -- row, which it always does for an existing player, so a run that changed
++  -- nothing still reported every row as updated. A coach reading "15 updated"
++  -- after a no-op import reasonably concluded something had happened.
++  --
++  -- These hold the row BEFORE the write so it can be compared after. One flag
++  -- per player per run, set by either table, so a player whose name and jersey
++  -- size both change counts once rather than twice.
++  v_before_p players%rowtype;
++  v_before_s team_season_players%rowtype;
++  v_after_p  players%rowtype;
++  v_after_s  team_season_players%rowtype;
++  v_changed  boolean;
++  v_before_c player_contacts%rowtype;
++  v_after_c  player_contacts%rowtype;
++  v_c_ins    int := 0;
++  v_c_upd    int := 0;
++  v_links    int := 0;
++  v_primary_count int;
++  v_has_primary   boolean;
++  v_cid      uuid;
++  v_op       text;
++  v_method   text;
++begin
++  ------------------------------------------------------------------ identity
++  if v_user is null then
++    raise exception 'You must be signed in to import players.'
++      using errcode = 'insufficient_privilege';
++  end if;
++  if v_org is null then
++    raise exception 'Your account is not attached to an organization.'
++      using errcode = 'insufficient_privilege';
++  end if;
++
++  -- auth_can_write() excludes the parent role. RLS enforces this as well; the
++  -- explicit check exists so a refusal reads as a sentence rather than as an
++  -- empty result set.
++  if not public.auth_can_write() then
++    raise exception 'Your role does not allow changes to the roster.'
++      using errcode = 'insufficient_privilege';
++  end if;
++
++  -- team_season_players gates on auth_team_ids() rather than organization, so
++  -- a user with an org but no team membership would otherwise fail with an
++  -- opaque RLS error. Checked here to give a usable message.
++  if not exists (
++    select 1 from seasons s join teams t on t.id = s.team_id
++    where s.id = p_season_id and t.id = p_team_id and t.organization_id = v_org
++  ) then
++    raise exception 'That team and season do not belong to your organization.'
++      using errcode = 'insufficient_privilege';
++  end if;
++
++  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then
++    raise exception 'No rows to import.' using errcode = 'invalid_parameter_value';
++  end if;
++
++  for v_row in select * from jsonb_array_elements(p_rows)
++  loop
++    v_player   := coalesce(v_row -> 'player',   '{}'::jsonb);
++    v_season   := coalesce(v_row -> 'season',   '{}'::jsonb);
++    v_contacts := coalesce(v_row -> 'contacts', '[]'::jsonb);
++    -- is_new decides insert-vs-update on a PERSON. Defaulting a missing value
++    -- to true would create a duplicate player from a malformed row.
++    if v_row -> 'is_new' is null or jsonb_typeof(v_row -> 'is_new') <> 'boolean' then
++      raise exception 'A row does not say whether it is a new player.'
++        using errcode = 'invalid_parameter_value';
++    end if;
++    v_is_new := (v_row ->> 'is_new')::boolean;
++    -- Per row, or the first change would mark every later row as updated too.
++    v_changed := false;
++
++    -- full_name is derived by composeFullName() in the server layer. This
++    -- VALIDATES; it does not recompute. A PL/pgSQL reimplementation cannot
++    -- match String.trim(), which strips all Unicode whitespace — a
++    -- non-breaking space, form feed or vertical tab each diverge. One
++    -- implementation, no drift.
++    v_full := nullif(btrim(v_player ->> 'full_name', E' \t\r\n'), '');
++
++    --------------------------------------------------------------- person_type
++    -- players.person_type defaults to 'player' and is constrained to
++    -- player | coach | manager | other. An EXPLICIT NULL would NOT invoke the
++    -- default, and person_type gates dues and lineup eligibility across ~21
++    -- call sites — so a null here would quietly drop someone from dues.
++    --
++    -- The key is therefore omitted entirely when absent, letting the column
++    -- default apply exactly as addRosterMember does. A refused value ("Staff",
++    -- an unknown role) never reaches this function: the normaliser sends
++    -- nothing and the review step blocks the row.
++    v_ptype := nullif(btrim(v_player ->> 'person_type', E' \t\r\n'), '');
++    if v_ptype is not null and v_ptype not in ('player','coach','manager','other') then
++      raise exception 'Unrecognised person type in import: %', v_ptype
++        using errcode = 'invalid_parameter_value';
++    end if;
++
++    if v_is_new then
++      if v_full is null then
++        raise exception 'A row has no player name.' using errcode = 'invalid_parameter_value';
++      end if;
++
++      -- Two inserts rather than one, so an absent person_type genuinely takes
++      -- the column default instead of an explicit null.
++      if v_ptype is null then
++        insert into players (
++          organization_id, full_name, legal_first_name, preferred_first_name,
++          last_name, high_school, grad_year, date_of_birth, bats, throws,
++          player_email, player_phone, notes,
++          street_address, street_address_2, city, state, zip
++        ) values (
++          v_org, v_full,
++          nullif(btrim(v_player ->> 'legal_first_name',     E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'preferred_first_name', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'last_name',            E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'high_school',          E' \t\r\n'), ''),
++          (nullif(btrim(v_player ->> 'grad_year',     E' \t\r\n'), ''))::int,
++          (nullif(btrim(v_player ->> 'date_of_birth', E' \t\r\n'), ''))::date,
++          nullif(btrim(v_player ->> 'bats',         E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'throws',       E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'player_email', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'player_phone', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'notes',        E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'street_address',   E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'street_address_2', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'city',             E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'state',            E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'zip',              E' \t\r\n'), '')
++        ) returning id into v_pid;
++      else
++        insert into players (
++          organization_id, full_name, legal_first_name, preferred_first_name,
++          last_name, high_school, grad_year, date_of_birth, bats, throws,
++          player_email, player_phone, notes, person_type, other_role_label,
++          street_address, street_address_2, city, state, zip
++        ) values (
++          v_org, v_full,
++          nullif(btrim(v_player ->> 'legal_first_name',     E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'preferred_first_name', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'last_name',            E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'high_school',          E' \t\r\n'), ''),
++          (nullif(btrim(v_player ->> 'grad_year',     E' \t\r\n'), ''))::int,
++          (nullif(btrim(v_player ->> 'date_of_birth', E' \t\r\n'), ''))::date,
++          nullif(btrim(v_player ->> 'bats',         E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'throws',       E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'player_email', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'player_phone', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'notes',        E' \t\r\n'), ''),
++          v_ptype,
++          nullif(btrim(v_player ->> 'other_role_label', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'street_address',   E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'street_address_2', E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'city',             E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'state',            E' \t\r\n'), ''),
++          nullif(btrim(v_player ->> 'zip',              E' \t\r\n'), '')
++        ) returning id into v_pid;
++      end if;
++      v_created := v_created + 1;
++
++    else
++      v_pid := (v_row ->> 'player_id')::uuid;
++      if v_pid is null then
++        raise exception 'An existing-player row is missing its player.'
++          using errcode = 'invalid_parameter_value';
++      end if;
++
++      -- ONLY APPROVED KEYS, and never an erase. Key PRESENCE says the
++      -- reviewer approved that field; coalesce() means a blank, whitespace or
++      -- tampered value still cannot clear a stored one. Clearing a field is
++      -- not an approved product feature and no path supports it.
++      select * into v_before_p from players where id = v_pid;
++
++      update players set
++        legal_first_name = case when v_player ? 'legal_first_name'
++          then coalesce(nullif(btrim(v_player ->> 'legal_first_name', E' \t\r\n'), ''), legal_first_name)
++          else legal_first_name end,
++        preferred_first_name = case when v_player ? 'preferred_first_name'
++          then coalesce(nullif(btrim(v_player ->> 'preferred_first_name', E' \t\r\n'), ''), preferred_first_name)
++          else preferred_first_name end,
++        last_name = case when v_player ? 'last_name'
++          then coalesce(nullif(btrim(v_player ->> 'last_name', E' \t\r\n'), ''), last_name)
++          else last_name end,
++        high_school = case when v_player ? 'high_school'
++          then coalesce(nullif(btrim(v_player ->> 'high_school', E' \t\r\n'), ''), high_school)
++          else high_school end,
++        grad_year = case when v_player ? 'grad_year'
++          then coalesce((nullif(btrim(v_player ->> 'grad_year', E' \t\r\n'), ''))::int, grad_year)
++          else grad_year end,
++        date_of_birth = case when v_player ? 'date_of_birth'
++          then coalesce((nullif(btrim(v_player ->> 'date_of_birth', E' \t\r\n'), ''))::date, date_of_birth)
++          else date_of_birth end,
++        bats = case when v_player ? 'bats'
++          then coalesce(nullif(btrim(v_player ->> 'bats', E' \t\r\n'), ''), bats) else bats end,
++        throws = case when v_player ? 'throws'
++          then coalesce(nullif(btrim(v_player ->> 'throws', E' \t\r\n'), ''), throws) else throws end,
++        player_email = case when v_player ? 'player_email'
++          then coalesce(nullif(btrim(v_player ->> 'player_email', E' \t\r\n'), ''), player_email)
++          else player_email end,
++        player_phone = case when v_player ? 'player_phone'
++          then coalesce(nullif(btrim(v_player ->> 'player_phone', E' \t\r\n'), ''), player_phone)
++          else player_phone end,
++        notes = case when v_player ? 'notes'
++          then coalesce(nullif(btrim(v_player ->> 'notes', E' \t\r\n'), ''), notes) else notes end,
++        person_type = case when v_ptype is not null then v_ptype else person_type end,
++        other_role_label = case when v_player ? 'other_role_label'
++          then nullif(btrim(v_player ->> 'other_role_label', E' \t\r\n'), '')
++          else other_role_label end,
++        -- Mailing address. Same contract as every field above: absent key
++        -- means untouched, a blank value keeps what is stored, and a supplied
++        -- value wins. These columns exist on players, in the registry, the
++        -- planner, the form and the export -- only this write path was
++        -- missing, so a coach's address column was mapped, included, planned
++        -- and then silently dropped here.
++        street_address = case when v_player ? 'street_address'
++          then coalesce(nullif(btrim(v_player ->> 'street_address', E' \t\r\n'), ''), street_address)
++          else street_address end,
++        street_address_2 = case when v_player ? 'street_address_2'
++          then coalesce(nullif(btrim(v_player ->> 'street_address_2', E' \t\r\n'), ''), street_address_2)
++          else street_address_2 end,
++        city = case when v_player ? 'city'
++          then coalesce(nullif(btrim(v_player ->> 'city', E' \t\r\n'), ''), city)
++          else city end,
++        state = case when v_player ? 'state'
++          then coalesce(nullif(btrim(v_player ->> 'state', E' \t\r\n'), ''), state)
++          else state end,
++        zip = case when v_player ? 'zip'
++          then coalesce(nullif(btrim(v_player ->> 'zip', E' \t\r\n'), ''), zip)
++          else zip end,
++        -- Server-derived; applied only when supplied.
++        full_name = coalesce(v_full, full_name)
++      where id = v_pid and organization_id = v_org;
++
++      if not found then
++        raise exception 'A player in this import is not in your organization.'
++          using errcode = 'insufficient_privilege';
++      end if;
++
++      -- Compare the whole row rather than listing fields: a column added later
++      -- is covered automatically, which is exactly the failure that let the
++      -- address columns go unnoticed.
++      select * into v_after_p from players where id = v_pid;
++      if v_after_p is distinct from v_before_p then
++        v_changed := true;
++      end if;
++    end if;
++
++    ------------------------------------------------------------ season member
++    -- is_active is set ONLY on insert. Re-importing a player who was removed
++    -- from the season must never silently reactivate them: that would
++    -- override the removal lifecycle. Season fields change only when the key
++    -- is present, so an omitted column is untouched by contract rather than
++    -- by accident.
++    select * into v_before_s from team_season_players
++      where player_id = v_pid and season_id = p_season_id;
++
++    insert into team_season_players (
++      player_id, team_id, season_id, jersey_number, jersey_size, pants_size,
++      positions, position, is_active
++    ) values (
++      v_pid, p_team_id, p_season_id,
++      (nullif(btrim(v_season ->> 'jersey_number', E' \t\r\n'), ''))::int,
++      nullif(btrim(v_season ->> 'jersey_size', E' \t\r\n'), ''),
++      nullif(btrim(v_season ->> 'pants_size',  E' \t\r\n'), ''),
++      case when v_season ? 'positions'
++           then array(select jsonb_array_elements_text(v_season -> 'positions')) end,
++      case when v_season ? 'positions'
++           then (select x from jsonb_array_elements_text(v_season -> 'positions') x limit 1) end,
++      true
++    )
++    on conflict (player_id, season_id) do update set
++      jersey_number = case when v_season ? 'jersey_number'
++        then coalesce(excluded.jersey_number, team_season_players.jersey_number)
++        else team_season_players.jersey_number end,
++      jersey_size = case when v_season ? 'jersey_size'
++        then coalesce(excluded.jersey_size, team_season_players.jersey_size)
++        else team_season_players.jersey_size end,
++      pants_size = case when v_season ? 'pants_size'
++        then coalesce(excluded.pants_size, team_season_players.pants_size)
++        else team_season_players.pants_size end,
++      positions = case when v_season ? 'positions'
++        then excluded.positions else team_season_players.positions end,
++      position = case when v_season ? 'positions'
++        then excluded.position else team_season_players.position end;
++      -- is_active deliberately absent from the update.
++
++    -- A season row that did not exist before is part of creating the player,
++    -- which `created` already counts; only a genuine change to an existing
++    -- membership marks the player as updated.
++    select * into v_after_s from team_season_players
++      where player_id = v_pid and season_id = p_season_id;
++    if v_before_s.id is not null and v_after_s is distinct from v_before_s then
++      v_changed := true;
++    end if;
++
++    -- One player, one count, whichever table changed.
++    if v_changed and not v_is_new then
++      v_updated := v_updated + 1;
++    end if;
++
++    ----------------------------------------------------------------- contacts
++    -- The plan states insert or update and, for an update, which contact.
++    -- This function matches nothing itself.
++    select exists (select 1 from player_contacts where player_id = v_pid and is_primary)
++      into v_has_primary;
++
++    -- Contract validation BEFORE writing, so a malformed payload produces a
++    -- readable error rather than a uniqueness exception from the partial
++    -- index. The index remains the final safeguard.
++    select count(*) into v_primary_count
++      from jsonb_array_elements(v_contacts) c
++      where coalesce((c ->> 'is_primary')::boolean, false);
++
++    if v_is_new and jsonb_array_length(v_contacts) > 0 and v_primary_count <> 1 then
++      raise exception 'A new player must have exactly one primary contact; the import supplied %.',
++        v_primary_count using errcode = 'invalid_parameter_value';
++    end if;
++
++    if not v_is_new and v_has_primary and v_primary_count > 0 then
++      raise exception 'This player already has a primary contact. An import cannot change it.'
++        using errcode = 'invalid_parameter_value';
++    end if;
++
++    -- With no existing primary, an import does not silently promote one.
++    if not v_is_new and not v_has_primary and v_primary_count > 0 then
++      raise exception 'An import cannot choose a primary contact for an existing player.'
++        using errcode = 'invalid_parameter_value';
++    end if;
++
++    for v_contact in select * from jsonb_array_elements(v_contacts)
++    loop
++      -- EXPLICIT ALLOWLIST. A missing, malformed or tampered operation must
++      -- not fall through to a mutation: "anything that isn't update is an
++      -- insert" turns a typo into a duplicate contact.
++      v_op := nullif(btrim(v_contact ->> 'op', E' \t\r\n'), '');
++      if v_op is null or v_op not in ('insert','update') then
++        raise exception 'Unsupported contact operation in import: %',
++          coalesce(v_op, '(none)') using errcode = 'invalid_parameter_value';
++      end if;
++
++      -- preferred_method is CHECK-constrained to text | email | call | NULL.
++      -- The intake pipeline normalises spellings such as "Email" and blocks
++      -- anything it does not recognise, but this must not DEPEND on that: a
++      -- raw constraint violation is not a validation message, and it reached a
++      -- coach once as the first thing to inspect the value. Independent
++      -- backstop, same vocabulary, readable refusal.
++      v_method := nullif(btrim(v_contact ->> 'preferred_method', E' \t\r\n'), '');
++      if v_method is not null and v_method not in ('text','email','call') then
++        raise exception 'Unsupported preferred contact method in import: %', v_method
++          using errcode = 'invalid_parameter_value';
++      end if;
++
++      if v_op = 'update' then
++        v_cid := (v_contact ->> 'contact_id')::uuid;
++        if v_cid is null then
++          raise exception 'A contact update is missing its contact.'
++            using errcode = 'invalid_parameter_value';
++        end if;
++
++        select * into v_before_c from player_contacts where id = v_cid;
++
++        -- is_primary is deliberately NOT updatable through import.
++        update player_contacts set
++          full_name = coalesce(nullif(btrim(v_contact ->> 'full_name', E' \t\r\n'), ''), full_name),
++          relationship = coalesce(nullif(btrim(v_contact ->> 'relationship', E' \t\r\n'), ''), relationship),
++          email = coalesce(nullif(btrim(v_contact ->> 'email', E' \t\r\n'), ''), email),
++          phone = coalesce(nullif(btrim(v_contact ->> 'phone', E' \t\r\n'), ''), phone),
++          preferred_method = coalesce(v_method, preferred_method),
++          updated_at = now()
++        where id = v_cid and player_id = v_pid;   -- a foreign id cannot match
++
++        if not found then
++          raise exception 'A contact in this import does not belong to that player.'
++            using errcode = 'no_data_found';
++        end if;
++
++        -- Only a REAL change counts. The statement above always matches, and
++        -- always stamps updated_at, so counting the statement reported every
++        -- contact as updated on a re-import of identical details. The named
++        -- fields are compared rather than the whole row precisely because
++        -- updated_at always differs.
++        select * into v_after_c from player_contacts where id = v_cid;
++        if (v_after_c.full_name, v_after_c.relationship, v_after_c.email,
++            v_after_c.phone, v_after_c.preferred_method)
++           is distinct from
++           (v_before_c.full_name, v_before_c.relationship, v_before_c.email,
++            v_before_c.phone, v_before_c.preferred_method) then
++          v_c_upd := v_c_upd + 1;
++        end if;
++
++      else  -- v_op = 'insert', the only remaining possibility
++        insert into player_contacts (
++          organization_id, player_id, full_name, relationship, email, phone,
++          preferred_method, is_primary, sort_order, created_by
++        ) values (
++          v_org, v_pid,
++          nullif(btrim(v_contact ->> 'full_name',    E' \t\r\n'), ''),
++          nullif(btrim(v_contact ->> 'relationship', E' \t\r\n'), ''),
++          nullif(btrim(v_contact ->> 'email',        E' \t\r\n'), ''),
++          nullif(btrim(v_contact ->> 'phone',        E' \t\r\n'), ''),
++          v_method,
++          coalesce((v_contact ->> 'is_primary')::boolean, false),
++          coalesce((nullif(btrim(v_contact ->> 'sort_order', E' \t\r\n'), ''))::int, 0),
++          v_user
++        );
++        v_c_ins := v_c_ins + 1;
++      end if;
++    end loop;
++
++    -------------------------------------------------------------------- links
++    -- The coach's original string is preserved verbatim in label; only url is
++    -- composed, by the server layer.
++    for v_link in select * from jsonb_array_elements(coalesce(v_row -> 'links', '[]'::jsonb))
++    loop
++      -- Same fail-closed principle: only the supported link type is written.
++      if nullif(btrim(v_link ->> 'link_type', E' \t\r\n'), '') is distinct from 'X' then
++        raise exception 'Unsupported link type in import: %',
++          coalesce(nullif(btrim(v_link ->> 'link_type', E' \t\r\n'), ''), '(none)')
++          using errcode = 'invalid_parameter_value';
++      end if;
++      if nullif(btrim(v_link ->> 'url', E' \t\r\n'), '') is null then
++        raise exception 'A social link has no address.'
++          using errcode = 'invalid_parameter_value';
++      end if;
++
++      if not exists (
++        select 1 from player_links
++        where player_id = v_pid and link_type = 'X' and url = v_link ->> 'url'
++      ) then
++        insert into player_links (organization_id, player_id, link_type, url, label)
++        values (v_org, v_pid, 'X', v_link ->> 'url',
++                nullif(btrim(v_link ->> 'label', E' \t\r\n'), ''));
++        v_links := v_links + 1;
++      end if;
++    end loop;
++
++  end loop;
++
++  return json_build_object(
++    'created', v_created, 'updated', v_updated,
++    'contacts_added', v_c_ins, 'contacts_updated', v_c_upd,
++    'links_added', v_links
++  );
++end;
++$$;
++
++-- Only signed-in users may call this. Supabase grants EXECUTE to anon and
++-- authenticated by default; anon would fail at RLS regardless, but it should
++-- not be able to enter the function at all. auth_linked_player_ids is the
++-- existing precedent for an authenticated-only routine.
++revoke all on function public.intake_apply(uuid, uuid, jsonb) from public, anon;
++grant execute on function public.intake_apply(uuid, uuid, jsonb) to authenticated;
++
++comment on function public.intake_apply is
++  'Applies one reviewed player import atomically. SECURITY INVOKER so RLS remains authoritative. Executes reviewed decisions; makes none. No parameter can name a destination table.';
+diff --git a/supabase/migrations/20260830180256_intake_run_provenance.sql b/supabase/migrations/20260830180256_intake_run_provenance.sql
+new file mode 100644
+index 0000000..622cacf
+--- /dev/null
++++ b/supabase/migrations/20260830180256_intake_run_provenance.sql
+@@ -0,0 +1,155 @@
++-- Import provenance: what the system was asked to do, and what it decided.
++--
++-- intake_runs recorded a fingerprint and aggregate counts. Twice now that has
++-- been too little: an audit could not say which source columns a coach had
++-- included, how many candidates the match ran against, or why a particular row
++-- was created rather than matched. Both investigations ended at "cannot be
++-- determined from the available evidence".
++--
++-- WHAT IS STORED, AND WHAT IS DELIBERATELY NOT.
++--
++-- `mapping` holds the coach's column HEADERS and the destination each was
++-- given, plus the headers that were ignored, plus how many candidates the
++-- match ran against. Headers are the labels in the coach's own spreadsheet --
++-- "Player Name", "Email" -- not the values underneath them. No cell content.
++--
++-- `outcomes` holds one entry per row: its position in the file, what the
++-- matcher classified it as, whether the coach supplied an explicit identity
++-- choice, what the run did, and which player it touched. A player_id is an
++-- internal identifier for a record this database already holds; without it an
++-- audit cannot say WHICH player a decision applied to, which is the question
++-- that stalled both investigations.
++--
++-- NOT stored: names, emails, dates of birth, phone numbers, addresses, or any
++-- part of the uploaded file. A row's identity is reconstructed by joining
++-- player_id, not by copying the person into an audit blob. If a player is
++-- later deleted the audit keeps the decision and loses the pointer, which is
++-- the correct trade for a record whose purpose is explaining system behaviour
++-- rather than preserving personal data.
++--
++-- Both columns are NULLABLE. Existing rows keep their history and simply have
++-- no provenance; nothing backfills invented detail.
++alter table intake_runs
++  add column if not exists mapping  jsonb,
++  add column if not exists outcomes jsonb;
++
++comment on column intake_runs.mapping is
++  'Included column headers and their destinations, ignored headers, and the candidate count. Headers only -- never cell values.';
++comment on column intake_runs.outcomes is
++  'Per-row decision record: row index, classification, identity override, action taken, and player_id. No personal data.';
++
++-- The wrapper gains two parameters, both defaulted, so the idempotency
++-- contract is untouched.
++create or replace function public.intake_apply_run(
++  p_run_key             uuid,
++  p_payload_fingerprint text,
++  p_team_id             uuid,
++  p_season_id           uuid,
++  p_rows                jsonb,
++  p_mapping             jsonb default null,
++  p_outcomes            jsonb default null
++)
++returns json
++language plpgsql
++security invoker
++set search_path to 'public'
++as $$
++declare
++  v_user     uuid := auth.uid();
++  v_org      uuid := public.auth_organization_id();
++  v_run      public.intake_runs%rowtype;
++  v_result   json;
++  v_rows     int;
++  v_inserted int;
++begin
++  ------------------------------------------------------------------ identity
++  if v_user is null then
++    raise exception 'You must be signed in to import players.'
++      using errcode = 'insufficient_privilege';
++  end if;
++  if v_org is null then
++    raise exception 'Your account is not attached to an organization.'
++      using errcode = 'insufficient_privilege';
++  end if;
++  if not public.auth_can_write() then
++    raise exception 'Your role does not allow changes to the roster.'
++      using errcode = 'insufficient_privilege';
++  end if;
++
++  ------------------------------------------------------------------ contract
++  if p_run_key is null then
++    raise exception 'This import is missing its submission key.'
++      using errcode = 'invalid_parameter_value';
++  end if;
++  if p_payload_fingerprint is null or p_payload_fingerprint !~ '^[0-9a-f]{64}$' then
++    raise exception 'This import has an invalid content fingerprint.'
++      using errcode = 'invalid_parameter_value';
++  end if;
++  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then
++    raise exception 'No rows to import.' using errcode = 'invalid_parameter_value';
++  end if;
++  v_rows := jsonb_array_length(p_rows);
++
++  if not exists (
++    select 1 from seasons s join teams t on t.id = s.team_id
++    where s.id = p_season_id and t.id = p_team_id and t.organization_id = v_org
++  ) then
++    raise exception 'That team and season do not belong to your organization.'
++      using errcode = 'insufficient_privilege';
++  end if;
++
++  ------------------------------------------------------------- 1. fast path
++  select * into v_run from intake_runs where run_key = p_run_key;
++
++  if found then
++    if v_run.organization_id <> v_org
++       or v_run.team_id <> p_team_id
++       or v_run.season_id <> p_season_id then
++      raise exception 'That submission belongs to a different team or season.'
++        using errcode = 'insufficient_privilege';
++    end if;
++
++    if v_run.payload_fingerprint <> p_payload_fingerprint then
++      raise exception 'This import has changed since it was approved. Review it and submit again.'
++        using errcode = 'invalid_parameter_value';
++    end if;
++
++    -- A REPLAY RECORDS NOTHING NEW. The provenance describes the run that
++    -- actually did the work; writing it again on a retry would suggest a
++    -- second import happened. The stored history stays as it was.
++    return (v_run.result || jsonb_build_object('replayed', true))::json;
++  end if;
++
++  ----------------------------------------------------------------- 2. apply
++  v_result := public.intake_apply(p_team_id, p_season_id, p_rows);
++
++  ----------------------------------------------------------------- 3. claim
++  insert into intake_runs (
++    run_key, organization_id, team_id, season_id, created_by,
++    payload_fingerprint, row_count, result, mapping, outcomes
++  ) values (
++    p_run_key, v_org, p_team_id, p_season_id, v_user,
++    p_payload_fingerprint, v_rows, v_result::jsonb, p_mapping, p_outcomes
++  )
++  on conflict (run_key) do nothing;
++
++  get diagnostics v_inserted = row_count;
++
++  if v_inserted = 0 then
++    raise exception 'This import was submitted twice at the same time. Nothing was duplicated -- please try again.'
++      using errcode = 'invalid_parameter_value';
++  end if;
++
++  return (v_result::jsonb || jsonb_build_object('replayed', false))::json;
++end;
++$$;
++
++revoke all on function public.intake_apply_run(uuid, text, uuid, uuid, jsonb, jsonb, jsonb) from public, anon;
++grant execute on function public.intake_apply_run(uuid, text, uuid, uuid, jsonb, jsonb, jsonb) to authenticated;
++
++-- The five-argument signature is dropped: leaving it would let a caller record
++-- a run with no provenance and no error, which is the gap being closed.
++drop function if exists public.intake_apply_run(uuid, text, uuid, uuid, jsonb);
++
++comment on function public.intake_apply_run is
++  'Idempotent entry point for Player Intake. Returns the stored result for a replayed run_key, fails closed when the same key carries different content, and relies on the unique index rather than a prior SELECT to settle concurrent submissions. Records column mapping and per-row decisions as provenance; a replay records nothing new. SECURITY INVOKER so RLS remains authoritative.';
+diff --git a/supabase/migrations/20260830181427_drop_legacy_budget_items_actual.sql b/supabase/migrations/20260830181427_drop_legacy_budget_items_actual.sql
+new file mode 100644
+index 0000000..6db5a2e
+--- /dev/null
++++ b/supabase/migrations/20260830181427_drop_legacy_budget_items_actual.sql
+@@ -0,0 +1,32 @@
++-- Remove budget_items.actual, a stale second source of truth for money.
++--
++-- The column held hand-maintained actual spend from before Season Tempo, kept
++-- when the Finance module was rebuilt. Since then actual spend has been
++-- derived entirely from budget_transactions: listBudget() rolls transactions
++-- up per budget line and every displayed figure -- Spent, Available, variance,
++-- percent used, category totals -- comes from that roll. Nothing reads this
++-- column.
++--
++-- A dependency search found no reader and no writer anywhere: no select list
++-- includes it, no server action sets it, no function, view, trigger,
++-- generated column, constraint or index references it, and no report, export
++-- or import path touches it. The only mentions in the repository are comments
++-- describing it as legacy.
++--
++-- WHY DROP RATHER THAN DOCUMENT. It currently holds 33,859.00 across 18
++-- Georgia Power 2025-26 lines whose season has zero recorded transactions --
++-- a plausible-looking money value with nothing behind it. A future query that
++-- innocently SUMs a column called `actual` would report 33,859.00 of spending
++-- that never happened, against a 32,048.00 budget. A comment does not prevent
++-- that; removing the column does.
++--
++-- THE VALUES ARE NOT MIGRATED. Turning them into transactions would convert
++-- stale pre-Atlas bookkeeping into real recorded spending and change Georgia
++-- Power's Spent from 0.00 to 33,859.00. That figure is not evidence of
++-- anything this system recorded. It is preserved here as history and nowhere
++-- else:
++--
++--   Georgia Power 2028, 2025-26 -- 18 lines, actual 33,859.00, budgeted 32,048.00
++--
++-- Every other organization holds 0.00, so nothing else is affected.
++alter table budget_items drop column if exists actual;
+diff --git a/supabase/migrations/20260830183041_drop_legacy_player_stats.sql b/supabase/migrations/20260830183041_drop_legacy_player_stats.sql
+new file mode 100644
+index 0000000..0dd0919
+--- /dev/null
++++ b/supabase/migrations/20260830183041_drop_legacy_player_stats.sql
+@@ -0,0 +1,33 @@
++-- Remove player_stats, an empty legacy statistics table.
++--
++-- It predates QAB tracking and carries the shape of a per-game box score:
++-- at_bats, hits, walks, hbp, sac_bunt, sac_fly, eight_pitch_ab, hard_hit_ball,
++-- situational_success. Performance was rebuilt around plate_appearances, where
++-- one row is one plate appearance and is_qab is a generated column derived
++-- from the reasons cited. Nothing has written to player_stats since.
++--
++-- A dependency search found nothing: zero rows in production, no application
++-- query, no server action, no report or export, no function, view, generated
++-- column or foreign key referencing it, and no other database object depending
++-- on it. Its only remaining features were two RLS policies protecting an empty
++-- table.
++--
++-- WHY DROP RATHER THAN LEAVE IT. It is a plausible-looking statistics table
++-- with authoritative-sounding column names. The same shape of trap as
++-- budget_items.actual, which held 33,859.00 of spending that never happened:
++-- a future query that summed `hits` or `at_bats` from here would report a
++-- confident zero for every player rather than failing loudly, and a coach
++-- would have no way to tell the difference between "no hits" and "this table
++-- was never populated". Removing it means that question cannot be asked of the
++-- wrong source.
++--
++-- NOTHING IS MIGRATED, because there is nothing to migrate. The table is
++-- empty. Every statistic Season Tempo displays comes from plate_appearances
++-- and is unaffected: 94 PA / 48 QAB for Armor Elite and 98 PA / 57 QAB for
++-- Northgate both reconcile independently before and after this change.
++--
++-- The qab_* views were audited alongside this and are DELIBERATELY KEPT. They
++-- are security_invoker, so RLS applies to them exactly as to the base table,
++-- and they served as the independent check that reconciled the application's
++-- own aggregation during this audit.
++drop table if exists player_stats;
+-- 
+2.43.0
+

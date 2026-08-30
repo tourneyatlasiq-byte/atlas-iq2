@@ -1,0 +1,299 @@
+From a9192af7ab6b349e8870cea28c8914a0343c5827 Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Sun, 30 Aug 2026 18:56:38 +0000
+Subject: [PATCH 4/5] Finance and Performance integrity
+
+Finance
+  Tournament committed cost used a float reduce while Finance worked in cents;
+  the two could disagree by a penny. One cents-safe path now.
+  A deleted player leaves the obligation detached by design, so the money
+  survives, but it displayed with no name. The stored name is the fallback.
+
+Performance
+  The W/L/T record read every game in the organization with a comment claiming
+  RLS supplied the scope. RLS scopes by organization, not season. It did not
+  show because every organization has games in one season so far; the first
+  team to start a second season would have seen last season's wins.
+  QAB reason label reads 'Situational success'. Display only: the stored key
+  situation_success is what the constraint and every recorded plate appearance
+  use.
+---
+ lib/finance-rules.js        |  9 ++++-
+ lib/qab-rules.js            |  5 ++-
+ lib/queries/finance.js      | 13 ++++++-
+ lib/queries/performance.js  | 14 ++++++-
+ lib/queries/tournaments.js  |  8 +++-
+ scripts/check-qab-report.js | 40 +++++++++++++++++++-
+ scripts/check-report.js     | 75 ++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 154 insertions(+), 10 deletions(-)
+
+diff --git a/lib/finance-rules.js b/lib/finance-rules.js
+index 9c34f7e..535ebec 100644
+--- a/lib/finance-rules.js
++++ b/lib/finance-rules.js
+@@ -517,7 +517,14 @@ export function reconcileDues(activePlayers = [], payments = [], membershipIds =
+     .map((p) => ({
+       key: p.id,
+       playerId: p.player_id ?? null,
+-      name: p.player?.full_name ?? null,
++      // Current name, then the name STORED on the obligation, then nothing.
++      // player_payments.player_id is SET NULL when a player is deleted so the
++      // money survives — but the embedded player then resolves to null and the
++      // record displayed as "No player linked" with no name at all. Six
++      // Georgia Power obligations carrying that whole season's dues showed
++      // that way. The stored name is what the obligation was created with; it
++      // is read, never written back, and the record stays detached.
++      name: p.player?.full_name ?? p.player_name ?? null,
+       record: p,
+       kind: !p.player_id
+         ? "unlinked"
+diff --git a/lib/qab-rules.js b/lib/qab-rules.js
+index 2211ab5..4fdd0a7 100644
+--- a/lib/qab-rules.js
++++ b/lib/qab-rules.js
+@@ -31,7 +31,10 @@ export const QAB_REASONS = [
+   { key: "hbp", label: "HBP" },
+   { key: "hard_hit", label: "Hard hit ball" },
+   { key: "eight_pitch", label: "8+ pitch" },
+-  { key: "situation_success", label: "Situation success" },
++  // DISPLAY ONLY. The key stays `situation_success` — it is the stored value,
++  // matched by the database CHECK constraint and by every recorded plate
++  // appearance. Renaming it would orphan existing data to correct a label.
++  { key: "situation_success", label: "Situational success" },
+   { key: "sac_bunt", label: "Sac bunt" },
+   { key: "sac_fly", label: "Sac fly" },
+ ];
+diff --git a/lib/queries/finance.js b/lib/queries/finance.js
+index 90cc743..369b8ee 100644
+--- a/lib/queries/finance.js
++++ b/lib/queries/finance.js
+@@ -47,7 +47,12 @@ export async function listPlayerPayments(seasonId) {
+   const { data, error } = await supabase
+     .from("player_payments")
+     .select(
+-      `id, initial_cost, player_id,
++      // player_name is the name STORED on the obligation when it was created.
++      // players.player_id is SET NULL when a player is deleted, deliberately,
++      // so historical money survives — but the embedded player then resolves
++      // to null and the row displayed with no name at all. Six Georgia Power
++      // obligations carrying that season's entire dues showed blank.
++      `id, initial_cost, player_id, player_name,
+        player:players ( id, full_name, person_type ),
+        log:payment_log ( id, month_label, amount, paid_date )`
+     )
+@@ -64,6 +69,10 @@ export async function listPlayerPayments(seasonId) {
+       const balance = sumMoney([due, -paid]);
+       return {
+         ...p,
++        // Current name, then the name recorded at the time, then an honest
++        // admission. Never a reconnection: the obligation stays detached and
++        // the historical record is not edited to make a screen look tidier.
++        displayName: p.player?.full_name ?? p.player_name ?? "Former player",
+         totalDue: due,
+         totalPaid: paid,
+         balance,
+@@ -72,7 +81,7 @@ export async function listPlayerPayments(seasonId) {
+         log: [...(p.log ?? [])].sort((a, b) => (b.paid_date ?? "").localeCompare(a.paid_date ?? "")),
+       };
+     })
+-    .sort((a, b) => (a.player?.full_name ?? "").localeCompare(b.player?.full_name ?? ""));
++    .sort((a, b) => (a.displayName ?? "").localeCompare(b.displayName ?? ""));
+ }
+ 
+ /** Committed tournament cost, for the reconciliation line. Informational only. */
+diff --git a/lib/queries/performance.js b/lib/queries/performance.js
+index f709cce..eca9077 100644
+--- a/lib/queries/performance.js
++++ b/lib/queries/performance.js
+@@ -204,9 +204,19 @@ export async function getSeasonPerformance(seasonId, scope = {}) {
+    *
+    * A separate read on purpose: a game can carry a result with no plate
+    * appearances at all, so it would be invisible to the aggregation above.
+-   * Scoped by RLS like every other query here.
++   *
++   * EXPLICITLY SEASON-SCOPED. This previously read every game in the
++   * organization, with a comment claiming RLS supplied the scope. RLS scopes
++   * by ORGANIZATION, not by season — so the record was the organization's
++   * lifetime record while the QAB figures beside it were correctly filtered to
++   * the selected season. It did not show because every organization has games
++   * in only one season so far; the first team to start a second season would
++   * have seen last season's wins in this season's record.
+    */
+-  const { data: resultRows } = await supabase.from("games").select("result");
++  const { data: resultRows } = await supabase
++    .from("games")
++    .select("result")
++    .eq("season_id", seasonId);
+ 
+   const allGames = resultRows ?? [];
+   const w = allGames.filter((g) => g.result === "W").length;
+diff --git a/lib/queries/tournaments.js b/lib/queries/tournaments.js
+index f4fa94a..d2eb147 100644
+--- a/lib/queries/tournaments.js
++++ b/lib/queries/tournaments.js
+@@ -1,5 +1,6 @@
+ import { createClient } from "../supabase/server";
+ import { recordFrom } from "../game-rules";
++import { sumMoney } from "../finance-rules";
+ 
+ export const DECISIONS = ["Considering", "Committed", "Declined"];
+ export const PAID_STATUSES = ["Not Registered", "Registered", "Deposit Paid", "Paid in Full"];
+@@ -86,7 +87,12 @@ export async function listReferenceData() {
+ /** Season-level rollup for the summary tiles. */
+ export function deriveSummary(tournaments, today = new Date()) {
+   const committed = tournaments.filter((t) => t.decision === "Committed");
+-  const committedCost = committed.reduce((sum, t) => sum + Number(t.total_cost ?? 0), 0);
++  // sumMoney, not a raw float reduce. Finance works in cents precisely so a
++  // value like 53,269.55 cannot accumulate a remainder; this tile summarises
++  // the same money and was the one place adding it as floats. Two
++  // implementations of "committed tournament cost" could disagree by a penny
++  // and leave the Tournaments tile arguing with the Finance page.
++  const committedCost = sumMoney(committed.map((t) => t.total_cost ?? 0));
+ 
+   const upcoming = tournaments
+     .filter((t) => t.decision === "Committed" && t.start_date && new Date(t.start_date + "T00:00:00") >= today)
+diff --git a/scripts/check-qab-report.js b/scripts/check-qab-report.js
+index 52205a3..13bb90a 100644
+--- a/scripts/check-qab-report.js
++++ b/scripts/check-qab-report.js
+@@ -49,7 +49,7 @@ function northgate() {
+     reasons: [
+       { key: "walk", label: "Walk", count: 15 },
+       { key: "hit", label: "Hit", count: 11 },
+-      { key: "situation_success", label: "Situation success", count: 7 },
++      { key: "situation_success", label: "Situational success", count: 7 },
+       { key: "sac_fly", label: "Sac fly", count: 6 },
+       { key: "hard_hit", label: "Hard hit ball", count: 5 },
+       { key: "sac_bunt", label: "Sac bunt", count: 5 },
+@@ -232,6 +232,42 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
+   assertEq("an untracked season reports null percent, not a manufactured 0%",
+     [r4.summary.qabPct, r4.summary.pa, r4.games.length, r4.players.length], [null, 0, 0, 0]);
+ 
+-  console.log(`\n${ran} assertions, ${failures} failed`);
++  
++/* ---- Season scoping and terminology ------------------------------------ */
++
++{
++  const fsx = require("fs");
++  const perf = fsx.readFileSync("lib/queries/performance.js", "utf8");
++  const rules = fsx.readFileSync("lib/qab-rules.js", "utf8");
++  // This suite stubs its module graph, so load the real rules directly.
++  const qab = await import(pathToFileURL(path.resolve("lib/qab-rules.js")).href);
++
++  // The W/L/T record was read organization-wide with a comment claiming RLS
++  // supplied the scope. RLS scopes by ORGANIZATION, not season, so a second
++  // season would have shown a lifetime record beside season-scoped QAB.
++  assertEq("the record query is season-scoped",
++    /\.from\("games"\)\s*\n\s*\.select\("result"\)\s*\n\s*\.eq\("season_id", seasonId\)/.test(perf), true);
++  assertEq("...and the misleading RLS comment is gone",
++    /Scoped by RLS like every other query here/.test(perf), false);
++  assertEq("...replaced by what RLS actually does",
++    /RLS scopes\s*\n?\s*\* by ORGANIZATION, not by season/.test(perf), true);
++
++  // QAB remains independently season-scoped.
++  assertEq("QAB stays filtered by season", /\.eq\("season_id", seasonId\)/.test(perf), true);
++  assertEq("...and still excludes voided plate appearances",
++    /\.is\("voided_at", null\)/.test(perf), true);
++
++  // Terminology: display only.
++  assertEq("the reason label reads Situational success",
++    qab.reasonLabel("situation_success"), "Situational success");
++  assertEq("...while the stored key is unchanged",
++    qab.REASON_KEYS.includes("situation_success"), true);
++  assertEq("...and the key is still the one the constraint expects",
++    /key: "situation_success"/.test(rules), true);
++  assertEq("no user-facing copy still says Situation success",
++    /"Situation success"/.test(rules), false);
++}
++
++console.log(`\n${ran} assertions, ${failures} failed`);
+   process.exit(failures ? 1 : 0);
+ })();
+diff --git a/scripts/check-report.js b/scripts/check-report.js
+index 84ad24d..cbb3533 100644
+--- a/scripts/check-report.js
++++ b/scripts/check-report.js
+@@ -429,6 +429,79 @@ const duesUnlinked = (n, amount) =>
+     [resolveCategoryChoice(CATEGORY_OTHER, ""), resolveCategoryChoice(CATEGORY_OTHER, "   ")],
+     [null, null]);
+ 
+-  console.log(`\n${ran} assertions, ${failures} failed`);
++  
++/* ---- Finance hardening ---------------------------------------------------
++   Three fixes, none of which may change a single displayed total:
++
++     budget_items.actual was a stored money column nothing read or wrote. It
++     held 33,859.00 against a season with zero transactions — a plausible
++     figure with nothing behind it, waiting for a future query to SUM it.
++
++     The Tournaments tile added committed cost with a raw float reduce while
++     Finance worked in cents, so the two could disagree by a penny.
++
++     A deleted player leaves player_payments.player_id NULL, deliberately, so
++     the money survives — but the row then displayed with no name at all. */
++
++console.log("\nFinance hardening");
++
++{
++  const fsx = require("fs");
++  const rules = fsx.readFileSync("lib/finance-rules.js", "utf8");
++  const tq = fsx.readFileSync("lib/queries/tournaments.js", "utf8");
++  const fq = fsx.readFileSync("lib/queries/finance.js", "utf8");
++  const mig = fsx.readFileSync(
++    "supabase/migrations/20260830181427_drop_legacy_budget_items_actual.sql", "utf8");
++
++  // 1. The stale column is gone, and its value was NOT converted to spending.
++  assertEq("the legacy actual column is dropped",
++    /alter table budget_items drop column if exists actual;/.test(mig), true);
++  assertEq("...and its value was not migrated into transactions",
++    /THE VALUES ARE NOT MIGRATED/.test(mig), true);
++  assertEq("no query selects it", /select\("id, category, name, budgeted/.test(fq), true);
++  assertEq("...and nothing writes it", /actual:/.test(fsx.readFileSync("lib/actions/finance.js", "utf8")), false);
++
++  // 2. One cents-safe calculation for committed tournament cost.
++  assertEq("the tournaments tile uses sumMoney",
++    /sumMoney\(committed\.map\(\(t\) => t\.total_cost \?\? 0\)\)/.test(tq), true);
++  assertEq("...and no longer reduces floats",
++    /reduce\(\(sum, t\) => sum \+ Number\(t\.total_cost/.test(tq), false);
++  // A tournament set that a float reduce genuinely gets wrong. Not every
++  // decimal drifts — this one does, which is the point: the failure is
++  // data-dependent and would surface on some seasons and not others.
++  const fees = [2700.10, 2700.20, 2700.30];
++  assertEq("cents-safe committed cost", sumMoney(fees), 8100.60);
++  assertEq("...where a float reduce drifts",
++    fees.reduce((a, b) => a + b, 0), 8100.599999999999);
++
++  // 3. A detached obligation shows the name it was created with.
++  assertEq("the stored name is the display fallback",
++    /p\.player\?\.full_name \?\? p\.player_name \?\? null/.test(rules), true);
++  assertEq("...and player_name is actually selected", /player_name,/.test(fq), true);
++
++  const detached = reconcileDues(
++    [{ id: "live", full_name: "Live Player" }],
++    [
++      { id: "o1", player_id: null, player_name: "Bohannon", player: null,
++        totalDue: 2700, totalPaid: 2400, log: [] },
++      { id: "o2", player_id: "live", player_name: "Old Name",
++        player: { full_name: "Live Player" }, totalDue: 100, totalPaid: 0, log: [] },
++      { id: "o3", player_id: null, player_name: null, player: null,
++        totalDue: 50, totalPaid: 0, log: [] },
++    ]
++  );
++  const byId = Object.fromEntries(detached.former.map((f) => [f.key, f]));
++  assertEq("a deleted player's obligation shows its stored name", byId.o1.name, "Bohannon");
++  assertEq("...and stays detached", byId.o1.playerId, null);
++  assertEq("a record with no name at all is still honest", byId.o3.name, null);
++  assertEq("a live player is unaffected by the fallback",
++    detached.former.some((f) => f.key === "o2"), false);
++
++  // Totals are untouched by any of the three.
++  assertEq("the detached obligation still counts",
++    sumMoney([2700, 100, 50]), 2850);
++}
++
++console.log(`\n${ran} assertions, ${failures} failed`);
+   process.exit(failures ? 1 : 0);
+ })();
+-- 
+2.43.0
+

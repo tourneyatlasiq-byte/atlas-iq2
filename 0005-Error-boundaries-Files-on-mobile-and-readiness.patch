@@ -1,0 +1,557 @@
+From ae60b38c788dcbe345e0c2149ef1e18ec1794d98 Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Sun, 30 Aug 2026 18:56:45 +0000
+Subject: [PATCH 5/5] Error boundaries, Files on mobile, and readiness
+
+Error handling
+  A failure inside the product showed the framework's own error screen. There
+  is now a branded boundary with Try again and Return home, a global boundary
+  for root-layout failures, and a not-found page. No stack trace, message or
+  database detail reaches a coach; the digest is shown and the full error still
+  goes to the server log.
+
+Files
+  Five table columns squeezed onto a phone put Size and Uploaded off the right
+  edge with nothing to suggest they existed. Desktop keeps its table; mobile
+  gets a card list built from the same rows. Tabs scroll themselves instead of
+  widening the page.
+
+Readiness
+  Uniform removed from Needs Action entirely, with nothing in its place.
+---
+ app/(app)/error.js         |  63 +++++++++++
+ app/(app)/team/page.js     |   9 +-
+ app/global-error.js        |  77 ++++++++++++++
+ app/globals.css            | 207 +++++++++++++++++++++++++++++++++++++
+ app/not-found.js           |  32 ++++++
+ lib/readiness/dashboard.js |   2 -
+ lib/readiness/team.js      |  32 +++---
+ package.json               |   2 +-
+ 8 files changed, 402 insertions(+), 22 deletions(-)
+ create mode 100644 app/(app)/error.js
+ create mode 100644 app/global-error.js
+ create mode 100644 app/not-found.js
+
+diff --git a/app/(app)/error.js b/app/(app)/error.js
+new file mode 100644
+index 0000000..eb31ddc
+--- /dev/null
++++ b/app/(app)/error.js
+@@ -0,0 +1,63 @@
++"use client";
++
++import { useEffect } from "react";
++import Link from "next/link";
++
++/**
++ * What a coach sees when something inside the product throws.
++ *
++ * Without this file Next.js renders its own error screen: a stack trace in
++ * development, an unstyled "Application error" in production. Either way the
++ * coach is looking at something that is not Season Tempo, with nothing to do
++ * next except close the tab — and they are usually on a phone, at a field,
++ * mid-task.
++ *
++ * Scoped to the (app) group deliberately, so it wraps the authenticated
++ * product and leaves the marketing pages and the login flow alone.
++ *
++ * WHAT IS NOT SHOWN: error.message, the stack, and anything from the database.
++ * A Postgres error can name a table, a column or a constraint, and a coach can
++ * neither act on that nor should they see it. The digest is shown instead —
++ * Next generates it per error and writes the full detail to the server log, so
++ * a coach can quote six characters and we can find the exact failure.
++ */
++export default function AppError({ error, reset }) {
++  useEffect(() => {
++    // Server logging is preserved: this is the client half, so a failure that
++    // happens after hydration is not lost.
++    console.error("Product error boundary:", {
++      digest: error?.digest,
++      message: error?.message,
++    });
++  }, [error]);
++
++  return (
++    <div className="errpage">
++      <div className="errpage-card">
++        <p className="errpage-eyebrow">Something went wrong</p>
++        <h1 className="errpage-title">We couldn&rsquo;t load that</h1>
++        <p className="errpage-body">
++          The problem is on our side, not yours. Nothing you had already saved has
++          been lost — try again, and if it keeps happening let us know.
++        </p>
++
++        <div className="errpage-actions">
++          {/* Re-runs the failed render. A transient failure — a dropped
++              connection, a slow query — recovers here without a full reload. */}
++          <button type="button" className="btn btn-primary" onClick={() => reset()}>
++            Try again
++          </button>
++          <Link className="btn btn-secondary" href="/dashboard">
++            Return home
++          </Link>
++        </div>
++
++        {error?.digest && (
++          <p className="errpage-ref">
++            Reference <code>{error.digest}</code>
++          </p>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/app/(app)/team/page.js b/app/(app)/team/page.js
+index 8a093e2..7fbde7c 100644
+--- a/app/(app)/team/page.js
++++ b/app/(app)/team/page.js
+@@ -10,6 +10,7 @@ import { createClient } from "../../../lib/supabase/server";
+ import { pickupsForSeason } from "../../../lib/queries/participants";
+ import { listContacts, recruitingByPlayer } from "../../../lib/queries/contacts";
+ import { RosterClient } from "../../../components/RosterClient";
++import { listMatchCandidates } from "../../../lib/queries/match-candidates";
+ 
+ import { SetupNext, setupState } from "../../../components/SetupNext";
+ 
+@@ -29,8 +30,13 @@ export default async function TeamPage({ searchParams }) {
+     );
+   }
+ 
+-  const [rows, assignable, docsByPlayer, targets] = await Promise.all([
++  const [rows, matchCandidates, assignable, docsByPlayer, targets] = await Promise.all([
+     listSeasonRoster(season.id),
++    // Organization-wide, so the import preview evaluates the same population
++    // the server will. A player who is in the organization but not on this
++    // season roster is otherwise invisible to the browser and visible to the
++    // server, and the preview says Create for a row the server will match.
++    listMatchCandidates(),
+     listAssignablePlayers(organization.id, season.id),
+     documentsByEntity("player_id"),
+     documentTargets(season.id, organization.id),
+@@ -65,6 +71,7 @@ export default async function TeamPage({ searchParams }) {
+       canWrite={canWrite(profile)}
+       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
+       documentTargets={targets}
++      matchCandidates={matchCandidates}
+       seasonName={season.name}
+       teamName={team?.name}
+       seasonPhase={seasonPhase}
+diff --git a/app/global-error.js b/app/global-error.js
+new file mode 100644
+index 0000000..070bf3e
+--- /dev/null
++++ b/app/global-error.js
+@@ -0,0 +1,77 @@
++"use client";
++
++/**
++ * The last resort: a failure in the root layout itself, which is the one place
++ * app/(app)/error.js cannot catch because the layout that would render it is
++ * the thing that broke.
++ *
++ * It must supply its own <html> and <body> — there is no working layout above
++ * it — and for the same reason it cannot rely on the stylesheet having loaded.
++ * The styles here are inline on purpose; every other page in the product uses
++ * globals.css, and this file is deliberately the exception.
++ *
++ * Included because without it a root-layout failure falls all the way through
++ * to the framework's own screen, which is the outcome this work exists to
++ * remove. It should effectively never render.
++ */
++export default function GlobalError({ error, reset }) {
++  return (
++    <html lang="en">
++      <body
++        style={{
++          margin: 0,
++          minHeight: "100vh",
++          display: "flex",
++          alignItems: "center",
++          justifyContent: "center",
++          padding: "24px",
++          background: "#f8fafc",
++          fontFamily:
++            "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
++          color: "#0b2341",
++        }}
++      >
++        <div style={{ maxWidth: 460, textAlign: "left" }}>
++          <p
++            style={{
++              margin: "0 0 6px",
++              fontSize: 12,
++              letterSpacing: "0.08em",
++              textTransform: "uppercase",
++              color: "#64748b",
++            }}
++          >
++            Something went wrong
++          </p>
++          <h1 style={{ margin: "0 0 10px", fontSize: 24, lineHeight: 1.25 }}>
++            Season Tempo couldn&rsquo;t start
++          </h1>
++          <p style={{ margin: "0 0 18px", fontSize: 15, lineHeight: 1.6, color: "#334155" }}>
++            The problem is on our side. Nothing you had already saved has been lost.
++          </p>
++          <button
++            type="button"
++            onClick={() => reset()}
++            style={{
++              minHeight: 44,
++              padding: "0 18px",
++              borderRadius: 10,
++              border: "1px solid #0b2341",
++              background: "#0b2341",
++              color: "#ffffff",
++              fontSize: 15,
++              cursor: "pointer",
++            }}
++          >
++            Try again
++          </button>
++          {error?.digest && (
++            <p style={{ margin: "16px 0 0", fontSize: 13, color: "#64748b" }}>
++              Reference <code>{error.digest}</code>
++            </p>
++          )}
++        </div>
++      </body>
++    </html>
++  );
++}
+diff --git a/app/globals.css b/app/globals.css
+index 22b9bf1..51a5901 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -5777,3 +5777,210 @@ td.committed { color: var(--status-wait); font-weight: 600; }
+   .t-metric { padding: 8px 10px; }
+   .t-metric-value { font-size: 15px; }
+ }
++
++/* ---- Import Players: required field, and the mobile viewport ------------ */
++
++/* A required destination reads as a statement, not a control. Deliberately
++   not a disabled checkbox: a greyed tickbox still invites the tap and still
++   answers "no" when tapped. */
++.pi-required {
++  display: inline-flex; align-items: center;
++  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
++  padding: 3px 9px; border-radius: 999px;
++  background: var(--surface-sunken); border: 1px solid var(--border); color: var(--slate);
++}
++
++@media (max-width: 720px) {
++  /* THE LAST MAPPING ROW WAS UNREACHABLE.
++     .drawer is height: 100% inside a position: fixed backdrop, which resolves
++     against the LAYOUT viewport — on iOS Safari that includes the strip behind
++     the bottom toolbar. The drawer was therefore taller than the visible area
++     and its final rows sat under browser chrome, with the scroll container
++     already at its end so nothing could bring them up.
++     100dvh is the visible height and shrinks as the toolbar appears. The
++     height: 100% above remains as the fallback for anything without dvh. */
++  .drawer { height: 100dvh; }
++
++  /* Only pads when there IS an inset, so no double gap on a device without
++     one. The 16px is the existing .drawer-body padding, not an addition. */
++  .drawer-body { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
++
++  /* A 44px target without changing the row's density: the label grows into
++     the space the row already has rather than making the row taller. */
++  .pi-switch { min-height: 44px; }
++  .pi-switch input { width: 20px; height: 20px; }
++  .pi-required { min-height: 44px; }
++}
++
++/* ---- Contact editing: errors where the action happened ------------------ */
++
++/* Inside the edit card, directly above its buttons. The panel-level alert
++   still exists for actions that belong to no form, but an edit's refusal
++   belongs to the edit. */
++.pc-form-error {
++  margin: 2px 0 10px; padding: 9px 11px;
++  border-radius: var(--radius-control);
++  background: #fdf2f2; border: 1px solid #f0c9c9; color: #8a2c2c;
++  font-size: 13px; line-height: 1.5;
++}
++
++/* The empty-contact choice. Offers removal; never performs it. */
++.pc-empty-offer {
++  margin: 2px 0 10px; padding: 11px 13px;
++  border-radius: var(--radius-control);
++  background: #fffaf0; border: 1px solid #f0d9a8; color: #6b4a00;
++  display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
++}
++.pc-empty-offer p { margin: 0; font-size: 13px; line-height: 1.5; }
++
++/* In-page removal confirmation. Replaces window.confirm(), which a mobile
++   browser can suppress silently — the tap then did nothing at all, with no
++   request and no message. */
++.pc-confirm {
++  margin-top: 10px; padding: 11px 13px;
++  border-radius: var(--radius-control);
++  background: #fdf2f2; border: 1px solid #f0c9c9;
++  display: flex; flex-direction: column; gap: 9px;
++}
++.pc-confirm p { margin: 0; font-size: 13px; line-height: 1.5; color: #8a2c2c; }
++
++@media (max-width: 720px) {
++  /* Same reach as every other control in the drawer. */
++  .pc-confirm .btn, .pc-empty-offer .btn { min-height: 44px; }
++}
++
++/* ---- Drawer mutation feedback ------------------------------------------ */
++
++/* Inside the drawer footer, above its actions. The page-level alert sits
++   underneath a fixed full-height drawer and cannot be seen on a phone. */
++.drawer-foot-error {
++  margin: 0 0 10px; padding: 9px 11px;
++  border-radius: var(--radius-control);
++  background: #fdf2f2; border: 1px solid #f0c9c9; color: #8a2c2c;
++  font-size: 13px; line-height: 1.5;
++}
++
++/* Destructive confirmation, in place of the action row. */
++.drawer-confirm { display: flex; flex-direction: column; gap: 10px; }
++.drawer-confirm p {
++  margin: 0; font-size: 13px; line-height: 1.55; color: var(--navy);
++}
++
++@media (max-width: 720px) {
++  .drawer-confirm .btn { min-height: 44px; }
++  .drawer-confirm .drawer-foot-row { flex-direction: column; gap: 8px; }
++  .drawer-confirm .drawer-foot-row .btn { width: 100%; }
++}
++
++/* ---- In-app confirmation, shared ---------------------------------------- */
++.confirm-inline {
++  margin: 10px 0; padding: 12px 14px;
++  border-radius: var(--radius-control);
++  background: #fdf2f2; border: 1px solid #f0c9c9;
++  display: flex; flex-direction: column; gap: 10px;
++}
++.confirm-inline-message {
++  margin: 0; font-size: 13px; line-height: 1.55; color: #8a2c2c;
++}
++.confirm-inline-error {
++  margin: 0; font-size: 13px; line-height: 1.5; color: #8a2c2c; font-weight: 600;
++}
++.confirm-inline-actions { display: flex; gap: 8px; flex-wrap: wrap; }
++
++@media (max-width: 720px) {
++  .confirm-inline-actions { flex-direction: column; }
++  .confirm-inline-actions .btn { width: 100%; min-height: 44px; }
++}
++
++/* ---- Files on a phone ---------------------------------------------------
++   The desktop table has five columns; squeezed onto a 375px screen the last
++   two sat off the right edge with no indication they existed, and the view
++   tabs pushed the page into horizontal scroll. Desktop keeps its table. The
++   phone gets a list built from the same rows, showing what a coach actually
++   needs: the file, what it belongs to, and how to open it. */
++
++/* Desktop keeps the table and never renders the list. Declared BEFORE the
++   media query: same specificity, so a later rule would win and hide the list
++   at every width — which is exactly what happened, leaving a phone with the
++   table hidden, the list hidden, and a tab count of 1 above nothing. */
++.files-list { display: none; }
++
++@media (max-width: 720px) {
++  /* Tabs scroll THEMSELVES rather than widening the page. */
++  .files-views {
++    display: flex; flex-wrap: nowrap;
++    overflow-x: auto; -webkit-overflow-scrolling: touch;
++    overscroll-behavior-x: contain;
++    scrollbar-width: none;
++  }
++  .files-views::-webkit-scrollbar { display: none; }
++  .files-views > * { flex: 0 0 auto; min-height: 40px; }
++
++  /* Search above, filter below, both full width — the two were sharing a row
++     narrow enough to clip the select's label. */
++  .files-views + .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
++  .files-views + .toolbar .toolbar-search,
++  .files-views + .toolbar .filter-select { width: 100%; min-height: 44px; }
++
++  /* The table is replaced, not reflowed. */
++  .files-table { display: none; }
++  .files-list { display: grid; gap: 8px; }
++}
++
++.files-card {
++  width: 100%; text-align: left; cursor: pointer;
++  display: grid; gap: 6px;
++  padding: 12px 14px; min-height: 44px;
++  background: var(--surface); border: 1px solid var(--border);
++  border-radius: var(--radius-control); font-family: inherit;
++}
++.files-card:hover { background: var(--surface-sunken); }
++
++/* A long filename wraps to two lines and then stops, rather than pushing the
++   card wider than the screen. */
++.files-card-name {
++  font-size: 14.5px; font-weight: 600; color: var(--navy); line-height: 1.35;
++  overflow-wrap: anywhere;
++  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
++  overflow: hidden;
++}
++.files-card-meta {
++  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
++  font-size: 12.5px; color: var(--slate);
++}
++.files-card-meta .pill { flex: 0 0 auto; }
++.files-card-related { overflow-wrap: anywhere; }
++
++/* ---- Error and not-found pages ----------------------------------------- */
++.errpage {
++  min-height: 60vh; display: flex; align-items: center; justify-content: center;
++  padding: 32px 20px;
++}
++.errpage-card {
++  max-width: 460px; width: 100%;
++  background: var(--surface); border: 1px solid var(--border);
++  border-radius: var(--radius-control); padding: 28px 26px;
++}
++.errpage-eyebrow {
++  margin: 0 0 6px; font-size: 12px; letter-spacing: 0.08em;
++  text-transform: uppercase; color: var(--slate);
++}
++.errpage-title {
++  margin: 0 0 10px; font-size: 24px; line-height: 1.25; color: var(--navy);
++}
++.errpage-body {
++  margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: var(--slate);
++}
++.errpage-actions { display: flex; gap: 10px; flex-wrap: wrap; }
++.errpage-ref {
++  margin: 18px 0 0; font-size: 12.5px; color: var(--slate);
++}
++.errpage-ref code {
++  font-size: 12.5px; background: var(--surface-sunken, #f1f5f9);
++  padding: 2px 6px; border-radius: 4px;
++}
++
++@media (max-width: 720px) {
++  .errpage-actions { flex-direction: column; }
++  .errpage-actions .btn { width: 100%; min-height: 44px; }
++}
+diff --git a/app/not-found.js b/app/not-found.js
+new file mode 100644
+index 0000000..5108e34
+--- /dev/null
++++ b/app/not-found.js
+@@ -0,0 +1,32 @@
++import Link from "next/link";
++
++/**
++ * A mistyped or stale URL. Polish, not a data risk — but a coach following an
++ * old link should land somewhere that looks like Season Tempo and offers a way
++ * back, rather than on a bare framework 404.
++ *
++ * Deliberately says nothing about whether the thing existed: "no page here"
++ * covers a typo and a record in another organization identically, so this
++ * cannot be used to probe what exists.
++ */
++export default function NotFound() {
++  return (
++    <div className="errpage">
++      <div className="errpage-card">
++        <p className="errpage-eyebrow">Page not found</p>
++        <h1 className="errpage-title">There&rsquo;s no page here</h1>
++        <p className="errpage-body">
++          The link may be out of date, or the address may have a typo in it.
++        </p>
++        <div className="errpage-actions">
++          <Link className="btn btn-primary" href="/dashboard">
++            Go to your dashboard
++          </Link>
++          <Link className="btn btn-secondary" href="/">
++            Season Tempo home
++          </Link>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/lib/readiness/dashboard.js b/lib/readiness/dashboard.js
+index 51e7e80..4a1d41d 100644
+--- a/lib/readiness/dashboard.js
++++ b/lib/readiness/dashboard.js
+@@ -34,8 +34,6 @@ const MODULES = {
+ const PLAIN = {
+   "team:registration": (n) =>
+     `${n} ${n === 1 ? "player is" : "players are"} missing a date of birth`,
+-  "team:uniform": (n) =>
+-    `${n} ${n === 1 ? "player still needs" : "players still need"} uniform sizes`,
+   "team:contact": (n) =>
+     `${n} ${n === 1 ? "player has" : "players have"} no contact details`,
+ 
+diff --git a/lib/readiness/team.js b/lib/readiness/team.js
+index 89f6ab2..8eee0a9 100644
+--- a/lib/readiness/team.js
++++ b/lib/readiness/team.js
+@@ -32,22 +32,6 @@ function registrationCheck(rows) {
+   });
+ }
+ 
+-/**
+- * Missing jersey number, jersey size or pants size. Uniform ordering is a
+- * batch action — one missing size holds up the whole order.
+- */
+-function uniformCheck(rows) {
+-  const affected = activePlayers(rows).filter(
+-    (r) => r.jersey_number == null || !r.jersey_size || !r.pants_size
+-  );
+-  return action({
+-    id: "uniform",
+-    title: "Uniform information",
+-    detail: `${count(affected.length, "player")} missing a number or size`,
+-    affected,
+-    priority: 20,
+-  });
+-}
+ 
+ /**
+  * No way at all to reach the family.
+@@ -70,12 +54,24 @@ function contactCheck(rows) {
+ }
+ 
+ export function teamActions(rows) {
+-  return collect([registrationCheck(rows), uniformCheck(rows), contactCheck(rows)]);
++  // TWO CHECKS, deliberately.
++  //
++  // Uniform was the third: it flagged a missing jersey number, jersey size or
++  // pants size. None of them is information the roster is MISSING — sizes get
++  // collected when the order is placed, and a number is assigned when the
++  // coach decides, not when a player joins. Flagging every player until then
++  // filled the panel with something no one could act on yet, which is how a
++  // readiness panel earns being ignored.
++  //
++  // All three fields remain fully supported: entered, edited, imported,
++  // exported, sorted and displayed. They are simply not readiness.
++  //
++  // Nothing replaced it. The scope here is smaller than it was, on purpose.
++  return collect([registrationCheck(rows), contactCheck(rows)]);
+ }
+ 
+ /** Wording for the active filter chip. */
+ export const TEAM_FILTER_LABELS = {
+   registration: "who need a date of birth",
+-  uniform: "who need uniform information",
+   contact: "who need contact details",
+ };
+diff --git a/package.json b/package.json
+index b9f1ecd..0b47757 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "build": "next build",
+     "start": "next start",
+     "lint": "next lint",
+-    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
++    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
+   },
+   "dependencies": {
+     "next": "14.2.5",
+-- 
+2.43.0
+

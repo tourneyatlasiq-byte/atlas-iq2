@@ -1,0 +1,2028 @@
+From e67d59aad0ce4d3e13aed27defe93536aeebbc53 Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Sun, 30 Aug 2026 18:56:38 +0000
+Subject: [PATCH 3/5] Mobile mutation reliability: no action may appear to do
+ nothing
+
+Two production failures. Make inactive SUCCEEDED and the drawer kept showing
+Active, because nothing told the open surface to take the persisted state.
+Remove from roster FAILED silently, because window.confirm() returns false when
+a mobile browser suppresses dialogs and the error rendered at page level,
+underneath a fixed full-height drawer where it could not be seen.
+
+  useMutation      pending, await, and a route refresh on success
+  ConfirmAction    in-app confirmation; no native dialog gates a mutation
+  Errors           render in the surface that acted, not beneath it
+
+Every destructive action across Team, Contacts, Finance, Facilities, Settings,
+Tournaments, Files, Games and Branding now confirms in the page. Runners that
+already synchronised correctly were left alone rather than standardised for
+its own sake.
+---
+ components/ConfirmAction.js           |  67 ++++++++
+ components/ContactsClient.js          |  26 ++-
+ components/ContactsDirectory.js       |  44 +++--
+ components/EventRoster.js             |  14 +-
+ components/FacilitiesClient.js        |  46 +++--
+ components/FilesClient.js             | 116 ++++++++++---
+ components/FinanceClient.js           |  99 +++++++++--
+ components/GamesSection.js            |  68 ++++++--
+ components/PlayerRecruiting.js        |  36 ++--
+ components/RosterClient.js            | 103 ++++++++---
+ components/SettingsClient.js          |  60 +++++--
+ components/TeamBranding.js            |  32 +++-
+ components/TournamentClient.js        |  77 +++++++--
+ components/TournamentContact.js       |  26 +--
+ components/useMutation.js             |  79 +++++++++
+ lib/useActionFeedback.js              |   9 +-
+ scripts/check-mutation-reliability.js | 237 ++++++++++++++++++++++++++
+ scripts/check-player-lifecycle.js     |  69 +++++++-
+ 18 files changed, 1028 insertions(+), 180 deletions(-)
+ create mode 100644 components/ConfirmAction.js
+ create mode 100644 components/useMutation.js
+ create mode 100644 scripts/check-mutation-reliability.js
+
+diff --git a/components/ConfirmAction.js b/components/ConfirmAction.js
+new file mode 100644
+index 0000000..9dccfb5
+--- /dev/null
++++ b/components/ConfirmAction.js
+@@ -0,0 +1,67 @@
++"use client";
++
++import { useState, useCallback } from "react";
++
++/**
++ * Confirming a destructive action inside the app.
++ *
++ * window.confirm() is the reason a coach tapped Remove and watched nothing
++ * happen. A mobile browser that suppresses dialogs — pop-up blocking,
++ * repeated-dialog suppression, an in-app webview — returns false, the handler
++ * returns early, and there is no request, no spinner and no message. The
++ * failure is indistinguishable from a dead button, and it was proven in
++ * production: the roster row was still there afterwards.
++ *
++ * It is also the wrong shape for a drawer. A native dialog is a page-level
++ * interruption; the decision belongs beside the thing being deleted.
++ *
++ * This holds only the QUESTION being asked. Callers keep their own wording,
++ * their own action, and their own idea of where the confirmation belongs —
++ * the pattern is shared, the presentation is not.
++ */
++export function useConfirm() {
++  const [asking, setAsking] = useState(null);
++
++  const ask = useCallback((key) => setAsking(key), []);
++  const cancel = useCallback(() => setAsking(null), []);
++  const isAsking = useCallback((key) => asking === key, [asking]);
++
++  return { asking, ask, cancel, isAsking };
++}
++
++/**
++ * The confirmation itself, rendered in place of whatever triggered it.
++ *
++ * Deliberately not a modal: a modal over a drawer is another layer that can
++ * mis-stack, and on a phone it moves the decision away from the thumb. This
++ * sits where the action was.
++ */
++export function ConfirmAction({
++  message,
++  confirmLabel = "Remove",
++  pendingLabel = "Removing…",
++  cancelLabel = "Cancel",
++  onConfirm,
++  onCancel,
++  pending = false,
++  error = null,
++}) {
++  return (
++    <div className="confirm-inline" role="alert">
++      <p className="confirm-inline-message">{message}</p>
++      {/* A failure has to appear HERE. Rendered at container level it would
++          sit underneath the drawer that asked the question. */}
++      {error && <p className="confirm-inline-error">{error}</p>}
++      <div className="confirm-inline-actions">
++        <button type="button" className="btn btn-secondary btn-sm"
++                onClick={onCancel} disabled={pending}>
++          {cancelLabel}
++        </button>
++        <button type="button" className="btn btn-danger btn-sm"
++                onClick={onConfirm} disabled={pending}>
++          {pending ? pendingLabel : confirmLabel}
++        </button>
++      </div>
++    </div>
++  );
++}
+diff --git a/components/ContactsClient.js b/components/ContactsClient.js
+index 14264e7..1b92f61 100644
+--- a/components/ContactsClient.js
++++ b/components/ContactsClient.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useMemo } from "react";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { PageHelp } from "./PageHelp";
+ import { ContactForm } from "./ContactForm";
+ import { useActionFeedback } from "../lib/useActionFeedback";
+@@ -33,6 +34,7 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
+   const [category, setCategory] = useState("all");
+   const [editing, setEditing] = useState(null); // row | "new" | null
+   const { error, notice, pending, run } = useActionFeedback();
++  const confirmDelete = useConfirm();
+ 
+   // Only offer a filter for a category that actually has someone in it.
+   const present = useMemo(
+@@ -147,12 +149,15 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
+                       canWrite={canWrite}
+                       pending={pending}
+                       onEdit={() => setEditing(c)}
+-                      onDelete={() => {
+-                        if (!confirm(`Remove ${c.full_name}?`)) return;
++                      onDelete={() => confirmDelete.ask(c.id)}
++                      confirmingDelete={confirmDelete.isAsking(c.id)}
++                      onCancelDelete={() => confirmDelete.cancel()}
++                      onConfirmDelete={() => {
+                         const fd = new FormData();
+                         fd.set("id", c.id);
+-                        run(deleteContact, fd);
++                        run(deleteContact, fd, () => confirmDelete.cancel());
+                       }}
++                      deleteError={error}
+                     />
+                   ))}
+                 </tbody>
+@@ -179,7 +184,8 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
+   );
+ }
+ 
+-function ContactRow({ c, links, canWrite, pending, onEdit, onDelete }) {
++function ContactRow({ c, links, canWrite, pending, onEdit, onDelete,
++                     confirmingDelete = false, onCancelDelete, onConfirmDelete, deleteError = null }) {
+   const role = [c.title, c.organization_or_school].filter(Boolean).join(" \u00b7 ");
+ 
+   return (
+@@ -225,6 +231,18 @@ function ContactRow({ c, links, canWrite, pending, onEdit, onDelete }) {
+             <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Remove</button>
+           </div>
+         )}
++        {confirmingDelete && (
++          <ConfirmAction
++            message={`Remove ${c.full_name}? They are removed from this organization's contacts.`}
++            confirmLabel="Remove contact"
++            pendingLabel="Removing…"
++            cancelLabel="Keep contact"
++            pending={pending}
++            error={deleteError}
++            onCancel={onCancelDelete}
++            onConfirm={onConfirmDelete}
++          />
++        )}
+       </td>
+     </tr>
+   );
+diff --git a/components/ContactsDirectory.js b/components/ContactsDirectory.js
+index 8947d17..36d3f3c 100644
+--- a/components/ContactsDirectory.js
++++ b/components/ContactsDirectory.js
+@@ -1,6 +1,8 @@
+ "use client";
+ 
+ import { useState, useTransition, useMemo } from "react";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
++import { useMutation } from "./useMutation";
+ import { ContactForm } from "./ContactForm";
+ import { saveContact, deleteContact } from "../lib/actions/contacts";
+ 
+@@ -17,14 +19,18 @@ export function ContactsDirectory({ contacts, canWrite }) {
+   const [editing, setEditing] = useState(null); // row | "new" | null
+   const [query, setQuery] = useState("");
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
++  const { run: runMutation, pending: pending } = useMutation();
++  const confirmDelete = useConfirm();
+ 
++  // These sections live INSIDE an open drawer and stay open after a
++  // successful change, so the persisted result has to become visible in
++  // place. The shared runner adds exactly that; error placement and success
++  // handling stay here, where they differ per section.
+   function run(action, fd, onDone) {
+     setError(null);
+-    startTransition(async () => {
+-      const result = await action(fd);
+-      if (result?.ok) onDone?.();
+-      else setError(result?.error ?? "Something went wrong.");
++    runMutation(action, fd, {
++      onSuccess: () => onDone?.(),
++      onError: (message) => setError(message),
+     });
+   }
+ 
+@@ -108,20 +114,26 @@ export function ContactsDirectory({ contacts, canWrite }) {
+                       <button
+                         className="btn btn-ghost"
+                         disabled={pending}
+-                        onClick={() => {
+-                          if (
+-                            !confirm(
+-                              `Remove ${c.full_name}?\n\nTournaments and college interests they're attached to are kept — they just won't have a contact.`
+-                            )
+-                          )
+-                            return;
+-                          const fd = new FormData();
+-                          fd.set("id", c.id);
+-                          run(deleteContact, fd);
+-                        }}
++                        onClick={() => confirmDelete.ask(c.id)}
+                       >
+                         Remove
+                       </button>
++                      {confirmDelete.isAsking(c.id) && (
++                        <ConfirmAction
++                          message={`Remove ${c.full_name}? Tournaments and college interests they are attached to are kept — they just will not have a contact.`}
++                          confirmLabel="Remove contact"
++                          pendingLabel="Removing…"
++                          cancelLabel="Keep contact"
++                          pending={pending}
++                          error={error}
++                          onCancel={() => confirmDelete.cancel()}
++                          onConfirm={() => {
++                            const fd = new FormData();
++                            fd.set("id", c.id);
++                            run(deleteContact, fd, () => confirmDelete.cancel());
++                          }}
++                        />
++                      )}
+                     </span>
+                   )}
+                 </li>
+diff --git a/components/EventRoster.js b/components/EventRoster.js
+index 68aa50e..dd60c95 100644
+--- a/components/EventRoster.js
++++ b/components/EventRoster.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition, useMemo } from "react";
++import { useMutation } from "./useMutation";
+ import { RelatedLink } from "./RelatedLink";
+ import {
+   setEventRoster,
+@@ -30,18 +31,21 @@ export function EventRoster({
+   // coach returns to the same editing session.
+   const [draft, setDraft] = useState(null);
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
++  const { run: runMutation, pending: pending } = useMutation();
+ 
+   const rows = participants ?? [];
+   const pickups = rows.filter((p) => p.participation === "pickup");
+   const rostered = rows.filter((p) => p.participation === "roster");
+ 
++  // These sections live INSIDE an open drawer and stay open after a
++  // successful change, so the persisted result has to become visible in
++  // place. The shared runner adds exactly that; error placement and success
++  // handling stay here, where they differ per section.
+   function run(action, fd, onDone) {
+     setError(null);
+-    startTransition(async () => {
+-      const result = await action(fd);
+-      if (result?.ok) onDone?.();
+-      else setError(result?.error ?? "Something went wrong.");
++    runMutation(action, fd, {
++      onSuccess: () => onDone?.(),
++      onError: (message) => setError(message),
+     });
+   }
+ 
+diff --git a/components/FacilitiesClient.js b/components/FacilitiesClient.js
+index b6eaf1a..dec0bb5 100644
+--- a/components/FacilitiesClient.js
++++ b/components/FacilitiesClient.js
+@@ -5,6 +5,8 @@ import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./Drawe
+ import { PageHelp } from "./PageHelp";
+ import { DocumentSection } from "./DocumentSection";
+ import { sortRows } from "../lib/table-sort";
++import { useMutation } from "./useMutation";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { SortHeader as SharedSortHeader } from "./SortHeader";
+ import { useOpenParam } from "./useOpenParam";
+ import { RelatedLink } from "./RelatedLink";
+@@ -154,7 +156,9 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
+   const [importing, setImporting] = useState(false);
+   const [suggesting, setSuggesting] = useState(null);
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
++  const [drawerError, setDrawerError] = useState(null);
++  const confirm = useConfirm();
++  const { run: runMutation, pending } = useMutation();
+ 
+   const overlayOpen = Boolean(detail || editing || editingNotes || importing || suggesting);
+   useEffect(() => {
+@@ -268,20 +272,24 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
+     setOpenGroups(Object.fromEntries(groups.map((g) => [g.state, open])));
+   };
+ 
++  // Shared runner: pending, await, and a refresh so a drawer left open shows
++  // what was persisted. Errors are routed by the caller.
+   function run(action, fd, onDone) {
+     setError(null);
+-    startTransition(async () => {
+-      const result = await action(fd);
+-      if (result?.ok) onDone?.();
+-      else setError(result?.error ?? "Something went wrong. Try again.");
++    setDrawerError(null);
++    runMutation(action, fd, {
++      onSuccess: onDone,
++      onError: (message) => { if (detail) setDrawerError(message); else setError(message); },
+     });
+   }
+ 
+-  function remove(f) {
+-    if (!confirm(`Delete ${f.name}?\n\nFacilities are shared across Season Tempo. Only do this for a record created by mistake.`)) return;
++  function askRemove(f) { setDrawerError(null); confirm.ask(f.id); }
++
++  function doRemove(f) {
+     const fd = new FormData();
+     fd.set("id", f.id);
+-    run(deleteFacility, fd, () => closeDetail());
++    // The facility is gone, so the drawer closing is the visible result.
++    run(deleteFacility, fd, () => { confirm.cancel(); closeDetail(); });
+   }
+ 
+   return (
+@@ -507,7 +515,11 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
+           }}
+           onEdit={() => setEditing(detail)}
+           onEditNotes={() => setEditingNotes(detail)}
+-          onDelete={() => remove(detail)}
++          onDelete={() => askRemove(detail)}
++          onConfirmDelete={() => doRemove(detail)}
++          onCancelDelete={() => confirm.cancel()}
++          confirmingDelete={confirm.isAsking(detail?.id)}
++          drawerError={drawerError}
+         />
+       )}
+ 
+@@ -918,7 +930,7 @@ function HistoryTable({ rows }) {
+ }
+ 
+ 
+-export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject, documents = [], documentTargets, isAdmin = false, seasonName }) {
++export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onSuggest, onApprove, onReject, documents = [], documentTargets, isAdmin = false, seasonName }) {
+   // Arriving from a count click, scroll straight to that block rather than
+   // leaving the user to find it.
+   useEffect(() => {
+@@ -1108,8 +1120,20 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
+ 
+         {canWrite && (
+           <div className="drawer-foot">
+-            {canEditShared ? (
++            {confirmingDelete ? (
++              <ConfirmAction
++                message={`Delete ${f.name}? Facilities are shared across Season Tempo — only do this for a record created by mistake.`}
++                confirmLabel="Delete facility"
++                pendingLabel="Deleting…"
++                cancelLabel="Keep facility"
++                onConfirm={onConfirmDelete}
++                onCancel={onCancelDelete}
++                pending={pending}
++                error={drawerError}
++              />
++            ) : canEditShared ? (
+               <>
++                {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
+                 <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+                 <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit facility</button>
+               </>
+diff --git a/components/FilesClient.js b/components/FilesClient.js
+index 3c1e6c6..c65573f 100644
+--- a/components/FilesClient.js
++++ b/components/FilesClient.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition, useEffect, useMemo } from "react";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { DrawerShell, DrawerRow as Row } from "./DrawerShell";
+ import { PageHelp } from "./PageHelp";
+ import { useOpenParam } from "./useOpenParam";
+@@ -76,13 +77,33 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+   const [view, setView] = useState("team");
+ 
+   /** Counts ignore search and category so the tabs stay a stable map. */
+-  const countFor = (key) =>
+-    documents.filter((d) => {
+-      if (key === "team") return !d.player_id && !d.tournament_id;
+-      if (key === "players") return Boolean(d.player_id);
+-      if (key === "tournaments") return Boolean(d.tournament_id);
+-      return true;
+-    }).length;
++  /**
++   * ONE FILTER, used by the counts and by the list.
++   *
++   * These were two separate predicates: the tab counts looked only at the
++   * view, while the list also applied the category and the search. A tab
++   * could therefore say 3 while showing nothing, with no way to tell whether
++   * the files were filtered out or missing.
++   *
++   * A tab count now answers the question a coach is actually asking when they
++   * look at it — "how many will I see if I tap this" — so the number and the
++   * list can never disagree.
++   */
++  const matchesFilters = (d, key, q) => {
++    if (key === "team" && (d.player_id || d.tournament_id)) return false;
++    if (key === "players" && !d.player_id) return false;
++    if (key === "tournaments" && !d.tournament_id) return false;
++    if (category !== "all" && d.category !== category) return false;
++    if (!q) return true;
++    const r = relatedTo(d);
++    return `${d.file_name} ${d.category} ${r.label} ${d.notes ?? ""}`
++      .toLowerCase().includes(q);
++  };
++
++  const countFor = (key) => {
++    const q = query.trim().toLowerCase();
++    return documents.filter((d) => matchesFilters(d, key, q)).length;
++  };
+ 
+   // Drawer state lives in the URL, so refresh and Back behave properly.
+   const { detail: detail, openDetail, closeDetail } = useOpenParam(documents);
+@@ -90,6 +111,8 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+   // Opened directly from the help panel.
+   const [uploading, setUploading] = useState(autoOpen);
+   const [error, setError] = useState(null);
++  const [drawerError, setDrawerError] = useState(null);
++  const confirmDelete = useConfirm();
+   const [pending, startTransition] = useTransition();
+ 
+   const overlayOpen = Boolean(detail || editing || uploading);
+@@ -110,17 +133,11 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+     };
+   }, [overlayOpen, editing, uploading]);
+ 
++  // The same predicate the counts use, for the active tab.
+   const visible = useMemo(() => {
+     const q = query.trim().toLowerCase();
+-    return documents.filter((d) => {
+-      if (category !== "all" && d.category !== category) return false;
+-      if (view === "team" && (d.player_id || d.tournament_id)) return false;
+-      if (view === "players" && !d.player_id) return false;
+-      if (view === "tournaments" && !d.tournament_id) return false;
+-      if (!q) return true;
+-      const r = relatedTo(d);
+-      return `${d.file_name} ${d.category} ${r.label} ${d.notes ?? ""}`.toLowerCase().includes(q);
+-    });
++    return documents.filter((d) => matchesFilters(d, view, q));
++    // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [documents, query, category, view]);
+ 
+   function run(action, arg, onDone) {
+@@ -139,11 +156,13 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+     else setError(result.error);
+   }
+ 
+-  function remove(doc) {
+-    if (!confirm(`Delete "${doc.file_name}" permanently?\n\nThe stored file is removed as well. This cannot be undone.`)) return;
++  function askRemove(doc) { setDrawerError(null); confirmDelete.ask(doc.id); }
++
++  function doRemove(doc) {
+     const fd = new FormData();
+     fd.set("id", doc.id);
+-    run(deleteDocument, fd, () => closeDetail());
++    // The document is gone; the drawer closing is the visible result.
++    run(deleteDocument, fd, () => { confirmDelete.cancel(); closeDetail(); });
+   }
+ 
+   return (
+@@ -230,7 +249,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+             )}
+           </div>
+         ) : (
+-          <table className="table">
++          <table className="table files-table">
+             <thead>
+               <tr>
+                 <th>Name</th>
+@@ -273,6 +292,35 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+             </tbody>
+           </table>
+         )}
++
++        {/* THE PHONE VIEW. Same rows, same click target, built deliberately
++            rather than by reflowing five table columns onto a 375px screen —
++            where Size and Uploaded sat off the right edge with nothing to
++            suggest they were there. Tapping opens the same drawer, which is
++            where every action already lives. */}
++        {visible.length > 0 && (
++          <div className="files-list">
++            {visible.map((d) => {
++              const r = relatedTo(d);
++              return (
++                <button type="button" key={d.id} className="files-card"
++                        onClick={() => openDetail(d)}>
++                  <span className="files-card-name">{d.file_name}</span>
++                  <span className="files-card-meta">
++                    <span className={`pill ${catClass(d.category)}`}>{d.category}</span>
++                    <span className="files-card-related">
++                      {r.kind}{r.label ? ` · ${r.label}` : ""}
++                    </span>
++                  </span>
++                  <span className="files-card-meta">
++                    <span>{formatBytes(d.file_size)}</span>
++                    <span>{fmtDate(d.uploaded_at)}</span>
++                  </span>
++                </button>
++              );
++            })}
++          </div>
++        )}
+       </div>
+ 
+       {detail && !editing && (
+@@ -283,7 +331,11 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+           onClose={() => { closeDetail(); }}
+           onOpen={() => openFile(detail)}
+           onEdit={() => setEditing(detail)}
+-          onDelete={() => remove(detail)}
++          onDelete={() => askRemove(detail)}
++          onConfirmDelete={() => doRemove(detail)}
++          onCancelDelete={() => confirmDelete.cancel()}
++          confirmingDelete={confirmDelete.isAsking(detail?.id)}
++          drawerError={drawerError}
+         />
+       )}
+ 
+@@ -313,7 +365,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
+ /* ---------------- Detail ---------------- */
+ 
+ 
+-export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete }) {
++export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete , onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null}) {
+   const r = relatedTo(d);
+   return (
+     <DrawerShell onClose={onClose} ariaLabel="Document details">
+@@ -358,8 +410,24 @@ export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDe
+ 
+         {canWrite && (
+           <div className="drawer-foot">
+-            <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+-            <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit details</button>
++            {confirmingDelete ? (
++              <ConfirmAction
++                message="Delete this document permanently? The stored file is removed as well. This cannot be undone."
++                confirmLabel="Delete document"
++                pendingLabel="Deleting…"
++                cancelLabel="Keep document"
++                pending={pending}
++                error={drawerError}
++                onCancel={onCancelDelete}
++                onConfirm={onConfirmDelete}
++              />
++            ) : (
++              <>
++                {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
++                <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
++                <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit details</button>
++              </>
++            )}
+           </div>
+         )}
+     </DrawerShell>
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index f760b08..d4373bb 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -3,7 +3,8 @@
+ import Link from "next/link";
+ import { DrawerShell } from "./DrawerShell";
+ 
+-import { useState, useTransition, useEffect, useMemo, useRef } from "react";
++import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { useActionFeedback } from "../lib/useActionFeedback";
+ import { PageHelp } from "./PageHelp";
+ import { useOpenParam } from "./useOpenParam";
+@@ -227,6 +228,8 @@ export function FinanceClient({
+     : null;
+   const [actionId, setActionId] = useState(null);
+   const { error, setError, notice, pending, run } = useActionFeedback();
++  // One question at a time, keyed so two rows cannot both be asking.
++  const confirmDelete = useConfirm();
+ 
+   const [editBudget, setEditBudget] = useState(null);
+   // Create-and-link: a budget line created from inside the transaction form.
+@@ -633,12 +636,15 @@ export function FinanceClient({
+           canWrite={canWrite}
+           onAdd={() => setEditBudget("new")}
+           onEdit={(row) => setEditBudget(row)}
+-          onDelete={(row) => {
+-            if (!confirm(`Delete the budget line "${row.name}"?`)) return;
++          onDelete={(row) => confirmDelete.ask(`budget:${row.id}`)}
++          confirmingDelete={confirmDelete.asking}
++          onCancelDelete={() => confirmDelete.cancel()}
++          onConfirmDelete={(row) => {
+             const fd = new FormData();
+             fd.set("id", row.id);
+-            run(deleteBudgetItem, fd);
++            run(deleteBudgetItem, fd, () => confirmDelete.cancel());
+           }}
++          deleteError={error}
+           pending={pending}
+         />
+       )}
+@@ -686,12 +692,16 @@ export function FinanceClient({
+           pending={pending}
+           onClose={() => setDetailTxn(null)}
+           onEdit={() => setEditTxn(detailTxn)}
+-          onDelete={() => {
+-            if (!confirm(`Delete "${detailTxn.item}"?`)) return;
++          onDelete={() => confirmDelete.ask(`txn:${detailTxn.id}`)}
++          confirmingDelete={confirmDelete.isAsking(`txn:${detailTxn.id}`)}
++          onCancelDelete={() => confirmDelete.cancel()}
++          onConfirmDelete={() => {
+             const fd = new FormData();
+             fd.set("id", detailTxn.id);
+-            run(deleteTransaction, fd, () => setDetailTxn(null));
++            // The transaction is gone, so closing the drawer is the result.
++            run(deleteTransaction, fd, () => { confirmDelete.cancel(); setDetailTxn(null); });
+           }}
++          drawerError={error}
+         />
+       )}
+ 
+@@ -757,12 +767,17 @@ export function FinanceClient({
+           pending={pending}
+           onClose={() => { closeDetail(); }}
+           onRecord={(fd) => run(recordPayment, fd, { onDone: () => closeDetail(), success: "Payment recorded" })}
+-          onDeleteEntry={(entryId) => {
+-            if (!confirm("Remove this payment entry?")) return;
++          onDeleteEntry={(entryId) => confirmDelete.ask(`entry:${entryId}`)}
++          confirmingEntry={confirmDelete.asking}
++          onCancelEntry={() => confirmDelete.cancel()}
++          onConfirmEntry={(entryId) => {
+             const fd = new FormData();
+             fd.set("id", entryId);
+-            run(deletePaymentEntry, fd, () => closeDetail());
++            // The payment record itself remains; only this entry goes. The
++            // drawer stays open and the refreshed totals are the feedback.
++            run(deletePaymentEntry, fd, () => confirmDelete.cancel());
+           }}
++          drawerError={error}
+           onEdit={() => setEditPay(detailPay)}
+         />
+       )}
+@@ -952,7 +967,8 @@ function summaryMoney(n) {
+     : money(v);
+ }
+ 
+-function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action }) {
++function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
++                        confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
+   if (groups.length === 0) return null;
+ 
+   return (
+@@ -1026,7 +1042,8 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+ 
+               {open &&
+                 g.rows.map((r) => (
+-                  <div key={r.id} className="budget-row budget-line">
++                  <Fragment key={r.id}>
++                  <div className="budget-row budget-line">
+                     <span />
+ 
+                     <span className="budget-name budget-name-indent">
+@@ -1061,6 +1078,19 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+                       )}
+                     </span>
+                   </div>
++                  {confirmingDelete === `budget:${r.id}` && (
++                    <ConfirmAction
++                      message={`Delete the budget line "${r.name}"? Transactions already recorded against it are not deleted.`}
++                      confirmLabel="Delete budget line"
++                      pendingLabel="Deleting…"
++                      cancelLabel="Keep budget line"
++                      pending={pending}
++                      error={deleteError}
++                      onCancel={onCancelDelete}
++                      onConfirm={() => onConfirmDelete(r)}
++                    />
++                  )}
++                  </Fragment>
+                 ))}
+             </div>
+           );
+@@ -1319,7 +1349,8 @@ function DRow({ label, value }) {
+   );
+ }
+ 
+-function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete }) {
++function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
++                            confirmingDelete = false, onCancelDelete, onConfirmDelete, drawerError = null }) {
+   const counted = isActual(t);
+   return (
+     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
+@@ -1374,8 +1405,24 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete })
+ 
+         {canWrite && (
+           <div className="drawer-foot">
++            {confirmingDelete ? (
++              <ConfirmAction
++                message={`Delete "${t.item}"? This removes the transaction from the ledger; anything it was linked to is unaffected.`}
++                confirmLabel="Delete transaction"
++                pendingLabel="Deleting…"
++                cancelLabel="Keep transaction"
++                pending={pending}
++                error={drawerError}
++                onCancel={onCancelDelete}
++                onConfirm={onConfirmDelete}
++              />
++            ) : (
++            <>
++            {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
+             <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+             <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
++            </>
++            )}
+           </div>
+         )}
+     </DrawerShell>
+@@ -1910,10 +1957,14 @@ function FormerDuesTable({ rows, onOpen }) {
+                 <td className="pay-player">
+                   <div className="pay-cell">
+                     <span className="cell-name">
+-                      {r.kind === "former" ? r.name : <span className="muted">No player linked</span>}
++                      {r.name ?? <span className="muted">No player linked</span>}
+                     </span>
+                     <span className="pay-sub">
+-                      {r.kind === "former" ? "No longer on the active roster" : "Not linked to a player"}
++                      {r.kind === "former"
++                        ? "No longer on the active roster"
++                        : r.name
++                          ? "Former player — no longer in this organization"
++                          : "Not linked to a player"}
+                     </span>
+                   </div>
+                 </td>
+@@ -1944,7 +1995,8 @@ function FormerDuesTable({ rows, onOpen }) {
+   );
+ }
+ 
+-function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry, onEdit }) {
++function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry, onEdit,
++                        confirmingEntry = null, onCancelEntry, onConfirmEntry, drawerError = null }) {
+   return (
+     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
+         <div className="drawer-head">
+@@ -1972,6 +2024,20 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
+             {p.log.length === 0 ? (
+               <p className="section-body muted">No payments recorded yet.</p>
+             ) : (
++              <>
++              {/* Asked here, beside the entry list, not in a native dialog. */}
++              {confirmingEntry?.startsWith?.("entry:") && (
++                <ConfirmAction
++                  message="Remove this payment entry? The amount is deducted from what has been paid; the total due is unchanged."
++                  confirmLabel="Remove entry"
++                  pendingLabel="Removing…"
++                  cancelLabel="Keep entry"
++                  pending={pending}
++                  error={drawerError}
++                  onCancel={onCancelEntry}
++                  onConfirm={() => onConfirmEntry(confirmingEntry.slice("entry:".length))}
++                />
++              )}
+               <table className="table">
+                 <tbody>
+                   {p.log.map((l) => (
+@@ -1989,6 +2055,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
+                   ))}
+                 </tbody>
+               </table>
++              </>
+             )}
+           </section>
+ 
+diff --git a/components/GamesSection.js b/components/GamesSection.js
+index 6f1e119..43a9332 100644
+--- a/components/GamesSection.js
++++ b/components/GamesSection.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition, useEffect } from "react";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import Link from "next/link";
+ import { saveGame, deleteGame } from "../lib/actions/games";
+ import { GAME_TYPES, isFutureGame, recordFrom } from "../lib/game-rules";
+@@ -71,6 +72,7 @@ function QabAction({ tournament, game }) {
+ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0 }) {
+   const [editing, setEditing] = useState(null); // game | "new" | null
+   const [error, setError] = useState(null);
++  const confirmDelete = useConfirm();
+   const [pending, startTransition] = useTransition();
+ 
+   // The drawer's quick action bumps openSignal to open this form, so the form
+@@ -98,15 +100,16 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false,
+     });
+   }
+ 
+-  function remove(g) {
+-    if (!confirm(`Delete the game against ${g.opponent_name}?`)) return;
++  function askRemove(g) { setError(null); confirmDelete.ask(g.id); }
++
++  function doRemove(g) {
+     setError(null);
+     const fd = new FormData();
+     fd.set("id", g.id);
+     startTransition(async () => {
+       const result = await deleteGame(fd);
+       if (!result?.ok) setError(result?.error ?? "Could not delete that game.");
+-      else onChanged?.();
++      else { confirmDelete.cancel(); onChanged?.(); }
+     });
+   }
+ 
+@@ -190,11 +193,23 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false,
+                       <button className="btn btn-ghost" onClick={() => setEditing(g)} disabled={pending}>
+                         Edit
+                       </button>
+-                      <button className="btn btn-danger-ghost" onClick={() => remove(g)} disabled={pending}>
++                      <button className="btn btn-danger-ghost" onClick={() => askRemove(g)} disabled={pending}>
+                         Remove
+                       </button>
+                     </span>
+                   )}
++                  {confirmDelete.isAsking(g.id) && (
++                    <ConfirmAction
++                      message={`Delete the game against ${g.opponent_name}? Anything already recorded for it is removed with it.`}
++                      confirmLabel="Delete game"
++                      pendingLabel="Deleting…"
++                      cancelLabel="Keep game"
++                      pending={pending}
++                      error={error}
++                      onCancel={() => confirmDelete.cancel()}
++                      onConfirm={() => doRemove(g)}
++                    />
++                  )}
+                 </div>
+               </li>
+             );
+@@ -225,6 +240,13 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
+   const hadResult =
+     game && (game.result || game.runs_for != null || game.runs_against != null);
+   const movingToFuture = hadResult && isFutureGame(date) && date !== game.game_date;
++  // Held while the coach answers the score-loss warning.
++  const [pendingSubmit, setPendingSubmit] = useState(null);
++  const [clearScore, setClearScore] = useState(false);
++  const recordedScore =
++    game && game.runs_for != null && game.runs_against != null
++      ? `${game.runs_for} to ${game.runs_against}`
++      : game?.result;
+ 
+   /**
+    * Option C: the database rejects a completed game moved to a future date.
+@@ -232,17 +254,15 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
+    * result cleared — never silently.
+    */
+   function handleSubmit(formData) {
++    // Moving a played game forward DISCARDS its recorded result, so the
++    // warning has to be seen. A native dialog can be suppressed on mobile and
++    // then returns false, which silently cancelled the save with no
++    // explanation — the coach pressed Save and nothing happened.
++    if (movingToFuture && !clearScore) {
++      setPendingSubmit(formData);
++      return;
++    }
+     if (movingToFuture) {
+-      const score =
+-        game.runs_for != null && game.runs_against != null
+-          ? `${game.runs_for} to ${game.runs_against}`
+-          : game.result;
+-
+-      const ok = confirm(
+-        `Moving this game to a future date will remove the recorded ${score} result. Continue?`
+-      );
+-      if (!ok) return;
+-
+       formData.set("runs_for", "");
+       formData.set("runs_against", "");
+       formData.set("result", "");
+@@ -255,6 +275,26 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
+   return (
+     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+       <div className="modal" onClick={(e) => e.stopPropagation()}>
++        {pendingSubmit && (
++          <ConfirmAction
++            message={`Moving this game to a future date will remove the recorded ${recordedScore} result.`}
++            confirmLabel="Move and clear result"
++            pendingLabel="Saving…"
++            cancelLabel="Keep the date"
++            pending={pending}
++            onCancel={() => setPendingSubmit(null)}
++            onConfirm={() => {
++              const fd = pendingSubmit;
++              setPendingSubmit(null);
++              setClearScore(true);
++              fd.set("runs_for", "");
++              fd.set("runs_against", "");
++              fd.set("result", "");
++              onSubmit(fd);
++            }}
++          />
++        )}
++
+         <form action={handleSubmit}>
+           {game && <input type="hidden" name="id" value={game.id} />}
+           <input type="hidden" name="tournament_id" value={tournament.id} />
+diff --git a/components/PlayerRecruiting.js b/components/PlayerRecruiting.js
+index 044a7ef..e20befa 100644
+--- a/components/PlayerRecruiting.js
++++ b/components/PlayerRecruiting.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition } from "react";
++import { useMutation } from "./useMutation";
+ import { SearchPicker } from "./SearchPicker";
+ import { ContactForm } from "./ContactForm";
+ import {
+@@ -26,14 +27,17 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
+   const [pickingContact, setPickingContact] = useState(null); // interest row
+   const [creatingContact, setCreatingContact] = useState(null);
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
++  const { run: runMutation, pending: pending } = useMutation();
+ 
++  // These sections live INSIDE an open drawer and stay open after a
++  // successful change, so the persisted result has to become visible in
++  // place. The shared runner adds exactly that; error placement and success
++  // handling stay here, where they differ per section.
+   function run(action, fd, onDone) {
+     setError(null);
+-    startTransition(async () => {
+-      const result = await action(fd);
+-      if (result?.ok) onDone?.(result);
+-      else setError(result?.error ?? "Something went wrong.");
++    runMutation(action, fd, {
++      onSuccess: (result) => onDone?.(result),
++      onError: (message) => setError(message),
+     });
+   }
+ 
+@@ -264,21 +268,25 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
+           pending={pending}
+           onCancel={() => setCreatingContact(null)}
+           onSubmit={(fd) => {
+-            startTransition(async () => {
+-              const result = await saveContact(fd);
+-              if (result?.ok && result.id) {
+-                // Create-and-link: attach the new coach to this college.
++            setError(null);
++            // Create-and-link. The second call refreshes, so the new coach
++            // appears against the college without a redundant refresh here.
++            runMutation(saveContact, fd, {
++              refresh: false,
++              onSuccess: (result) => {
++                if (!result?.id) return;
+                 const link = new FormData();
+                 link.set("id", creatingContact.interest.id);
+                 link.set("player_id", playerId);
+                 link.set("college_name", creatingContact.interest.college_name);
+                 if (creatingContact.interest.notes) link.set("notes", creatingContact.interest.notes);
+                 link.set("contact_id", result.id);
+-                await saveCollegeInterest(link);
+-                setCreatingContact(null);
+-              } else {
+-                setError(result?.error ?? "Something went wrong.");
+-              }
++                runMutation(saveCollegeInterest, link, {
++                  onSuccess: () => setCreatingContact(null),
++                  onError: (message) => setError(message),
++                });
++              },
++              onError: (message) => setError(message),
+             });
+           }}
+         />
+diff --git a/components/RosterClient.js b/components/RosterClient.js
+index 6be82a8..2887441 100644
+--- a/components/RosterClient.js
++++ b/components/RosterClient.js
+@@ -16,6 +16,7 @@ import { resolvePlayerContact } from "../lib/player-contact-rules";
+ import { toCandidate } from "../lib/intake/match";
+ import { PlayerExport } from "./PlayerExport";
+ import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
++import { useMutation } from "./useMutation";
+ import { useTableSort, useSortedRows } from "../lib/table-sort";
+ import { SortHeader } from "./SortHeader";
+ import { formatPlayerAddress } from "../lib/player-export";
+@@ -84,7 +85,6 @@ function fmtDate(d) {
+  * still reads correctly.
+  */
+ const ROSTER_ACTION_TEXT = {
+-  uniform: (n) => `${n} ${n === 1 ? "player needs" : "players need"} uniform information`,
+   registration: (n) => `${n} ${n === 1 ? "player is" : "players are"} missing a date of birth`,
+   contact: (n) => `${n} ${n === 1 ? "player has" : "players have"} no contact details`,
+ };
+@@ -100,7 +100,7 @@ function uniformText(row) {
+   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
+ }
+ 
+-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
++export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, matchCandidates = [], seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
+ 
+   // Drawer state lives in the URL, so refresh and Back behave properly.
+   // Pickups are not roster rows, so the lookup covers both. Each pickup is
+@@ -140,6 +140,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+    * see rather than paper over with a nearby id that happens to be a uuid.
+    */
+   const detailPlayerId = detail?.player_id ?? null;
++
++  // A drawer that reopens must not inherit the last one's error or a
++  // half-answered confirmation.
++  useEffect(() => {
++    if (!detail) { setDrawerError(null); setConfirmRemove(null); }
++  }, [detail]);
+   const [editing, setEditing] = useState(null); // row | "new" | null
+   // Opened directly from the help panel.
+   const [adding, setAdding] = useState(autoOpen);
+@@ -174,6 +180,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+     positions: { value: (r) => (r.positions?.length ? r.positions.join(" / ") : null) },
+   };
+   const [actionsOpen, setActionsOpen] = useState(false);
++  const [confirmRemove, setConfirmRemove] = useState(null);
+ 
+   /**
+    * Sorting is layered ON TOP of the filtered set, never instead of it.
+@@ -183,7 +190,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+    */
+   const { sort, toggleSort } = useTableSort(null);
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
+ 
+   // `intaking` belongs here. Without it the Import drawer was the one overlay
+   // that did NOT lock the page behind it, so scrolling ran off the end of the
+@@ -249,13 +255,22 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+   const sortedVisible = useSortedRows(visible, sort, ROSTER_COLUMNS,
+     (a, b) => String(a.player?.full_name ?? "").localeCompare(String(b.player?.full_name ?? "")));
+ 
++  // Errors from a DRAWER action go to the drawer. The page-level alert is for
++  // actions taken on the page itself; rendered under a fixed full-height
++  // drawer it is invisible on a phone, which is how a failed removal looked
++  // identical to a successful one.
++  const [drawerError, setDrawerError] = useState(null);
++  const { run: runMutation, pending } = useMutation({
++    onError: (message) => {
++      if (detail) setDrawerError(message);
++      else setError(message);
++    },
++  });
++
+   function run(action, fd, onDone) {
+     setError(null);
+-    startTransition(async () => {
+-      const result = await action(fd);
+-      if (result?.ok) onDone?.(result);
+-      else setError(result?.error ?? "Something went wrong. Try again.");
+-    });
++    setDrawerError(null);
++    runMutation(action, fd, { onSuccess: onDone });
+   }
+ 
+   function submitEdit(formData) {
+@@ -279,12 +294,23 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+    * kept — a coach should never have to know that dues must be removed before
+    * the roster row, which is what the old order-of-operations bug required.
+    */
+-  function remove(row) {
+-    const name = row.player?.full_name ?? "this person";
+-    if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nAnything they have paid or played is kept. Setup-only records are cleaned up.`)) return;
++  /**
++   * Asks inside the drawer. window.confirm() was the only gate here, and a
++   * mobile browser that suppresses dialogs returns false from it — the handler
++   * returned early, no request was made, and nothing appeared on screen. The
++   * roster row proved it afterwards: still present, so the action never ran.
++   */
++  function askRemove(row) {
++    setDrawerError(null);
++    setConfirmRemove(row.id);
++  }
++
++  function doRemove(row) {
+     const fd = new FormData();
+     fd.set("assignment_id", row.id);
+-    run(removePlayerFromSeason, fd, () => closeDetail());
++    // Removing the record the drawer is showing: closing IS the success
++    // signal, so no refresh is needed for a surface that is going away.
++    run(removePlayerFromSeason, fd, () => { setConfirmRemove(null); closeDetail(); });
+   }
+ 
+ 
+@@ -654,7 +680,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+           pending={pending}
+           onClose={() => { closeDetail(); }}
+           onEdit={() => setEditing(detail)}
+-          onRemove={() => remove(detail)}
++          onRemove={() => askRemove(detail)}
++          onConfirmRemove={() => doRemove(detail)}
++          onCancelRemove={() => setConfirmRemove(null)}
++          confirmingRemove={confirmRemove === detail?.id}
++          drawerError={drawerError}
+           paymentId={paymentIdByPlayer[detailPlayerId] ?? null}
+           contacts={contacts}
+           recruiting={recruiting[detailPlayerId] ?? { links: [], interests: [] }}
+@@ -733,8 +763,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
+                 // Hand-building this shape is what let the two drift: the
+                 // structured name columns were missing here, so the preview and
+                 // the server compared different spellings of the same player.
+-                existingPlayers={(rows ?? []).map((r) =>
+-                  toCandidate({ ...r.player, contacts: resolvePlayerContact(r.player).contacts }))}
++                // ORGANIZATION-WIDE, and the same rows the server will use.
++                // This was the season roster, so a player in the organization
++                // without a membership was invisible here and visible there —
++                // the preview offered Create for someone the server matched.
++                existingPlayers={(matchCandidates ?? []).map(toCandidate)}
+                 seasonName={seasonName}
+                 onCancel={() => setIntaking(false)}
+               />
+@@ -796,7 +829,7 @@ function Disclose({ enabled, label, children }) {
+ 
+ 
+ 
+-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
++export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, onConfirmRemove, onCancelRemove, confirmingRemove = false, drawerError = null, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
+   const p = row.player ?? {};
+ 
+   // One record type, two very different people. A coach has no jersey number,
+@@ -982,13 +1015,44 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
+             and a ghost button keeps it available without competing. */}
+         {canWrite && (
+           <div className="drawer-foot">
+-            {/* Lifecycle actions group on the left; Edit details stays the
+-                primary action on the right. Three weights, one row. */}
++            {/* FEEDBACK BELONGS TO THE SURFACE THE ACTION WAS TAKEN ON.
++                This used to render at the top of the Team page, underneath a
++                fixed full-height drawer — on a phone a failed removal was
++                indistinguishable from a successful one. */}
++            {drawerError && (
++              <p className="drawer-foot-error" role="alert">{drawerError}</p>
++            )}
++
++            {/* Confirmation replaces the action row in place, so the decision
++                appears where the thumb already is rather than in a native
++                dialog a mobile browser can suppress without a trace. */}
++            {confirmingRemove ? (
++              <div className="drawer-confirm" role="alert">
++                <p>
++                  Remove <strong>{displayName}</strong> from the {seasonName} roster?
++                  Anything they have paid or played is kept; setup-only records
++                  are cleaned up.
++                </p>
++                <div className="drawer-foot-row">
++                  <button className="btn btn-secondary" onClick={onCancelRemove} disabled={pending}>
++                    Keep on roster
++                  </button>
++                  <button className="btn btn-danger" onClick={onConfirmRemove} disabled={pending}>
++                    {pending ? "Removing…" : "Remove from roster"}
++                  </button>
++                </div>
++              </div>
++            ) : (
+             <div className="drawer-foot-row">
+               <div className="drawer-foot-lifecycle">
++                {/* The label and the header pill both come from row, which is
++                    derived from the refreshed roster — so a successful toggle
++                    changes what is on screen. That IS the success signal; a
++                    toast would be noise on top of it. */}
+                 {onToggleActive && (
+                   <button className="btn btn-ghost" disabled={pending} onClick={onToggleActive}>
+-                    {row.is_active === false ? "Make active" : "Make inactive"}
++                    {pending ? "Saving…"
++                      : row.is_active === false ? "Make active" : "Make inactive"}
+                   </button>
+                 )}
+                 <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
+@@ -999,6 +1063,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
+                 Edit details
+               </button>
+             </div>
++            )}
+           </div>
+         )}
+     </DrawerShell>
+diff --git a/components/SettingsClient.js b/components/SettingsClient.js
+index 4ac6b66..f884957 100644
+--- a/components/SettingsClient.js
++++ b/components/SettingsClient.js
+@@ -2,6 +2,8 @@
+ 
+ import { useState, useTransition, useEffect } from "react";
+ import { PageHelp } from "./PageHelp";
++import { useMutation } from "./useMutation";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { PRIVACY_EMAIL } from "../lib/legal";
+ import { OrganizationIdentity } from "./TeamBranding";
+ import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
+@@ -57,9 +59,10 @@ export function SettingsClient({
+   // Opened directly from the help panel.
+   const [editing, setEditing] = useState(autoOpen);
+   const [error, setError] = useState(null);
++  const confirm = useConfirm();
++  const { run: runMutation, pending } = useMutation();
+   const [newInvite, setNewInvite] = useState(null);
+   const [newSeason, setNewSeason] = useState(null);
+-  const [pending, startTransition] = useTransition();
+ 
+   useEffect(() => {
+     if (!editing) return;
+@@ -75,12 +78,15 @@ export function SettingsClient({
+     };
+   }, [editing]);
+ 
++  // Settings acts on the PAGE, not inside a drawer, so a page-level error is
++  // the right surface here. What was missing is synchronisation: making a
++  // season current or cancelling an invitation changed the list behind the
++  // action and nothing told the page to re-read it.
+   function run(action, fd, onDone) {
+     setError(null);
+-    startTransition(async () => {
+-      const result = await action(fd);
+-      if (result?.ok) onDone?.(result);
+-      else setError(result?.error ?? "Something went wrong.");
++    runMutation(action, fd, {
++      onSuccess: (result) => { confirm.cancel(); onDone?.(result); },
++      onError: (message) => setError(message),
+     });
+   }
+ 
+@@ -146,17 +152,26 @@ export function SettingsClient({
+                     <button
+                       className="btn btn-ghost"
+                       disabled={pending}
+-                      onClick={() => {
+-                        if (!confirm(
+-                          `Make ${s.name} the current season?\n\nEveryone on ${team?.name ?? "this team"} will start working in ${s.name}. ${season?.name ?? "The current season"} stays intact and you can still view it.`
+-                        )) return;
++                      onClick={() => confirm.ask(`season:${s.id}`)}
++                    >
++                      Make current
++                    </button>
++                  )}
++                  {isAdmin && confirm.isAsking(`season:${s.id}`) && (
++                    <ConfirmAction
++                      message={`Make ${s.name} the current season? Everyone on ${team?.name ?? "this team"} will start working in ${s.name}. ${season?.name ?? "The current season"} stays intact and you can still view it.`}
++                      confirmLabel="Make current"
++                      pendingLabel="Switching…"
++                      cancelLabel="Keep current season"
++                      pending={pending}
++                      error={error}
++                      onCancel={() => confirm.cancel()}
++                      onConfirm={() => {
+                         const fd = new FormData();
+                         fd.set("season_id", s.id);
+                         run(makeSeasonCurrent, fd);
+                       }}
+-                    >
+-                      Make current
+-                    </button>
++                    />
+                   )}
+                 </li>
+               );
+@@ -235,15 +250,26 @@ export function SettingsClient({
+                   <button
+                     className="btn btn-danger-ghost"
+                     disabled={pending}
+-                    onClick={() => {
+-                      if (!confirm(`Cancel the invitation to ${i.email}?`)) return;
++                    onClick={() => confirm.ask(`invite:${i.id}`)}
++                  >
++                    Cancel
++                  </button>
++                )}
++                {isAdmin && confirm.isAsking(`invite:${i.id}`) && (
++                  <ConfirmAction
++                    message={`Cancel the invitation to ${i.email}? They will no longer be able to use it.`}
++                    confirmLabel="Cancel invitation"
++                    pendingLabel="Cancelling…"
++                    cancelLabel="Keep invitation"
++                    pending={pending}
++                    error={error}
++                    onCancel={() => confirm.cancel()}
++                    onConfirm={() => {
+                       const fd = new FormData();
+                       fd.set("id", i.id);
+                       run(cancelInvite, fd);
+                     }}
+-                  >
+-                    Cancel
+-                  </button>
++                  />
+                 )}
+               </li>
+             ))}
+diff --git a/components/TeamBranding.js b/components/TeamBranding.js
+index a1900f6..593716e 100644
+--- a/components/TeamBranding.js
++++ b/components/TeamBranding.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useRef, useTransition } from "react";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { TeamMark } from "./TeamMark";
+ import { uploadTeamLogo, removeTeamLogo } from "../lib/actions/branding";
+ 
+@@ -15,6 +16,7 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
+   const [preview, setPreview] = useState(null);
+   const [file, setFile] = useState(null);
+   const [error, setError] = useState(null);
++  const confirmRemove = useConfirm();
+   const [pending, startTransition] = useTransition();
+   const inputRef = useRef(null);
+ 
+@@ -97,21 +99,33 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
+                   <button
+                     className="btn btn-ghost"
+                     disabled={pending}
+-                    onClick={() => {
+-                      if (!confirm("Remove the organization logo?\n\nYour initials will be shown instead.")) return;
+-                      setError(null);
+-                      startTransition(async () => {
+-                        const result = await removeTeamLogo();
+-                        if (result?.ok) reset();
+-                        else setError(result?.error ?? "Something went wrong.");
+-                      });
+-                    }}
++                    onClick={() => confirmRemove.ask("logo")}
+                   >
+                     Remove logo
+                   </button>
+                 )}
+               </div>
+ 
++              {confirmRemove.isAsking("logo") && (
++                <ConfirmAction
++                  message="Remove the organization logo? Your initials will be shown instead."
++                  confirmLabel="Remove logo"
++                  pendingLabel="Removing…"
++                  cancelLabel="Keep logo"
++                  pending={pending}
++                  error={error}
++                  onCancel={() => confirmRemove.cancel()}
++                  onConfirm={() => {
++                    setError(null);
++                    startTransition(async () => {
++                      const result = await removeTeamLogo();
++                      if (result?.ok) { confirmRemove.cancel(); reset(); }
++                      else setError(result?.error ?? "Something went wrong.");
++                    });
++                  }}
++                />
++              )}
++
+               <p className="field-note">PNG, JPG or WEBP · 2 MB max · square works best</p>
+             </>
+           ) : (
+diff --git a/components/TournamentClient.js b/components/TournamentClient.js
+index 3e2e5a2..343667f 100644
+--- a/components/TournamentClient.js
++++ b/components/TournamentClient.js
+@@ -1,6 +1,8 @@
+ "use client";
+ 
+ import { money } from "../lib/finance-rules";
++import { useMutation } from "./useMutation";
++import { ConfirmAction, useConfirm } from "./ConfirmAction";
+ import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
+ import { PageHelp } from "./PageHelp";
+ import { useState, useTransition, useEffect } from "react";
+@@ -110,7 +112,17 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
+   // Opened directly from the help panel.
+   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
++  // A drawer action's failure belongs in the drawer; the page alert stays for
++  // page-level actions.
++  const [drawerError, setDrawerError] = useState(null);
++  const confirm = useConfirm();
++  const { run: runMutation, pending: mutating } = useMutation();
++  // The form submit path takes a FormData straight from a <form> and has its
++  // own success handling; it keeps its own transition rather than being bent
++  // into the shared runner's shape. `pending` above covers both because the
++  // buttons read it.
++  const [formPending, startTransition] = useTransition();
++  const pending = mutating || formPending;
+   const [collapsed, setCollapsed] = useState({ Declined: true });
+ 
+   useEffect(() => {
+@@ -167,27 +179,40 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
+     });
+   }
+ 
++  /**
++   * The drawer STAYS OPEN, so the change has to become visible in it. The
++   * pills and selects read from `detail`, which is derived from the rows the
++   * server sends; without a refresh the coach changed a status and watched
++   * nothing happen. Same failure as Make inactive on the roster.
++   */
+   function setStatus(id, field, value) {
+-    setError(null);
++    setDrawerError(null);
+     const fd = new FormData();
+     fd.set("id", id);
+     fd.set("field", field);
+     fd.set("value", value);
+-    startTransition(async () => {
+-      const result = await setTournamentStatus(fd);
+-      if (!result?.ok) setError(result?.error ?? "Could not update that.");
++    runMutation(setTournamentStatus, fd, {
++      onError: (message) => setDrawerError(message),
+     });
+   }
+ 
+-  function remove(row) {
+-    if (!confirm(`Delete "${row.name}" permanently?\n\nThis is for mistakes only. To record that you're not attending, mark it Declined instead.`)) return;
+-    setError(null);
++  /**
++   * Asks in the drawer. window.confirm() was the only gate, and a mobile
++   * browser that suppresses dialogs returns false from it — the handler
++   * returned early with no request and nothing on screen.
++   */
++  function askRemove(row) { setDrawerError(null); confirm.ask(row.id); }
++
++  function doRemove(row) {
++    setDrawerError(null);
+     const fd = new FormData();
+     fd.set("id", row.id);
+-    startTransition(async () => {
+-      const result = await deleteTournament(fd);
+-      if (result?.ok) closeDetail();
+-      else setError(result?.error ?? "Could not delete that.");
++    // The record the drawer shows is going away, so closing IS the success
++    // signal and a refresh of a dead surface would be wasted work. The list
++    // behind it is server-rendered and revalidated by the action.
++    runMutation(deleteTournament, fd, {
++      onSuccess: () => { confirm.cancel(); closeDetail(); },
++      onError: (message) => setDrawerError(message),
+     });
+   }
+ 
+@@ -408,7 +433,11 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
+           pending={pending}
+           onClose={() => { closeDetail(); }}
+           onEdit={() => setEditing(detail)}
+-          onDelete={() => remove(detail)}
++          onDelete={() => askRemove(detail)}
++          onConfirmDelete={() => doRemove(detail)}
++          onCancelDelete={() => confirm.cancel()}
++          confirmingDelete={confirm.isAsking(detail?.id)}
++          drawerError={drawerError}
+           onStatus={setStatus}
+         />
+       )}
+@@ -508,7 +537,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
+   );
+ }
+ 
+-export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
++export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
+   // Bumped by the quick action to open the Add game form further down the
+   // drawer, without lifting that form's state out of GamesSection.
+   const [addGameSignal, setAddGameSignal] = useState(0);
+@@ -937,8 +966,24 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
+ 
+         {canWrite && (
+           <div className="drawer-foot">
+-            <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+-            <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
++            {confirmingDelete ? (
++              <ConfirmAction
++                message={`Delete "${t.name}" permanently? This is for mistakes only — to record that you are not attending, mark it Declined instead.`}
++                confirmLabel="Delete tournament"
++                pendingLabel="Deleting…"
++                cancelLabel="Keep tournament"
++                onConfirm={onConfirmDelete}
++                onCancel={onCancelDelete}
++                pending={pending}
++                error={drawerError}
++              />
++            ) : (
++              <>
++                {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
++                <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
++                <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
++              </>
++            )}
+           </div>
+         )}
+     </DrawerShell>
+diff --git a/components/TournamentContact.js b/components/TournamentContact.js
+index e6434a9..d4df4f7 100644
+--- a/components/TournamentContact.js
++++ b/components/TournamentContact.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition } from "react";
++import { useMutation } from "./useMutation";
+ import { SearchPicker } from "./SearchPicker";
+ import { ContactForm } from "./ContactForm";
+ import { setTournamentContact, saveContact } from "../lib/actions/contacts";
+@@ -16,7 +17,7 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
+   const [picking, setPicking] = useState(false);
+   const [creating, setCreating] = useState(null); // prefill name | null
+   const [error, setError] = useState(null);
+-  const [pending, startTransition] = useTransition();
++  const { run: runMutation, pending: pending } = useMutation();
+ 
+   const contact = contacts.find((c) => c.id === tournament.contact_id) ?? null;
+ 
+@@ -31,9 +32,9 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
+     const fd = new FormData();
+     fd.set("tournament_id", tournament.id);
+     if (contactId) fd.set("contact_id", contactId);
+-    startTransition(async () => {
+-      const result = await setTournamentContact(fd);
+-      if (!result?.ok) setError(result?.error ?? "Something went wrong.");
++    // Stays open after the change, so the new contact has to appear.
++    runMutation(setTournamentContact, fd, {
++      onError: (message) => setError(message),
+     });
+   }
+ 
+@@ -121,15 +122,14 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
+           onCancel={() => setCreating(null)}
+           onSubmit={(fd) => {
+             setError(null);
+-            startTransition(async () => {
+-              const result = await saveContact(fd);
+-              if (result?.ok && result.id) {
+-                setCreating(null);
+-                // Create-and-link: the new contact is attached immediately.
+-                link(result.id);
+-              } else {
+-                setError(result?.error ?? "Something went wrong.");
+-              }
++            // Create-and-link. The link() call below refreshes, so the new
++            // contact appears without a second refresh here.
++            runMutation(saveContact, fd, {
++              refresh: false,
++              onSuccess: (result) => {
++                if (result?.id) { setCreating(null); link(result.id); }
++              },
++              onError: (message) => setError(message),
+             });
+           }}
+         />
+diff --git a/components/useMutation.js b/components/useMutation.js
+new file mode 100644
+index 0000000..d2946fa
+--- /dev/null
++++ b/components/useMutation.js
+@@ -0,0 +1,79 @@
++"use client";
++
++import { useCallback, useState, useTransition } from "react";
++import { useRouter } from "next/navigation";
++
++/**
++ * Running a mutation from the client.
++ *
++ * THE RULE THIS EXISTS TO ENFORCE: no action may appear to do nothing.
++ *
++ * Two failures put this here, both found on a phone:
++ *
++ *   Make inactive SUCCEEDED and the drawer went on showing "Active". The
++ *   server revalidated its cache, but nothing told the open drawer to take
++ *   the new data, so the coach saw no change and assumed the tap missed.
++ *
++ *   Remove from roster FAILED and said nothing, because the error rendered at
++ *   the top of the Team page — underneath a fixed, full-height drawer. On a
++ *   phone that message is not merely easy to miss; it cannot be seen at all.
++ *
++ * So this owns the MECHANICS every mutation shares — pending state, awaiting
++ * the action, and refreshing the route so an open drawer receives persisted
++ * state — and deliberately owns nothing else. It does not decide where an
++ * error appears, whether success closes a drawer, or what a confirmation
++ * says. Those differ per action and belong to the caller.
++ *
++ * The error is RETURNED as well as stored, so a caller rendering feedback in
++ * its own surface does not have to read shared state to know what happened.
++ */
++export function useMutation({ onError } = {}) {
++  const [pending, startTransition] = useTransition();
++  const [error, setError] = useState(null);
++  const router = useRouter();
++
++  /**
++   * @param action   a server action taking FormData
++   * @param fd       the FormData
++   * @param opts.onSuccess  runs after a successful action, before the refresh
++   * @param opts.refresh    default true. Set false only when the caller
++   *                        navigates away, where a refresh is wasted work.
++   */
++  const run = useCallback((action, fd, { onSuccess, onError: onErrorLocal, refresh = true } = {}) => {
++    // A per-call handler wins over the hook-level one: some callers classify
++    // the failure (an empty-contact refusal is a choice, not an error) and
++    // others just want it rendered.
++    const report = (message, result) =>
++      (onErrorLocal ?? onError)?.(message, result);
++    setError(null);
++    startTransition(async () => {
++      let result;
++      try {
++        result = await action(fd);
++      } catch (e) {
++        // A thrown action still has to say something. Silence here is the
++        // exact failure this module exists to prevent.
++        const message = e?.message ?? "Something went wrong. Try again.";
++        setError(message);
++        report(message, null);
++        return;
++      }
++
++      if (result?.ok) {
++        onSuccess?.(result);
++        // revalidatePath() marks the SERVER cache stale. This is what makes an
++        // already-open drawer re-render with what was actually persisted.
++        // Without it a successful change is invisible until the coach closes
++        // and reopens, which reads as the action having failed.
++        if (refresh) router.refresh();
++        return;
++      }
++
++      const message = result?.error ?? "Something went wrong. Try again.";
++      setError(message);
++      report(message, result);
++    });
++  }, [router, onError]);
++
++  return { run, pending, error, setError, clearError: () => setError(null) };
++}
+diff --git a/lib/useActionFeedback.js b/lib/useActionFeedback.js
+index 62c387b..e7daf66 100644
+--- a/lib/useActionFeedback.js
++++ b/lib/useActionFeedback.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition, useCallback, useRef, useEffect } from "react";
++import { useRouter } from "next/navigation";
+ 
+ /**
+  * The shared shape every component already used, plus a transient success
+@@ -21,6 +22,7 @@ export function useActionFeedback({ successMs = 3000 } = {}) {
+   const [notice, setNotice] = useState(null);
+   const [pending, startTransition] = useTransition();
+   const timer = useRef(null);
++  const router = useRouter();
+ 
+   useEffect(() => () => clearTimeout(timer.current), []);
+ 
+@@ -51,11 +53,16 @@ export function useActionFeedback({ successMs = 3000 } = {}) {
+       if (result?.ok) {
+         onDone?.(result);
+         showNotice(typeof success === "function" ? success(result) : success);
++        // The success notice says a change happened; this makes the change
++        // actually appear. Without it a drawer left open kept showing
++        // pre-mutation values while announcing success — the same staleness
++        // that made Make inactive look like it had failed.
++        router.refresh();
+       } else {
+         setError(result?.error ?? "Something went wrong. Try again.");
+       }
+     });
+-  }, [showNotice]);
++  }, [showNotice, router]);
+ 
+   return { error, setError, notice, setNotice, pending, run };
+ }
+diff --git a/scripts/check-mutation-reliability.js b/scripts/check-mutation-reliability.js
+new file mode 100644
+index 0000000..912b0f9
+--- /dev/null
++++ b/scripts/check-mutation-reliability.js
+@@ -0,0 +1,237 @@
++/**
++ * Mutation reliability across the High-risk surfaces.
++ *
++ * THE RULE: no action may appear to do nothing.
++ *
++ * Two production failures put this here. Make inactive SUCCEEDED and the
++ * drawer went on showing "Active", because nothing told the open surface to
++ * take the persisted state. Remove from roster FAILED silently, because
++ * window.confirm() returned false under mobile dialog suppression and the
++ * error rendered at page level, underneath a fixed full-height drawer.
++ *
++ * Run:  node scripts/check-mutation-reliability.js
++ */
++const fs = require("fs");
++
++let ran = 0;
++const failures = [];
++function ok(label, cond) {
++  ran += 1;
++  if (cond === true) { console.log(`  ok    ${label}`); }
++  else { failures.push(label); console.log(`  FAIL  ${label}`); }
++}
++const section = (t) => console.log(`\n${t}\n`);
++
++const read = (f) => fs.readFileSync(f, "utf8");
++/** Comments describe the fix; matching them would report prose as behaviour. */
++const code = (f) => read(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++
++const HIGH_RISK = {
++  Finance: "components/FinanceClient.js",
++  Facilities: "components/FacilitiesClient.js",
++  Settings: "components/SettingsClient.js",
++  Tournaments: "components/TournamentClient.js",
++};
++
++/* ---- The shared primitives -------------------------------------------- */
++section("Shared primitives");
++
++{
++  const mut = read("components/useMutation.js");
++  const conf = read("components/ConfirmAction.js");
++  const legacy = read("lib/useActionFeedback.js");
++
++  ok("useMutation refreshes only on success",
++    /if \(result\?\.ok\)/.test(mut) && /router\.refresh\(\)/.test(mut));
++  ok("...and a caller can opt out where a refresh is wasted",
++    /refresh = true/.test(mut));
++  ok("...and errors reach the caller, not a shared surface",
++    /onError: onErrorLocal/.test(mut));
++
++  ok("ConfirmAction disables both controls while pending",
++    (conf.match(/disabled=\{pending\}/g) || []).length === 2);
++  ok("...shows progress on the destructive control", /\{pending \? pendingLabel/.test(conf));
++  ok("...and renders its own error, not a container's", /confirm-inline-error/.test(conf));
++  ok("useConfirm asks one question at a time", /const \[asking, setAsking\]/.test(conf));
++
++  // Finance/Contacts/Lineup already had a runner WITH success notices. It was
++  // missing synchronisation, so the notice was added to, not replaced.
++  ok("the pre-existing feedback runner now synchronises too",
++    /router\.refresh\(\)/.test(legacy));
++  ok("...and keeps its success notice", /showNotice\(/.test(legacy));
++}
++
++/* ---- No native dialog gates a High-risk mutation ----------------------- */
++section("Destructive actions are confirmed in-app");
++
++for (const [surface, file] of Object.entries(HIGH_RISK)) {
++  ok(`${surface}: no window.confirm gate`, !/\bconfirm\(/.test(code(file)));
++  ok(`${surface}: uses the shared confirmation`, /ConfirmAction/.test(read(file)));
++  ok(`${surface}: cancel is wired to a no-op cancel`, /onCancel=/.test(read(file)));
++}
++
++// Cancel must not mutate: the cancel handler only clears the question.
++ok("cancelling never calls an action",
++  /const cancel = useCallback\(\(\) => setAsking\(null\), \[\]\);/
++    .test(read("components/ConfirmAction.js")));
++
++// The action is reachable only from the confirm control, so one tap = one run.
++for (const [surface, file] of Object.entries(HIGH_RISK)) {
++  const src = read(file);
++  ok(`${surface}: the first tap only asks`, /\.ask\(/.test(src));
++  ok(`${surface}: the mutation is behind onConfirm`, /onConfirm=/.test(src));
++}
++
++/* ---- Errors appear in the surface that acted --------------------------- */
++section("Failure is visible where it happened");
++
++ok("Tournaments: drawer errors go to the drawer",
++  /drawerError/.test(read(HIGH_RISK.Tournaments)));
++ok("Facilities: drawer errors go to the drawer",
++  /if \(detail\) setDrawerError\(message\); else setError\(message\);/
++    .test(read(HIGH_RISK.Facilities)));
++ok("Finance: the transaction drawer carries its own error",
++  /drawerError = null/.test(read(HIGH_RISK.Finance)));
++ok("Finance: the payment drawer carries its own error",
++  /confirmingEntry = null/.test(read(HIGH_RISK.Finance)));
++ok("Settings acts on the page, so a page-level error is correct there",
++  /onError: \(message\) => setError\(message\)/.test(read(HIGH_RISK.Settings)));
++
++/* ---- Success synchronises --------------------------------------------- */
++section("Success is visible");
++
++ok("Tournaments: a status change keeps the drawer open and refreshes",
++  /runMutation\(setTournamentStatus/.test(read(HIGH_RISK.Tournaments)));
++ok("Tournaments: a delete closes the drawer",
++  /confirm\.cancel\(\); closeDetail\(\);/.test(read(HIGH_RISK.Tournaments)));
++ok("Facilities: a delete closes the drawer",
++  /confirm\.cancel\(\); closeDetail\(\);/.test(read(HIGH_RISK.Facilities)));
++ok("Finance: a deleted transaction closes its drawer",
++  /confirmDelete\.cancel\(\); setDetailTxn\(null\);/.test(read(HIGH_RISK.Finance)));
++ok("Finance: a removed payment entry keeps the drawer and refreshes",
++  /run\(deletePaymentEntry, fd, \(\) => confirmDelete\.cancel\(\)\)/.test(read(HIGH_RISK.Finance)));
++
++/* ---- Finance protections untouched ------------------------------------ */
++section("Finance protections are unchanged");
++
++{
++  const fin = read(HIGH_RISK.Finance);
++  ok("the delete actions themselves were not rewritten",
++    /run\(deleteBudgetItem, fd/.test(fin)
++    && /run\(deleteTransaction, fd/.test(fin)
++    && /run\(deletePaymentEntry, fd/.test(fin));
++  ok("no server action was swapped for a different one",
++    !/deleteBudgetItemUnsafe|forceDelete|bypass/.test(fin));
++  ok("confirmation did not replace a server check",
++    !/skipCheck|noConfirm|force: true/.test(fin));
++}
++
++/* ---- Duplicate runners --------------------------------------------- */
++section("No new parallel runner");
++
++{
++  // A component defining its own `const result = await action(...)` inside a
++  // transition is the pattern being retired.
++  const rolled = Object.values(HIGH_RISK).filter((f) =>
++    /startTransition\(async \(\) => \{\s*const result = await action/.test(code(f)));
++  ok("no High-risk surface still hand-rolls the runner", rolled.length === 0);
++  ok("exactly two shared runners exist, by design",
++    fs.existsSync("components/useMutation.js") && fs.existsSync("lib/useActionFeedback.js"));
++}
++
++
++/* ---- Medium and Low surfaces ------------------------------------------ */
++section("Files, Games, Contacts, Branding");
++
++{
++  const MORE = {
++    Files: "components/FilesClient.js",
++    Games: "components/GamesSection.js",
++    Contacts: "components/ContactsClient.js",
++    Branding: "components/TeamBranding.js",
++  };
++  for (const [surface, file] of Object.entries(MORE)) {
++    ok(`${surface}: no window.confirm gate`, !/\bconfirm\(/.test(code(file)));
++    ok(`${surface}: uses the shared confirmation`, /ConfirmAction/.test(read(file)));
++    ok(`${surface}: the first tap only asks`, /\.ask\(/.test(read(file)));
++    ok(`${surface}: the mutation sits behind onConfirm`, /onConfirm=/.test(read(file)));
++  }
++
++  ok("Files: a deleted document closes its drawer",
++    /confirmDelete\.cancel\(\); closeDetail\(\);/.test(read(MORE.Files)));
++  ok("Files: the drawer carries its own error",
++    /drawerError = null/.test(read(MORE.Files)));
++  ok("Games: the score-loss warning is in-app too",
++    /Moving this game to a future date will remove the recorded/.test(read("components/GamesSection.js")));
++  ok("Games: a deleted game clears the question and reloads the list",
++    /confirmDelete\.cancel\(\); onChanged\?\.\(\);/.test(read(MORE.Games)));
++  ok("Contacts: the row shows its own error",
++    /deleteError = null/.test(read(MORE.Contacts)));
++  ok("Branding: removing the logo resets in place",
++    /confirmRemove\.cancel\(\); reset\(\);/.test(read(MORE.Branding)));
++}
++
++/* ---- Sections that stay open must synchronise -------------------------- */
++section("Open surfaces synchronise");
++
++{
++  for (const [name, file] of Object.entries({
++    TournamentContact: "components/TournamentContact.js",
++    PlayerRecruiting: "components/PlayerRecruiting.js",
++    EventRoster: "components/EventRoster.js",
++    ContactsDirectory: "components/ContactsDirectory.js",
++  })) {
++    ok(`${name}: uses the shared runner`, /useMutation\(\)/.test(read(file)));
++    ok(`${name}: no hand-rolled transition remains`,
++      !/startTransition\(/.test(code(file)));
++  }
++}
++
++/* ---- Deliberately unchanged ------------------------------------------- */
++section("Runners left alone, on purpose");
++
++{
++  // Each of these already ends in a state change the user cannot miss, so a
++  // refresh would be redundant work rather than a fix.
++  //   QuickAddFacility  hands the created facility to its parent directly
++  //   SeasonPicker      navigates
++  //   RelatedLink       router.push
++  //   SeasonBanner      server action redirects
++  //   WelcomeForm       redirects after creating the organization
++  //   AcceptInvite      redirects
++  //   GettingStarted    local dismissal only, nothing persisted to re-read
++  //   FacilityImport    ends on its own result screen
++  ok("QuickAddFacility passes the new record to its caller",
++    /onFacilityReady\?\.\(result\.facility\)/.test(read("components/QuickAddFacility.js")));
++  ok("RelatedLink navigates", /router\.push\(/.test(read("components/RelatedLink.js")));
++  ok("GettingStarted only dismisses locally",
++    /setHidden\(true\)/.test(read("components/GettingStarted.js")));
++}
++
++
++section("Files on a phone");
++
++{
++  const ui3 = read("components/FilesClient.js");
++  const css3 = read("app/globals.css");
++
++  ok("a phone gets its own list, not a reflowed table",
++    /className="files-list"/.test(ui3));
++  ok("...built from the same rows", /visible\.map\(\(d\) => \{[\s\S]{0,200}?files-card/.test(ui3));
++  ok("...opening the same drawer", /className="files-card"[\s\S]{0,120}?openDetail\(d\)/.test(ui3));
++  ok("the table is hidden on a phone, not squeezed",
++    /@media \(max-width: 720px\)[\s\S]*?\.files-table \{ display: none; \}/.test(css3));
++  ok("...and the list is hidden on desktop", /\.files-list \{ display: none; \}/.test(css3));
++  ok("tabs scroll themselves rather than widening the page",
++    /\.files-views \{[^}]*overflow-x: auto/.test(css3));
++  ok("...containing the overscroll", /overscroll-behavior-x: contain/.test(css3));
++  ok("search and filter stack and are tappable",
++    /\.files-views \+ \.toolbar \{ flex-direction: column/.test(css3));
++  ok("a long filename clamps instead of widening the card",
++    /\.files-card-name \{[^}]*-webkit-line-clamp: 2/.test(css3));
++  ok("...and breaks rather than overflowing", /\.files-card-name \{[^}]*overflow-wrap: anywhere/.test(css3));
++  ok("the card meets the touch target", /\.files-card \{[^}]*min-height: 44px/.test(css3));
++}
++
++console.log(`\n${ran} assertions, ${failures.length} failed\n`);
++if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
+diff --git a/scripts/check-player-lifecycle.js b/scripts/check-player-lifecycle.js
+index 468dab2..3a6d53c 100644
+--- a/scripts/check-player-lifecycle.js
++++ b/scripts/check-player-lifecycle.js
+@@ -241,6 +241,73 @@ const outcome = (h) => (hasMeaningfulHistory(h) ? "inactive" : "removed");
+   assertEq("pre-added AND played -> preserved",
+     outcome({ lineupSlots: 1 }), "inactive");
+ 
+-  console.log(`\n${ran} assertions, ${failures} failed`);
++  
++/* ---- Mobile mutation reliability ----------------------------------------
++   Two failures, one rule: no action may appear to do nothing.
++
++   Make inactive SUCCEEDED and the drawer kept showing "Active" — the server
++   revalidated, but nothing told the open drawer to take the new data, so the
++   coach saw no change and assumed the tap missed.
++
++   Remove from roster FAILED silently, because window.confirm() returned false
++   under mobile dialog suppression AND the error rendered at the top of the
++   Team page, underneath a fixed full-height drawer. */
++
++console.log("\nMobile mutation reliability");
++
++{
++  const fsx = require("fs");
++  const ui   = fsx.readFileSync("components/RosterClient.js", "utf8");
++  const hook = fsx.readFileSync("components/useMutation.js", "utf8");
++  const css  = fsx.readFileSync("app/globals.css", "utf8");
++  const code = ui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++
++  // No native dialog gates any Team mutation.
++  assertEq("no window.confirm gates a roster mutation", /\bconfirm\(/.test(code), false);
++  assertEq("removal asks inside the drawer", /className="drawer-confirm"/.test(ui), true);
++  assertEq("...naming the player and the season",
++    /Remove <strong>\{displayName\}<\/strong> from the \{seasonName\} roster\?/.test(ui), true);
++  assertEq("...with a cancel that changes nothing",
++    /onClick=\{onCancelRemove\}/.test(ui), true);
++  assertEq("...and a destructive confirm", /onClick=\{onConfirmRemove\}/.test(ui), true);
++  assertEq("the first tap only asks", /onRemove=\{\(\) => askRemove\(detail\)\}/.test(ui), true);
++
++  // Double submission.
++  assertEq("confirm button disables while pending",
++    /onClick=\{onConfirmRemove\} disabled=\{pending\}/.test(ui), true);
++  assertEq("...and shows progress", /Removing…/.test(ui), true);
++  assertEq("the toggle shows progress too", /pending \? "Saving…"/.test(ui), true);
++
++  // Feedback where the action happened.
++  assertEq("a drawer action's error renders in the drawer",
++    /className="drawer-foot-error"/.test(ui), true);
++  assertEq("...routed there only when a drawer is open",
++    /if \(detail\) setDrawerError\(message\);/.test(ui), true);
++  assertEq("the page alert still exists for page actions",
++    /\{error && <div className="alert alert-error">/.test(ui), true);
++  assertEq("drawer error clears when the drawer closes",
++    /if \(!detail\) \{ setDrawerError\(null\); setConfirmRemove\(null\); \}/.test(ui), true);
++
++  // Success synchronisation: the toggle's own label proves fresh state.
++  assertEq("both callers share one runner", /useMutation/.test(ui), true);
++  assertEq("the runner refreshes the route on success",
++    /router\.refresh\(\)/.test(hook), true);
++  assertEq("...only on success", /if \(result\?\.ok\)/.test(hook), true);
++  assertEq("the local duplicate runner is gone",
++    /startTransition\(async \(\) => \{\s*const result = await action/.test(ui), false);
++  assertEq("active state is read from the refreshed row, not local state",
++    /row\.is_active === false \? "Make active" : "Make inactive"/.test(ui), true);
++
++  // Removing the record the drawer shows: closing IS the success signal.
++  assertEq("a confirmed removal closes the drawer",
++    /setConfirmRemove\(null\); closeDetail\(\);/.test(ui), true);
++
++  assertEq(".drawer-foot-error is styled", /\.drawer-foot-error \{/.test(css), true);
++  assertEq(".drawer-confirm is styled", /\.drawer-confirm \{/.test(css), true);
++  assertEq("confirmation controls meet the mobile target",
++    /\.drawer-confirm \.btn \{ min-height: 44px; \}/.test(css), true);
++}
++
++console.log(`\n${ran} assertions, ${failures} failed`);
+   process.exit(failures ? 1 : 0);
+ })();
+-- 
+2.43.0
+

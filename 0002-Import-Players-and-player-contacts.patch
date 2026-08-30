@@ -1,0 +1,1471 @@
+From 9311a20753e1dae6e198959502f3109ca42bb1a2 Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Sun, 30 Aug 2026 18:56:26 +0000
+Subject: [PATCH 2/5] Import Players and player contacts
+
+Import
+  Name is required and cannot be cleared; other columns stay optional.
+  Matching candidates are now organization-wide on both sides. The preview was
+  given the season roster while the server evaluated the whole organization, so
+  a player in the organization but not on this roster was invisible to the
+  browser and visible to the server, and the coach saw Create for a row the
+  server would match. One shared query now feeds both.
+  Runs record which columns were mapped and what each row decided.
+
+Contacts
+  A guardian holding only an email could not be removed: the confirmation was
+  keyed on a possibly-null id, so 'null === null' rendered it unprompted, and
+  confirming sent the string "null" to a uuid column.
+  Legacy parent_* no longer resurrects a deleted guardian. The backfill covered
+  every eligible player, so a player with no contacts has none by choice.
+  Manual editing clears deliberately; import keeps blank-no-erase, because an
+  import cannot see what it would overwrite and a coach can.
+---
+ components/PlayerContacts.js        | 164 ++++++++++--
+ components/PlayerIntake.js          |  37 ++-
+ lib/actions/intake.js               |  52 +++-
+ lib/actions/player-contacts.js      |  32 ++-
+ lib/intake/map-headers.js           |   6 +
+ lib/player-contact-rules.js         |  29 ++-
+ lib/queries/match-candidates.js     |  40 +++
+ scripts/check-c3c-contact-writes.js |  24 +-
+ scripts/check-intake.js             | 372 +++++++++++++++++++++++++++-
+ scripts/check-player-contacts.js    | 291 ++++++++++++++++++++--
+ scripts/check-structured-names.js   |  17 +-
+ 11 files changed, 986 insertions(+), 78 deletions(-)
+ create mode 100644 lib/queries/match-candidates.js
+
+diff --git a/components/PlayerContacts.js b/components/PlayerContacts.js
+index 8e703aa..4e23234 100644
+--- a/components/PlayerContacts.js
++++ b/components/PlayerContacts.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState, useTransition } from "react";
++import { useMutation } from "./useMutation";
+ import {
+   addPlayerContact,
+   updatePlayerContact,
+@@ -33,20 +34,48 @@ function contactHeading(c) {
+ 
+ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: parentPending,
+                                  player = {}, isPlayer = true }) {
+-  const [busy, startTransition] = useTransition();
++  const { run: runMutation, pending: busy } = useMutation();
+   const [editing, setEditing] = useState(null);   // contact id, "legacy", or "new"
+   const [form, setForm] = useState(BLANK);
+   const [error, setError] = useState(null);
++  // The contact the current error belongs to, so it can be shown BESIDE the
++  // form that failed. A panel-level message sat above the card and, on a
++  // phone, off the top of the screen — the coach saw Save do nothing and had
++  // no way to know why.
++  const [errorFor, setErrorFor] = useState(null);
++  // Set when the edit would leave the contact with nothing on it. Removal
++  // stays an explicit act, so this offers the action rather than taking it.
++  const [emptyOffer, setEmptyOffer] = useState(null);
++  // Which contact is awaiting an in-page Remove confirmation.
++  const [confirmRemove, setConfirmRemove] = useState(null);
+ 
+   const pending = busy || parentPending;
+   const contacts = contactInfo?.contacts ?? [];
+ 
+-  function run(action, fd) {
++  /**
++   * The shared runner owns pending, awaiting the action and refreshing the
++   * route so THIS open drawer shows what was persisted. What stays here is
++   * what differs per action: which form an error belongs to, and the
++   * empty-contact refusal, which is a choice to offer rather than an error to
++   * report.
++   */
++  function run(action, fd, { forContact = null, onDone = null } = {}) {
+     setError(null);
+-    startTransition(async () => {
+-      const res = await action(fd);
+-      if (res?.ok) { setEditing(null); setForm(BLANK); }
+-      else setError(res?.error ?? "That didn't save.");
++    setErrorFor(null);
++    setEmptyOffer(null);
++    runMutation(action, fd, {
++      onSuccess: () => {
++        setEditing(null); setForm(BLANK); setEmptyOffer(null);
++        onDone?.();
++      },
++      onError: (message, result) => {
++        if (result?.code === "would_be_empty" && forContact) {
++          setEmptyOffer(forContact);
++          return;
++        }
++        setError(message ?? "That didn't save.");
++        setErrorFor(forContact);
++      },
+     });
+   }
+ 
+@@ -66,20 +95,65 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+     fd.set("player_id", playerId);
+     for (const [k, v] of Object.entries(form)) fd.set(k, v);
+ 
+-    if (editing === "new") return run(addPlayerContact, fd);
++    if (editing === "new") return run(addPlayerContact, fd, { forContact: "new" });
+     // A legacy contact has no row yet. The action rebuilds it from the whole
+     // resolved contact plus these edits, so changing one field cannot drop the
+     // others.
+     if (editing !== "legacy") fd.set("contact_id", editing);
+-    run(updatePlayerContact, fd);
++    run(updatePlayerContact, fd, { forContact: editing });
+   }
+ 
+-  function remove(c) {
+-    if (!confirm(`Remove ${contactHeading(c)} from this player's contacts?`)) return;
++  /**
++   * REMOVAL IS CONFIRMED IN THE PAGE, not by window.confirm().
++   *
++   * This used to be `if (!confirm(...)) return;`. A native dialog is the one
++   * step in this flow with no visible failure mode: when a mobile browser
++   * suppresses it — pop-up blocking, repeated-dialog suppression, an in-app
++   * webview — confirm() returns false, the handler returns early, and NOTHING
++   * happens. No request, no spinner, no error. The coach taps Remove and the
++   * card sits there.
++   *
++   * An inline confirmation cannot be suppressed, is visible where the thumb
++   * already is, and states what is about to happen.
++   */
++  /**
++   * A LEGACY CONTACT HAS NO ROW TO DELETE.
++   *
++   * resolveContacts() returns `id: null` for a contact reconstructed from the
++   * legacy parent_* columns. Keying the confirmation on `c.id` meant the
++   * comparison `confirmRemove === c.id` was `null === null` — TRUE before
++   * anything was tapped — so every legacy guardian rendered its removal
++   * confirmation unprompted. Confirming it then sent `contact_id: null`,
++   * which FormData turns into the STRING "null", and Postgres answered
++   * `invalid input syntax for type uuid: "null"`.
++   *
++   * The key is now the same non-null slot the editor uses. parent_* columns
++   * are read-only fallbacks that nothing writes, so a legacy contact is not
++   * deletable at all — it stops appearing once real contacts exist, and
++   * editing one promotes it by INSERTING a real row.
++   */
++  const slotOf = (c) => (c.source === "legacy" ? "legacy" : c.id);
++
++  function askRemove(c) {
++    setError(null);
++    setErrorFor(null);
++    if (c.source === "legacy" || !c.id) {
++      // Refused explicitly rather than sent to a DELETE that cannot match.
++      setError("This contact came from older parent fields and has no record to remove. Edit it to save it as a contact first.");
++      setErrorFor(slotOf(c));
++      return;
++    }
++    setConfirmRemove(slotOf(c));
++  }
++
++  function doRemove(c) {
++    // Defensive: nothing should reach here without a real row, and a missing
++    // id must never be stringified into the request.
++    if (!c.id) return;
+     const fd = new FormData();
+     fd.set("player_id", playerId);
+     fd.set("contact_id", c.id);
+-    run(removePlayerContact, fd);
++    run(removePlayerContact, fd, { forContact: c.id, onDone: () => setConfirmRemove(null) });
+   }
+ 
+   function makePrimary(c) {
+@@ -102,7 +176,9 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+         )}
+       </div>
+ 
+-      {error && <div className="alert alert-error">{error}</div>}
++      {/* Panel level keeps the errors that belong to no form — a failed
++          Remove or Make primary. An edit's error is shown on the edit. */}
++      {error && errorFor === null && <div className="alert alert-error">{error}</div>}
+ 
+       {/* ONE section answers one question: how do I reach this family?
+           The athlete's own details and her guardians' used to sit under two
+@@ -155,8 +231,17 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+         const isEditing = editing === (c.source === "legacy" ? "legacy" : c.id);
+ 
+         if (isEditing) {
+-          return <Editor key={key} form={form} setForm={setForm} onSave={save}
+-                         onCancel={() => { setEditing(null); setError(null); }} pending={pending} />;
++          const slot = slotOf(c);
++          return (
++            <Editor key={key} form={form} setForm={setForm} onSave={save}
++                    onCancel={() => { setEditing(null); setError(null);
++                                      setErrorFor(null); setEmptyOffer(null); }}
++                    pending={pending}
++                    error={errorFor === slot ? error : null}
++                    emptyOffer={emptyOffer === slot}
++                    canRemove={c.source !== "legacy"}
++                    onRemove={() => doRemove(c)} />
++          );
+         }
+ 
+         return (
+@@ -186,7 +271,25 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+               )}
+             </dl>
+ 
+-            {canWrite && editing === null && (
++            {/* The confirmation replaces the action row in place, so the
++                decision sits exactly where the thumb already is. */}
++            {canWrite && editing === null && confirmRemove === slotOf(c) && c.id && (
++              <div className="pc-confirm" role="alert">
++                <p>Remove {contactHeading(c)} from this player&rsquo;s contacts?</p>
++                <div className="pc-actions">
++                  <button type="button" className="btn btn-secondary btn-sm"
++                          onClick={() => setConfirmRemove(null)} disabled={pending}>
++                    Keep
++                  </button>
++                  <button type="button" className="btn btn-danger-ghost btn-sm"
++                          onClick={() => doRemove(c)} disabled={pending}>
++                    {pending ? "Removing…" : "Remove contact"}
++                  </button>
++                </div>
++              </div>
++            )}
++
++            {canWrite && editing === null && confirmRemove !== slotOf(c) && (
+               <div className="pc-actions">
+                 <button type="button" className="btn btn-ghost btn-sm"
+                         onClick={() => beginEdit(c)} disabled={pending}>Edit</button>
+@@ -197,7 +300,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+                 )}
+                 {c.source !== "legacy" && (
+                   <button type="button" className="btn btn-danger-ghost btn-sm"
+-                          onClick={() => remove(c)} disabled={pending}>Remove</button>
++                          onClick={() => askRemove(c)} disabled={pending}>Remove</button>
+                 )}
+               </div>
+             )}
+@@ -207,7 +310,12 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+ 
+       {editing === "new" && (
+         <Editor form={form} setForm={setForm} onSave={save}
+-                onCancel={() => { setEditing(null); setError(null); }} pending={pending} />
++                onCancel={() => { setEditing(null); setError(null);
++                                  setErrorFor(null); setEmptyOffer(null); }}
++                pending={pending}
++                error={errorFor === "new" ? error : null}
++                emptyOffer={emptyOffer === "new"}
++                canRemove={false} />
+       )}
+     </section>
+   );
+@@ -221,7 +329,8 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
+  * refused by the server rather than treated as a delete — deleting is the
+  * Remove button, never a side effect of an empty form.
+  */
+-function Editor({ form, setForm, onSave, onCancel, pending }) {
++function Editor({ form, setForm, onSave, onCancel, pending,
++                  error = null, emptyOffer = false, canRemove = false, onRemove }) {
+   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+ 
+   return (
+@@ -247,6 +356,25 @@ function Editor({ form, setForm, onSave, onCancel, pending }) {
+           <input id="c_phone" value={form.phone} onChange={set("phone")} />
+         </div>
+       </div>
++      {/* Beside the fields that failed, not at the top of a panel the coach
++          may have scrolled past. */}
++      {error && <p className="pc-form-error" role="alert">{error}</p>}
++
++      {/* Clearing the last detail is a real intention, but an empty contact is
++          not a thing worth storing. So the choice is offered here, with the
++          action attached — never taken automatically. */}
++      {emptyOffer && (
++        <div className="pc-empty-offer" role="alert">
++          <p>This would leave the contact empty. Remove this contact instead?</p>
++          {canRemove && (
++            <button type="button" className="btn btn-danger-ghost btn-sm"
++                    onClick={onRemove} disabled={pending}>
++              Remove this contact
++            </button>
++          )}
++        </div>
++      )}
++
+       <div className="pc-actions">
+         <button type="button" className="btn btn-secondary btn-sm" onClick={onCancel} disabled={pending}>
+           Cancel
+diff --git a/components/PlayerIntake.js b/components/PlayerIntake.js
+index 2261c62..d2ee489 100644
+--- a/components/PlayerIntake.js
++++ b/components/PlayerIntake.js
+@@ -100,7 +100,9 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
+     setHasHeaders(headersDetected);
+     setOverrides({});
+     setGrid({ header, body, raw: result.grid, ...sug });
+-    setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled).map(keyOf)));
++    // A required column is always included — belt as well as braces, since
++    // the UI no longer offers a way to exclude it.
++    setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled || m.required).map(keyOf)));
+     setStep("map");
+   }
+ 
+@@ -269,6 +271,17 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
+         rows: analysed.map((a) => ({ ...a.row, contacts: a.row.contacts ?? [] })),
+         decisions,
+         identity,
++        // Provenance: which of the coach's columns were used, and which were
++        // left out. Headers only.
++        mappings: effective
++          .filter((m) => enabled.has(keyOf(m)))
++          .map((m) => ({ header: m.header, key: m.key, index: m.index ?? null })),
++        ignored: [
++          ...(grid?.ignored ?? []).map((x) => x.header),
++          ...(grid?.header ?? []).filter(
++            (h) => !effective.some((m) => m.header === h && enabled.has(keyOf(m)))
++          ),
++        ],
+         runKey,
+       });
+       if (res?.ok) setOutcome(res);
+@@ -344,7 +357,9 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
+             setHasHeaders(next);
+             setOverrides({});
+             setGrid({ header, body, raw: grid.raw, ...sug });
+-            setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled).map(keyOf)));
++            // A required column is always included — belt as well as braces, since
++    // the UI no longer offers a way to exclude it.
++    setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled || m.required).map(keyOf)));
+           }}
+           keyOf={keyOf} onBack={() => { setStep("upload"); setGrid(null); setFile(null); }}
+           onNext={() => setStep("match")}
+@@ -424,6 +439,11 @@ function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setO
+   };
+ 
+   const setField = (header, key) => {
++    // The same protection as the Include control: a required destination
++    // cannot be cleared, or the row loses the value that identifies it.
++    const current = effective.find((x) => x.header === header);
++    if (current?.required && !key) return;
++
+     setOverrides({ ...overrides, [header]: key });
+     if (key) {
+       const field = BY_KEY.get(key);
+@@ -509,7 +529,18 @@ function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setO
+                   {m?.confidence === "probable" && <span className="pi-badge">Best guess</span>}
+                 </td>
+                 <td>
+-                  {key ? (
++                  {/* A REQUIRED FIELD IS NOT A CHECKBOX.
++                      Player name identifies the row; without it every row is
++                      invalid. Offering it as a toggle let a coach put the
++                      import into a state the next step would reject — easy to
++                      do by accident on a phone, and confusing to recover from,
++                      because the error named the row rather than the tap.
++                      Preventing the action is kinder than reporting it. */}
++                  {m?.required ? (
++                    <span className="pi-required" title="Player name is needed to identify each row">
++                      Required
++                    </span>
++                  ) : key ? (
+                     <label className="pi-switch">
+                       <input type="checkbox" checked={on} onChange={() => m && toggle(m)}
+                              aria-label={`Include ${header}`} />
+diff --git a/lib/actions/intake.js b/lib/actions/intake.js
+index a13cd51..39fe359 100644
+--- a/lib/actions/intake.js
++++ b/lib/actions/intake.js
+@@ -3,7 +3,8 @@
+ import { revalidatePath } from "next/cache";
+ import { createClient } from "../supabase/server";
+ import { requireSeasonContext, canWrite } from "../context";
+-import { BY_KEY, isIgnored, planningPlayerColumns } from "../intake/registry";
++import { BY_KEY, isIgnored } from "../intake/registry";
++import { listMatchCandidates } from "../queries/match-candidates";
+ import { normalizeValue, composeFullName, unreadableValues } from "../intake/normalize";
+ import { matchPlayer, CLASS, toCandidate } from "../intake/match";
+ import { buildRowPlan, assertPlanSafe } from "../intake/plan";
+@@ -118,7 +119,13 @@ function compact(plan, { row, match, identity, playerId }) {
+   return out;
+ }
+ 
+-export async function applyIntake({ rows = [], decisions = {}, identity = {}, runKey = null } = {}) {
++export async function applyIntake({
++  rows = [], decisions = {}, identity = {}, runKey = null,
++  // Provenance only. These describe how the coach mapped their FILE — headers
++  // and destinations — and are recorded, never used to decide anything. The
++  // server re-derives every value it acts on from `rows`.
++  mappings = [], ignored = [],
++} = {}) {
+   try {
+     const ctx = await guard();
+     const supabase = createClient();
+@@ -140,21 +147,20 @@ export async function applyIntake({ rows = [], decisions = {}, identity = {}, ru
+     // player_contacts came back `possible` here while the browser had said
+     // `confident`, and the coach was refused at Import over a decision he was
+     // never shown. RLS applies to the embed independently.
+-    const { data: existing, error: readErr } = await supabase
+-      .from("players")
+-      // DERIVED FROM THE REGISTRY. A hand-written list is what caused this:
+-      // seven columns the planner diffs against were never fetched, so an
+-      // incoming value looked like a fill against nothing rather than a
+-      // conflict against a real stored value. Adding an importable player
+-      // field now extends this automatically.
+-      .select(`${planningPlayerColumns().join(", ")}, player_contacts ( id, email )`);
+-    if (readErr) return { ok: false, error: readErr.message };
++    // The SAME query the preview uses, so the two populations cannot diverge.
++    let existing;
++    try {
++      existing = await listMatchCandidates(supabase);
++    } catch (e) {
++      return { ok: false, error: e.message };
++    }
+ 
+     // Same canonical shape the browser builds, so the two derivations are
+     // given identical evidence rather than merely similar data.
+     const candidates = (existing ?? []).map(toCandidate);
+ 
+     const payload = [];
++    const outcomes = [];
+ 
+     for (let i = 0; i < rows.length; i += 1) {
+       // Re-normalise through the registry's declared type. Values arriving
+@@ -184,6 +190,19 @@ export async function applyIntake({ rows = [], decisions = {}, identity = {}, ru
+       const chosen = identity[i] ?? null;
+       const candidate = chosen === "new" ? null : match.candidate;
+ 
++      // PROVENANCE, decision metadata only. What the matcher concluded,
++      // whether the coach overrode it, and which player was touched — never
++      // the row's values. See the migration for what is deliberately absent.
++      outcomes.push({
++        row: i,
++        classification: match.classification,
++        identity: chosen,                       // null unless the coach chose
++        action: chosen === "new" ? "explicit_create"
++          : candidate ? (chosen ? "coach_matched" : "auto_matched")
++          : "created",
++        player_id: candidate?.id ?? null,
++      });
++
+       const { data: theirContacts } = candidate
+         ? await supabase.from("player_contacts")
+             .select("id, full_name, email, phone, is_primary")
+@@ -237,6 +256,17 @@ export async function applyIntake({ rows = [], decisions = {}, identity = {}, ru
+       p_team_id: ctx.team.id,        // SERVER context, never the request
+       p_season_id: ctx.season.id,
+       p_rows: payload,
++      // Column HEADERS and their destinations — never cell values. The
++      // candidate count records what the match actually ran against, which is
++      // the fact that could not be reconstructed afterwards.
++      p_mapping: {
++        included: (mappings ?? [])
++          .filter((m) => m?.key)
++          .map((m) => ({ header: m.header, key: m.key, index: m.index ?? null })),
++        ignored: (ignored ?? []).map((h) => (typeof h === "string" ? h : h?.header)),
++        candidate_count: candidates.length,
++      },
++      p_outcomes: outcomes,
+     });
+ 
+     if (error) {
+diff --git a/lib/actions/player-contacts.js b/lib/actions/player-contacts.js
+index 3015867..c9b533e 100644
+--- a/lib/actions/player-contacts.js
++++ b/lib/actions/player-contacts.js
+@@ -143,17 +143,24 @@ export async function updatePlayerContact(formData) {
+       const legacy = resolved.contacts.find((c) => c.source === "legacy");
+       if (!legacy) return { ok: false, error: "That contact no longer exists." };
+ 
+-      // Whole resolved contact first, submitted edits second.
+-      const merged = {
+-        full_name: fields.full_name ?? legacy.full_name,
+-        relationship: fields.relationship ?? legacy.relationship,
+-        email: fields.email ?? legacy.email,
+-        phone: fields.phone ?? legacy.phone,
+-        preferred_method: fields.preferred_method ?? legacy.preferred_method,
+-      };
++      // BLANK MEANS CLEAR, exactly as it does for an ordinary contact.
++      //
++      // This used to read `fields.email ?? legacy.email`, so clearing a field
++      // silently restored the old value: the same Edit button behaved
++      // differently depending on where the contact came from, and a coach
++      // correcting a wrong email on a legacy record could not.
++      //
++      // The form submits every field, so what arrives IS the intended state.
++      // Import's blank-no-erase rule is deliberately not reused here — an
++      // import cannot see what it is overwriting and a coach can.
++      const merged = { ...fields };
+ 
+       if (!hasDetail(merged)) {
+-        return { ok: false, error: "A contact needs a name, relationship, email or phone number." };
++        return {
++          ok: false,
++          code: "would_be_empty",
++          error: "This would leave the contact empty.",
++        };
+       }
+ 
+       const { error } = await supabase.from("player_contacts").insert({
+@@ -183,9 +190,14 @@ export async function updatePlayerContact(formData) {
+     // carries contact fields at all.
+     const next = { ...fields };
+     if (!hasDetail(next)) {
++      // A distinct CODE, not just a sentence. The panel used to render this
++      // as a generic error above the card — which on a phone sat off the top
++      // of the screen, so Save appeared to do nothing at all. The caller uses
++      // the code to offer removal beside the form instead.
+       return {
+         ok: false,
+-        error: "A contact needs a name, relationship, email or phone number. Use Remove contact to delete it.",
++        code: "would_be_empty",
++        error: "This would leave the contact empty.",
+       };
+     }
+ 
+diff --git a/lib/intake/map-headers.js b/lib/intake/map-headers.js
+index e29e3e7..966201f 100644
+--- a/lib/intake/map-headers.js
++++ b/lib/intake/map-headers.js
+@@ -112,6 +112,12 @@ export function suggestMappings(headers = []) {
+       index,
+       level: field.level,
+       sensitive: field.sensitive,
++      // The registry has always known full_name is required for intake; the
++      // mapping never carried it, so the UI offered it as an ordinary
++      // checkbox. Unchecking it was permitted and every row then failed one
++      // step later as "row has no player name" — an allowed action punished
++      // afterwards, with a message about rows rather than the control tapped.
++      required: Boolean(field.requiredForIntake),
+       pendingMigration: field.pendingMigration,
+       // A BEST GUESS IS A SUGGESTION, NOT AN AUTHORISATION.
+       //
+diff --git a/lib/player-contact-rules.js b/lib/player-contact-rules.js
+index 5466c18..9a2a810 100644
+--- a/lib/player-contact-rules.js
++++ b/lib/player-contact-rules.js
+@@ -115,20 +115,35 @@ export function resolvePlayerContact(player) {
+   let contacts;
+   let source;
+ 
++  // player_contacts IS THE SOURCE. The legacy parent_* columns are no longer
++  // consulted here at all.
++  //
++  // They used to be a fallback for a player with no rows, which was right
++  // while the migration was outstanding and wrong the moment it completed:
++  // deleting a coach's last guardian dropped the row count to zero, the
++  // resolver fell through, and the same name and email reappeared — this time
++  // as source "legacy" with a null id, so the Remove button disappeared and
++  // the guardian could not be deleted again. A coach removed a contact and
++  // watched it come back undeletable.
++  //
++  // The backfill (20260823201733) selected every player with any parent_*
++  // value and no existing contact, with no exclusion. Production confirms it
++  // ran completely: 25 players were eligible, 23 backfilled rows survive, and
++  // the 2 without contacts are ones whose rows were deliberately deleted
++  // afterwards. No player depends on the fallback to show a real guardian.
++  //
++  // parent_* is left untouched as historical data. Nothing writes it, and now
++  // nothing reads it for display either.
++  contacts = rows.map(fromRow).sort(compareContacts);
++  source = rows.length > 0 ? "player_contacts" : "none";
++
+   if (rows.length > 0) {
+-    // Authoritative. The legacy columns are not consulted at all.
+-    contacts = rows.map(fromRow).sort(compareContacts);
+-    source = "player_contacts";
+ 
+     // No stored primary: pick deterministically for display only. The partial
+     // unique index makes two primaries impossible, so this is the sole case.
+     if (!contacts.some((c) => c.is_primary)) {
+       contacts[0] = { ...contacts[0], isPrimaryDerived: true };
+     }
+-  } else {
+-    const legacy = fromLegacy(p);
+-    contacts = legacy ? [legacy] : [];
+-    source = legacy ? "legacy" : "none";
+   }
+ 
+   const primary = contacts[0] ?? null;
+diff --git a/lib/queries/match-candidates.js b/lib/queries/match-candidates.js
+new file mode 100644
+index 0000000..9320217
+--- /dev/null
++++ b/lib/queries/match-candidates.js
+@@ -0,0 +1,40 @@
++import { createClient } from "../supabase/server";
++import { planningPlayerColumns } from "../intake/registry";
++
++/**
++ * Every player in the organization, as import matching candidates.
++ *
++ * ONE QUERY, USED BY BOTH SIDES.
++ *
++ * The preview used to be given the SEASON ROSTER while the server evaluated
++ * the whole organization. A player in the organization but not on this
++ * season's roster was therefore invisible to the browser and visible to the
++ * server, so the coach was shown "Create" for someone the server would match.
++ * Two different questions were being asked of two different populations and
++ * the answers were compared as though they were the same.
++ *
++ * Organization scoping is RLS's, not a filter here: `players` is already
++ * scoped to the caller's organization, and adding an explicit organization_id
++ * predicate would imply the boundary lives in this query when it does not.
++ * A player from another organization cannot appear in either population.
++ *
++ * The columns are DERIVED FROM THE REGISTRY. A hand-written list is what
++ * caused an earlier defect: seven columns the planner diffs against were
++ * never fetched, so an incoming value looked like a fill against nothing
++ * rather than a conflict against a stored value. Matching evidence and
++ * planning fields both come from here, so neither can be quietly dropped.
++ *
++ * Note what this does NOT do: matching a player who is not on the roster does
++ * not put them on it. Season membership is the planner's and the RPC's
++ * decision, unchanged.
++ */
++export async function listMatchCandidates(client) {
++  const supabase = client ?? createClient();
++
++  const { data, error } = await supabase
++    .from("players")
++    .select(`${planningPlayerColumns().join(", ")}, player_contacts ( id, email )`);
++
++  if (error) throw new Error(`Could not load players for matching: ${error.message}`);
++  return data ?? [];
++}
+diff --git a/scripts/check-c3c-contact-writes.js b/scripts/check-c3c-contact-writes.js
+index 9d149e5..7f545f5 100644
+--- a/scripts/check-c3c-contact-writes.js
++++ b/scripts/check-c3c-contact-writes.js
+@@ -126,11 +126,16 @@ section("Legacy contact materialization keeps every field");
+     /const contactId = text\(formData\.get\("contact_id"\)\)/.test(src));
+   ok("the legacy branch INSERTs rather than updating players",
+     /legacy[\s\S]{0,900}?from\("player_contacts"\)\.insert/.test(src));
+-  ok("the merge reads the whole resolved contact, not just submitted fields",
+-    /full_name: fields\.full_name \?\? legacy\.full_name/.test(src)
+-    && /email: fields\.email \?\? legacy\.email/.test(src)
+-    && /phone: fields\.phone \?\? legacy\.phone/.test(src)
+-    && /relationship: fields\.relationship \?\? legacy\.relationship/.test(src));
++  // SUPERSEDED. The merge used to fall back to the stored value per field
++  // (`fields.email ?? legacy.email`), which made a deliberate clear
++  // impossible on a legacy contact: the same Edit button behaved differently
++  // depending on where the contact came from. The form submits every field,
++  // so what arrives IS the intended state. Import keeps blank-no-erase; an
++  // import cannot see what it would overwrite and a coach can.
++  ok("the legacy merge uses the submitted state, so a clear is honoured",
++    /const merged = \{ \.\.\.fields \};/.test(src));
++  ok("...and no field silently restores the stored value",
++    !/\?\? legacy\./.test(src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")));
+   ok("no action writes players.parent_* during materialization",
+     !/from\("players"\)[\s\S]{0,200}?\.update/.test(src));
+ 
+@@ -172,8 +177,15 @@ section("Authoritative contacts: edit, remove, primary");
+     /\.eq\("id", contactId\)\s*\n\s*\.eq\("player_id", playerId\)/.test(src));
+   ok("an update never touches is_primary",
+     /is_primary is deliberately absent/.test(src));
++  // Still refused, but now with a CODE so the caller can offer removal beside
++  // the form. The old sentence told the coach to go and find another button,
++  // and rendered where they could not see it.
+   ok("an all-blank edit is refused rather than deleting",
+-    /Use Remove contact to delete it/.test(src));
++    /code: "would_be_empty"/.test(src));
++  ok("...from both the normal and the legacy branch",
++    (src.match(/code: "would_be_empty"/g) || []).length === 2);
++  ok("...and removal is never automatic",
++    !/hasDetail[\s\S]{0,200}?\.delete\(\)/.test(src));
+   ok("removal verifies affected rows, not the absence of an error",
+     /\.delete\(\)[\s\S]{0,300}?\.select\("id"\)/.test(src)
+     && /\(deleted \?\? \[\]\)\.length === 0/.test(src));
+diff --git a/scripts/check-intake.js b/scripts/check-intake.js
+index 112d2de..a31af9e 100644
+--- a/scripts/check-intake.js
++++ b/scripts/check-intake.js
+@@ -1466,8 +1466,11 @@ console.log("\nThe server query cannot drift from the planner");
+   }
+ 
+   const src = require("fs").readFileSync("lib/actions/intake.js", "utf8");
+-  ok("the server derives its select from the registry",
+-    /planningPlayerColumns\(\)\.join\(", "\)/.test(src), true);
++  // Superseded: the select moved into lib/queries/match-candidates.js, shared
++  // with the preview so the two populations cannot diverge.
++  ok("the shared candidate query derives its select from the registry",
++    /planningPlayerColumns\(\)\.join\(", "\)/.test(
++      require("fs").readFileSync("lib/queries/match-candidates.js", "utf8")), true);
+   ok("...rather than a hand-written column list",
+     !/select\("id, full_name, legal_first_name/.test(src), true);
+   ok("identity is passed explicitly to compact()",
+@@ -2027,6 +2030,371 @@ console.log("\nExcel date cells through the real reader");
+   ok("...and formatted text is requested", /raw: false/.test(src), true);
+ }
+ 
++
++/* ---- Required fields, column independence, partial re-import ------------
++   A coach re-importing on a phone unchecked columns to fill one missing
++   field, tapped Player Name by accident, and was refused at the NEXT step
++   with "row has no player name" — an allowed action punished afterwards, in
++   language about rows rather than the control tapped. full_name has carried
++   requiredForIntake since the registry was written; the mapping never passed
++   it on, so the UI had no way to know. */
++
++console.log("\nRequired fields cannot be excluded");
++
++{
++  const sug = map.suggestMappings(["Player Name", "Date of Birth", "Grad Year",
++                                   "Email", "Jersey Size", "Pants Size"]);
++  ok("full_name is the only required field",
++    sug.mappings.filter((m) => m.required).map((m) => m.key), ["full_name"]);
++
++  // Matching EVIDENCE is not identity. Excluding it weakens matching, which
++  // is the coach's call; excluding the name makes every row invalid.
++  for (const k of ["date_of_birth", "grad_year", "contact_email",
++                   "jersey_size", "pants_size"]) {
++    ok(`${k} stays optional`, sug.mappings.find((m) => m.key === k).required, false);
++  }
++
++  const keyOf = (m) => m.header;
++  ok("a required column is seeded included",
++    new Set(sug.mappings.filter((m) => m.autoEnabled || m.required).map(keyOf))
++      .has("Player Name"), true);
++
++  const ui = require("fs").readFileSync("components/PlayerIntake.js", "utf8");
++  ok("the UI renders it as Required, not a checkbox", /m\?\.required \? \(/.test(ui), true);
++  ok("...and the destination cannot be cleared either",
++    /current\?\.required && !key/.test(ui), true);
++  ok("...and it is force-included at the seed",
++    /m\.autoEnabled \|\| m\.required/.test(ui), true);
++}
++
++console.log("\nSource columns toggle independently");
++
++{
++  const keyOf = (m) => m.header;
++  const sug = map.suggestMappings(["X Handle", "X URL", "Contact 1 Email", "Contact 2 Email"]);
++  ok("each column has its own key", new Set(sug.mappings.map(keyOf)).size, sug.mappings.length);
++
++  // X Handle and X URL describe ONE link; they must still toggle separately.
++  const enabled = new Set(sug.mappings.map(keyOf));
++  enabled.delete("X Handle");
++  ok("unchecking one leaves its twin included", enabled.has("X URL"), true);
++  ok("...and an unrelated contact column untouched", enabled.has("Contact 2 Email"), true);
++
++  // Repeated toggling must not degrade.
++  let set = new Set(sug.mappings.map(keyOf));
++  for (let i = 0; i < 6; i += 1) {
++    set = new Set(set);
++    set.has("Contact 1 Email") ? set.delete("Contact 1 Email") : set.add("Contact 1 Email");
++  }
++  ok("six toggles leave the others alone",
++    [set.has("X Handle"), set.has("X URL"), set.has("Contact 2 Email")], [true, true, true]);
++}
++
++console.log("\nPartial re-import writes only what was selected");
++
++{
++  const stored = mat.toCandidate({ id: "p1", full_name: "Tenley Lynch", grad_year: 2028,
++    date_of_birth: "2010-05-05",
++    player_contacts: [{ id: "c", email: "t@example.invalid" }] });
++
++  // Only a name and the one field the coach came back for.
++  const row = { full_name: "Tenley Lynch", jersey_size: "AM", contacts: [] };
++  const m = mat.matchPlayer(row, [stored]);
++  const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
++    existingContacts: stored.contacts, decisions: {}, identity: null });
++
++  ok("no player field is written", plan.writes.some((w) => w.table === "players"), false);
++  // With the evidence columns unchecked there is nothing to corroborate the
++  // name, so the row asks. That is the matching protection, not a defect.
++  ok("identity needs confirming when evidence is excluded", plan.executable, false);
++
++  const decided = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
++    existingContacts: stored.contacts, decisions: {}, identity: "same" });
++  ok("once confirmed the row imports", decided.executable, true);
++  ok("...writing only the selected field", decided.writes.map((w) => w.table),
++    ["team_season_players"]);
++  ok("...with only that value", decided.writes[0].values, { jersey_size: "AM" });
++
++  // Leaving the evidence checked costs nothing: unchanged values are SAME.
++  const withEvidence = { full_name: "Tenley Lynch", date_of_birth: "2010-05-05",
++    jersey_size: "AM", contacts: [{ email: "t@example.invalid" }] };
++  const m2 = mat.matchPlayer(withEvidence, [stored]);
++  const p2 = pln.buildRowPlan({ row: withEvidence, match: m2, existingPlayer: m2.candidate,
++    existingContacts: stored.contacts, decisions: {}, identity: null });
++  ok("keeping evidence checked avoids the decision", p2.executable, true);
++  ok("...and still writes no player field", p2.writes.some((w) => w.table === "players"), false);
++
++  const blank = pln.buildRowPlan({
++    row: { full_name: "Tenley Lynch", grad_year: null, contacts: [] },
++    match: m2, existingPlayer: stored, existingContacts: stored.contacts,
++    decisions: {}, identity: null });
++  ok("a blank never erases", blank.writes.some((w) => w.table === "players"), false);
++}
++
++console.log("\nUniform sizes are not a readiness requirement");
++
++{
++  const fsx = require("fs");
++  const src = fsx.readFileSync("lib/readiness/team.js", "utf8");
++  ok("no jersey_size in any readiness rule", /jersey_size/.test(src), false);
++  ok("no pants_size in any readiness rule", /pants_size/.test(src), false);
++  ok("jersey_number is no longer a readiness rule either",
++    /jersey_number/.test(src), false);
++  ok("the uniform check is gone entirely", /uniformCheck|jerseyNumberCheck/.test(src), false);
++  ok("...and nothing replaced it",
++    (src.match(/^function \w+Check\(/gm) || []).length, 2);
++  ok("only date of birth and contacts remain",
++    (src.match(/^function (\w+)Check\(/gm) || []).sort(),
++    ["function contactCheck(", "function registrationCheck("]);
++  ok("the filter label is removed", /uniform:/.test(src), false);
++
++  const dash = fsx.readFileSync("lib/readiness/dashboard.js", "utf8");
++  ok("the dashboard wording is removed", /"team:uniform"/.test(dash), false);
++  const rc = fsx.readFileSync("components/RosterClient.js", "utf8");
++  ok("the roster panel wording is removed", /uniform information/.test(rc), false);
++
++  // The fields themselves are untouched everywhere else.
++  ok("jersey_size is still importable", reg.BY_KEY.get("jersey_size").importable, true);
++  ok("pants_size is still importable", reg.BY_KEY.get("pants_size").importable, true);
++  ok("both still export",
++    /Jersey Size/.test(fsx.readFileSync("lib/player-export.js", "utf8")), true);
++}
++
++console.log("\nMobile viewport");
++
++{
++  const css = require("fs").readFileSync("app/globals.css", "utf8");
++  ok("the drawer uses the dynamic viewport on mobile",
++    /@media \(max-width: 720px\)[\s\S]*?\.drawer \{ height: 100dvh; \}/.test(css), true);
++  ok("height: 100% remains as the fallback",
++    /\.drawer \{[^}]*height: 100%/.test(css), true);
++  ok("safe-area padding only applies when there is an inset",
++    /env\(safe-area-inset-bottom, 0px\)/.test(css), true);
++  ok("the include control meets a 44px target",
++    /\.pi-switch \{ min-height: 44px; \}/.test(css), true);
++  ok("...and so does the Required badge",
++    /\.pi-required \{ min-height: 44px; \}/.test(css), true);
++}
++
++
++/* ---- Manually remapping an ambiguous column -----------------------------
++   A real workbook carried jersey sizes in a column headed "Code", holding
++   AM / AL / AS. "Code" matches no synonym, so it arrives unmapped and shows
++   as Don't import — which is correct. It could be a uniform size, a player
++   code or a discount code, and writing "AM" into the wrong field on the
++   strength of a guess is worse than asking.
++
++   DELIBERATELY NOT ADDED: "code" as a jersey_size synonym, and any inference
++   from the VALUES. Both are name- or value-shaped guesses; a semantic mapper
++   is a larger design than this. The manual path is the supported one, which
++   is exactly why unmapped columns must be reachable on a phone. */
++
++console.log("\nRemapping an unrecognised column by hand");
++
++{
++  const fsx = require("fs");
++  const ss = await load("lib/spreadsheet.js");
++  const bytes = fsx.readFileSync("scripts/fixtures/excel-dates.xlsx");
++
++  // A header the mapper cannot know, alongside ones it can.
++  const XLSX = require("xlsx");
++  const sheet = XLSX.utils.aoa_to_sheet([
++    ["Player Name", "Grad Year", "Code"],
++    ["Tenley Lynch", 2028, "AM"],
++    ["Peyton Currie", 2028, "AL"],
++    ["Dakota McDaniel", 2029, "AS"],
++  ]);
++  const book = XLSX.utils.book_new();
++  XLSX.utils.book_append_sheet(book, sheet, "Players");
++  const wb = XLSX.write(book, { type: "buffer", bookType: "xlsx" });
++  const { grid } = await ss.readSpreadsheet({ name: "code.xlsx",
++    arrayBuffer: async () => wb.buffer.slice(wb.byteOffset, wb.byteOffset + wb.byteLength) });
++
++  const header = grid[0];
++  const sug = map.suggestMappings(header);
++
++  ok("Code arrives unmapped", sug.unmapped.includes("Code"), true);
++  ok("...and is not guessed into a destination",
++    sug.mappings.some((m) => m.header === "Code"), false);
++  ok("no value-based inference happened",
++    sug.mappings.some((m) => m.key === "jersey_size"), false);
++  ok("'code' is not a jersey_size synonym",
++    reg.BY_KEY.get("jersey_size").synonyms.includes("code"), false);
++
++  // The coach picks Jersey size and ticks Include.
++  const f = reg.BY_KEY.get("jersey_size");
++  const effective = [
++    ...sug.mappings,
++    { header: "Code", key: "jersey_size", index: null, level: f.level,
++      required: Boolean(f.requiredForIntake) },
++  ];
++  const enabled = new Set(sug.mappings.filter((m) => m.autoEnabled || m.required)
++    .map((m) => m.header));
++  enabled.add("Code");
++
++  const active = effective.filter((m) => enabled.has(m.header));
++  const buildRow = (cells) => {
++    const raw = Object.fromEntries(header.map((h, c) => [h, cells[c] ?? ""]));
++    const mapped = map.applyMappings(raw, active);
++    const row = { contacts: [] };
++    for (const [k, v] of Object.entries(mapped)) {
++      if (k === "contacts") continue;
++      const fld = reg.BY_KEY.get(k);
++      if (!fld || reg.isIgnored(k)) continue;
++      row[k] = nrm.normalizeValue(fld.type, v);
++    }
++    return row;
++  };
++
++  ok("AM plans into jersey_size", buildRow(grid[1]).jersey_size, "AM");
++  ok("AL plans into jersey_size", buildRow(grid[2]).jersey_size, "AL");
++  ok("AS plans into jersey_size", buildRow(grid[3]).jersey_size, "AS");
++  ok("pants_size is untouched", buildRow(grid[1]).pants_size, undefined);
++  ok("remapping one column left the others alone",
++    [enabled.has("Player Name"), enabled.has("Grad Year")], [true, true]);
++
++  // Re-importing the same file must fill the size and rewrite nothing else.
++  const stored = grid.slice(1).map((cells, i) => mat.toCandidate({
++    id: `p${i}`, full_name: cells[0], grad_year: Number(cells[1]),
++    date_of_birth: "2010-05-05",
++    player_contacts: [{ id: `c${i}`, email: `p${i}@example.invalid` }],
++  }));
++
++  let playerWrites = 0, sizes = 0, blockedRows = 0;
++  for (const cells of grid.slice(1)) {
++    const row = buildRow(cells);
++    const m = mat.matchPlayer(row, stored);
++    const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
++      existingContacts: m.candidate?.contacts ?? [], decisions: {}, identity: null });
++    if (plan.writes.some((w) => w.table === "players")) playerWrites += 1;
++    if (plan.writes.find((w) => w.table === "team_season_players")?.values?.jersey_size) sizes += 1;
++    if (!plan.executable) blockedRows += 1;
++  }
++  ok("re-import rewrites no player field", playerWrites, 0);
++  ok("...blocks nothing", blockedRows, 0);
++  ok("...and fills the size for every row", sizes, 3);
++}
++
++
++/* ---- Candidate population: one source, organization-wide -----------------
++   The preview was given the SEASON ROSTER while the server evaluated the
++   whole organization, so a player in the organization without a membership
++   was invisible to the browser and visible to the server — the coach saw
++   "Create" for a row the server would match. Both now read the same query. */
++
++console.log("\nMatching candidates are organization-wide on both sides");
++
++{
++  const fsx = require("fs");
++  const shared = fsx.readFileSync("lib/queries/match-candidates.js", "utf8");
++  const action = fsx.readFileSync("lib/actions/intake.js", "utf8");
++  const page = fsx.readFileSync("app/(app)/team/page.js", "utf8");
++  const ui = fsx.readFileSync("components/RosterClient.js", "utf8");
++
++  ok("one shared candidate query exists", /export async function listMatchCandidates/.test(shared), true);
++  ok("...selecting from players, not the roster", /\.from\("players"\)/.test(shared), true);
++  ok("...with no season or team filter",
++    !/season_id|team_id|team_season_players/.test(shared), true);
++  ok("...deriving columns from the registry", /planningPlayerColumns\(\)/.test(shared), true);
++  ok("...and embedding contacts for corroboration",
++    /player_contacts \( id, email \)/.test(shared), true);
++
++  ok("the server action uses it", /listMatchCandidates\(supabase\)/.test(action), true);
++  ok("the page loads it for the preview", /listMatchCandidates\(\)/.test(page), true);
++  ok("the preview no longer uses the roster",
++    /existingPlayers=\{\(matchCandidates \?\? \[\]\)\.map\(toCandidate\)\}/.test(ui), true);
++  ok("...and both sides share toCandidate", /toCandidate/.test(ui) && /toCandidate/.test(action), true);
++
++  /* The historical Chloe shape: in the organization, no season membership. */
++  const orgWide = [
++    mat.toCandidate({ id: "chloe22", full_name: "Chloe Hamlin", grad_year: 2028,
++      date_of_birth: null, parent_email: null, player_contacts: [] }),
++    mat.toCandidate({ id: "other", full_name: "Bella Ramos", grad_year: 2029,
++      date_of_birth: "2010-06-14", player_contacts: [] }),
++  ];
++  const row = { full_name: "Chloe Hamlin", grad_year: 2028, date_of_birth: "2010-03-17",
++    positions: ["OF"], jersey_size: "AM",
++    contacts: [{ email: "chloehamlin0317@example.invalid" }] };
++
++  const m = mat.matchPlayer(row, orgWide);
++  ok("Chloe matches confidently against the org-wide set", m.classification, "confident");
++  ok("...to the off-roster player", m.candidate?.id, "chloe22");
++
++  const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
++    existingContacts: [], decisions: {}, identity: null });
++  ok("...and updates rather than creating",
++    Boolean(plan.writes.find((w) => w.table === "players")?.targetId), true);
++  ok("...filling the missing date of birth",
++    plan.resolved.find((r) => r.key === "date_of_birth")?.status, "fill");
++
++  // Matching does not put her on the roster; the season write is the planner's.
++  ok("a match does not itself add a season membership",
++    plan.writes.find((w) => w.table === "team_season_players")?.values,
++    { positions: ["OF"], jersey_size: "AM" });
++
++  // The same input, same population, on both sides.
++  ok("client and server agree given the same candidates",
++    mat.matchPlayer(row, orgWide).candidate?.id,
++    mat.matchPlayer(row, orgWide).candidate?.id, true);
++
++  // Preserved protections.
++  ok("a DOB conflict still asks",
++    mat.matchPlayer({ full_name: "Chloe Hamlin", grad_year: 2028, date_of_birth: "2009-01-01", contacts: [] },
++      [mat.toCandidate({ id: "z", full_name: "Chloe Hamlin", grad_year: 2028,
++        date_of_birth: "2010-03-17", player_contacts: [] })]).classification, "conflict");
++  ok("a grad-year conflict still asks",
++    mat.matchPlayer({ full_name: "Chloe Hamlin", grad_year: 2028, contacts: [] },
++      [mat.toCandidate({ id: "z", full_name: "Chloe Hamlin", grad_year: 2027, player_contacts: [] })]).classification,
++    "conflict");
++  ok("two same-name candidates stay ambiguous",
++    mat.matchPlayer({ full_name: "Chloe Hamlin", grad_year: 2028, contacts: [] },
++      [mat.toCandidate({ id: "t1", full_name: "Chloe Hamlin", grad_year: 2028, player_contacts: [] }),
++       mat.toCandidate({ id: "t2", full_name: "Chloe Hamlin", grad_year: 2028, player_contacts: [] })]).classification,
++    "possible");
++  ok("an explicit Create is still honoured",
++    Boolean(pln.buildRowPlan({ row, match: m, existingPlayer: null, existingContacts: [],
++      decisions: {}, identity: "new" }).writes.find((w) => w.table === "players")?.targetId),
++    false);
++  const sharedCode = shared.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++  ok("organization isolation is RLS's, not a hand-written filter",
++    /organization_id/.test(sharedCode), false);
++}
++
++console.log("\nImport provenance");
++
++{
++  const fsx = require("fs");
++  const action = fsx.readFileSync("lib/actions/intake.js", "utf8");
++  const mig = fsx.readFileSync(
++    "supabase/migrations/20260830180256_intake_run_provenance.sql", "utf8");
++
++  ok("the run records included mappings", /included: \(mappings \?\? \[\]\)/.test(action), true);
++  ok("...the ignored columns", /ignored: \(ignored \?\? \[\]\)/.test(action), true);
++  ok("...and the candidate count", /candidate_count: candidates\.length/.test(action), true);
++
++  ok("each row records its classification", /classification: match\.classification/.test(action), true);
++  ok("...whether the coach overrode identity", /identity: chosen/.test(action), true);
++  ok("...and which player was touched", /player_id: candidate\?\.id \?\? null/.test(action), true);
++
++  // The four outcomes are distinguishable, which is what the audits needed.
++  for (const a of ["explicit_create", "coach_matched", "auto_matched", "created"]) {
++    ok(`the action distinguishes ${a}`, new RegExp(`"${a}"`).test(action), true);
++  }
++
++  // PII: headers and internal ids only.
++  ok("no cell values are copied into provenance",
++    /row\.full_name|row\.date_of_birth|row\.player_email|raw\.contacts/.test(
++      action.slice(action.indexOf("outcomes.push"), action.indexOf("outcomes.push") + 400)),
++    false);
++  ok("the migration states what is not stored", /NOT stored/.test(mig), true);
++
++  ok("a replay records nothing new", /A REPLAY RECORDS NOTHING NEW/.test(mig), true);
++  ok("provenance columns are nullable, so history is not invented",
++    /add column if not exists mapping  jsonb/.test(mig), true);
++  ok("the un-provenanced signature is gone",
++    /drop function if exists public\.intake_apply_run\(uuid, text, uuid, uuid, jsonb\)/.test(mig), true);
++}
++
+ console.log(`\n${ran} assertions, ${failures} failed`);
+   process.exit(failures ? 1 : 0);
+ })();
+diff --git a/scripts/check-player-contacts.js b/scripts/check-player-contacts.js
+index 1eaf7e3..dd65545 100644
+--- a/scripts/check-player-contacts.js
++++ b/scripts/check-player-contacts.js
+@@ -58,17 +58,28 @@ section("Source precedence is row-level");
+ }
+ 
+ {
++  // SUPERSEDED, deliberately. The fallback was correct while the migration was
++  // outstanding and wrong once it completed: deleting a coach's last guardian
++  // dropped the row count to zero, the resolver fell through to parent_*, and
++  // the same guardian reappeared with a null id and no Remove button. A coach
++  // removed a contact and watched it come back undeletable.
++  //
++  // The backfill covered every eligible player (25 eligible, 23 rows surviving,
++  // 2 deliberately deleted since), so nothing depends on the fallback.
+   const p = { parent_name: null, parent_email: "legacy@example.com", parent_phone: null, player_contacts: [] };
+   const r = resolvePlayerContact(p);
+-  ok("empty contacts array falls back to legacy", r.source === "legacy");
+-  ok("...producing at most one contact", r.contacts.length === 1);
+-  ok("...with the legacy source marked", r.contacts[0].source === "legacy");
+-  ok("...and a null id, since no row exists", r.contacts[0].id === null);
++  ok("legacy parent_* no longer resurrects a deleted guardian", r.source === "none");
++  ok("...showing zero contacts", r.contacts.length === 0);
++  ok("...and reporting no detail to display", r.hasAnyDetail === false);
+ }
+ 
+ {
++  // A caller that did not select player_contacts must still not throw. It now
++  // degrades to NO contacts rather than to legacy data, which is the honest
++  // answer: the resolver was not given any.
+   const r = resolvePlayerContact({ parent_email: "legacy@example.com" });
+-  ok("a missing player_contacts key degrades to legacy, not a throw", r.source === "legacy");
++  ok("a missing player_contacts key degrades safely, not a throw", r.source === "none");
++  ok("...showing nothing rather than legacy data", r.contacts.length === 0);
+ }
+ 
+ {
+@@ -177,21 +188,40 @@ section("A missing name is never manufactured");
+ }
+ 
+ {
++  // Was about the legacy fallback's shape. With the fallback retired there is
++  // no contact at all, which is the point: parent_* cannot produce a guardian.
+   const p = { parent_name: null, parent_email: "g@example.com", parent_phone: null, player_contacts: [] };
+   const r = resolvePlayerContact(p);
+-  ok("legacy fallback with no parent_name keeps full_name null", r.primary.full_name === null);
++  ok("parent_* alone yields no primary contact", r.primary === null);
++  ok("...and no contacts to display", r.contacts.length === 0);
++}
++
++{
++  // The same shape once a REAL contact exists: a stored row with no name still
++  // displays, and still invents no relationship.
++  const p = { player_contacts: [{ id: "c9", full_name: null, email: "g@example.com",
++                                  phone: null, is_primary: true, sort_order: 0 }] };
++  const r = resolvePlayerContact(p);
++  ok("a real contact with no name keeps full_name null", r.primary.full_name === null);
+   ok("...and invents no relationship", r.primary.relationship === null);
++  ok("...and is removable, unlike the old legacy shape", r.primary.id === "c9");
+ }
+ 
+ // ------------------------------------------- reachable vs hasAnyDetail
+ section("reachable and hasAnyDetail are distinct and shared");
+ 
+ {
+-  const nameOnly = { parent_name: "Some Guardian", parent_email: null, parent_phone: null, player_contacts: [] };
++  // A stored contact with only a name: displayable, but not reachable.
++  const nameOnly = { player_contacts: [contact({ id: "c-n", full_name: "Some Guardian",
++                                                 email: null, phone: null })] };
+   const r = resolvePlayerContact(nameOnly);
+   ok("a name alone is NOT reachable", r.reachable === false);
+   ok("...but does have detail worth showing", r.hasAnyDetail === true);
+   ok("isReachable() agrees with the resolver", isReachable(nameOnly) === r.reachable);
++
++  // The same fields in parent_* produce nothing at all now.
++  const legacyNameOnly = { parent_name: "Some Guardian", player_contacts: [] };
++  ok("parent_name alone shows nothing", resolvePlayerContact(legacyNameOnly).hasAnyDetail === false);
+ }
+ 
+ {
+@@ -210,20 +240,21 @@ section("reachable and hasAnyDetail are distinct and shared");
+ }
+ 
+ {
+-  // Every combination of the five channel/name fields, legacy path.
++  // Every combination of the five fields. parent_* no longer contributes to
++  // either verdict, so only the player's own channels can make them true.
+   const F = ["player_email", "player_phone", "parent_name", "parent_email", "parent_phone"];
+-  let checked = 0, consistent = 0;
++  let checked = 0, consistent = 0, legacyLeaked = 0;
+   for (let m = 0; m < 32; m += 1) {
+     const p = { player_contacts: [] };
+     F.forEach((f, i) => { if (m & (1 << i)) p[f] = f.includes("email") ? "x@example.com" : f === "parent_name" ? "N" : "770-555-0000"; });
+     const r = resolvePlayerContact(p);
+-    const expectedReachable = Boolean(p.player_email || p.player_phone || p.parent_email || p.parent_phone);
+-    const expectedDetail = Boolean(expectedReachable || p.parent_name);
++    const expectedReachable = Boolean(p.player_email || p.player_phone);
+     checked += 1;
+-    if (r.reachable === expectedReachable && r.hasAnyDetail === expectedDetail) consistent += 1;
++    if (r.reachable === expectedReachable) consistent += 1;
++    if (r.contacts.length > 0) legacyLeaked += 1;
+   }
+   ok(`all ${checked} field combinations resolve consistently`, consistent === 32);
+-  ok("reachable always implies hasAnyDetail", consistent === 32);
++  ok("no combination of parent_* produces a contact", legacyLeaked === 0);
+ }
+ 
+ // --------------------------------------------------- production equivalence
+@@ -281,11 +312,24 @@ const oldRoster = (p) => Boolean(
+     if (newRoster === oldRoster(p)) rosterSame += nAll;
+   }
+ 
++  // These shapes were captured BEFORE the backfill, when no player_contacts
++  // row existed and every player resolved through parent_*. They proved the
++  // new resolver matched the old behaviour during the migration.
++  //
++  // That comparison has served its purpose and is now historically false: 50
++  // contact rows exist and parent_* is no longer read. Asserting the old
++  // verdicts would be asserting the bug. What matters going forward is the
++  // invariant below.
+   ok(`the shapes account for all 56 players rows`, allRows === 56);
+   ok(`the shapes account for all 50 readiness rows`, readinessRows === 50);
+-  ok("every production row takes the legacy path (0 contact rows exist)", legacyPath === 56);
+-  ok(`readiness verdict unchanged for all ${readinessRows} readiness rows`, readinessSame === 50);
+-  ok(`roster contact section unchanged for all ${allRows} rows`, rosterSame === 56);
++  ok("no shape resolves through legacy any more", legacyPath === 56);
++  ok("...because parent_* alone now yields nothing",
++     PRODUCTION_SHAPES.every((sh) => resolvePlayerContact(build(sh)).contacts.length === 0));
++  ok("...so reachability comes only from the player's own channels",
++     PRODUCTION_SHAPES.every((sh) => {
++       const p = build(sh);
++       return resolvePlayerContact(p).reachable === Boolean(p.player_email || p.player_phone);
++     }));
+ }
+ 
+ {
+@@ -308,6 +352,221 @@ section("Staff never resolve guardian contacts");
+ }
+ 
+ // -------------------------------------------------------------------- report
++
++/* ---- Deliberate clearing, and the empty-contact choice -------------------
++   A coach put the player's own email on a guardian card by mistake, cleared
++   the field and pressed Save. Nothing happened. The server was refusing
++   correctly -- the contact held only that email, so clearing it would have
++   left an empty row -- but the refusal rendered at the top of the contacts
++   panel, which on a phone was off the screen. Save looked broken.
++
++   Import's blank-no-erase rule is deliberately NOT reused for manual edits:
++   an import cannot see what it would overwrite, and a coach can. */
++
++section("Clearing a contact field");
++
++{
++  const fs = require("fs");
++  const act = fs.readFileSync("lib/actions/player-contacts.js", "utf8");
++  const ui  = fs.readFileSync("components/PlayerContacts.js", "utf8");
++  const css = fs.readFileSync("app/globals.css", "utf8");
++
++  ok("an emptying edit returns a code", /code: "would_be_empty"/.test(act));
++  ok("...from both the normal and legacy branches",
++     (act.match(/code: "would_be_empty"/g) || []).length === 2);
++  ok("the empty-contact guard still exists",
++     (act.match(/if \(!hasDetail\(/g) || []).length >= 2);
++
++  // Strip comments: the fix is DESCRIBED in one, so matching raw text would
++  // report the explanation as the defect.
++  const actCode = act.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++  ok("legacy no longer falls back to the stored value",
++     !/\?\? legacy\./.test(actCode));
++  ok("...and uses the submitted state directly",
++     /const merged = \{ \.\.\.fields \};/.test(act));
++  ok("the normal branch keeps the same rule",
++     /const next = \{ \.\.\.fields \};/.test(act));
++
++  ok("full_name is read from the form", /full_name: text\(formData\.get/.test(act));
++  ok("relationship is read from the form", /relationship: text\(formData\.get/.test(act));
++  ok("email is read from the form", /email: text\(formData\.get/.test(act));
++  ok("phone is read from the form", /phone: text\(formData\.get/.test(act));
++  ok("blank reads as null, which is what clears",
++     /return s === "" \? null : s;/.test(act));
++
++  ok("the editor takes an error prop", /error = null, emptyOffer = false/.test(ui));
++  ok("...and renders it inside the card", /className="pc-form-error"/.test(ui));
++  ok("the panel alert now shows only unattached errors",
++     /error && errorFor === null &&/.test(ui));
++  ok("the error is routed to the form that failed", /setErrorFor\(forContact\)/.test(ui));
++
++  ok("an emptying edit offers removal", /className="pc-empty-offer"/.test(ui));
++  ok("...with the promised wording",
++     /This would leave the contact empty\. Remove this contact instead\?/.test(ui));
++  ok("...and the action attached", /Remove this contact/.test(ui));
++  ok("removal still confirms first", /if \(!confirm\(/.test(ui));
++
++  ok(".pc-form-error is styled", /\.pc-form-error \{/.test(css));
++  ok(".pc-empty-offer is styled", /\.pc-empty-offer \{/.test(css));
++}
++
++
++section("Removing a contact");
++
++{
++  const fs = require("fs");
++  const ui  = fs.readFileSync("components/PlayerContacts.js", "utf8");
++  const act = fs.readFileSync("lib/actions/player-contacts.js", "utf8");
++  const css = fs.readFileSync("app/globals.css", "utf8");
++  const uiCode = ui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++
++  // ROOT CAUSE: window.confirm() is the one step with a silent failure mode.
++  // Suppressed by the browser -> returns false -> early return -> no request,
++  // no spinner, no error. Indistinguishable from a broken button.
++  ok("no native confirm() gates removal", !/\bconfirm\(/.test(uiCode));
++  ok("removal is confirmed in the page", /className="pc-confirm"/.test(ui));
++  ok("...with an explicit confirm action", /"Remove contact"/.test(ui));
++  ok("...and a way out", /\n\s*Keep\n/.test(ui));
++  ok("the first tap only asks", /onClick=\{\(\) => askRemove\(c\)\}/.test(ui));
++  ok("...and the second deletes", /onClick=\{\(\) => doRemove\(c\)\}/.test(ui));
++
++  // A successful delete must leave the OPEN drawer, not just the cache.
++  // The refresh now lives in the shared runner, so every caller gets it.
++  const hook = fs.readFileSync("components/useMutation.js", "utf8");
++  ok("contacts use the shared mutation runner", /useMutation\(\)/.test(ui));
++  ok("the shared runner refreshes on success", /router\.refresh\(\)/.test(hook));
++  ok("...and the server still revalidates", /revalidatePath\("\/team"\)/.test(act));
++
++  // Progress is visible while it runs.
++  ok("the confirm button shows progress", /Removing…/.test(ui));
++
++  // Works for every guardian shape, including the ones just cleaned up.
++  ok("removal is offered for any stored contact",
++     /c\.source !== "legacy" && \(/.test(ui));
++  ok("a primary contact is removable too — no is_primary gate on Remove",
++     !/is_primary[\s\S]{0,120}?askRemove/.test(ui));
++  ok("an email-only contact is removable: nothing inspects its fields",
++     !/hasDetail[\s\S]{0,160}?askRemove/.test(ui));
++
++  // The server side proven earlier stays as it was.
++  ok("the delete still scopes to the player", /\.eq\("player_id", playerId\)/.test(act));
++  ok("...and verifies affected rows", /\(deleted \?\? \[\]\)\.length === 0/.test(act));
++
++  ok(".pc-confirm is styled", /\.pc-confirm \{/.test(css));
++  ok("confirmation buttons meet the mobile target",
++     /\.pc-confirm \.btn, \.pc-empty-offer \.btn \{ min-height: 44px; \}/.test(css));
++}
++
++
++
++section("Legacy contacts are not routed through a DELETE");
++
++{
++  const fs2 = require("fs");
++  const ui2 = fs2.readFileSync("components/PlayerContacts.js", "utf8");
++  const rules = fs2.readFileSync("lib/player-contact-rules.js", "utf8");
++
++  // A legacy contact is reconstructed from parent_* and has NO row.
++  ok("a legacy contact carries a null id", /id: null,/.test(rules));
++  ok("...and is marked as a derived primary", /isPrimaryDerived: true/.test(rules));
++
++  // The bug: confirmRemove === c.id was null === null, TRUE before any tap,
++  // so every legacy guardian showed its confirmation and confirming sent the
++  // string "null" to a uuid column.
++  ok("the confirmation is keyed by a non-null slot", /confirmRemove === slotOf\(c\)/.test(ui2));
++  const ui2code = ui2.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
++  ok("...and never on a raw possibly-null id", !/confirmRemove === c\.id/.test(ui2code));
++  ok("...and additionally requires a real id", /confirmRemove === slotOf\(c\) && c\.id/.test(ui2));
++
++  ok("removal refuses a contact with no row", /if \(c\.source === "legacy" \|\| !c\.id\)/.test(ui2));
++  ok("...explaining what to do instead", /has no record to remove/.test(ui2));
++  ok("...and the request is never built", /if \(!c\.id\) return;/.test(ui2));
++  ok("the Remove button stays hidden for legacy", /c\.source !== "legacy" && \(/.test(ui2));
++
++  // Not fixed by coercion.
++  ok("no string 'null' filtering was added", !/=== "null"|!== "null"/.test(ui2));
++
++  // Real contacts, primary or not, are unaffected.
++  ok("a real contact still uses its id as the slot",
++     /c\.source === "legacy" \? "legacy" : c\.id/.test(ui2));
++  ok("is_primary does not gate removal", !/is_primary[\s\S]{0,120}?askRemove/.test(ui2));
++}
++
++
++
++section("Legacy resurrection is retired");
++
++{
++  const c = (o) => ({ id: "x", full_name: null, relationship: null, email: null,
++                      phone: null, preferred_method: null, is_primary: false,
++                      sort_order: 0, ...o });
++
++  // The exact production shape that failed: contact deleted, parent_* left.
++  const jada = { parent_name: null, parent_email: "sinclair@example.com",
++                 parent_phone: "(770) 555-0110", player_contacts: [] };
++  const jr = resolvePlayerContact(jada);
++  ok("deleting the last guardian does not resurrect legacy data", jr.contacts.length === 0);
++  ok("...source is none, not legacy", jr.source === "none");
++  ok("...nothing to display", jr.hasAnyDetail === false);
++  ok("...and no null-id contact can reach a DELETE",
++     !jr.contacts.some((x) => x.id === null));
++
++  // Real contacts are unaffected.
++  const two = { parent_email: "old@example.com", player_contacts: [
++    c({ id: "c1", full_name: "Robin", email: "r@x.invalid", is_primary: true }),
++    c({ id: "c2", full_name: "Chris", email: "x@x.invalid", sort_order: 1 })] };
++  const tr = resolvePlayerContact(two);
++  ok("existing contacts still display", tr.contacts.length === 2);
++  ok("...from player_contacts", tr.source === "player_contacts");
++  ok("...with the stored primary first", tr.contacts[0].full_name === "Robin");
++  ok("...and legacy never mixed in", !tr.contacts.some((x) => x.source === "legacy"));
++
++  // Removing one of several, then the last.
++  const one = { parent_email: "old@example.com", player_contacts: [tr.contacts[0]] };
++  ok("removing one of two leaves the other", resolvePlayerContact(one).contacts.length === 1);
++  ok("...and it is still removable", resolvePlayerContact(one).contacts[0].id === "c1");
++  ok("removing the last leaves none",
++     resolvePlayerContact({ parent_email: "old@example.com", player_contacts: [] }).contacts.length === 0);
++
++  // PRIMARY (ASSUMED) only ever comes from real rows now.
++  const derived = { player_contacts: [c({ id: "c3", full_name: "Only", email: "o@x.invalid" })] };
++  const dr = resolvePlayerContact(derived);
++  ok("a derived primary still marks a real row", dr.contacts[0].isPrimaryDerived === true);
++  ok("...and that row has a real id", dr.contacts[0].id === "c3");
++  ok("no legacy contact can produce PRIMARY (ASSUMED) any more",
++     resolvePlayerContact(jada).contacts.length === 0);
++}
++
++section("Files: one filter model");
++
++{
++  const fs3 = require("fs");
++  const ui4 = fs3.readFileSync("components/FilesClient.js", "utf8");
++  const css4 = fs3.readFileSync("app/globals.css", "utf8");
++
++  ok("counts and list share one predicate", /matchesFilters\(d, key, q\)/.test(ui4)
++     && /matchesFilters\(d, view, q\)/.test(ui4));
++  ok("...so a count cannot disagree with the list",
++     !/if \(key === "team"\) return !d\.player_id/.test(ui4));
++  ok("the predicate applies category", /category !== "all" && d\.category !== category/.test(ui4));
++  ok("...and the search", /toLowerCase\(\)\.includes\(q\)/.test(ui4));
++  ok("zero results still explain themselves",
++     /Try a different search or clear the filters/.test(ui4));
++
++  // The CSS ordering defect: desktop rule BEFORE the media query.
++  const desktopAt = css4.indexOf(".files-list { display: none; }");
++  const mobileAt = css4.indexOf(".files-list { display: grid;");
++  ok("the desktop rule is declared before the mobile override",
++     desktopAt !== -1 && mobileAt !== -1 && desktopAt < mobileAt);
++  ok("the mobile list displays at <=720px",
++     /@media \(max-width: 720px\)[\s\S]*?\.files-list \{ display: grid/.test(css4));
++  ok("the desktop table is hidden only on mobile",
++     /@media \(max-width: 720px\)[\s\S]*?\.files-table \{ display: none/.test(css4));
++  ok("both views come from the same rows",
++     (ui4.match(/visible\.map\(/g) || []).length === 2);
++}
++
++
+ console.log(`\n${passed} assertions, ${failures.length} failed\n`);
+ if (failures.length) {
+   for (const f of failures) console.log(`  - ${f}`);
+diff --git a/scripts/check-structured-names.js b/scripts/check-structured-names.js
+index fb2b669..9159822 100644
+--- a/scripts/check-structured-names.js
++++ b/scripts/check-structured-names.js
+@@ -653,13 +653,18 @@ section("Both derivations are built from one shared candidate shape");
+   ok("...and the evidence is named once", /export const MATCH_EVIDENCE/.test(mt));
+   ok("...covering contacts", /"contacts"/.test(mt));
+ 
+-  ok("the server embeds player_contacts for matching",
+-    /player_contacts \( id, email \)/.test(act));
++  // The candidate query moved into lib/queries/match-candidates.js, shared by
++  // the server action and the preview so the two populations cannot diverge.
++  const cand = read("lib/queries/match-candidates.js");
++  ok("the shared candidate query embeds player_contacts for matching",
++    /player_contacts \( id, email \)/.test(cand));
+   // The column list is now DERIVED from the registry rather than written out,
+   // so assert the derivation covers the structured names instead of matching
+   // a literal that no longer exists.
+   ok("...and derives its columns from the registry",
+-    /planningPlayerColumns\(\)/.test(act));
++    /planningPlayerColumns\(\)/.test(cand));
++  ok("...selecting organization-wide, not the season roster",
++    /\.from\("players"\)/.test(cand) && !/team_season_players/.test(cand));
+   ok("...which includes the structured name columns",
+     ["legal_first_name", "preferred_first_name", "last_name"]
+       .every((c) => planningPlayerColumns().includes(c)));
+@@ -669,8 +674,10 @@ section("Both derivations are built from one shared candidate shape");
+   ok("the server still RE-DERIVES rather than trusting the client",
+     /RE-DERIVED\. The client's classification is not consulted\./.test(act));
+ 
++  // Now fed the organization-wide set from the shared query, still through
++  // toCandidate so the browser and the server derive identical evidence.
+   ok("the browser builds candidates through the same function",
+-    /existingPlayers=\{\(rows \?\? \[\]\)\.map\(\(r\) =>\s*\n?\s*toCandidate\(/.test(rc));
++    /existingPlayers=\{\(matchCandidates \?\? \[\]\)\.map\(toCandidate\)\}/.test(rc));
+   ok("...and no longer hand-rolls a shape", !/parent_email: r\.player\?\.parent_email/.test(rc));
+ }
+ 
+@@ -696,7 +703,7 @@ section("No caller can supply a partial candidate");
+   ok("the server builds them with toCandidate",
+     /\.map\(toCandidate\)/.test(read("lib/actions/intake.js")));
+   ok("the browser is handed candidates built with toCandidate",
+-    /toCandidate\(\{ \.\.\.r\.player/.test(read("components/RosterClient.js")));
++    /\(matchCandidates \?\? \[\]\)\.map\(toCandidate\)/.test(read("components/RosterClient.js")));
+   ok("no production file hand-rolls a candidate literal",
+     files.every((f) => !/parent_email: r\.player\?\.parent_email/.test(read(f))), true);
+ }
+-- 
+2.43.0
+
