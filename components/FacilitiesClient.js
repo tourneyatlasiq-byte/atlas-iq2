@@ -67,6 +67,9 @@ const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
 const SELECTABLE_SURFACES = ["Grass", "Turf", "Unknown"];
 
 /** Adds Mixed back only when that is what the record already holds. */
+/** Lowercase type name for use mid-sentence: "Delete hotel", "Create facility". */
+const typeLabelFor = (t) => typeLabel(t).toLowerCase();
+
 function surfaceOptionsFor(current) {
   return current === "Mixed" ? [...SELECTABLE_SURFACES, "Mixed"] : SELECTABLE_SURFACES;
 }
@@ -131,9 +134,12 @@ const surfaceClass = (s) =>
 export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = new Map(), documentTargets, seasonName }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
-  // All | Facilities | Lodging | Dining. A type chip and the existing filters
+  // All | Facilities | Hotels | Dining. A type chip and the existing filters
   // combine rather than replace each other, so "lodging in Colorado" works.
   const [typeFilter, setTypeFilter] = useState("all");
+  // Preselects the create form's Type. Set by a type-aware empty state so the
+  // coach does not re-express a choice they made by picking the tab.
+  const [createType, setCreateType] = useState("facility");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
   const [amenityFilter, setAmenityFilter] = useState("all");
   const [countyFilter, setCountyFilter] = useState("all");
@@ -226,6 +232,64 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
   useEffect(() => {
     if (countyFilter !== "all" && !counties.includes(countyFilter)) setCountyFilter("all");
   }, [counties, countyFilter]);
+
+  /**
+   * Two genuinely different empties.
+   *
+   *   A filter or search that matches nothing is a dead end to back out of.
+   *   A category with no records at all is an invitation to add the first one.
+   *
+   * Treating them the same is what makes a page look broken when it is merely
+   * filtered, and look filtered when it is merely empty.
+   */
+  const emptyState = useMemo(() => {
+    const typed = RESOURCE_TYPES.find((t) => t.key === typeFilter) ?? null;
+    const filtering = query.trim() !== "" || stateFilter !== "all"
+      || countyFilter !== "all" || surfaceFilter !== "all" || amenityFilter !== "all";
+
+    // Something is being filtered out, so say so rather than implying none exist.
+    if (filtering) {
+      return { title: "Nothing matches", body: "Try a different search or clear the filters." };
+    }
+
+    if (typed) {
+      const none = facilities.every((f) => (f.type ?? "facility") !== typed.key);
+      if (none) {
+        const copy = {
+          facility: "Add the first facility. Facilities are shared, so other organizations benefit too.",
+          lodging: "Save hotels your team has used or wants to remember.",
+          dining: "Save restaurants or dining locations your team wants to remember.",
+        };
+        return {
+          title: `No ${typed.plural.toLowerCase()} yet`,
+          body: copy[typed.key],
+          addType: typed.key,
+          addLabel: `Add ${typed.label.toLowerCase()}`,
+        };
+      }
+      // Records of this type exist, just none saved.
+      return {
+        title: `No saved ${typed.plural.toLowerCase()}`,
+        body: "Places you play at, write notes on, or link to a tournament show up here.",
+        browseAll: view === "ours" && facilities.length > 0,
+      };
+    }
+
+    if (facilities.length === 0) {
+      return {
+        title: "Nothing here yet",
+        body: "Add the first location. Records are shared, so other organizations benefit too.",
+        addType: "facility",
+        addLabel: "Add location",
+      };
+    }
+
+    return {
+      title: "Nothing saved yet",
+      body: "Places you play at, write notes on, or link to a tournament show up here.",
+      browseAll: view === "ours",
+    };
+  }, [facilities, typeFilter, view, query, stateFilter, countyFilter, surfaceFilter, amenityFilter]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -337,15 +401,24 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
         </div>
         {canWrite && (
           <div className="foot-actions">
-            {/* Secondary to Add facility, and in the header rather than
-                floating above the tabs where it read as unrelated. */}
+            {/* Secondary to Add location, and in the header rather than
+                floating above the tabs where it read as unrelated.
+
+                Still "facilities" on purpose: the importer maps ballpark
+                columns and writes facility records only. Calling it "Import
+                locations" would promise a lodging and dining spreadsheet
+                format that does not exist. */}
             {isAdmin && (
               <button className="btn btn-secondary" onClick={() => setImporting(true)}>
-                Upload facilities
+                Import facilities
               </button>
             )}
-            <button className="btn btn-primary" onClick={() => setEditing("new")}>
-              Add facility
+            {/* ONE button, not three. It opens the create form with Type as
+                the first field, so the choice is made inside the flow rather
+                than by picking the right button beforehand. */}
+            <button className="btn btn-primary"
+                    onClick={() => { setCreateType("facility"); setEditing("new"); }}>
+              Add location
             </button>
           </div>
         )}
@@ -382,7 +455,15 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           onClick={() => { setView("ours"); setSort(null); }}
           aria-pressed={view === "ours"}
         >
-          Ours <span className="seg-count">{ourCount}</span>
+          {/* SAVED, not Ours. The list now holds hotels and restaurants, and
+              "ours" reads as ownership — a team does not own the Embassy
+              Suites. Saved says what the relationship actually is: this
+              organization has played there, written notes on it, or linked it
+              to a trip.
+
+              The view key stays "ours" and isOurs is unchanged; this is the
+              label, not the rule. */}
+          Saved <span className="seg-count">{ourCount}</span>
         </button>
         <button
           className={`segment${view === "all" ? " on" : ""}`}
@@ -392,7 +473,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           All <span className="seg-count">{facilities.length}</span>
         </button>
       </div>
-      <HelpTip term="Our Facilities" />
+      <HelpTip term="Saved" />
       </div>
 
       {/* Type is a second, narrower cut than Ours/All, so it sits on its own
@@ -400,7 +481,14 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
       <div className="segmented lr-types" role="group" aria-label="Which kind of place">
         <button
           className={`segment${typeFilter === "all" ? " on" : ""}`}
-          onClick={() => { setTypeFilter("all"); setSort(null); }}
+          onClick={() => {
+            setTypeFilter("all");
+            setSort(null);
+            // Hidden under All for the same reason.
+            setCountyFilter("all");
+            setSurfaceFilter("all");
+            setAmenityFilter("all");
+          }}
           aria-pressed={typeFilter === "all"}
         >
           All <span className="seg-count">{typeCounts.all}</span>
@@ -409,7 +497,20 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           <button
             key={t.key}
             className={`segment${typeFilter === t.key ? " on" : ""}`}
-            onClick={() => { setTypeFilter(t.key); setSort(null); }}
+              onClick={() => {
+              setTypeFilter(t.key);
+              setSort(null);
+              // Surface and amenity disappear for lodging and dining. Leaving
+              // one applied would keep filtering an invisible control, and the
+              // list would look empty for no reason a coach could see.
+              // A hidden filter that still applies would narrow the list for
+              // no reason a coach could see.
+              if (t.key !== "facility") {
+                setCountyFilter("all");
+                setSurfaceFilter("all");
+                setAmenityFilter("all");
+              }
+            }}
             aria-pressed={typeFilter === t.key}
           >
             {t.plural} <span className="seg-count">{typeCounts[t.key]}</span>
@@ -439,6 +540,12 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           <option value="all">All states</option>
           {states.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+        {/* COUNTY, SURFACE AND AMENITY ARE BALLPARK CONTROLS. County is how
+            this product navigates a softball directory; it is not a useful way
+            to find a hotel. State is the one geographic filter that reads
+            sensibly for every type, so it stays outside this group. */}
+        {typeFilter === "facility" && (
+          <>
         <select
           className="filter-select"
           value={countyFilter}
@@ -473,32 +580,31 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
         </select>
           </>
         )}
+          </>
+        )}
       </div>
 
       <div className="card card-flush">
         {visible.length === 0 ? (
           <div className="empty">
-            <h3>
-              {facilities.length === 0
-                ? "No facilities yet"
-                : view === "ours" && ourCount === 0
-                  ? "No facilities yet"
-                  : "Nothing matches"}
-            </h3>
-            <p>
-              {facilities.length === 0
-                ? "Add the first facility. Facilities are shared, so other organizations benefit too."
-                : view === "ours" && ourCount === 0
-                  ? "Facilities show up here once you play at one or save your own notes. Browse the full directory to find where you're playing."
-                  : "Try a different search or clear the filters."}
-            </p>
-            {view === "ours" && ourCount === 0 && facilities.length > 0 && (
+            <h3>{emptyState.title}</h3>
+            <p>{emptyState.body}</p>
+            {emptyState.browseAll && (
               <button className="btn btn-secondary" onClick={() => setView("all")}>
-                Browse all {facilities.length} facilities
+                Browse all {facilities.length}
               </button>
             )}
-            {facilities.length === 0 && canWrite && (
-              <button className="btn btn-primary" onClick={() => setEditing("new")}>Add facility</button>
+            {emptyState.addType && canWrite && (
+              <button
+                className="btn btn-primary"
+                /* Opens the same one Add flow with the type already chosen,
+                   so the empty state does the work rather than sending the
+                   coach back to the header to repeat a choice they just
+                   expressed by selecting the tab. */
+                onClick={() => { setCreateType(emptyState.addType); setEditing("new"); }}
+              >
+                {emptyState.addLabel}
+              </button>
             )}
           </div>
         ) : view === "ours" ? (
@@ -595,6 +701,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           row={editing === "new" ? null : editing}
           facilities={facilities}
           externalEnabled={externalEnabled}
+          initialType={createType}
           pending={pending}
           onSubmit={(fd) =>
             run(editing === "new" ? createFacility : updateFacility, fd, () => {
@@ -1071,12 +1178,14 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
    * amenities describe a ballpark, so they are gated on the type rather than
    * rendered empty on a hotel.
    */
-  const hasSharedInfo = Boolean(f.description || f.website || f.phone);
+  // Description is a facility field, so it is not read for other types even
+  // if an older record still carries a value.
+  const hasSharedInfo = Boolean((isFacility && f.description) || f.website || f.phone);
   const hasFacilityInfo = isFacility
     && Boolean(f.field_count != null || surface || amenities.length);
 
   return (
-    <DrawerShell onClose={onClose} ariaLabel="Facility details">
+    <DrawerShell onClose={onClose} ariaLabel={`${typeLabel(f.type)} details`}>
         <div className="drawer-head">
           <div className="drawer-head-text">
             <h2>{f.name}</h2>
@@ -1161,7 +1270,9 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
               County, coordinates and Atlas ID are internal and never shown. */}
           {hasSharedInfo && (
             <Section title={isFacility ? "Facility Information" : "Details"}>
-              {f.description && <p className="section-body fac-blurb">{f.description}</p>}
+              {isFacility && f.description && (
+                <p className="section-body fac-blurb">{f.description}</p>
+              )}
               {f.phone && (
                 <Row
                   label="Phone"
@@ -1203,8 +1314,15 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
 
               A link means the organization wanted to remember the place. It
               does NOT mean every family used it. */}
-          {(f.resourceLinks ?? []).length > 0 && (
+          {/* Always shown for a hotel or restaurant, because it is the only
+              tournament relationship those can have and its absence is worth
+              stating. For a facility it appears only when links exist, so the
+              drawer does not gain an empty section it never had. */}
+          {(!isFacility || (f.resourceLinks ?? []).length > 0) && (
             <Section title="Linked Tournaments">
+              {(f.resourceLinks ?? []).length === 0 ? (
+                <p className="section-body muted">No tournaments linked yet.</p>
+              ) : (
               <ul className="lr-links">
                 {f.resourceLinks.map((l) => (
                   <li key={l.id} className="lr-link">
@@ -1220,16 +1338,18 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
                   </li>
                 ))}
               </ul>
+              )}
             </Section>
           )}
 
+          {/* GAMES PLAYED HERE. Only a facility can have any, so the section is
+              absent for a hotel or restaurant rather than explaining why it is
+              empty — Linked Tournaments above already carries their whole
+              tournament relationship. */}
+          {isFacility && (
           <Section title="Tournament History" anchor="history">
             {f.history.length === 0 ? (
-              <p className="section-body muted">
-                {isFacility
-                  ? "No tournaments have been held here yet."
-                  : "No games are played here — link this to a tournament to record when you used it."}
-              </p>
+              <p className="section-body muted">No tournaments have been held here yet.</p>
             ) : (
               <>
                 {f.upcoming.length > 0 && (
@@ -1247,6 +1367,7 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
               </>
             )}
           </Section>
+          )}
 
           {canReview && f.pendingEdits.length > 0 && (
             <Section title={`Pending corrections (${f.pendingEdits.length})`}>
@@ -1309,9 +1430,9 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
             {confirmingDelete ? (
               <ConfirmAction
                 message={`Delete ${f.name}? Facilities are shared across Season Tempo — only do this for a record created by mistake.`}
-                confirmLabel="Delete facility"
+                confirmLabel={`Delete ${typeLabelFor(f.type)}`}
                 pendingLabel="Deleting…"
-                cancelLabel="Keep facility"
+                cancelLabel={`Keep ${typeLabelFor(f.type)}`}
                 onConfirm={onConfirmDelete}
                 onCancel={onCancelDelete}
                 pending={pending}
@@ -1477,7 +1598,7 @@ function toDisplay(v) {
 
 /* ---------------- Create / edit, search-first ---------------- */
 
-export function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onPickExisting, onCancel }) {
+export function FacilityForm({ row, facilities, externalEnabled, pending, onSubmit, onPickExisting, onCancel, initialType = "facility" }) {
   const isNew = !row;
   const [step, setStep] = useState(isNew ? "search" : "form");
   const [search, setSearch] = useState("");
@@ -1490,7 +1611,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
   const [stateCode, setStateCode] = useState(row?.state ?? "");
   // Drives which fields the form shows. Editing keeps the record's own type;
   // creating starts at facility, which is what most records are.
-  const [resourceType, setResourceType] = useState(row?.type ?? "facility");
+  const [resourceType, setResourceType] = useState(row?.type ?? initialType);
   const typeIsFacility = resourceType === "facility";
   const [acknowledged, setAcknowledged] = useState(false);
   const [prefill, setPrefill] = useState(null);
@@ -1571,15 +1692,31 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
       <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-head">
-            <h2>Add facility</h2>
+            <h2>Add location</h2>
             <div className="page-sub">
-              Facilities are shared across Season Tempo. Search first — the facility may already exist.
+              Records are shared across Season Tempo. Search first — it may already exist.
             </div>
           </div>
 
           <div className="modal-body">
+            {/* FIRST, because it decides what everything below means: which
+                fields the form shows, and what the search is searching for.
+                One entry point with a choice inside it, rather than three
+                buttons in the header. */}
             <div className="field">
-              <label htmlFor="fac-search">Search existing facilities</label>
+              <label htmlFor="f-type">Type</label>
+              <select id="f-type" name="type" value={resourceType}
+                      onChange={(e) => setResourceType(e.target.value)}>
+                {RESOURCE_TYPES.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="fac-search">
+                Search existing places
+              </label>
               <input
                 id="fac-search"
                 type="search"
@@ -1592,11 +1729,11 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
 
             {search.trim() === "" ? (
               <p className="section-body muted">
-                Start typing to search {facilities.length} facilities already in Season Tempo.
+                Start typing to search {facilities.length} records already in Season Tempo.
               </p>
             ) : matches.length === 0 ? (
               <p className="section-body muted">
-                Nothing matches “{search.trim()}”. Create it as a new facility below.
+                Nothing matches “{search.trim()}”. Create it below.
               </p>
             ) : (
               <ul className="pick-list">
@@ -1629,7 +1766,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                 }}
                 title={
                   externalEnabled
-                    ? "Look this facility up in an external place directory"
+                    ? "Look this place up in an external place directory"
                     : "External place search isn't connected yet"
                 }
               >
@@ -1659,7 +1796,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
           <div className="modal-head">
             <h2>Search external places</h2>
             <div className="page-sub">
-              Look the facility up by name or address, then confirm before it becomes an Season Tempo facility.
+              Look the place up by name or address, then confirm before it is added.
             </div>
           </div>
 
@@ -1781,7 +1918,7 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
             <h2>{isNew ? "New facility" : `Edit ${row.name}`}</h2>
             <div className="page-sub">
               {prefill
-                ? "Check these details, then confirm to create the shared Season Tempo facility."
+                ? "Check these details, then confirm to create the shared record."
                 : "These details are shared with every organization in Season Tempo."}
             </div>
           </div>
@@ -1844,17 +1981,6 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                 )}
               </div>
             )}
-
-            {/* First field, because it decides what the rest of the form is. */}
-            <div className="field">
-              <label htmlFor="f-type">Type</label>
-              <select id="f-type" name="type" value={resourceType}
-                      onChange={(e) => setResourceType(e.target.value)}>
-                {RESOURCE_TYPES.map((t) => (
-                  <option key={t.key} value={t.key}>{t.label}</option>
-                ))}
-              </select>
-            </div>
 
             <div className="field">
               <label htmlFor="f-name">Name</label>
@@ -2002,17 +2128,52 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
             ))}
             <input type="hidden" name="parking" defaultValue={row?.parking ?? ""} />
 
-            <div className="field">
-              <label htmlFor="f-description">Description</label>
-              <textarea id="f-description" name="description" rows={2}
-                        placeholder="e.g. Six-field complex off Highway 92, main entrance on the north side"
-                        defaultValue={row?.description ?? ""} />
-              <p className="field-note">
-                An objective description of the facility, shared with every organization in
-                Season Tempo. Anything specific to your team belongs in Team Notes.
-              </p>
-            </div>
+            {/* FACILITY ONLY.
+                Description is a shared, globally readable fact — an objective
+                account of a ballpark that every organization sees. For a hotel
+                or a restaurant, what a coach actually wants to write down is
+                their own experience of it, and that belongs in YOUR NOTES,
+                which is private. Offering both would give them two places to
+                put the same sentence and no way to tell which was right. */}
+            {typeIsFacility && (
+              <div className="field">
+                <label htmlFor="f-description">Description</label>
+                <textarea id="f-description" name="description" rows={2}
+                          placeholder="e.g. Six-field complex off Highway 92, main entrance on the north side"
+                          defaultValue={row?.description ?? ""} />
+                <p className="field-note">
+                  An objective description of the facility, shared with every organization in
+                  Season Tempo. Anything specific to your team belongs in Your Notes.
+                </p>
+              </div>
+            )}
 
+            {/* ADVANCED IS A FACILITY/ADMIN CONTROL.
+                Latitude, longitude and the maps link are manual overrides for
+                a ballpark whose coordinates matter operationally. For a hotel
+                or a restaurant the address is what a coach needs, the map link
+                is generated from that address, and coordinates arrive from
+                external place search when they arrive at all — so there is
+                nothing here for them to manage.
+
+                County is already hidden for every type, a few lines above. */}
+            {!typeIsFacility && (
+              <>
+                {/* ROUND-TRIPPED, NOT DROPPED. facilityFields reads every key
+                    from the form and updateFacility writes the whole payload,
+                    so an absent input saves null over a stored value. These
+                    carry the existing values through untouched — the same
+                    reason the county input exists. Geocoding and external
+                    place search still populate them normally. */}
+                <input type="hidden" name="latitude"
+                       defaultValue={prefill?.latitude ?? row?.latitude ?? ""} />
+                <input type="hidden" name="longitude"
+                       defaultValue={prefill?.longitude ?? row?.longitude ?? ""} />
+                <input type="hidden" name="maps_link" defaultValue={row?.maps_link ?? ""} />
+              </>
+            )}
+
+            {typeIsFacility && (
             <details className="more-details" open={Boolean(prefill)}>
               <summary>Advanced</summary>
 
@@ -2041,12 +2202,15 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                   : "Optional. These fill automatically once external place search is connected."}
               </p>
             </details>
+            )}
           </div>
 
           <div className="modal-foot">
             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={pending || blocked}>
-              {pending ? "Saving…" : isNew ? (prefill ? "Confirm and create" : "Create facility") : "Save changes"}
+              {pending ? "Saving…" : isNew
+                ? (prefill ? "Confirm and create" : `Create ${typeLabelFor(resourceType)}`)
+                : "Save changes"}
             </button>
           </div>
         </form>

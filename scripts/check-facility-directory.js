@@ -148,8 +148,10 @@ console.log("\nLocations & Resources");
   const css = fsx.readFileSync("app/globals.css", "utf8");
 
   // One vocabulary.
-  assertEq("three types, no Services in V1",
-    /facility[\s\S]{0,120}?lodging[\s\S]{0,120}?dining/.test(fields), true);
+  // Asserts the STORED keys, not the labels. Labels are presentation and have
+  // already changed once (Lodging -> Hotel) without the schema moving.
+  assertEq("three stored types, no Services in V1",
+    /key: "facility"[\s\S]*?key: "lodging"[\s\S]*?key: "dining"/.test(fields), true);
   assertEq("Services is deliberately absent", /Services is deliberately absent/.test(fields), true);
   assertEq("unknown type reads as Facility", /TYPE_LABEL\.get\(key\) \?\? "Facility"/.test(fields), true);
   assertEq("nine ballpark-only fields", /FACILITY_ONLY_FIELDS = \[/.test(fields), true);
@@ -203,6 +205,159 @@ console.log("\nLocations & Resources");
   assertEq("unlink confirms in place", /confirmUnlink === r\.id/.test(tui), true);
   assertEq("Used never implies everyone used it",
     /does not mean every family/.test(tui), true);
+
+
+  // Header actions after visual QA.
+  assertEq("one primary action, named for what it creates",
+    /Add location/.test(ui) && !/>\s*Add facility\s*</.test(ui), true);
+  assertEq("no separate per-type buttons",
+    /Add Lodging|Add Dining/.test(ui), false);
+  assertEq("import is still named for what it actually supports",
+    /Import facilities/.test(ui), true);
+  assertEq("...and no longer says Upload", /Upload facilities/.test(ui), false);
+
+  // Type is the first decision in the create flow.
+  assertEq("exactly one type selector", (ui.match(/htmlFor="f-type"/g) || []).length, 1);
+  assertEq("...and it precedes the duplicate search",
+    ui.indexOf('htmlFor="f-type"') < ui.indexOf('htmlFor="fac-search"'), true);
+
+  // Ballpark filters follow the selected type.
+  assertEq("county, surface and amenity are gated on Facilities",
+    /\{typeFilter === "facility" && \(/.test(ui), true);
+  assertEq("...exactly one such gate", (ui.match(/typeFilter === "facility" && \(/g) || []).length, 1);
+  assertEq("county sits inside that gate",
+    ui.indexOf('{typeFilter === "facility"') < ui.indexOf("All counties"), true);
+  assertEq("...and are cleared when hidden, so nothing filters invisibly",
+    (ui.match(/setSurfaceFilter\("all"\); setAmenityFilter\("all"\)/g) || []).length >= 1
+      || /setSurfaceFilter\("all"\);\s*\n\s*setAmenityFilter\("all"\);/.test(ui), true);
+  assertEq("state stays for every type",
+    ui.indexOf("All states") < ui.indexOf('{typeFilter === "facility"'), true);
+  // Must be cleared in BOTH handlers: switching to a non-facility type, and
+  // switching to All. Checking only that the call exists somewhere would pass
+  // with one of the two missing.
+  // Cleared in BOTH chip handlers: switching to a non-facility type, and
+  // switching to All. A third call already existed — a pre-existing guard that
+  // resets county when the chosen one leaves the visible list — so this counts
+  // the two inside the handlers rather than every occurrence.
+  assertEq("county is cleared by both chip handlers",
+    (ui.match(/setCountyFilter\("all"\);\n\s*setSurfaceFilter\("all"\)/g) || []).length, 2);
+  assertEq("...alongside amenity",
+    (ui.match(/setSurfaceFilter\("all"\)/g) || []).length, 2);
+
+  // Label vs stored value.
+  assertEq("chips read Hotels", /plural: "Hotels"/.test(fields), true);
+  assertEq("the record label reads Hotel", /label: "Hotel"/.test(fields), true);
+  assertEq("the STORED value is still lodging", /key: "lodging"/.test(fields), true);
+  assertEq("nothing renamed the stored value",
+    /"hotel"/.test(fields.replace(/\/\*[\s\S]*?\*\//g, "")), false);
+  assertEq("Services is still absent", /key: "services"/.test(fields), false);
+
+  // Search wording works across types.
+  assertEq("search placeholder is type-neutral",
+    /Search by name, city, county, or address/.test(ui), true);
+
+
+  /* ---- Visual QA contracts ---------------------------------------------- */
+
+  // Saved, not Ours. A team does not own the Embassy Suites.
+  assertEq("the collection control reads Saved", /Saved <span className="seg-count"/.test(ui), true);
+  assertEq("...and no longer reads Ours", /Ours <span className="seg-count"/.test(ui), false);
+  assertEq("the view KEY is unchanged, so isOurs is untouched",
+    /view === "ours"/.test(ui), true);
+  assertEq("isOurs still requires a real relationship",
+    /committedHistory\.length > 0 \|\| orgNotes !== null \|\| links\.length > 0/.test(q), true);
+
+  // No user-facing Lodging anywhere, in any file.
+  {
+    const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const userFacing = [ui, tui, fields, fsx.readFileSync("lib/onboarding.js", "utf8")]
+      .map(strip).join("\n");
+    // Quoted display strings only; the stored key "lodging" is lowercase.
+    assertEq("no user-facing Lodging terminology", /Lodging/.test(userFacing), false);
+    assertEq("...and no stray Hotel key was introduced",
+      /key: "hotel"/.test(strip(fields)), false);
+  }
+
+  // Filters by type.
+  assertEq("County sits inside the facility-only gate",
+    ui.indexOf('{typeFilter === "facility"') < ui.indexOf("All counties"), true);
+  assertEq("Surface too", ui.indexOf('{typeFilter === "facility"') < ui.indexOf("All surfaces"), true);
+  assertEq("Amenity too", ui.indexOf('{typeFilter === "facility"') < ui.indexOf("Any amenity"), true);
+  assertEq("State stays outside it, so every type keeps it",
+    ui.indexOf("All states") < ui.indexOf('{typeFilter === "facility"'), true);
+
+  // Two different empties.
+  assertEq("an active filter says so rather than implying emptiness",
+    /title: "Nothing matches", body: "Try a different search or clear the filters."/.test(ui), true);
+  assertEq("a genuinely empty type invites the first record",
+    /No \$\{typed\.plural\.toLowerCase\(\)\} yet/.test(ui), true);
+  assertEq("...with hotel wording", /Save hotels your team has used or wants to remember/.test(ui), true);
+  assertEq("...and dining wording",
+    /Save restaurants or dining locations your team wants to remember/.test(ui), true);
+  assertEq("the empty-state button preselects the type",
+    /setCreateType\(emptyState\.addType\)/.test(ui), true);
+  assertEq("...and the form honours it", /useState\(row\?\.type \?\? initialType\)/.test(ui), true);
+
+  // Hotel/Dining never expose ballpark fields.
+  assertEq("ballpark form fields are gated", /\{typeIsFacility && \(/.test(ui), true);
+  assertEq("ballpark drawer block is gated", /const hasFacilityInfo = isFacility/.test(ui), true);
+  assertEq("the action nulls them for non-facilities", /facilityOnly \? /.test(act), true);
+
+  // Copy that changes with the type.
+  assertEq("create button names the type", /Create \$\{typeLabelFor\(resourceType\)\}/.test(ui), true);
+  assertEq("delete confirmation names the type", /Delete \$\{typeLabelFor\(f\.type\)\}/.test(ui), true);
+  assertEq("the drawer label names the type", /\$\{typeLabel\(f\.type\)\} details/.test(ui), true);
+
+  // Header actions unchanged.
+  assertEq("import stays facility-specific", /Import facilities/.test(ui), true);
+  assertEq("one manual create action",
+    (ui.match(/Add location/g) || []).length >= 1 && !/Add Hotel<|Add Dining</.test(ui), true);
+
+
+  // Description is a SHARED, globally readable fact about a ballpark. For a
+  // hotel, what a coach wants to write is their own experience, and that lives
+  // in the private notes. Offering both would give them two places for the
+  // same sentence and no way to know which was right.
+  assertEq("Description is facility-only in the form",
+    ui.indexOf("htmlFor=\"f-description\"") > ui.lastIndexOf("{typeIsFacility && (", ui.indexOf("htmlFor=\"f-description\"")), true);
+  assertEq("...not read in the drawer for other types",
+    /isFacility && f\.description/.test(ui), true);
+  assertEq("...and not written by the action for other types",
+    /description: facilityOnly \? /.test(act), true);
+
+  // Linked tournaments empty state.
+  assertEq("non-facilities always show Linked Tournaments",
+    /!isFacility \|\| \(f\.resourceLinks \?\? \[\]\)\.length > 0/.test(ui), true);
+  assertEq("...with a plain empty line", /No tournaments linked yet\./.test(ui), true);
+  assertEq("...and never the games wording", /No games are played here/.test(ui), false);
+  assertEq("games history is facility-only",
+    ui.indexOf("{isFacility && (") < ui.indexOf('title="Tournament History"'), true);
+  assertEq("...keeping its own facility wording",
+    /No tournaments have been held here yet\./.test(ui), true);
+
+
+  // Advanced is a facility/admin control: manual coordinate overrides and a
+  // maps link. A hotel's address is what a coach needs; the map link is
+  // generated from it and coordinates arrive from external place search.
+  assertEq("Advanced is facility-only",
+    ui.indexOf("{typeIsFacility && (\n            <details") > -1
+      || /\{typeIsFacility && \(\s*\n\s*<details/.test(ui), true);
+  assertEq("...and county is hidden for every type",
+    /<input type="hidden" name="county"/.test(ui), true);
+
+  // The trap this avoids: facilityFields reads every key and updateFacility
+  // writes the whole payload, so an ABSENT input saves null over a stored
+  // value. Hiding a control without round-tripping it destroys data.
+  assertEq("latitude round-trips when hidden",
+    /<input type="hidden" name="latitude"/.test(ui), true);
+  assertEq("longitude round-trips when hidden",
+    /<input type="hidden" name="longitude"/.test(ui), true);
+  assertEq("maps link round-trips when hidden",
+    /<input type="hidden" name="maps_link"/.test(ui), true);
+  assertEq("...carrying prefill or the stored value, not blank",
+    /name="latitude"\s*\n?\s*defaultValue=\{prefill\?\.latitude \?\? row\?\.latitude/.test(ui), true);
+  assertEq("Facilities keep the editable Advanced controls",
+    /htmlFor="f-lat"/.test(ui) && /htmlFor="f-maps"/.test(ui), true);
 
   // Nav and mobile.
   assertEq("nav renamed", /label: "Locations & Resources"/.test(nav), true);
