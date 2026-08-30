@@ -2027,6 +2027,145 @@ console.log("\nExcel date cells through the real reader");
   ok("...and formatted text is requested", /raw: false/.test(src), true);
 }
 
+
+/* ---- Required fields, column independence, partial re-import ------------
+   A coach re-importing on a phone unchecked columns to fill one missing
+   field, tapped Player Name by accident, and was refused at the NEXT step
+   with "row has no player name" — an allowed action punished afterwards, in
+   language about rows rather than the control tapped. full_name has carried
+   requiredForIntake since the registry was written; the mapping never passed
+   it on, so the UI had no way to know. */
+
+console.log("\nRequired fields cannot be excluded");
+
+{
+  const sug = map.suggestMappings(["Player Name", "Date of Birth", "Grad Year",
+                                   "Email", "Jersey Size", "Pants Size"]);
+  ok("full_name is the only required field",
+    sug.mappings.filter((m) => m.required).map((m) => m.key), ["full_name"]);
+
+  // Matching EVIDENCE is not identity. Excluding it weakens matching, which
+  // is the coach's call; excluding the name makes every row invalid.
+  for (const k of ["date_of_birth", "grad_year", "contact_email",
+                   "jersey_size", "pants_size"]) {
+    ok(`${k} stays optional`, sug.mappings.find((m) => m.key === k).required, false);
+  }
+
+  const keyOf = (m) => m.header;
+  ok("a required column is seeded included",
+    new Set(sug.mappings.filter((m) => m.autoEnabled || m.required).map(keyOf))
+      .has("Player Name"), true);
+
+  const ui = require("fs").readFileSync("components/PlayerIntake.js", "utf8");
+  ok("the UI renders it as Required, not a checkbox", /m\?\.required \? \(/.test(ui), true);
+  ok("...and the destination cannot be cleared either",
+    /current\?\.required && !key/.test(ui), true);
+  ok("...and it is force-included at the seed",
+    /m\.autoEnabled \|\| m\.required/.test(ui), true);
+}
+
+console.log("\nSource columns toggle independently");
+
+{
+  const keyOf = (m) => m.header;
+  const sug = map.suggestMappings(["X Handle", "X URL", "Contact 1 Email", "Contact 2 Email"]);
+  ok("each column has its own key", new Set(sug.mappings.map(keyOf)).size, sug.mappings.length);
+
+  // X Handle and X URL describe ONE link; they must still toggle separately.
+  const enabled = new Set(sug.mappings.map(keyOf));
+  enabled.delete("X Handle");
+  ok("unchecking one leaves its twin included", enabled.has("X URL"), true);
+  ok("...and an unrelated contact column untouched", enabled.has("Contact 2 Email"), true);
+
+  // Repeated toggling must not degrade.
+  let set = new Set(sug.mappings.map(keyOf));
+  for (let i = 0; i < 6; i += 1) {
+    set = new Set(set);
+    set.has("Contact 1 Email") ? set.delete("Contact 1 Email") : set.add("Contact 1 Email");
+  }
+  ok("six toggles leave the others alone",
+    [set.has("X Handle"), set.has("X URL"), set.has("Contact 2 Email")], [true, true, true]);
+}
+
+console.log("\nPartial re-import writes only what was selected");
+
+{
+  const stored = mat.toCandidate({ id: "p1", full_name: "Tenley Lynch", grad_year: 2028,
+    date_of_birth: "2010-05-05",
+    player_contacts: [{ id: "c", email: "t@example.invalid" }] });
+
+  // Only a name and the one field the coach came back for.
+  const row = { full_name: "Tenley Lynch", jersey_size: "AM", contacts: [] };
+  const m = mat.matchPlayer(row, [stored]);
+  const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+    existingContacts: stored.contacts, decisions: {}, identity: null });
+
+  ok("no player field is written", plan.writes.some((w) => w.table === "players"), false);
+  // With the evidence columns unchecked there is nothing to corroborate the
+  // name, so the row asks. That is the matching protection, not a defect.
+  ok("identity needs confirming when evidence is excluded", plan.executable, false);
+
+  const decided = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+    existingContacts: stored.contacts, decisions: {}, identity: "same" });
+  ok("once confirmed the row imports", decided.executable, true);
+  ok("...writing only the selected field", decided.writes.map((w) => w.table),
+    ["team_season_players"]);
+  ok("...with only that value", decided.writes[0].values, { jersey_size: "AM" });
+
+  // Leaving the evidence checked costs nothing: unchanged values are SAME.
+  const withEvidence = { full_name: "Tenley Lynch", date_of_birth: "2010-05-05",
+    jersey_size: "AM", contacts: [{ email: "t@example.invalid" }] };
+  const m2 = mat.matchPlayer(withEvidence, [stored]);
+  const p2 = pln.buildRowPlan({ row: withEvidence, match: m2, existingPlayer: m2.candidate,
+    existingContacts: stored.contacts, decisions: {}, identity: null });
+  ok("keeping evidence checked avoids the decision", p2.executable, true);
+  ok("...and still writes no player field", p2.writes.some((w) => w.table === "players"), false);
+
+  const blank = pln.buildRowPlan({
+    row: { full_name: "Tenley Lynch", grad_year: null, contacts: [] },
+    match: m2, existingPlayer: stored, existingContacts: stored.contacts,
+    decisions: {}, identity: null });
+  ok("a blank never erases", blank.writes.some((w) => w.table === "players"), false);
+}
+
+console.log("\nUniform sizes are not a readiness requirement");
+
+{
+  const fsx = require("fs");
+  const src = fsx.readFileSync("lib/readiness/team.js", "utf8");
+  ok("no jersey_size in any readiness rule", /jersey_size/.test(src), false);
+  ok("no pants_size in any readiness rule", /pants_size/.test(src), false);
+  ok("the remaining check is jersey number only",
+    /activePlayers\(rows\)\.filter\(\(r\) => r\.jersey_number == null\)/.test(src), true);
+  ok("...and says so", /title: "Jersey numbers"/.test(src), true);
+  ok("no readiness rule was added or removed",
+    (src.match(/^function \w+Check\(/gm) || []).length, 3);
+  ok("the dashboard wording no longer mentions sizes",
+    /uniform sizes/.test(fsx.readFileSync("lib/readiness/dashboard.js", "utf8")), false);
+
+  // The fields themselves are untouched everywhere else.
+  ok("jersey_size is still importable", reg.BY_KEY.get("jersey_size").importable, true);
+  ok("pants_size is still importable", reg.BY_KEY.get("pants_size").importable, true);
+  ok("both still export",
+    /Jersey Size/.test(fsx.readFileSync("lib/player-export.js", "utf8")), true);
+}
+
+console.log("\nMobile viewport");
+
+{
+  const css = require("fs").readFileSync("app/globals.css", "utf8");
+  ok("the drawer uses the dynamic viewport on mobile",
+    /@media \(max-width: 720px\)[\s\S]*?\.drawer \{ height: 100dvh; \}/.test(css), true);
+  ok("height: 100% remains as the fallback",
+    /\.drawer \{[^}]*height: 100%/.test(css), true);
+  ok("safe-area padding only applies when there is an inset",
+    /env\(safe-area-inset-bottom, 0px\)/.test(css), true);
+  ok("the include control meets a 44px target",
+    /\.pi-switch \{ min-height: 44px; \}/.test(css), true);
+  ok("...and so does the Required badge",
+    /\.pi-required \{ min-height: 44px; \}/.test(css), true);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

@@ -100,7 +100,9 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
     setHasHeaders(headersDetected);
     setOverrides({});
     setGrid({ header, body, raw: result.grid, ...sug });
-    setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled).map(keyOf)));
+    // A required column is always included — belt as well as braces, since
+    // the UI no longer offers a way to exclude it.
+    setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled || m.required).map(keyOf)));
     setStep("map");
   }
 
@@ -344,7 +346,9 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
             setHasHeaders(next);
             setOverrides({});
             setGrid({ header, body, raw: grid.raw, ...sug });
-            setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled).map(keyOf)));
+            // A required column is always included — belt as well as braces, since
+    // the UI no longer offers a way to exclude it.
+    setEnabled(new Set(sug.mappings.filter((m) => m.autoEnabled || m.required).map(keyOf)));
           }}
           keyOf={keyOf} onBack={() => { setStep("upload"); setGrid(null); setFile(null); }}
           onNext={() => setStep("match")}
@@ -424,6 +428,11 @@ function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setO
   };
 
   const setField = (header, key) => {
+    // The same protection as the Include control: a required destination
+    // cannot be cleared, or the row loses the value that identifies it.
+    const current = effective.find((x) => x.header === header);
+    if (current?.required && !key) return;
+
     setOverrides({ ...overrides, [header]: key });
     if (key) {
       const field = BY_KEY.get(key);
@@ -509,7 +518,18 @@ function MapFields({ file, grid, effective, enabled, setEnabled, overrides, setO
                   {m?.confidence === "probable" && <span className="pi-badge">Best guess</span>}
                 </td>
                 <td>
-                  {key ? (
+                  {/* A REQUIRED FIELD IS NOT A CHECKBOX.
+                      Player name identifies the row; without it every row is
+                      invalid. Offering it as a toggle let a coach put the
+                      import into a state the next step would reject — easy to
+                      do by accident on a phone, and confusing to recover from,
+                      because the error named the row rather than the tap.
+                      Preventing the action is kinder than reporting it. */}
+                  {m?.required ? (
+                    <span className="pi-required" title="Player name is needed to identify each row">
+                      Required
+                    </span>
+                  ) : key ? (
                     <label className="pi-switch">
                       <input type="checkbox" checked={on} onChange={() => m && toggle(m)}
                              aria-label={`Include ${header}`} />

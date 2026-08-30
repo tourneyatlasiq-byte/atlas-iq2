@@ -5777,3 +5777,37 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .t-metric { padding: 8px 10px; }
   .t-metric-value { font-size: 15px; }
 }
+
+/* ---- Import Players: required field, and the mobile viewport ------------ */
+
+/* A required destination reads as a statement, not a control. Deliberately
+   not a disabled checkbox: a greyed tickbox still invites the tap and still
+   answers "no" when tapped. */
+.pi-required {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-sunken); border: 1px solid var(--border); color: var(--slate);
+}
+
+@media (max-width: 720px) {
+  /* THE LAST MAPPING ROW WAS UNREACHABLE.
+     .drawer is height: 100% inside a position: fixed backdrop, which resolves
+     against the LAYOUT viewport — on iOS Safari that includes the strip behind
+     the bottom toolbar. The drawer was therefore taller than the visible area
+     and its final rows sat under browser chrome, with the scroll container
+     already at its end so nothing could bring them up.
+     100dvh is the visible height and shrinks as the toolbar appears. The
+     height: 100% above remains as the fallback for anything without dvh. */
+  .drawer { height: 100dvh; }
+
+  /* Only pads when there IS an inset, so no double gap on a device without
+     one. The 16px is the existing .drawer-body padding, not an addition. */
+  .drawer-body { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+
+  /* A 44px target without changing the row's density: the label grows into
+     the space the row already has rather than making the row taller. */
+  .pi-switch { min-height: 44px; }
+  .pi-switch input { width: 20px; height: 20px; }
+  .pi-required { min-height: 44px; }
+}
