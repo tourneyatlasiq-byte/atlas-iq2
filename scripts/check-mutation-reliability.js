@@ -208,5 +208,30 @@ section("Runners left alone, on purpose");
     /setHidden\(true\)/.test(read("components/GettingStarted.js")));
 }
 
+
+section("Files on a phone");
+
+{
+  const ui3 = read("components/FilesClient.js");
+  const css3 = read("app/globals.css");
+
+  ok("a phone gets its own list, not a reflowed table",
+    /className="files-list"/.test(ui3));
+  ok("...built from the same rows", /visible\.map\(\(d\) => \{[\s\S]{0,200}?files-card/.test(ui3));
+  ok("...opening the same drawer", /className="files-card"[\s\S]{0,120}?openDetail\(d\)/.test(ui3));
+  ok("the table is hidden on a phone, not squeezed",
+    /@media \(max-width: 720px\)[\s\S]*?\.files-table \{ display: none; \}/.test(css3));
+  ok("...and the list is hidden on desktop", /\.files-list \{ display: none; \}/.test(css3));
+  ok("tabs scroll themselves rather than widening the page",
+    /\.files-views \{[^}]*overflow-x: auto/.test(css3));
+  ok("...containing the overscroll", /overscroll-behavior-x: contain/.test(css3));
+  ok("search and filter stack and are tappable",
+    /\.files-views \+ \.toolbar \{ flex-direction: column/.test(css3));
+  ok("a long filename clamps instead of widening the card",
+    /\.files-card-name \{[^}]*-webkit-line-clamp: 2/.test(css3));
+  ok("...and breaks rather than overflowing", /\.files-card-name \{[^}]*overflow-wrap: anywhere/.test(css3));
+  ok("the card meets the touch target", /\.files-card \{[^}]*min-height: 44px/.test(css3));
+}
+
 console.log(`\n${ran} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

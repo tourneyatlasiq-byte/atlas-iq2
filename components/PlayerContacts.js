@@ -116,13 +116,40 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
    * An inline confirmation cannot be suppressed, is visible where the thumb
    * already is, and states what is about to happen.
    */
+  /**
+   * A LEGACY CONTACT HAS NO ROW TO DELETE.
+   *
+   * resolveContacts() returns `id: null` for a contact reconstructed from the
+   * legacy parent_* columns. Keying the confirmation on `c.id` meant the
+   * comparison `confirmRemove === c.id` was `null === null` — TRUE before
+   * anything was tapped — so every legacy guardian rendered its removal
+   * confirmation unprompted. Confirming it then sent `contact_id: null`,
+   * which FormData turns into the STRING "null", and Postgres answered
+   * `invalid input syntax for type uuid: "null"`.
+   *
+   * The key is now the same non-null slot the editor uses. parent_* columns
+   * are read-only fallbacks that nothing writes, so a legacy contact is not
+   * deletable at all — it stops appearing once real contacts exist, and
+   * editing one promotes it by INSERTING a real row.
+   */
+  const slotOf = (c) => (c.source === "legacy" ? "legacy" : c.id);
+
   function askRemove(c) {
     setError(null);
     setErrorFor(null);
-    setConfirmRemove(c.id);
+    if (c.source === "legacy" || !c.id) {
+      // Refused explicitly rather than sent to a DELETE that cannot match.
+      setError("This contact came from older parent fields and has no record to remove. Edit it to save it as a contact first.");
+      setErrorFor(slotOf(c));
+      return;
+    }
+    setConfirmRemove(slotOf(c));
   }
 
   function doRemove(c) {
+    // Defensive: nothing should reach here without a real row, and a missing
+    // id must never be stringified into the request.
+    if (!c.id) return;
     const fd = new FormData();
     fd.set("player_id", playerId);
     fd.set("contact_id", c.id);
@@ -204,7 +231,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
         const isEditing = editing === (c.source === "legacy" ? "legacy" : c.id);
 
         if (isEditing) {
-          const slot = c.source === "legacy" ? "legacy" : c.id;
+          const slot = slotOf(c);
           return (
             <Editor key={key} form={form} setForm={setForm} onSave={save}
                     onCancel={() => { setEditing(null); setError(null);
@@ -246,7 +273,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
 
             {/* The confirmation replaces the action row in place, so the
                 decision sits exactly where the thumb already is. */}
-            {canWrite && editing === null && confirmRemove === c.id && (
+            {canWrite && editing === null && confirmRemove === slotOf(c) && c.id && (
               <div className="pc-confirm" role="alert">
                 <p>Remove {contactHeading(c)} from this player&rsquo;s contacts?</p>
                 <div className="pc-actions">
@@ -262,7 +289,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
               </div>
             )}
 
-            {canWrite && editing === null && confirmRemove !== c.id && (
+            {canWrite && editing === null && confirmRemove !== slotOf(c) && (
               <div className="pc-actions">
                 <button type="button" className="btn btn-ghost btn-sm"
                         onClick={() => beginEdit(c)} disabled={pending}>Edit</button>

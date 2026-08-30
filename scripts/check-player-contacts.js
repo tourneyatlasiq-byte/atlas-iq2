@@ -414,6 +414,41 @@ section("Removing a contact");
 }
 
 
+
+section("Legacy contacts are not routed through a DELETE");
+
+{
+  const fs2 = require("fs");
+  const ui2 = fs2.readFileSync("components/PlayerContacts.js", "utf8");
+  const rules = fs2.readFileSync("lib/player-contact-rules.js", "utf8");
+
+  // A legacy contact is reconstructed from parent_* and has NO row.
+  ok("a legacy contact carries a null id", /id: null,/.test(rules));
+  ok("...and is marked as a derived primary", /isPrimaryDerived: true/.test(rules));
+
+  // The bug: confirmRemove === c.id was null === null, TRUE before any tap,
+  // so every legacy guardian showed its confirmation and confirming sent the
+  // string "null" to a uuid column.
+  ok("the confirmation is keyed by a non-null slot", /confirmRemove === slotOf\(c\)/.test(ui2));
+  const ui2code = ui2.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("...and never on a raw possibly-null id", !/confirmRemove === c\.id/.test(ui2code));
+  ok("...and additionally requires a real id", /confirmRemove === slotOf\(c\) && c\.id/.test(ui2));
+
+  ok("removal refuses a contact with no row", /if \(c\.source === "legacy" \|\| !c\.id\)/.test(ui2));
+  ok("...explaining what to do instead", /has no record to remove/.test(ui2));
+  ok("...and the request is never built", /if \(!c\.id\) return;/.test(ui2));
+  ok("the Remove button stays hidden for legacy", /c\.source !== "legacy" && \(/.test(ui2));
+
+  // Not fixed by coercion.
+  ok("no string 'null' filtering was added", !/=== "null"|!== "null"/.test(ui2));
+
+  // Real contacts, primary or not, are unaffected.
+  ok("a real contact still uses its id as the slot",
+     /c\.source === "legacy" \? "legacy" : c\.id/.test(ui2));
+  ok("is_primary does not gate removal", !/is_primary[\s\S]{0,120}?askRemove/.test(ui2));
+}
+
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);

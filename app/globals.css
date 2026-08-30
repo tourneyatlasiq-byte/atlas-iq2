@@ -5891,3 +5891,59 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .confirm-inline-actions { flex-direction: column; }
   .confirm-inline-actions .btn { width: 100%; min-height: 44px; }
 }
+
+/* ---- Files on a phone ---------------------------------------------------
+   The desktop table has five columns; squeezed onto a 375px screen the last
+   two sat off the right edge with no indication they existed, and the view
+   tabs pushed the page into horizontal scroll. Desktop keeps its table. The
+   phone gets a list built from the same rows, showing what a coach actually
+   needs: the file, what it belongs to, and how to open it. */
+
+@media (max-width: 720px) {
+  /* Tabs scroll THEMSELVES rather than widening the page. */
+  .files-views {
+    display: flex; flex-wrap: nowrap;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .files-views::-webkit-scrollbar { display: none; }
+  .files-views > * { flex: 0 0 auto; min-height: 40px; }
+
+  /* Search above, filter below, both full width — the two were sharing a row
+     narrow enough to clip the select's label. */
+  .files-views + .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .files-views + .toolbar .toolbar-search,
+  .files-views + .toolbar .filter-select { width: 100%; min-height: 44px; }
+
+  /* The table is replaced, not reflowed. */
+  .files-table { display: none; }
+  .files-list { display: grid; gap: 8px; }
+}
+
+/* Desktop keeps the table and never renders the list. */
+.files-list { display: none; }
+
+.files-card {
+  width: 100%; text-align: left; cursor: pointer;
+  display: grid; gap: 6px;
+  padding: 12px 14px; min-height: 44px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); font-family: inherit;
+}
+.files-card:hover { background: var(--surface-sunken); }
+
+/* A long filename wraps to two lines and then stops, rather than pushing the
+   card wider than the screen. */
+.files-card-name {
+  font-size: 14.5px; font-weight: 600; color: var(--navy); line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.files-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-size: 12.5px; color: var(--slate);
+}
+.files-card-meta .pill { flex: 0 0 auto; }
+.files-card-related { overflow-wrap: anywhere; }

@@ -235,7 +235,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
             )}
           </div>
         ) : (
-          <table className="table">
+          <table className="table files-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -277,6 +277,35 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
               })}
             </tbody>
           </table>
+        )}
+
+        {/* THE PHONE VIEW. Same rows, same click target, built deliberately
+            rather than by reflowing five table columns onto a 375px screen —
+            where Size and Uploaded sat off the right edge with nothing to
+            suggest they were there. Tapping opens the same drawer, which is
+            where every action already lives. */}
+        {visible.length > 0 && (
+          <div className="files-list">
+            {visible.map((d) => {
+              const r = relatedTo(d);
+              return (
+                <button type="button" key={d.id} className="files-card"
+                        onClick={() => openDetail(d)}>
+                  <span className="files-card-name">{d.file_name}</span>
+                  <span className="files-card-meta">
+                    <span className={`pill ${catClass(d.category)}`}>{d.category}</span>
+                    <span className="files-card-related">
+                      {r.kind}{r.label ? ` · ${r.label}` : ""}
+                    </span>
+                  </span>
+                  <span className="files-card-meta">
+                    <span>{formatBytes(d.file_size)}</span>
+                    <span>{fmtDate(d.uploaded_at)}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
