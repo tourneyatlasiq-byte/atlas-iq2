@@ -84,7 +84,6 @@ function fmtDate(d) {
  * still reads correctly.
  */
 const ROSTER_ACTION_TEXT = {
-  uniform: (n) => `${n} ${n === 1 ? "player needs" : "players need"} uniform information`,
   registration: (n) => `${n} ${n === 1 ? "player is" : "players are"} missing a date of birth`,
   contact: (n) => `${n} ${n === 1 ? "player has" : "players have"} no contact details`,
 };

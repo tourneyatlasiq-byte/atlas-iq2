@@ -2135,13 +2135,20 @@ console.log("\nUniform sizes are not a readiness requirement");
   const src = fsx.readFileSync("lib/readiness/team.js", "utf8");
   ok("no jersey_size in any readiness rule", /jersey_size/.test(src), false);
   ok("no pants_size in any readiness rule", /pants_size/.test(src), false);
-  ok("the remaining check is jersey number only",
-    /activePlayers\(rows\)\.filter\(\(r\) => r\.jersey_number == null\)/.test(src), true);
-  ok("...and says so", /title: "Jersey numbers"/.test(src), true);
-  ok("no readiness rule was added or removed",
-    (src.match(/^function \w+Check\(/gm) || []).length, 3);
-  ok("the dashboard wording no longer mentions sizes",
-    /uniform sizes/.test(fsx.readFileSync("lib/readiness/dashboard.js", "utf8")), false);
+  ok("jersey_number is no longer a readiness rule either",
+    /jersey_number/.test(src), false);
+  ok("the uniform check is gone entirely", /uniformCheck|jerseyNumberCheck/.test(src), false);
+  ok("...and nothing replaced it",
+    (src.match(/^function \w+Check\(/gm) || []).length, 2);
+  ok("only date of birth and contacts remain",
+    (src.match(/^function (\w+)Check\(/gm) || []).sort(),
+    ["function contactCheck(", "function registrationCheck("]);
+  ok("the filter label is removed", /uniform:/.test(src), false);
+
+  const dash = fsx.readFileSync("lib/readiness/dashboard.js", "utf8");
+  ok("the dashboard wording is removed", /"team:uniform"/.test(dash), false);
+  const rc = fsx.readFileSync("components/RosterClient.js", "utf8");
+  ok("the roster panel wording is removed", /uniform information/.test(rc), false);
 
   // The fields themselves are untouched everywhere else.
   ok("jersey_size is still importable", reg.BY_KEY.get("jersey_size").importable, true);
