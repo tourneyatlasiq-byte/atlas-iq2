@@ -5950,3 +5950,37 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 }
 .files-card-meta .pill { flex: 0 0 auto; }
 .files-card-related { overflow-wrap: anywhere; }
+
+/* ---- Error and not-found pages ----------------------------------------- */
+.errpage {
+  min-height: 60vh; display: flex; align-items: center; justify-content: center;
+  padding: 32px 20px;
+}
+.errpage-card {
+  max-width: 460px; width: 100%;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); padding: 28px 26px;
+}
+.errpage-eyebrow {
+  margin: 0 0 6px; font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--slate);
+}
+.errpage-title {
+  margin: 0 0 10px; font-size: 24px; line-height: 1.25; color: var(--navy);
+}
+.errpage-body {
+  margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: var(--slate);
+}
+.errpage-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.errpage-ref {
+  margin: 18px 0 0; font-size: 12.5px; color: var(--slate);
+}
+.errpage-ref code {
+  font-size: 12.5px; background: var(--surface-sunken, #f1f5f9);
+  padding: 2px 6px; border-radius: 4px;
+}
+
+@media (max-width: 720px) {
+  .errpage-actions { flex-direction: column; }
+  .errpage-actions .btn { width: 100%; min-height: 44px; }
+}
