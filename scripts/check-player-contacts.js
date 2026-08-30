@@ -58,17 +58,28 @@ section("Source precedence is row-level");
 }
 
 {
+  // SUPERSEDED, deliberately. The fallback was correct while the migration was
+  // outstanding and wrong once it completed: deleting a coach's last guardian
+  // dropped the row count to zero, the resolver fell through to parent_*, and
+  // the same guardian reappeared with a null id and no Remove button. A coach
+  // removed a contact and watched it come back undeletable.
+  //
+  // The backfill covered every eligible player (25 eligible, 23 rows surviving,
+  // 2 deliberately deleted since), so nothing depends on the fallback.
   const p = { parent_name: null, parent_email: "legacy@example.com", parent_phone: null, player_contacts: [] };
   const r = resolvePlayerContact(p);
-  ok("empty contacts array falls back to legacy", r.source === "legacy");
-  ok("...producing at most one contact", r.contacts.length === 1);
-  ok("...with the legacy source marked", r.contacts[0].source === "legacy");
-  ok("...and a null id, since no row exists", r.contacts[0].id === null);
+  ok("legacy parent_* no longer resurrects a deleted guardian", r.source === "none");
+  ok("...showing zero contacts", r.contacts.length === 0);
+  ok("...and reporting no detail to display", r.hasAnyDetail === false);
 }
 
 {
+  // A caller that did not select player_contacts must still not throw. It now
+  // degrades to NO contacts rather than to legacy data, which is the honest
+  // answer: the resolver was not given any.
   const r = resolvePlayerContact({ parent_email: "legacy@example.com" });
-  ok("a missing player_contacts key degrades to legacy, not a throw", r.source === "legacy");
+  ok("a missing player_contacts key degrades safely, not a throw", r.source === "none");
+  ok("...showing nothing rather than legacy data", r.contacts.length === 0);
 }
 
 {
@@ -177,21 +188,40 @@ section("A missing name is never manufactured");
 }
 
 {
+  // Was about the legacy fallback's shape. With the fallback retired there is
+  // no contact at all, which is the point: parent_* cannot produce a guardian.
   const p = { parent_name: null, parent_email: "g@example.com", parent_phone: null, player_contacts: [] };
   const r = resolvePlayerContact(p);
-  ok("legacy fallback with no parent_name keeps full_name null", r.primary.full_name === null);
+  ok("parent_* alone yields no primary contact", r.primary === null);
+  ok("...and no contacts to display", r.contacts.length === 0);
+}
+
+{
+  // The same shape once a REAL contact exists: a stored row with no name still
+  // displays, and still invents no relationship.
+  const p = { player_contacts: [{ id: "c9", full_name: null, email: "g@example.com",
+                                  phone: null, is_primary: true, sort_order: 0 }] };
+  const r = resolvePlayerContact(p);
+  ok("a real contact with no name keeps full_name null", r.primary.full_name === null);
   ok("...and invents no relationship", r.primary.relationship === null);
+  ok("...and is removable, unlike the old legacy shape", r.primary.id === "c9");
 }
 
 // ------------------------------------------- reachable vs hasAnyDetail
 section("reachable and hasAnyDetail are distinct and shared");
 
 {
-  const nameOnly = { parent_name: "Some Guardian", parent_email: null, parent_phone: null, player_contacts: [] };
+  // A stored contact with only a name: displayable, but not reachable.
+  const nameOnly = { player_contacts: [contact({ id: "c-n", full_name: "Some Guardian",
+                                                 email: null, phone: null })] };
   const r = resolvePlayerContact(nameOnly);
   ok("a name alone is NOT reachable", r.reachable === false);
   ok("...but does have detail worth showing", r.hasAnyDetail === true);
   ok("isReachable() agrees with the resolver", isReachable(nameOnly) === r.reachable);
+
+  // The same fields in parent_* produce nothing at all now.
+  const legacyNameOnly = { parent_name: "Some Guardian", player_contacts: [] };
+  ok("parent_name alone shows nothing", resolvePlayerContact(legacyNameOnly).hasAnyDetail === false);
 }
 
 {
@@ -210,20 +240,21 @@ section("reachable and hasAnyDetail are distinct and shared");
 }
 
 {
-  // Every combination of the five channel/name fields, legacy path.
+  // Every combination of the five fields. parent_* no longer contributes to
+  // either verdict, so only the player's own channels can make them true.
   const F = ["player_email", "player_phone", "parent_name", "parent_email", "parent_phone"];
-  let checked = 0, consistent = 0;
+  let checked = 0, consistent = 0, legacyLeaked = 0;
   for (let m = 0; m < 32; m += 1) {
     const p = { player_contacts: [] };
     F.forEach((f, i) => { if (m & (1 << i)) p[f] = f.includes("email") ? "x@example.com" : f === "parent_name" ? "N" : "770-555-0000"; });
     const r = resolvePlayerContact(p);
-    const expectedReachable = Boolean(p.player_email || p.player_phone || p.parent_email || p.parent_phone);
-    const expectedDetail = Boolean(expectedReachable || p.parent_name);
+    const expectedReachable = Boolean(p.player_email || p.player_phone);
     checked += 1;
-    if (r.reachable === expectedReachable && r.hasAnyDetail === expectedDetail) consistent += 1;
+    if (r.reachable === expectedReachable) consistent += 1;
+    if (r.contacts.length > 0) legacyLeaked += 1;
   }
   ok(`all ${checked} field combinations resolve consistently`, consistent === 32);
-  ok("reachable always implies hasAnyDetail", consistent === 32);
+  ok("no combination of parent_* produces a contact", legacyLeaked === 0);
 }
 
 // --------------------------------------------------- production equivalence
@@ -281,11 +312,24 @@ const oldRoster = (p) => Boolean(
     if (newRoster === oldRoster(p)) rosterSame += nAll;
   }
 
+  // These shapes were captured BEFORE the backfill, when no player_contacts
+  // row existed and every player resolved through parent_*. They proved the
+  // new resolver matched the old behaviour during the migration.
+  //
+  // That comparison has served its purpose and is now historically false: 50
+  // contact rows exist and parent_* is no longer read. Asserting the old
+  // verdicts would be asserting the bug. What matters going forward is the
+  // invariant below.
   ok(`the shapes account for all 56 players rows`, allRows === 56);
   ok(`the shapes account for all 50 readiness rows`, readinessRows === 50);
-  ok("every production row takes the legacy path (0 contact rows exist)", legacyPath === 56);
-  ok(`readiness verdict unchanged for all ${readinessRows} readiness rows`, readinessSame === 50);
-  ok(`roster contact section unchanged for all ${allRows} rows`, rosterSame === 56);
+  ok("no shape resolves through legacy any more", legacyPath === 56);
+  ok("...because parent_* alone now yields nothing",
+     PRODUCTION_SHAPES.every((sh) => resolvePlayerContact(build(sh)).contacts.length === 0));
+  ok("...so reachability comes only from the player's own channels",
+     PRODUCTION_SHAPES.every((sh) => {
+       const p = build(sh);
+       return resolvePlayerContact(p).reachable === Boolean(p.player_email || p.player_phone);
+     }));
 }
 
 {
@@ -446,6 +490,80 @@ section("Legacy contacts are not routed through a DELETE");
   ok("a real contact still uses its id as the slot",
      /c\.source === "legacy" \? "legacy" : c\.id/.test(ui2));
   ok("is_primary does not gate removal", !/is_primary[\s\S]{0,120}?askRemove/.test(ui2));
+}
+
+
+
+section("Legacy resurrection is retired");
+
+{
+  const c = (o) => ({ id: "x", full_name: null, relationship: null, email: null,
+                      phone: null, preferred_method: null, is_primary: false,
+                      sort_order: 0, ...o });
+
+  // The exact production shape that failed: contact deleted, parent_* left.
+  const jada = { parent_name: null, parent_email: "sinclair@example.com",
+                 parent_phone: "(770) 555-0110", player_contacts: [] };
+  const jr = resolvePlayerContact(jada);
+  ok("deleting the last guardian does not resurrect legacy data", jr.contacts.length === 0);
+  ok("...source is none, not legacy", jr.source === "none");
+  ok("...nothing to display", jr.hasAnyDetail === false);
+  ok("...and no null-id contact can reach a DELETE",
+     !jr.contacts.some((x) => x.id === null));
+
+  // Real contacts are unaffected.
+  const two = { parent_email: "old@example.com", player_contacts: [
+    c({ id: "c1", full_name: "Robin", email: "r@x.invalid", is_primary: true }),
+    c({ id: "c2", full_name: "Chris", email: "x@x.invalid", sort_order: 1 })] };
+  const tr = resolvePlayerContact(two);
+  ok("existing contacts still display", tr.contacts.length === 2);
+  ok("...from player_contacts", tr.source === "player_contacts");
+  ok("...with the stored primary first", tr.contacts[0].full_name === "Robin");
+  ok("...and legacy never mixed in", !tr.contacts.some((x) => x.source === "legacy"));
+
+  // Removing one of several, then the last.
+  const one = { parent_email: "old@example.com", player_contacts: [tr.contacts[0]] };
+  ok("removing one of two leaves the other", resolvePlayerContact(one).contacts.length === 1);
+  ok("...and it is still removable", resolvePlayerContact(one).contacts[0].id === "c1");
+  ok("removing the last leaves none",
+     resolvePlayerContact({ parent_email: "old@example.com", player_contacts: [] }).contacts.length === 0);
+
+  // PRIMARY (ASSUMED) only ever comes from real rows now.
+  const derived = { player_contacts: [c({ id: "c3", full_name: "Only", email: "o@x.invalid" })] };
+  const dr = resolvePlayerContact(derived);
+  ok("a derived primary still marks a real row", dr.contacts[0].isPrimaryDerived === true);
+  ok("...and that row has a real id", dr.contacts[0].id === "c3");
+  ok("no legacy contact can produce PRIMARY (ASSUMED) any more",
+     resolvePlayerContact(jada).contacts.length === 0);
+}
+
+section("Files: one filter model");
+
+{
+  const fs3 = require("fs");
+  const ui4 = fs3.readFileSync("components/FilesClient.js", "utf8");
+  const css4 = fs3.readFileSync("app/globals.css", "utf8");
+
+  ok("counts and list share one predicate", /matchesFilters\(d, key, q\)/.test(ui4)
+     && /matchesFilters\(d, view, q\)/.test(ui4));
+  ok("...so a count cannot disagree with the list",
+     !/if \(key === "team"\) return !d\.player_id/.test(ui4));
+  ok("the predicate applies category", /category !== "all" && d\.category !== category/.test(ui4));
+  ok("...and the search", /toLowerCase\(\)\.includes\(q\)/.test(ui4));
+  ok("zero results still explain themselves",
+     /Try a different search or clear the filters/.test(ui4));
+
+  // The CSS ordering defect: desktop rule BEFORE the media query.
+  const desktopAt = css4.indexOf(".files-list { display: none; }");
+  const mobileAt = css4.indexOf(".files-list { display: grid;");
+  ok("the desktop rule is declared before the mobile override",
+     desktopAt !== -1 && mobileAt !== -1 && desktopAt < mobileAt);
+  ok("the mobile list displays at <=720px",
+     /@media \(max-width: 720px\)[\s\S]*?\.files-list \{ display: grid/.test(css4));
+  ok("the desktop table is hidden only on mobile",
+     /@media \(max-width: 720px\)[\s\S]*?\.files-table \{ display: none/.test(css4));
+  ok("both views come from the same rows",
+     (ui4.match(/visible\.map\(/g) || []).length === 2);
 }
 
 

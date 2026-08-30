@@ -77,13 +77,33 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
   const [view, setView] = useState("team");
 
   /** Counts ignore search and category so the tabs stay a stable map. */
-  const countFor = (key) =>
-    documents.filter((d) => {
-      if (key === "team") return !d.player_id && !d.tournament_id;
-      if (key === "players") return Boolean(d.player_id);
-      if (key === "tournaments") return Boolean(d.tournament_id);
-      return true;
-    }).length;
+  /**
+   * ONE FILTER, used by the counts and by the list.
+   *
+   * These were two separate predicates: the tab counts looked only at the
+   * view, while the list also applied the category and the search. A tab
+   * could therefore say 3 while showing nothing, with no way to tell whether
+   * the files were filtered out or missing.
+   *
+   * A tab count now answers the question a coach is actually asking when they
+   * look at it — "how many will I see if I tap this" — so the number and the
+   * list can never disagree.
+   */
+  const matchesFilters = (d, key, q) => {
+    if (key === "team" && (d.player_id || d.tournament_id)) return false;
+    if (key === "players" && !d.player_id) return false;
+    if (key === "tournaments" && !d.tournament_id) return false;
+    if (category !== "all" && d.category !== category) return false;
+    if (!q) return true;
+    const r = relatedTo(d);
+    return `${d.file_name} ${d.category} ${r.label} ${d.notes ?? ""}`
+      .toLowerCase().includes(q);
+  };
+
+  const countFor = (key) => {
+    const q = query.trim().toLowerCase();
+    return documents.filter((d) => matchesFilters(d, key, q)).length;
+  };
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   const { detail: detail, openDetail, closeDetail } = useOpenParam(documents);
@@ -113,17 +133,11 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
     };
   }, [overlayOpen, editing, uploading]);
 
+  // The same predicate the counts use, for the active tab.
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return documents.filter((d) => {
-      if (category !== "all" && d.category !== category) return false;
-      if (view === "team" && (d.player_id || d.tournament_id)) return false;
-      if (view === "players" && !d.player_id) return false;
-      if (view === "tournaments" && !d.tournament_id) return false;
-      if (!q) return true;
-      const r = relatedTo(d);
-      return `${d.file_name} ${d.category} ${r.label} ${d.notes ?? ""}`.toLowerCase().includes(q);
-    });
+    return documents.filter((d) => matchesFilters(d, view, q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents, query, category, view]);
 
   function run(action, arg, onDone) {

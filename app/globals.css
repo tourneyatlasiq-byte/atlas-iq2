@@ -5899,6 +5899,12 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    phone gets a list built from the same rows, showing what a coach actually
    needs: the file, what it belongs to, and how to open it. */
 
+/* Desktop keeps the table and never renders the list. Declared BEFORE the
+   media query: same specificity, so a later rule would win and hide the list
+   at every width — which is exactly what happened, leaving a phone with the
+   table hidden, the list hidden, and a tab count of 1 above nothing. */
+.files-list { display: none; }
+
 @media (max-width: 720px) {
   /* Tabs scroll THEMSELVES rather than widening the page. */
   .files-views {
@@ -5920,9 +5926,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .files-table { display: none; }
   .files-list { display: grid; gap: 8px; }
 }
-
-/* Desktop keeps the table and never renders the list. */
-.files-list { display: none; }
 
 .files-card {
   width: 100%; text-align: left; cursor: pointer;
