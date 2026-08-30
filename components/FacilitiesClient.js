@@ -5,6 +5,8 @@ import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./Drawe
 import { PageHelp } from "./PageHelp";
 import { DocumentSection } from "./DocumentSection";
 import { sortRows } from "../lib/table-sort";
+import { useMutation } from "./useMutation";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { SortHeader as SharedSortHeader } from "./SortHeader";
 import { useOpenParam } from "./useOpenParam";
 import { RelatedLink } from "./RelatedLink";
@@ -154,7 +156,9 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
   const [importing, setImporting] = useState(false);
   const [suggesting, setSuggesting] = useState(null);
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  const [drawerError, setDrawerError] = useState(null);
+  const confirm = useConfirm();
+  const { run: runMutation, pending } = useMutation();
 
   const overlayOpen = Boolean(detail || editing || editingNotes || importing || suggesting);
   useEffect(() => {
@@ -268,20 +272,24 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
     setOpenGroups(Object.fromEntries(groups.map((g) => [g.state, open])));
   };
 
+  // Shared runner: pending, await, and a refresh so a drawer left open shows
+  // what was persisted. Errors are routed by the caller.
   function run(action, fd, onDone) {
     setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.();
-      else setError(result?.error ?? "Something went wrong. Try again.");
+    setDrawerError(null);
+    runMutation(action, fd, {
+      onSuccess: onDone,
+      onError: (message) => { if (detail) setDrawerError(message); else setError(message); },
     });
   }
 
-  function remove(f) {
-    if (!confirm(`Delete ${f.name}?\n\nFacilities are shared across Season Tempo. Only do this for a record created by mistake.`)) return;
+  function askRemove(f) { setDrawerError(null); confirm.ask(f.id); }
+
+  function doRemove(f) {
     const fd = new FormData();
     fd.set("id", f.id);
-    run(deleteFacility, fd, () => closeDetail());
+    // The facility is gone, so the drawer closing is the visible result.
+    run(deleteFacility, fd, () => { confirm.cancel(); closeDetail(); });
   }
 
   return (
@@ -507,7 +515,11 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           }}
           onEdit={() => setEditing(detail)}
           onEditNotes={() => setEditingNotes(detail)}
-          onDelete={() => remove(detail)}
+          onDelete={() => askRemove(detail)}
+          onConfirmDelete={() => doRemove(detail)}
+          onCancelDelete={() => confirm.cancel()}
+          confirmingDelete={confirm.isAsking(detail?.id)}
+          drawerError={drawerError}
         />
       )}
 
@@ -918,7 +930,7 @@ function HistoryTable({ rows }) {
 }
 
 
-export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onSuggest, onApprove, onReject, documents = [], documentTargets, isAdmin = false, seasonName }) {
+export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canReview, pending, onClose, onEdit, onEditNotes, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onSuggest, onApprove, onReject, documents = [], documentTargets, isAdmin = false, seasonName }) {
   // Arriving from a count click, scroll straight to that block rather than
   // leaving the user to find it.
   useEffect(() => {
@@ -1108,8 +1120,20 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
 
         {canWrite && (
           <div className="drawer-foot">
-            {canEditShared ? (
+            {confirmingDelete ? (
+              <ConfirmAction
+                message={`Delete ${f.name}? Facilities are shared across Season Tempo — only do this for a record created by mistake.`}
+                confirmLabel="Delete facility"
+                pendingLabel="Deleting…"
+                cancelLabel="Keep facility"
+                onConfirm={onConfirmDelete}
+                onCancel={onCancelDelete}
+                pending={pending}
+                error={drawerError}
+              />
+            ) : canEditShared ? (
               <>
+                {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
                 <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
                 <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit facility</button>
               </>

@@ -2,6 +2,8 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { PageHelp } from "./PageHelp";
+import { useMutation } from "./useMutation";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { PRIVACY_EMAIL } from "../lib/legal";
 import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
@@ -57,9 +59,10 @@ export function SettingsClient({
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen);
   const [error, setError] = useState(null);
+  const confirm = useConfirm();
+  const { run: runMutation, pending } = useMutation();
   const [newInvite, setNewInvite] = useState(null);
   const [newSeason, setNewSeason] = useState(null);
-  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!editing) return;
@@ -75,12 +78,15 @@ export function SettingsClient({
     };
   }, [editing]);
 
+  // Settings acts on the PAGE, not inside a drawer, so a page-level error is
+  // the right surface here. What was missing is synchronisation: making a
+  // season current or cancelling an invitation changed the list behind the
+  // action and nothing told the page to re-read it.
   function run(action, fd, onDone) {
     setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.(result);
-      else setError(result?.error ?? "Something went wrong.");
+    runMutation(action, fd, {
+      onSuccess: (result) => { confirm.cancel(); onDone?.(result); },
+      onError: (message) => setError(message),
     });
   }
 
@@ -146,17 +152,26 @@ export function SettingsClient({
                     <button
                       className="btn btn-ghost"
                       disabled={pending}
-                      onClick={() => {
-                        if (!confirm(
-                          `Make ${s.name} the current season?\n\nEveryone on ${team?.name ?? "this team"} will start working in ${s.name}. ${season?.name ?? "The current season"} stays intact and you can still view it.`
-                        )) return;
+                      onClick={() => confirm.ask(`season:${s.id}`)}
+                    >
+                      Make current
+                    </button>
+                  )}
+                  {isAdmin && confirm.isAsking(`season:${s.id}`) && (
+                    <ConfirmAction
+                      message={`Make ${s.name} the current season? Everyone on ${team?.name ?? "this team"} will start working in ${s.name}. ${season?.name ?? "The current season"} stays intact and you can still view it.`}
+                      confirmLabel="Make current"
+                      pendingLabel="Switching…"
+                      cancelLabel="Keep current season"
+                      pending={pending}
+                      error={error}
+                      onCancel={() => confirm.cancel()}
+                      onConfirm={() => {
                         const fd = new FormData();
                         fd.set("season_id", s.id);
                         run(makeSeasonCurrent, fd);
                       }}
-                    >
-                      Make current
-                    </button>
+                    />
                   )}
                 </li>
               );
@@ -235,15 +250,26 @@ export function SettingsClient({
                   <button
                     className="btn btn-danger-ghost"
                     disabled={pending}
-                    onClick={() => {
-                      if (!confirm(`Cancel the invitation to ${i.email}?`)) return;
+                    onClick={() => confirm.ask(`invite:${i.id}`)}
+                  >
+                    Cancel
+                  </button>
+                )}
+                {isAdmin && confirm.isAsking(`invite:${i.id}`) && (
+                  <ConfirmAction
+                    message={`Cancel the invitation to ${i.email}? They will no longer be able to use it.`}
+                    confirmLabel="Cancel invitation"
+                    pendingLabel="Cancelling…"
+                    cancelLabel="Keep invitation"
+                    pending={pending}
+                    error={error}
+                    onCancel={() => confirm.cancel()}
+                    onConfirm={() => {
                       const fd = new FormData();
                       fd.set("id", i.id);
                       run(cancelInvite, fd);
                     }}
-                  >
-                    Cancel
-                  </button>
+                  />
                 )}
               </li>
             ))}

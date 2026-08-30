@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { DrawerShell } from "./DrawerShell";
 
-import { useState, useTransition, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { useActionFeedback } from "../lib/useActionFeedback";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
@@ -227,6 +228,8 @@ export function FinanceClient({
     : null;
   const [actionId, setActionId] = useState(null);
   const { error, setError, notice, pending, run } = useActionFeedback();
+  // One question at a time, keyed so two rows cannot both be asking.
+  const confirmDelete = useConfirm();
 
   const [editBudget, setEditBudget] = useState(null);
   // Create-and-link: a budget line created from inside the transaction form.
@@ -633,12 +636,15 @@ export function FinanceClient({
           canWrite={canWrite}
           onAdd={() => setEditBudget("new")}
           onEdit={(row) => setEditBudget(row)}
-          onDelete={(row) => {
-            if (!confirm(`Delete the budget line "${row.name}"?`)) return;
+          onDelete={(row) => confirmDelete.ask(`budget:${row.id}`)}
+          confirmingDelete={confirmDelete.asking}
+          onCancelDelete={() => confirmDelete.cancel()}
+          onConfirmDelete={(row) => {
             const fd = new FormData();
             fd.set("id", row.id);
-            run(deleteBudgetItem, fd);
+            run(deleteBudgetItem, fd, () => confirmDelete.cancel());
           }}
+          deleteError={error}
           pending={pending}
         />
       )}
@@ -686,12 +692,16 @@ export function FinanceClient({
           pending={pending}
           onClose={() => setDetailTxn(null)}
           onEdit={() => setEditTxn(detailTxn)}
-          onDelete={() => {
-            if (!confirm(`Delete "${detailTxn.item}"?`)) return;
+          onDelete={() => confirmDelete.ask(`txn:${detailTxn.id}`)}
+          confirmingDelete={confirmDelete.isAsking(`txn:${detailTxn.id}`)}
+          onCancelDelete={() => confirmDelete.cancel()}
+          onConfirmDelete={() => {
             const fd = new FormData();
             fd.set("id", detailTxn.id);
-            run(deleteTransaction, fd, () => setDetailTxn(null));
+            // The transaction is gone, so closing the drawer is the result.
+            run(deleteTransaction, fd, () => { confirmDelete.cancel(); setDetailTxn(null); });
           }}
+          drawerError={error}
         />
       )}
 
@@ -757,12 +767,17 @@ export function FinanceClient({
           pending={pending}
           onClose={() => { closeDetail(); }}
           onRecord={(fd) => run(recordPayment, fd, { onDone: () => closeDetail(), success: "Payment recorded" })}
-          onDeleteEntry={(entryId) => {
-            if (!confirm("Remove this payment entry?")) return;
+          onDeleteEntry={(entryId) => confirmDelete.ask(`entry:${entryId}`)}
+          confirmingEntry={confirmDelete.asking}
+          onCancelEntry={() => confirmDelete.cancel()}
+          onConfirmEntry={(entryId) => {
             const fd = new FormData();
             fd.set("id", entryId);
-            run(deletePaymentEntry, fd, () => closeDetail());
+            // The payment record itself remains; only this entry goes. The
+            // drawer stays open and the refreshed totals are the feedback.
+            run(deletePaymentEntry, fd, () => confirmDelete.cancel());
           }}
+          drawerError={error}
           onEdit={() => setEditPay(detailPay)}
         />
       )}
@@ -952,7 +967,8 @@ function summaryMoney(n) {
     : money(v);
 }
 
-function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action }) {
+function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
+                        confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
   if (groups.length === 0) return null;
 
   return (
@@ -1026,7 +1042,8 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
 
               {open &&
                 g.rows.map((r) => (
-                  <div key={r.id} className="budget-row budget-line">
+                  <Fragment key={r.id}>
+                  <div className="budget-row budget-line">
                     <span />
 
                     <span className="budget-name budget-name-indent">
@@ -1061,6 +1078,19 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                       )}
                     </span>
                   </div>
+                  {confirmingDelete === `budget:${r.id}` && (
+                    <ConfirmAction
+                      message={`Delete the budget line "${r.name}"? Transactions already recorded against it are not deleted.`}
+                      confirmLabel="Delete budget line"
+                      pendingLabel="Deleting…"
+                      cancelLabel="Keep budget line"
+                      pending={pending}
+                      error={deleteError}
+                      onCancel={onCancelDelete}
+                      onConfirm={() => onConfirmDelete(r)}
+                    />
+                  )}
+                  </Fragment>
                 ))}
             </div>
           );
@@ -1319,7 +1349,8 @@ function DRow({ label, value }) {
   );
 }
 
-function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete }) {
+function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
+                            confirmingDelete = false, onCancelDelete, onConfirmDelete, drawerError = null }) {
   const counted = isActual(t);
   return (
     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
@@ -1374,8 +1405,24 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete }) 
 
         {canWrite && (
           <div className="drawer-foot">
+            {confirmingDelete ? (
+              <ConfirmAction
+                message={`Delete "${t.item}"? This removes the transaction from the ledger; anything it was linked to is unaffected.`}
+                confirmLabel="Delete transaction"
+                pendingLabel="Deleting…"
+                cancelLabel="Keep transaction"
+                pending={pending}
+                error={drawerError}
+                onCancel={onCancelDelete}
+                onConfirm={onConfirmDelete}
+              />
+            ) : (
+            <>
+            {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
             <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
             <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
+            </>
+            )}
           </div>
         )}
     </DrawerShell>
@@ -1944,7 +1991,8 @@ function FormerDuesTable({ rows, onOpen }) {
   );
 }
 
-function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry, onEdit }) {
+function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry, onEdit,
+                        confirmingEntry = null, onCancelEntry, onConfirmEntry, drawerError = null }) {
   return (
     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
         <div className="drawer-head">
@@ -1972,6 +2020,20 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
             {p.log.length === 0 ? (
               <p className="section-body muted">No payments recorded yet.</p>
             ) : (
+              <>
+              {/* Asked here, beside the entry list, not in a native dialog. */}
+              {confirmingEntry?.startsWith?.("entry:") && (
+                <ConfirmAction
+                  message="Remove this payment entry? The amount is deducted from what has been paid; the total due is unchanged."
+                  confirmLabel="Remove entry"
+                  pendingLabel="Removing…"
+                  cancelLabel="Keep entry"
+                  pending={pending}
+                  error={drawerError}
+                  onCancel={onCancelEntry}
+                  onConfirm={() => onConfirmEntry(confirmingEntry.slice("entry:".length))}
+                />
+              )}
               <table className="table">
                 <tbody>
                   {p.log.map((l) => (
@@ -1989,6 +2051,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
                   ))}
                 </tbody>
               </table>
+              </>
             )}
           </section>
 

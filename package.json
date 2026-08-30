@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
+    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
   },
   "dependencies": {
     "next": "14.2.5",

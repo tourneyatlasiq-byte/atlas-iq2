@@ -1,6 +1,8 @@
 "use client";
 
 import { money } from "../lib/finance-rules";
+import { useMutation } from "./useMutation";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
 import { PageHelp } from "./PageHelp";
 import { useState, useTransition, useEffect } from "react";
@@ -110,7 +112,17 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  // A drawer action's failure belongs in the drawer; the page alert stays for
+  // page-level actions.
+  const [drawerError, setDrawerError] = useState(null);
+  const confirm = useConfirm();
+  const { run: runMutation, pending: mutating } = useMutation();
+  // The form submit path takes a FormData straight from a <form> and has its
+  // own success handling; it keeps its own transition rather than being bent
+  // into the shared runner's shape. `pending` above covers both because the
+  // buttons read it.
+  const [formPending, startTransition] = useTransition();
+  const pending = mutating || formPending;
   const [collapsed, setCollapsed] = useState({ Declined: true });
 
   useEffect(() => {
@@ -167,27 +179,40 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     });
   }
 
+  /**
+   * The drawer STAYS OPEN, so the change has to become visible in it. The
+   * pills and selects read from `detail`, which is derived from the rows the
+   * server sends; without a refresh the coach changed a status and watched
+   * nothing happen. Same failure as Make inactive on the roster.
+   */
   function setStatus(id, field, value) {
-    setError(null);
+    setDrawerError(null);
     const fd = new FormData();
     fd.set("id", id);
     fd.set("field", field);
     fd.set("value", value);
-    startTransition(async () => {
-      const result = await setTournamentStatus(fd);
-      if (!result?.ok) setError(result?.error ?? "Could not update that.");
+    runMutation(setTournamentStatus, fd, {
+      onError: (message) => setDrawerError(message),
     });
   }
 
-  function remove(row) {
-    if (!confirm(`Delete "${row.name}" permanently?\n\nThis is for mistakes only. To record that you're not attending, mark it Declined instead.`)) return;
-    setError(null);
+  /**
+   * Asks in the drawer. window.confirm() was the only gate, and a mobile
+   * browser that suppresses dialogs returns false from it — the handler
+   * returned early with no request and nothing on screen.
+   */
+  function askRemove(row) { setDrawerError(null); confirm.ask(row.id); }
+
+  function doRemove(row) {
+    setDrawerError(null);
     const fd = new FormData();
     fd.set("id", row.id);
-    startTransition(async () => {
-      const result = await deleteTournament(fd);
-      if (result?.ok) closeDetail();
-      else setError(result?.error ?? "Could not delete that.");
+    // The record the drawer shows is going away, so closing IS the success
+    // signal and a refresh of a dead surface would be wasted work. The list
+    // behind it is server-rendered and revalidated by the action.
+    runMutation(deleteTournament, fd, {
+      onSuccess: () => { confirm.cancel(); closeDetail(); },
+      onError: (message) => setDrawerError(message),
     });
   }
 
@@ -408,7 +433,11 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           pending={pending}
           onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
-          onDelete={() => remove(detail)}
+          onDelete={() => askRemove(detail)}
+          onConfirmDelete={() => doRemove(detail)}
+          onCancelDelete={() => confirm.cancel()}
+          confirmingDelete={confirm.isAsking(detail?.id)}
+          drawerError={drawerError}
           onStatus={setStatus}
         />
       )}
@@ -508,7 +537,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
   );
 }
 
-export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
+export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -937,8 +966,24 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
 
         {canWrite && (
           <div className="drawer-foot">
-            <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
-            <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
+            {confirmingDelete ? (
+              <ConfirmAction
+                message={`Delete "${t.name}" permanently? This is for mistakes only — to record that you are not attending, mark it Declined instead.`}
+                confirmLabel="Delete tournament"
+                pendingLabel="Deleting…"
+                cancelLabel="Keep tournament"
+                onConfirm={onConfirmDelete}
+                onCancel={onCancelDelete}
+                pending={pending}
+                error={drawerError}
+              />
+            ) : (
+              <>
+                {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
+                <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+                <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
+              </>
+            )}
           </div>
         )}
     </DrawerShell>
