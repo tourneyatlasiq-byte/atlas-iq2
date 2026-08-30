@@ -1687,6 +1687,59 @@ console.log("\nOne X link from two columns");
     both.writes.filter((w) => w.table === "player_links").length, 1);
 }
 
+
+/* ---- Position vocabulary ------------------------------------------------
+   MIF, CIF and OF are grouped designations a coach uses when a player covers
+   an area rather than one bag. They are ADDITIONS: a player who only plays
+   shortstop must still be recordable as SS.
+
+   The list lived in three places — the registry, lib/queries/roster and again
+   inside RosterClient — so a position added to the chips a coach picks from
+   could be rejected by the importer. There is one list now. */
+
+console.log("\nPosition vocabulary");
+
+{
+  const fs = require("fs");
+
+  for (const code of ["MIF", "CIF", "OF"]) {
+    ok(`${code} is a valid position`, reg.POSITION_CODES.includes(code), true);
+  }
+  ok("every original position survives",
+    ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "UTIL", "DP", "FLEX"]
+      .every((c) => reg.POSITION_CODES.includes(c)), true);
+  ok("...and the grouped codes did not replace the specific ones",
+    reg.POSITION_CODES.length, 15);
+
+  // One source: the other two derive from it.
+  const q = fs.readFileSync("lib/queries/roster.js", "utf8");
+  const rc = fs.readFileSync("components/RosterClient.js", "utf8");
+  ok("lib/queries/roster derives its list", /POSITIONS = POSITION_CODES/.test(q), true);
+  ok("...and no longer restates it", !/POSITIONS = \["P", "C"/.test(q), true);
+  ok("the roster chips derive their list",
+    /POSITION_CODES as POSITIONS/.test(rc), true);
+  ok("...and no longer restate it", !/const POSITIONS = \["P", "C"/.test(rc), true);
+
+  // Import: exact abbreviations, case-insensitive, no invented aliases.
+  for (const [raw, want] of [
+    ["MIF", ["MIF"]], ["mif", ["MIF"]], ["Mif", ["MIF"]],
+    ["CIF", ["CIF"]], ["cif", ["CIF"]], [" CIF ", ["CIF"]],
+    ["OF", ["OF"]],   ["of", ["OF"]],   ["Of", ["OF"]],
+  ]) {
+    ok(`import accepts ${JSON.stringify(raw)}`, nrm.toPositions(raw), want);
+  }
+  ok("they combine with specific positions", nrm.toPositions("SS/MIF"), ["SS", "MIF"]);
+  ok("...and with each other", nrm.toPositions("CIF, OF"), ["CIF", "OF"]);
+  ok("a repeat is not duplicated", nrm.toPositions("OF; OF"), ["OF"]);
+  ok("an unknown code is still refused", nrm.toPositions("QB"), []);
+
+  // No speculative aliases were added.
+  ok("no spelled-out alias was invented for the grouped codes",
+    nrm.toPositions("Middle Infield"), []);
+  ok("the pre-existing outfield word alias is unchanged",
+    nrm.toPositions("outfield"), ["CF"]);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

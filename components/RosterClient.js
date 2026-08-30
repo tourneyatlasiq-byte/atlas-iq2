@@ -30,7 +30,9 @@ import {
   removePlayerFromSeason,
 } from "../lib/actions/roster";
 
-const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "UTIL", "DP", "FLEX"];
+// The chips a coach picks from are the same list the importer accepts.
+// This was a third copy of the vocabulary.
+import { POSITION_CODES as POSITIONS } from "../lib/intake/registry";
 const SIZES = ["YS", "YM", "YL", "AS", "AM", "AL", "AXL"];
 const PERSON_TYPES = [
   { value: "player", label: "Player" },
