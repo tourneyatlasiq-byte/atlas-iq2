@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
+import { useMutation } from "./useMutation";
 import { ContactForm } from "./ContactForm";
 import { saveContact, deleteContact } from "../lib/actions/contacts";
 
@@ -17,14 +19,18 @@ export function ContactsDirectory({ contacts, canWrite }) {
   const [editing, setEditing] = useState(null); // row | "new" | null
   const [query, setQuery] = useState("");
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  const { run: runMutation, pending: pending } = useMutation();
+  const confirmDelete = useConfirm();
 
+  // These sections live INSIDE an open drawer and stay open after a
+  // successful change, so the persisted result has to become visible in
+  // place. The shared runner adds exactly that; error placement and success
+  // handling stay here, where they differ per section.
   function run(action, fd, onDone) {
     setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.();
-      else setError(result?.error ?? "Something went wrong.");
+    runMutation(action, fd, {
+      onSuccess: () => onDone?.(),
+      onError: (message) => setError(message),
     });
   }
 
@@ -108,20 +114,26 @@ export function ContactsDirectory({ contacts, canWrite }) {
                       <button
                         className="btn btn-ghost"
                         disabled={pending}
-                        onClick={() => {
-                          if (
-                            !confirm(
-                              `Remove ${c.full_name}?\n\nTournaments and college interests they're attached to are kept — they just won't have a contact.`
-                            )
-                          )
-                            return;
-                          const fd = new FormData();
-                          fd.set("id", c.id);
-                          run(deleteContact, fd);
-                        }}
+                        onClick={() => confirmDelete.ask(c.id)}
                       >
                         Remove
                       </button>
+                      {confirmDelete.isAsking(c.id) && (
+                        <ConfirmAction
+                          message={`Remove ${c.full_name}? Tournaments and college interests they are attached to are kept — they just will not have a contact.`}
+                          confirmLabel="Remove contact"
+                          pendingLabel="Removing…"
+                          cancelLabel="Keep contact"
+                          pending={pending}
+                          error={error}
+                          onCancel={() => confirmDelete.cancel()}
+                          onConfirm={() => {
+                            const fd = new FormData();
+                            fd.set("id", c.id);
+                            run(deleteContact, fd, () => confirmDelete.cancel());
+                          }}
+                        />
+                      )}
                     </span>
                   )}
                 </li>

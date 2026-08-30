@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import Link from "next/link";
 import { saveGame, deleteGame } from "../lib/actions/games";
 import { GAME_TYPES, isFutureGame, recordFrom } from "../lib/game-rules";
@@ -71,6 +72,7 @@ function QabAction({ tournament, game }) {
 export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0 }) {
   const [editing, setEditing] = useState(null); // game | "new" | null
   const [error, setError] = useState(null);
+  const confirmDelete = useConfirm();
   const [pending, startTransition] = useTransition();
 
   // The drawer's quick action bumps openSignal to open this form, so the form
@@ -98,15 +100,16 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
     });
   }
 
-  function remove(g) {
-    if (!confirm(`Delete the game against ${g.opponent_name}?`)) return;
+  function askRemove(g) { setError(null); confirmDelete.ask(g.id); }
+
+  function doRemove(g) {
     setError(null);
     const fd = new FormData();
     fd.set("id", g.id);
     startTransition(async () => {
       const result = await deleteGame(fd);
       if (!result?.ok) setError(result?.error ?? "Could not delete that game.");
-      else onChanged?.();
+      else { confirmDelete.cancel(); onChanged?.(); }
     });
   }
 
@@ -190,10 +193,22 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
                       <button className="btn btn-ghost" onClick={() => setEditing(g)} disabled={pending}>
                         Edit
                       </button>
-                      <button className="btn btn-danger-ghost" onClick={() => remove(g)} disabled={pending}>
+                      <button className="btn btn-danger-ghost" onClick={() => askRemove(g)} disabled={pending}>
                         Remove
                       </button>
                     </span>
+                  )}
+                  {confirmDelete.isAsking(g.id) && (
+                    <ConfirmAction
+                      message={`Delete the game against ${g.opponent_name}? Anything already recorded for it is removed with it.`}
+                      confirmLabel="Delete game"
+                      pendingLabel="Deleting…"
+                      cancelLabel="Keep game"
+                      pending={pending}
+                      error={error}
+                      onCancel={() => confirmDelete.cancel()}
+                      onConfirm={() => doRemove(g)}
+                    />
                   )}
                 </div>
               </li>
@@ -225,6 +240,13 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
   const hadResult =
     game && (game.result || game.runs_for != null || game.runs_against != null);
   const movingToFuture = hadResult && isFutureGame(date) && date !== game.game_date;
+  // Held while the coach answers the score-loss warning.
+  const [pendingSubmit, setPendingSubmit] = useState(null);
+  const [clearScore, setClearScore] = useState(false);
+  const recordedScore =
+    game && game.runs_for != null && game.runs_against != null
+      ? `${game.runs_for} to ${game.runs_against}`
+      : game?.result;
 
   /**
    * Option C: the database rejects a completed game moved to a future date.
@@ -232,17 +254,15 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
    * result cleared — never silently.
    */
   function handleSubmit(formData) {
+    // Moving a played game forward DISCARDS its recorded result, so the
+    // warning has to be seen. A native dialog can be suppressed on mobile and
+    // then returns false, which silently cancelled the save with no
+    // explanation — the coach pressed Save and nothing happened.
+    if (movingToFuture && !clearScore) {
+      setPendingSubmit(formData);
+      return;
+    }
     if (movingToFuture) {
-      const score =
-        game.runs_for != null && game.runs_against != null
-          ? `${game.runs_for} to ${game.runs_against}`
-          : game.result;
-
-      const ok = confirm(
-        `Moving this game to a future date will remove the recorded ${score} result. Continue?`
-      );
-      if (!ok) return;
-
       formData.set("runs_for", "");
       formData.set("runs_against", "");
       formData.set("result", "");
@@ -255,6 +275,26 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
+        {pendingSubmit && (
+          <ConfirmAction
+            message={`Moving this game to a future date will remove the recorded ${recordedScore} result.`}
+            confirmLabel="Move and clear result"
+            pendingLabel="Saving…"
+            cancelLabel="Keep the date"
+            pending={pending}
+            onCancel={() => setPendingSubmit(null)}
+            onConfirm={() => {
+              const fd = pendingSubmit;
+              setPendingSubmit(null);
+              setClearScore(true);
+              fd.set("runs_for", "");
+              fd.set("runs_against", "");
+              fd.set("result", "");
+              onSubmit(fd);
+            }}
+          />
+        )}
+
         <form action={handleSubmit}>
           {game && <input type="hidden" name="id" value={game.id} />}
           <input type="hidden" name="tournament_id" value={tournament.id} />

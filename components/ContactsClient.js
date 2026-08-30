@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { PageHelp } from "./PageHelp";
 import { ContactForm } from "./ContactForm";
 import { useActionFeedback } from "../lib/useActionFeedback";
@@ -33,6 +34,7 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
   const [category, setCategory] = useState("all");
   const [editing, setEditing] = useState(null); // row | "new" | null
   const { error, notice, pending, run } = useActionFeedback();
+  const confirmDelete = useConfirm();
 
   // Only offer a filter for a category that actually has someone in it.
   const present = useMemo(
@@ -147,12 +149,15 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
                       canWrite={canWrite}
                       pending={pending}
                       onEdit={() => setEditing(c)}
-                      onDelete={() => {
-                        if (!confirm(`Remove ${c.full_name}?`)) return;
+                      onDelete={() => confirmDelete.ask(c.id)}
+                      confirmingDelete={confirmDelete.isAsking(c.id)}
+                      onCancelDelete={() => confirmDelete.cancel()}
+                      onConfirmDelete={() => {
                         const fd = new FormData();
                         fd.set("id", c.id);
-                        run(deleteContact, fd);
+                        run(deleteContact, fd, () => confirmDelete.cancel());
                       }}
+                      deleteError={error}
                     />
                   ))}
                 </tbody>
@@ -179,7 +184,8 @@ export function ContactsClient({ contacts = [], usedBy = {}, canWrite = false })
   );
 }
 
-function ContactRow({ c, links, canWrite, pending, onEdit, onDelete }) {
+function ContactRow({ c, links, canWrite, pending, onEdit, onDelete,
+                     confirmingDelete = false, onCancelDelete, onConfirmDelete, deleteError = null }) {
   const role = [c.title, c.organization_or_school].filter(Boolean).join(" \u00b7 ");
 
   return (
@@ -224,6 +230,18 @@ function ContactRow({ c, links, canWrite, pending, onEdit, onDelete }) {
             <button className="btn btn-ghost" onClick={onEdit} disabled={pending}>Edit</button>
             <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Remove</button>
           </div>
+        )}
+        {confirmingDelete && (
+          <ConfirmAction
+            message={`Remove ${c.full_name}? They are removed from this organization's contacts.`}
+            confirmLabel="Remove contact"
+            pendingLabel="Removing…"
+            cancelLabel="Keep contact"
+            pending={pending}
+            error={deleteError}
+            onCancel={onCancelDelete}
+            onConfirm={onConfirmDelete}
+          />
         )}
       </td>
     </tr>

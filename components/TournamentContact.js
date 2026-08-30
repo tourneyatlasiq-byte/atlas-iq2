@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useMutation } from "./useMutation";
 import { SearchPicker } from "./SearchPicker";
 import { ContactForm } from "./ContactForm";
 import { setTournamentContact, saveContact } from "../lib/actions/contacts";
@@ -16,7 +17,7 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
   const [picking, setPicking] = useState(false);
   const [creating, setCreating] = useState(null); // prefill name | null
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  const { run: runMutation, pending: pending } = useMutation();
 
   const contact = contacts.find((c) => c.id === tournament.contact_id) ?? null;
 
@@ -31,9 +32,9 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
     const fd = new FormData();
     fd.set("tournament_id", tournament.id);
     if (contactId) fd.set("contact_id", contactId);
-    startTransition(async () => {
-      const result = await setTournamentContact(fd);
-      if (!result?.ok) setError(result?.error ?? "Something went wrong.");
+    // Stays open after the change, so the new contact has to appear.
+    runMutation(setTournamentContact, fd, {
+      onError: (message) => setError(message),
     });
   }
 
@@ -121,15 +122,14 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
           onCancel={() => setCreating(null)}
           onSubmit={(fd) => {
             setError(null);
-            startTransition(async () => {
-              const result = await saveContact(fd);
-              if (result?.ok && result.id) {
-                setCreating(null);
-                // Create-and-link: the new contact is attached immediately.
-                link(result.id);
-              } else {
-                setError(result?.error ?? "Something went wrong.");
-              }
+            // Create-and-link. The link() call below refreshes, so the new
+            // contact appears without a second refresh here.
+            runMutation(saveContact, fd, {
+              refresh: false,
+              onSuccess: (result) => {
+                if (result?.id) { setCreating(null); link(result.id); }
+              },
+              onError: (message) => setError(message),
             });
           }}
         />

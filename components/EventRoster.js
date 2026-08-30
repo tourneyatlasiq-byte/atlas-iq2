@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { useMutation } from "./useMutation";
 import { RelatedLink } from "./RelatedLink";
 import {
   setEventRoster,
@@ -30,18 +31,21 @@ export function EventRoster({
   // coach returns to the same editing session.
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  const { run: runMutation, pending: pending } = useMutation();
 
   const rows = participants ?? [];
   const pickups = rows.filter((p) => p.participation === "pickup");
   const rostered = rows.filter((p) => p.participation === "roster");
 
+  // These sections live INSIDE an open drawer and stay open after a
+  // successful change, so the persisted result has to become visible in
+  // place. The shared runner adds exactly that; error placement and success
+  // handling stay here, where they differ per section.
   function run(action, fd, onDone) {
     setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.();
-      else setError(result?.error ?? "Something went wrong.");
+    runMutation(action, fd, {
+      onSuccess: () => onDone?.(),
+      onError: (message) => setError(message),
     });
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useMutation } from "./useMutation";
 import { SearchPicker } from "./SearchPicker";
 import { ContactForm } from "./ContactForm";
 import {
@@ -26,14 +27,17 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
   const [pickingContact, setPickingContact] = useState(null); // interest row
   const [creatingContact, setCreatingContact] = useState(null);
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
+  const { run: runMutation, pending: pending } = useMutation();
 
+  // These sections live INSIDE an open drawer and stay open after a
+  // successful change, so the persisted result has to become visible in
+  // place. The shared runner adds exactly that; error placement and success
+  // handling stay here, where they differ per section.
   function run(action, fd, onDone) {
     setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.(result);
-      else setError(result?.error ?? "Something went wrong.");
+    runMutation(action, fd, {
+      onSuccess: (result) => onDone?.(result),
+      onError: (message) => setError(message),
     });
   }
 
@@ -264,21 +268,25 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
           pending={pending}
           onCancel={() => setCreatingContact(null)}
           onSubmit={(fd) => {
-            startTransition(async () => {
-              const result = await saveContact(fd);
-              if (result?.ok && result.id) {
-                // Create-and-link: attach the new coach to this college.
+            setError(null);
+            // Create-and-link. The second call refreshes, so the new coach
+            // appears against the college without a redundant refresh here.
+            runMutation(saveContact, fd, {
+              refresh: false,
+              onSuccess: (result) => {
+                if (!result?.id) return;
                 const link = new FormData();
                 link.set("id", creatingContact.interest.id);
                 link.set("player_id", playerId);
                 link.set("college_name", creatingContact.interest.college_name);
                 if (creatingContact.interest.notes) link.set("notes", creatingContact.interest.notes);
                 link.set("contact_id", result.id);
-                await saveCollegeInterest(link);
-                setCreatingContact(null);
-              } else {
-                setError(result?.error ?? "Something went wrong.");
-              }
+                runMutation(saveCollegeInterest, link, {
+                  onSuccess: () => setCreatingContact(null),
+                  onError: (message) => setError(message),
+                });
+              },
+              onError: (message) => setError(message),
             });
           }}
         />

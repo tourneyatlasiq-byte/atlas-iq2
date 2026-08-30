@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useMemo } from "react";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { DrawerShell, DrawerRow as Row } from "./DrawerShell";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
@@ -90,6 +91,8 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
   // Opened directly from the help panel.
   const [uploading, setUploading] = useState(autoOpen);
   const [error, setError] = useState(null);
+  const [drawerError, setDrawerError] = useState(null);
+  const confirmDelete = useConfirm();
   const [pending, startTransition] = useTransition();
 
   const overlayOpen = Boolean(detail || editing || uploading);
@@ -139,11 +142,13 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
     else setError(result.error);
   }
 
-  function remove(doc) {
-    if (!confirm(`Delete "${doc.file_name}" permanently?\n\nThe stored file is removed as well. This cannot be undone.`)) return;
+  function askRemove(doc) { setDrawerError(null); confirmDelete.ask(doc.id); }
+
+  function doRemove(doc) {
     const fd = new FormData();
     fd.set("id", doc.id);
-    run(deleteDocument, fd, () => closeDetail());
+    // The document is gone; the drawer closing is the visible result.
+    run(deleteDocument, fd, () => { confirmDelete.cancel(); closeDetail(); });
   }
 
   return (
@@ -283,7 +288,11 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
           onClose={() => { closeDetail(); }}
           onOpen={() => openFile(detail)}
           onEdit={() => setEditing(detail)}
-          onDelete={() => remove(detail)}
+          onDelete={() => askRemove(detail)}
+          onConfirmDelete={() => doRemove(detail)}
+          onCancelDelete={() => confirmDelete.cancel()}
+          confirmingDelete={confirmDelete.isAsking(detail?.id)}
+          drawerError={drawerError}
         />
       )}
 
@@ -313,7 +322,7 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
 /* ---------------- Detail ---------------- */
 
 
-export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete }) {
+export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDelete , onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null}) {
   const r = relatedTo(d);
   return (
     <DrawerShell onClose={onClose} ariaLabel="Document details">
@@ -358,8 +367,24 @@ export function FileDetail({ d, canWrite, pending, onClose, onOpen, onEdit, onDe
 
         {canWrite && (
           <div className="drawer-foot">
-            <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
-            <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit details</button>
+            {confirmingDelete ? (
+              <ConfirmAction
+                message="Delete this document permanently? The stored file is removed as well. This cannot be undone."
+                confirmLabel="Delete document"
+                pendingLabel="Deleting…"
+                cancelLabel="Keep document"
+                pending={pending}
+                error={drawerError}
+                onCancel={onCancelDelete}
+                onConfirm={onConfirmDelete}
+              />
+            ) : (
+              <>
+                {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
+                <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
+                <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit details</button>
+              </>
+            )}
           </div>
         )}
     </DrawerShell>

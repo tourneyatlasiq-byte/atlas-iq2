@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useTransition } from "react";
+import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { TeamMark } from "./TeamMark";
 import { uploadTeamLogo, removeTeamLogo } from "../lib/actions/branding";
 
@@ -15,6 +16,7 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
   const [preview, setPreview] = useState(null);
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
+  const confirmRemove = useConfirm();
   const [pending, startTransition] = useTransition();
   const inputRef = useRef(null);
 
@@ -97,20 +99,32 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
                   <button
                     className="btn btn-ghost"
                     disabled={pending}
-                    onClick={() => {
-                      if (!confirm("Remove the organization logo?\n\nYour initials will be shown instead.")) return;
-                      setError(null);
-                      startTransition(async () => {
-                        const result = await removeTeamLogo();
-                        if (result?.ok) reset();
-                        else setError(result?.error ?? "Something went wrong.");
-                      });
-                    }}
+                    onClick={() => confirmRemove.ask("logo")}
                   >
                     Remove logo
                   </button>
                 )}
               </div>
+
+              {confirmRemove.isAsking("logo") && (
+                <ConfirmAction
+                  message="Remove the organization logo? Your initials will be shown instead."
+                  confirmLabel="Remove logo"
+                  pendingLabel="Removing…"
+                  cancelLabel="Keep logo"
+                  pending={pending}
+                  error={error}
+                  onCancel={() => confirmRemove.cancel()}
+                  onConfirm={() => {
+                    setError(null);
+                    startTransition(async () => {
+                      const result = await removeTeamLogo();
+                      if (result?.ok) { confirmRemove.cancel(); reset(); }
+                      else setError(result?.error ?? "Something went wrong.");
+                    });
+                  }}
+                />
+              )}
 
               <p className="field-note">PNG, JPG or WEBP · 2 MB max · square works best</p>
             </>

@@ -139,5 +139,74 @@ section("No new parallel runner");
     fs.existsSync("components/useMutation.js") && fs.existsSync("lib/useActionFeedback.js"));
 }
 
+
+/* ---- Medium and Low surfaces ------------------------------------------ */
+section("Files, Games, Contacts, Branding");
+
+{
+  const MORE = {
+    Files: "components/FilesClient.js",
+    Games: "components/GamesSection.js",
+    Contacts: "components/ContactsClient.js",
+    Branding: "components/TeamBranding.js",
+  };
+  for (const [surface, file] of Object.entries(MORE)) {
+    ok(`${surface}: no window.confirm gate`, !/\bconfirm\(/.test(code(file)));
+    ok(`${surface}: uses the shared confirmation`, /ConfirmAction/.test(read(file)));
+    ok(`${surface}: the first tap only asks`, /\.ask\(/.test(read(file)));
+    ok(`${surface}: the mutation sits behind onConfirm`, /onConfirm=/.test(read(file)));
+  }
+
+  ok("Files: a deleted document closes its drawer",
+    /confirmDelete\.cancel\(\); closeDetail\(\);/.test(read(MORE.Files)));
+  ok("Files: the drawer carries its own error",
+    /drawerError = null/.test(read(MORE.Files)));
+  ok("Games: the score-loss warning is in-app too",
+    /Moving this game to a future date will remove the recorded/.test(read("components/GamesSection.js")));
+  ok("Games: a deleted game clears the question and reloads the list",
+    /confirmDelete\.cancel\(\); onChanged\?\.\(\);/.test(read(MORE.Games)));
+  ok("Contacts: the row shows its own error",
+    /deleteError = null/.test(read(MORE.Contacts)));
+  ok("Branding: removing the logo resets in place",
+    /confirmRemove\.cancel\(\); reset\(\);/.test(read(MORE.Branding)));
+}
+
+/* ---- Sections that stay open must synchronise -------------------------- */
+section("Open surfaces synchronise");
+
+{
+  for (const [name, file] of Object.entries({
+    TournamentContact: "components/TournamentContact.js",
+    PlayerRecruiting: "components/PlayerRecruiting.js",
+    EventRoster: "components/EventRoster.js",
+    ContactsDirectory: "components/ContactsDirectory.js",
+  })) {
+    ok(`${name}: uses the shared runner`, /useMutation\(\)/.test(read(file)));
+    ok(`${name}: no hand-rolled transition remains`,
+      !/startTransition\(/.test(code(file)));
+  }
+}
+
+/* ---- Deliberately unchanged ------------------------------------------- */
+section("Runners left alone, on purpose");
+
+{
+  // Each of these already ends in a state change the user cannot miss, so a
+  // refresh would be redundant work rather than a fix.
+  //   QuickAddFacility  hands the created facility to its parent directly
+  //   SeasonPicker      navigates
+  //   RelatedLink       router.push
+  //   SeasonBanner      server action redirects
+  //   WelcomeForm       redirects after creating the organization
+  //   AcceptInvite      redirects
+  //   GettingStarted    local dismissal only, nothing persisted to re-read
+  //   FacilityImport    ends on its own result screen
+  ok("QuickAddFacility passes the new record to its caller",
+    /onFacilityReady\?\.\(result\.facility\)/.test(read("components/QuickAddFacility.js")));
+  ok("RelatedLink navigates", /router\.push\(/.test(read("components/RelatedLink.js")));
+  ok("GettingStarted only dismisses locally",
+    /setHidden\(true\)/.test(read("components/GettingStarted.js")));
+}
+
 console.log(`\n${ran} assertions, ${failures.length} failed\n`);
 if (failures.length) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }
