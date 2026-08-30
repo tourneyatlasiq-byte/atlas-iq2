@@ -1740,6 +1740,113 @@ console.log("\nPosition vocabulary");
     nrm.toPositions("outfield"), ["CF"]);
 }
 
+
+/* ---- Position round trip: export -> file -> import ----------------------
+   The dropdown working proves nothing about whether a position survives the
+   journey out to a spreadsheet and back. This writes a real .xlsx, reads it
+   back, and drives the exported cells through the actual mapping and planning
+   path — including the case where nothing has changed, which must produce no
+   update and no conflict. */
+
+console.log("\nPositions survive export and re-import");
+
+{
+  const XLSX = require("xlsx");
+  const exp = await load("lib/player-export.js");
+
+  const cases = [
+    ["Mia Middleton", ["MIF"]],
+    ["Cora Corner",   ["CIF"]],
+    ["Ola Outfield",  ["OF"]],
+    ["Dana Dual",     ["MIF", "OF"]],
+    ["Cate Catcher",  ["C", "CIF"]],
+    ["Sam Specific",  ["SS"]],
+  ];
+
+  const roster = cases.map(([full_name, positions], i) => ({
+    id: `a${i}`, jersey_number: 10 + i, positions, is_active: true,
+    player: { id: `p${i}`, full_name, person_type: "player", grad_year: 2028,
+              date_of_birth: "2010-06-14", throws: "R", bats: "L",
+              player_contacts: [{ id: `c${i}`, email: `g${i}@example.invalid` }] },
+    contacts: [{ id: `c${i}`, full_name: `Guardian ${i}`, email: `g${i}@example.invalid`,
+                 is_primary: true, sort_order: 1 }],
+    links: [], colleges: [],
+  }));
+
+  // Export through the real builder, then round-trip through a real file.
+  const { columns, rows: body } = exp.buildExport(roster);
+  const sheet = XLSX.utils.aoa_to_sheet([columns, ...body]);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, "Players");
+  const buf = XLSX.write(book, { type: "buffer", bookType: "xlsx" });
+  const aoa = XLSX.utils.sheet_to_json(XLSX.read(buf, { type: "buffer" }).Sheets.Players,
+    { header: 1, defval: "", blankrows: false });
+
+  const header = aoa[0];
+  const iPos = header.indexOf("Positions");
+  for (const [i, [name, positions]] of cases.entries()) {
+    ok(`${name}: exported cell`, aoa[i + 1][iPos], positions.join(" / "));
+  }
+
+  // Re-import the file we just wrote.
+  const sug = map.suggestMappings(header);
+  const enabled = new Set(sug.mappings.filter((m) => m.autoEnabled).map((m) => m.header));
+  const active = sug.mappings.filter((m) => enabled.has(m.header));
+  ok("the Positions column re-maps exactly",
+    sug.mappings.find((m) => m.header === "Positions")?.confidence, "exact");
+
+  const existing = roster.map((r) => mat.toCandidate(r.player));
+  let playerWrites = 0, blocked = 0, conflicts = 0;
+
+  for (const [i, [name, positions]] of cases.entries()) {
+    const raw = Object.fromEntries(header.map((h, c) => [h, aoa[i + 1][c] ?? ""]));
+    const mapped = map.applyMappings(raw, active);
+    const row = { contacts: [] };
+    for (const [k, v] of Object.entries(mapped)) {
+      if (k === "contacts") continue;
+      const f = reg.BY_KEY.get(k);
+      if (!f || reg.isIgnored(k)) continue;
+      row[k] = nrm.normalizeValue(f.type, v);
+    }
+    row.contacts = (mapped.contacts ?? []).map((c) => ({ ...c }));
+
+    ok(`${name}: re-imports to the same positions`, row.positions, positions);
+
+    const m = mat.matchPlayer(row, existing);
+    const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+      existingContacts: m.candidate?.contacts ?? [], decisions: {}, identity: null });
+    ok(`${name}: matches the same player`, m.candidate?.full_name, name);
+    if (plan.writes.some((w) => w.table === "players")) playerWrites += 1;
+    if (!plan.executable) blocked += 1;
+    conflicts += plan.resolved.filter((r) => r.status === "conflict").length;
+  }
+
+  // An unchanged re-import must be a no-op, not a pile of updates.
+  ok("re-importing unchanged data updates no player field", playerWrites, 0);
+  ok("...blocks nothing", blocked, 0);
+  ok("...and invents no conflicts", conflicts, 0);
+}
+
+console.log("\nPositions from a spreadsheet we did not write");
+
+{
+  // A coach's own file: lowercase, padded, slash- and comma-separated.
+  const f = reg.BY_KEY.get("positions");
+  const sug = map.suggestMappings(["Name", "Jersey", "Position", "Grad Year"]);
+  ok("a plain 'Position' header is recognised",
+    sug.mappings.find((m) => m.header === "Position")?.key, "positions");
+
+  const active = sug.mappings.filter((m) => m.autoEnabled);
+  for (const [cell, want] of [
+    ["mif", ["MIF"]], [" OF ", ["OF"]], ["CIF", ["CIF"]],
+    ["SS/MIF", ["SS", "MIF"]], ["of, cif", ["OF", "CIF"]],
+  ]) {
+    const mapped = map.applyMappings(
+      { Name: "X", Jersey: "1", Position: cell, "Grad Year": "2029" }, active);
+    ok(`external ${JSON.stringify(cell)}`, nrm.normalizeValue(f.type, mapped.positions), want);
+  }
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
