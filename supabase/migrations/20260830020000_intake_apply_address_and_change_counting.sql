@@ -55,6 +55,8 @@ declare
   v_after_p  players%rowtype;
   v_after_s  team_season_players%rowtype;
   v_changed  boolean;
+  v_before_c player_contacts%rowtype;
+  v_after_c  player_contacts%rowtype;
   v_c_ins    int := 0;
   v_c_upd    int := 0;
   v_links    int := 0;
@@ -396,6 +398,8 @@ begin
             using errcode = 'invalid_parameter_value';
         end if;
 
+        select * into v_before_c from player_contacts where id = v_cid;
+
         -- is_primary is deliberately NOT updatable through import.
         update player_contacts set
           full_name = coalesce(nullif(btrim(v_contact ->> 'full_name', E' \t\r\n'), ''), full_name),
@@ -410,7 +414,20 @@ begin
           raise exception 'A contact in this import does not belong to that player.'
             using errcode = 'no_data_found';
         end if;
-        v_c_upd := v_c_upd + 1;
+
+        -- Only a REAL change counts. The statement above always matches, and
+        -- always stamps updated_at, so counting the statement reported every
+        -- contact as updated on a re-import of identical details. The named
+        -- fields are compared rather than the whole row precisely because
+        -- updated_at always differs.
+        select * into v_after_c from player_contacts where id = v_cid;
+        if (v_after_c.full_name, v_after_c.relationship, v_after_c.email,
+            v_after_c.phone, v_after_c.preferred_method)
+           is distinct from
+           (v_before_c.full_name, v_before_c.relationship, v_before_c.email,
+            v_before_c.phone, v_before_c.preferred_method) then
+          v_c_upd := v_c_upd + 1;
+        end if;
 
       else  -- v_op = 'insert', the only remaining possibility
         insert into player_contacts (
