@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useMutation } from "./useMutation";
 import {
   addPlayerContact,
   updatePlayerContact,
@@ -34,7 +34,7 @@ function contactHeading(c) {
 
 export function PlayerContacts({ playerId, contactInfo, canWrite, pending: parentPending,
                                  player = {}, isPlayer = true }) {
-  const [busy, startTransition] = useTransition();
+  const { run: runMutation, pending: busy } = useMutation();
   const [editing, setEditing] = useState(null);   // contact id, "legacy", or "new"
   const [form, setForm] = useState(BLANK);
   const [error, setError] = useState(null);
@@ -48,36 +48,34 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
   const [emptyOffer, setEmptyOffer] = useState(null);
   // Which contact is awaiting an in-page Remove confirmation.
   const [confirmRemove, setConfirmRemove] = useState(null);
-  const router = useRouter();
 
   const pending = busy || parentPending;
   const contacts = contactInfo?.contacts ?? [];
 
+  /**
+   * The shared runner owns pending, awaiting the action and refreshing the
+   * route so THIS open drawer shows what was persisted. What stays here is
+   * what differs per action: which form an error belongs to, and the
+   * empty-contact refusal, which is a choice to offer rather than an error to
+   * report.
+   */
   function run(action, fd, { forContact = null, onDone = null } = {}) {
     setError(null);
     setErrorFor(null);
     setEmptyOffer(null);
-    startTransition(async () => {
-      const res = await action(fd);
-      if (res?.ok) {
+    runMutation(action, fd, {
+      onSuccess: () => {
         setEditing(null); setForm(BLANK); setEmptyOffer(null);
         onDone?.();
-        // revalidatePath() marks the server cache stale; this is what makes
-        // THIS open drawer re-render with the contact gone. Without it a
-        // successful delete could leave the card on screen, which is
-        // indistinguishable from the delete having failed.
-        router.refresh();
-        return;
-      }
-      // The server refuses an edit that would empty a contact. That is not a
-      // failure to explain away — it is a choice to put in front of the coach,
-      // next to the form they were editing.
-      if (res?.code === "would_be_empty" && forContact) {
-        setEmptyOffer(forContact);
-        return;
-      }
-      setError(res?.error ?? "That didn't save.");
-      setErrorFor(forContact);
+      },
+      onError: (message, result) => {
+        if (result?.code === "would_be_empty" && forContact) {
+          setEmptyOffer(forContact);
+          return;
+        }
+        setError(message ?? "That didn't save.");
+        setErrorFor(forContact);
+      },
     });
   }
 

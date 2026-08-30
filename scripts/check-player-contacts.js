@@ -387,7 +387,10 @@ section("Removing a contact");
   ok("...and the second deletes", /onClick=\{\(\) => doRemove\(c\)\}/.test(ui));
 
   // A successful delete must leave the OPEN drawer, not just the cache.
-  ok("a successful action refreshes the router", /router\.refresh\(\)/.test(ui));
+  // The refresh now lives in the shared runner, so every caller gets it.
+  const hook = fs.readFileSync("components/useMutation.js", "utf8");
+  ok("contacts use the shared mutation runner", /useMutation\(\)/.test(ui));
+  ok("the shared runner refreshes on success", /router\.refresh\(\)/.test(hook));
   ok("...and the server still revalidates", /revalidatePath\("\/team"\)/.test(act));
 
   // Progress is visible while it runs.

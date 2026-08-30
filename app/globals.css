@@ -5848,3 +5848,26 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   /* Same reach as every other control in the drawer. */
   .pc-confirm .btn, .pc-empty-offer .btn { min-height: 44px; }
 }
+
+/* ---- Drawer mutation feedback ------------------------------------------ */
+
+/* Inside the drawer footer, above its actions. The page-level alert sits
+   underneath a fixed full-height drawer and cannot be seen on a phone. */
+.drawer-foot-error {
+  margin: 0 0 10px; padding: 9px 11px;
+  border-radius: var(--radius-control);
+  background: #fdf2f2; border: 1px solid #f0c9c9; color: #8a2c2c;
+  font-size: 13px; line-height: 1.5;
+}
+
+/* Destructive confirmation, in place of the action row. */
+.drawer-confirm { display: flex; flex-direction: column; gap: 10px; }
+.drawer-confirm p {
+  margin: 0; font-size: 13px; line-height: 1.55; color: var(--navy);
+}
+
+@media (max-width: 720px) {
+  .drawer-confirm .btn { min-height: 44px; }
+  .drawer-confirm .drawer-foot-row { flex-direction: column; gap: 8px; }
+  .drawer-confirm .drawer-foot-row .btn { width: 100%; }
+}

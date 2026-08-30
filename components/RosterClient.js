@@ -16,6 +16,7 @@ import { resolvePlayerContact } from "../lib/player-contact-rules";
 import { toCandidate } from "../lib/intake/match";
 import { PlayerExport } from "./PlayerExport";
 import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
+import { useMutation } from "./useMutation";
 import { useTableSort, useSortedRows } from "../lib/table-sort";
 import { SortHeader } from "./SortHeader";
 import { formatPlayerAddress } from "../lib/player-export";
@@ -139,6 +140,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
    * see rather than paper over with a nearby id that happens to be a uuid.
    */
   const detailPlayerId = detail?.player_id ?? null;
+
+  // A drawer that reopens must not inherit the last one's error or a
+  // half-answered confirmation.
+  useEffect(() => {
+    if (!detail) { setDrawerError(null); setConfirmRemove(null); }
+  }, [detail]);
   const [editing, setEditing] = useState(null); // row | "new" | null
   // Opened directly from the help panel.
   const [adding, setAdding] = useState(autoOpen);
@@ -173,6 +180,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     positions: { value: (r) => (r.positions?.length ? r.positions.join(" / ") : null) },
   };
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(null);
 
   /**
    * Sorting is layered ON TOP of the filtered set, never instead of it.
@@ -182,7 +190,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
    */
   const { sort, toggleSort } = useTableSort(null);
   const [error, setError] = useState(null);
-  const [pending, startTransition] = useTransition();
 
   // `intaking` belongs here. Without it the Import drawer was the one overlay
   // that did NOT lock the page behind it, so scrolling ran off the end of the
@@ -248,13 +255,22 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   const sortedVisible = useSortedRows(visible, sort, ROSTER_COLUMNS,
     (a, b) => String(a.player?.full_name ?? "").localeCompare(String(b.player?.full_name ?? "")));
 
+  // Errors from a DRAWER action go to the drawer. The page-level alert is for
+  // actions taken on the page itself; rendered under a fixed full-height
+  // drawer it is invisible on a phone, which is how a failed removal looked
+  // identical to a successful one.
+  const [drawerError, setDrawerError] = useState(null);
+  const { run: runMutation, pending } = useMutation({
+    onError: (message) => {
+      if (detail) setDrawerError(message);
+      else setError(message);
+    },
+  });
+
   function run(action, fd, onDone) {
     setError(null);
-    startTransition(async () => {
-      const result = await action(fd);
-      if (result?.ok) onDone?.(result);
-      else setError(result?.error ?? "Something went wrong. Try again.");
-    });
+    setDrawerError(null);
+    runMutation(action, fd, { onSuccess: onDone });
   }
 
   function submitEdit(formData) {
@@ -278,12 +294,23 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
    * kept — a coach should never have to know that dues must be removed before
    * the roster row, which is what the old order-of-operations bug required.
    */
-  function remove(row) {
-    const name = row.player?.full_name ?? "this person";
-    if (!confirm(`Remove ${name} from the ${seasonName} roster?\n\nAnything they have paid or played is kept. Setup-only records are cleaned up.`)) return;
+  /**
+   * Asks inside the drawer. window.confirm() was the only gate here, and a
+   * mobile browser that suppresses dialogs returns false from it — the handler
+   * returned early, no request was made, and nothing appeared on screen. The
+   * roster row proved it afterwards: still present, so the action never ran.
+   */
+  function askRemove(row) {
+    setDrawerError(null);
+    setConfirmRemove(row.id);
+  }
+
+  function doRemove(row) {
     const fd = new FormData();
     fd.set("assignment_id", row.id);
-    run(removePlayerFromSeason, fd, () => closeDetail());
+    // Removing the record the drawer is showing: closing IS the success
+    // signal, so no refresh is needed for a surface that is going away.
+    run(removePlayerFromSeason, fd, () => { setConfirmRemove(null); closeDetail(); });
   }
 
 
@@ -653,7 +680,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           pending={pending}
           onClose={() => { closeDetail(); }}
           onEdit={() => setEditing(detail)}
-          onRemove={() => remove(detail)}
+          onRemove={() => askRemove(detail)}
+          onConfirmRemove={() => doRemove(detail)}
+          onCancelRemove={() => setConfirmRemove(null)}
+          confirmingRemove={confirmRemove === detail?.id}
+          drawerError={drawerError}
           paymentId={paymentIdByPlayer[detailPlayerId] ?? null}
           contacts={contacts}
           recruiting={recruiting[detailPlayerId] ?? { links: [], interests: [] }}
@@ -795,7 +826,7 @@ function Disclose({ enabled, label, children }) {
 
 
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, onConfirmRemove, onCancelRemove, confirmingRemove = false, drawerError = null, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
   const p = row.player ?? {};
 
   // One record type, two very different people. A coach has no jersey number,
@@ -981,13 +1012,44 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             and a ghost button keeps it available without competing. */}
         {canWrite && (
           <div className="drawer-foot">
-            {/* Lifecycle actions group on the left; Edit details stays the
-                primary action on the right. Three weights, one row. */}
+            {/* FEEDBACK BELONGS TO THE SURFACE THE ACTION WAS TAKEN ON.
+                This used to render at the top of the Team page, underneath a
+                fixed full-height drawer — on a phone a failed removal was
+                indistinguishable from a successful one. */}
+            {drawerError && (
+              <p className="drawer-foot-error" role="alert">{drawerError}</p>
+            )}
+
+            {/* Confirmation replaces the action row in place, so the decision
+                appears where the thumb already is rather than in a native
+                dialog a mobile browser can suppress without a trace. */}
+            {confirmingRemove ? (
+              <div className="drawer-confirm" role="alert">
+                <p>
+                  Remove <strong>{displayName}</strong> from the {seasonName} roster?
+                  Anything they have paid or played is kept; setup-only records
+                  are cleaned up.
+                </p>
+                <div className="drawer-foot-row">
+                  <button className="btn btn-secondary" onClick={onCancelRemove} disabled={pending}>
+                    Keep on roster
+                  </button>
+                  <button className="btn btn-danger" onClick={onConfirmRemove} disabled={pending}>
+                    {pending ? "Removing…" : "Remove from roster"}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="drawer-foot-row">
               <div className="drawer-foot-lifecycle">
+                {/* The label and the header pill both come from row, which is
+                    derived from the refreshed roster — so a successful toggle
+                    changes what is on screen. That IS the success signal; a
+                    toast would be noise on top of it. */}
                 {onToggleActive && (
                   <button className="btn btn-ghost" disabled={pending} onClick={onToggleActive}>
-                    {row.is_active === false ? "Make active" : "Make inactive"}
+                    {pending ? "Saving…"
+                      : row.is_active === false ? "Make active" : "Make inactive"}
                   </button>
                 )}
                 <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
@@ -998,6 +1060,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
                 Edit details
               </button>
             </div>
+            )}
           </div>
         )}
     </DrawerShell>

@@ -241,6 +241,73 @@ const outcome = (h) => (hasMeaningfulHistory(h) ? "inactive" : "removed");
   assertEq("pre-added AND played -> preserved",
     outcome({ lineupSlots: 1 }), "inactive");
 
-  console.log(`\n${ran} assertions, ${failures} failed`);
+  
+/* ---- Mobile mutation reliability ----------------------------------------
+   Two failures, one rule: no action may appear to do nothing.
+
+   Make inactive SUCCEEDED and the drawer kept showing "Active" — the server
+   revalidated, but nothing told the open drawer to take the new data, so the
+   coach saw no change and assumed the tap missed.
+
+   Remove from roster FAILED silently, because window.confirm() returned false
+   under mobile dialog suppression AND the error rendered at the top of the
+   Team page, underneath a fixed full-height drawer. */
+
+console.log("\nMobile mutation reliability");
+
+{
+  const fsx = require("fs");
+  const ui   = fsx.readFileSync("components/RosterClient.js", "utf8");
+  const hook = fsx.readFileSync("components/useMutation.js", "utf8");
+  const css  = fsx.readFileSync("app/globals.css", "utf8");
+  const code = ui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  // No native dialog gates any Team mutation.
+  assertEq("no window.confirm gates a roster mutation", /\bconfirm\(/.test(code), false);
+  assertEq("removal asks inside the drawer", /className="drawer-confirm"/.test(ui), true);
+  assertEq("...naming the player and the season",
+    /Remove <strong>\{displayName\}<\/strong> from the \{seasonName\} roster\?/.test(ui), true);
+  assertEq("...with a cancel that changes nothing",
+    /onClick=\{onCancelRemove\}/.test(ui), true);
+  assertEq("...and a destructive confirm", /onClick=\{onConfirmRemove\}/.test(ui), true);
+  assertEq("the first tap only asks", /onRemove=\{\(\) => askRemove\(detail\)\}/.test(ui), true);
+
+  // Double submission.
+  assertEq("confirm button disables while pending",
+    /onClick=\{onConfirmRemove\} disabled=\{pending\}/.test(ui), true);
+  assertEq("...and shows progress", /Removing…/.test(ui), true);
+  assertEq("the toggle shows progress too", /pending \? "Saving…"/.test(ui), true);
+
+  // Feedback where the action happened.
+  assertEq("a drawer action's error renders in the drawer",
+    /className="drawer-foot-error"/.test(ui), true);
+  assertEq("...routed there only when a drawer is open",
+    /if \(detail\) setDrawerError\(message\);/.test(ui), true);
+  assertEq("the page alert still exists for page actions",
+    /\{error && <div className="alert alert-error">/.test(ui), true);
+  assertEq("drawer error clears when the drawer closes",
+    /if \(!detail\) \{ setDrawerError\(null\); setConfirmRemove\(null\); \}/.test(ui), true);
+
+  // Success synchronisation: the toggle's own label proves fresh state.
+  assertEq("both callers share one runner", /useMutation/.test(ui), true);
+  assertEq("the runner refreshes the route on success",
+    /router\.refresh\(\)/.test(hook), true);
+  assertEq("...only on success", /if \(result\?\.ok\)/.test(hook), true);
+  assertEq("the local duplicate runner is gone",
+    /startTransition\(async \(\) => \{\s*const result = await action/.test(ui), false);
+  assertEq("active state is read from the refreshed row, not local state",
+    /row\.is_active === false \? "Make active" : "Make inactive"/.test(ui), true);
+
+  // Removing the record the drawer shows: closing IS the success signal.
+  assertEq("a confirmed removal closes the drawer",
+    /setConfirmRemove\(null\); closeDetail\(\);/.test(ui), true);
+
+  assertEq(".drawer-foot-error is styled", /\.drawer-foot-error \{/.test(css), true);
+  assertEq(".drawer-confirm is styled", /\.drawer-confirm \{/.test(css), true);
+  assertEq("confirmation controls meet the mobile target",
+    /\.drawer-confirm \.btn \{ min-height: 44px; \}/.test(css), true);
+}
+
+console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
