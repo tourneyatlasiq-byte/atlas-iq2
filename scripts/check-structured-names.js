@@ -653,13 +653,18 @@ section("Both derivations are built from one shared candidate shape");
   ok("...and the evidence is named once", /export const MATCH_EVIDENCE/.test(mt));
   ok("...covering contacts", /"contacts"/.test(mt));
 
-  ok("the server embeds player_contacts for matching",
-    /player_contacts \( id, email \)/.test(act));
+  // The candidate query moved into lib/queries/match-candidates.js, shared by
+  // the server action and the preview so the two populations cannot diverge.
+  const cand = read("lib/queries/match-candidates.js");
+  ok("the shared candidate query embeds player_contacts for matching",
+    /player_contacts \( id, email \)/.test(cand));
   // The column list is now DERIVED from the registry rather than written out,
   // so assert the derivation covers the structured names instead of matching
   // a literal that no longer exists.
   ok("...and derives its columns from the registry",
-    /planningPlayerColumns\(\)/.test(act));
+    /planningPlayerColumns\(\)/.test(cand));
+  ok("...selecting organization-wide, not the season roster",
+    /\.from\("players"\)/.test(cand) && !/team_season_players/.test(cand));
   ok("...which includes the structured name columns",
     ["legal_first_name", "preferred_first_name", "last_name"]
       .every((c) => planningPlayerColumns().includes(c)));
@@ -669,8 +674,10 @@ section("Both derivations are built from one shared candidate shape");
   ok("the server still RE-DERIVES rather than trusting the client",
     /RE-DERIVED\. The client's classification is not consulted\./.test(act));
 
+  // Now fed the organization-wide set from the shared query, still through
+  // toCandidate so the browser and the server derive identical evidence.
   ok("the browser builds candidates through the same function",
-    /existingPlayers=\{\(rows \?\? \[\]\)\.map\(\(r\) =>\s*\n?\s*toCandidate\(/.test(rc));
+    /existingPlayers=\{\(matchCandidates \?\? \[\]\)\.map\(toCandidate\)\}/.test(rc));
   ok("...and no longer hand-rolls a shape", !/parent_email: r\.player\?\.parent_email/.test(rc));
 }
 
@@ -696,7 +703,7 @@ section("No caller can supply a partial candidate");
   ok("the server builds them with toCandidate",
     /\.map\(toCandidate\)/.test(read("lib/actions/intake.js")));
   ok("the browser is handed candidates built with toCandidate",
-    /toCandidate\(\{ \.\.\.r\.player/.test(read("components/RosterClient.js")));
+    /\(matchCandidates \?\? \[\]\)\.map\(toCandidate\)/.test(read("components/RosterClient.js")));
   ok("no production file hand-rolls a candidate literal",
     files.every((f) => !/parent_email: r\.player\?\.parent_email/.test(read(f))), true);
 }

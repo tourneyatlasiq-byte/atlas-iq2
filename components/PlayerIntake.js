@@ -271,6 +271,17 @@ export function PlayerIntake({ existingPlayers = [], seasonName = "this season",
         rows: analysed.map((a) => ({ ...a.row, contacts: a.row.contacts ?? [] })),
         decisions,
         identity,
+        // Provenance: which of the coach's columns were used, and which were
+        // left out. Headers only.
+        mappings: effective
+          .filter((m) => enabled.has(keyOf(m)))
+          .map((m) => ({ header: m.header, key: m.key, index: m.index ?? null })),
+        ignored: [
+          ...(grid?.ignored ?? []).map((x) => x.header),
+          ...(grid?.header ?? []).filter(
+            (h) => !effective.some((m) => m.header === h && enabled.has(keyOf(m)))
+          ),
+        ],
         runKey,
       });
       if (res?.ok) setOutcome(res);

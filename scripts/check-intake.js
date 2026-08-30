@@ -1466,8 +1466,11 @@ console.log("\nThe server query cannot drift from the planner");
   }
 
   const src = require("fs").readFileSync("lib/actions/intake.js", "utf8");
-  ok("the server derives its select from the registry",
-    /planningPlayerColumns\(\)\.join\(", "\)/.test(src), true);
+  // Superseded: the select moved into lib/queries/match-candidates.js, shared
+  // with the preview so the two populations cannot diverge.
+  ok("the shared candidate query derives its select from the registry",
+    /planningPlayerColumns\(\)\.join\(", "\)/.test(
+      require("fs").readFileSync("lib/queries/match-candidates.js", "utf8")), true);
   ok("...rather than a hand-written column list",
     !/select\("id, full_name, legal_first_name/.test(src), true);
   ok("identity is passed explicitly to compact()",
@@ -2270,6 +2273,126 @@ console.log("\nRemapping an unrecognised column by hand");
   ok("re-import rewrites no player field", playerWrites, 0);
   ok("...blocks nothing", blockedRows, 0);
   ok("...and fills the size for every row", sizes, 3);
+}
+
+
+/* ---- Candidate population: one source, organization-wide -----------------
+   The preview was given the SEASON ROSTER while the server evaluated the
+   whole organization, so a player in the organization without a membership
+   was invisible to the browser and visible to the server — the coach saw
+   "Create" for a row the server would match. Both now read the same query. */
+
+console.log("\nMatching candidates are organization-wide on both sides");
+
+{
+  const fsx = require("fs");
+  const shared = fsx.readFileSync("lib/queries/match-candidates.js", "utf8");
+  const action = fsx.readFileSync("lib/actions/intake.js", "utf8");
+  const page = fsx.readFileSync("app/(app)/team/page.js", "utf8");
+  const ui = fsx.readFileSync("components/RosterClient.js", "utf8");
+
+  ok("one shared candidate query exists", /export async function listMatchCandidates/.test(shared), true);
+  ok("...selecting from players, not the roster", /\.from\("players"\)/.test(shared), true);
+  ok("...with no season or team filter",
+    !/season_id|team_id|team_season_players/.test(shared), true);
+  ok("...deriving columns from the registry", /planningPlayerColumns\(\)/.test(shared), true);
+  ok("...and embedding contacts for corroboration",
+    /player_contacts \( id, email \)/.test(shared), true);
+
+  ok("the server action uses it", /listMatchCandidates\(supabase\)/.test(action), true);
+  ok("the page loads it for the preview", /listMatchCandidates\(\)/.test(page), true);
+  ok("the preview no longer uses the roster",
+    /existingPlayers=\{\(matchCandidates \?\? \[\]\)\.map\(toCandidate\)\}/.test(ui), true);
+  ok("...and both sides share toCandidate", /toCandidate/.test(ui) && /toCandidate/.test(action), true);
+
+  /* The historical Chloe shape: in the organization, no season membership. */
+  const orgWide = [
+    mat.toCandidate({ id: "chloe22", full_name: "Chloe Hamlin", grad_year: 2028,
+      date_of_birth: null, parent_email: null, player_contacts: [] }),
+    mat.toCandidate({ id: "other", full_name: "Bella Ramos", grad_year: 2029,
+      date_of_birth: "2010-06-14", player_contacts: [] }),
+  ];
+  const row = { full_name: "Chloe Hamlin", grad_year: 2028, date_of_birth: "2010-03-17",
+    positions: ["OF"], jersey_size: "AM",
+    contacts: [{ email: "chloehamlin0317@example.invalid" }] };
+
+  const m = mat.matchPlayer(row, orgWide);
+  ok("Chloe matches confidently against the org-wide set", m.classification, "confident");
+  ok("...to the off-roster player", m.candidate?.id, "chloe22");
+
+  const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+    existingContacts: [], decisions: {}, identity: null });
+  ok("...and updates rather than creating",
+    Boolean(plan.writes.find((w) => w.table === "players")?.targetId), true);
+  ok("...filling the missing date of birth",
+    plan.resolved.find((r) => r.key === "date_of_birth")?.status, "fill");
+
+  // Matching does not put her on the roster; the season write is the planner's.
+  ok("a match does not itself add a season membership",
+    plan.writes.find((w) => w.table === "team_season_players")?.values,
+    { positions: ["OF"], jersey_size: "AM" });
+
+  // The same input, same population, on both sides.
+  ok("client and server agree given the same candidates",
+    mat.matchPlayer(row, orgWide).candidate?.id,
+    mat.matchPlayer(row, orgWide).candidate?.id, true);
+
+  // Preserved protections.
+  ok("a DOB conflict still asks",
+    mat.matchPlayer({ full_name: "Chloe Hamlin", grad_year: 2028, date_of_birth: "2009-01-01", contacts: [] },
+      [mat.toCandidate({ id: "z", full_name: "Chloe Hamlin", grad_year: 2028,
+        date_of_birth: "2010-03-17", player_contacts: [] })]).classification, "conflict");
+  ok("a grad-year conflict still asks",
+    mat.matchPlayer({ full_name: "Chloe Hamlin", grad_year: 2028, contacts: [] },
+      [mat.toCandidate({ id: "z", full_name: "Chloe Hamlin", grad_year: 2027, player_contacts: [] })]).classification,
+    "conflict");
+  ok("two same-name candidates stay ambiguous",
+    mat.matchPlayer({ full_name: "Chloe Hamlin", grad_year: 2028, contacts: [] },
+      [mat.toCandidate({ id: "t1", full_name: "Chloe Hamlin", grad_year: 2028, player_contacts: [] }),
+       mat.toCandidate({ id: "t2", full_name: "Chloe Hamlin", grad_year: 2028, player_contacts: [] })]).classification,
+    "possible");
+  ok("an explicit Create is still honoured",
+    Boolean(pln.buildRowPlan({ row, match: m, existingPlayer: null, existingContacts: [],
+      decisions: {}, identity: "new" }).writes.find((w) => w.table === "players")?.targetId),
+    false);
+  const sharedCode = shared.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("organization isolation is RLS's, not a hand-written filter",
+    /organization_id/.test(sharedCode), false);
+}
+
+console.log("\nImport provenance");
+
+{
+  const fsx = require("fs");
+  const action = fsx.readFileSync("lib/actions/intake.js", "utf8");
+  const mig = fsx.readFileSync(
+    "supabase/migrations/20260830180256_intake_run_provenance.sql", "utf8");
+
+  ok("the run records included mappings", /included: \(mappings \?\? \[\]\)/.test(action), true);
+  ok("...the ignored columns", /ignored: \(ignored \?\? \[\]\)/.test(action), true);
+  ok("...and the candidate count", /candidate_count: candidates\.length/.test(action), true);
+
+  ok("each row records its classification", /classification: match\.classification/.test(action), true);
+  ok("...whether the coach overrode identity", /identity: chosen/.test(action), true);
+  ok("...and which player was touched", /player_id: candidate\?\.id \?\? null/.test(action), true);
+
+  // The four outcomes are distinguishable, which is what the audits needed.
+  for (const a of ["explicit_create", "coach_matched", "auto_matched", "created"]) {
+    ok(`the action distinguishes ${a}`, new RegExp(`"${a}"`).test(action), true);
+  }
+
+  // PII: headers and internal ids only.
+  ok("no cell values are copied into provenance",
+    /row\.full_name|row\.date_of_birth|row\.player_email|raw\.contacts/.test(
+      action.slice(action.indexOf("outcomes.push"), action.indexOf("outcomes.push") + 400)),
+    false);
+  ok("the migration states what is not stored", /NOT stored/.test(mig), true);
+
+  ok("a replay records nothing new", /A REPLAY RECORDS NOTHING NEW/.test(mig), true);
+  ok("provenance columns are nullable, so history is not invented",
+    /add column if not exists mapping  jsonb/.test(mig), true);
+  ok("the un-provenanced signature is gone",
+    /drop function if exists public\.intake_apply_run\(uuid, text, uuid, uuid, jsonb\)/.test(mig), true);
 }
 
 console.log(`\n${ran} assertions, ${failures} failed`);

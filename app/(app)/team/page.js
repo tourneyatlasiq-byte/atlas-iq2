@@ -10,6 +10,7 @@ import { createClient } from "../../../lib/supabase/server";
 import { pickupsForSeason } from "../../../lib/queries/participants";
 import { listContacts, recruitingByPlayer } from "../../../lib/queries/contacts";
 import { RosterClient } from "../../../components/RosterClient";
+import { listMatchCandidates } from "../../../lib/queries/match-candidates";
 
 import { SetupNext, setupState } from "../../../components/SetupNext";
 
@@ -29,8 +30,13 @@ export default async function TeamPage({ searchParams }) {
     );
   }
 
-  const [rows, assignable, docsByPlayer, targets] = await Promise.all([
+  const [rows, matchCandidates, assignable, docsByPlayer, targets] = await Promise.all([
     listSeasonRoster(season.id),
+    // Organization-wide, so the import preview evaluates the same population
+    // the server will. A player who is in the organization but not on this
+    // season roster is otherwise invisible to the browser and visible to the
+    // server, and the preview says Create for a row the server will match.
+    listMatchCandidates(),
     listAssignablePlayers(organization.id, season.id),
     documentsByEntity("player_id"),
     documentTargets(season.id, organization.id),
@@ -65,6 +71,7 @@ export default async function TeamPage({ searchParams }) {
       canWrite={canWrite(profile)}
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       documentTargets={targets}
+      matchCandidates={matchCandidates}
       seasonName={season.name}
       teamName={team?.name}
       seasonPhase={seasonPhase}

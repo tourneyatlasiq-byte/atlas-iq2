@@ -100,7 +100,7 @@ function uniformText(row) {
   return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
 }
 
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, matchCandidates = [], seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   // Pickups are not roster rows, so the lookup covers both. Each pickup is
@@ -763,8 +763,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                 // Hand-building this shape is what let the two drift: the
                 // structured name columns were missing here, so the preview and
                 // the server compared different spellings of the same player.
-                existingPlayers={(rows ?? []).map((r) =>
-                  toCandidate({ ...r.player, contacts: resolvePlayerContact(r.player).contacts }))}
+                // ORGANIZATION-WIDE, and the same rows the server will use.
+                // This was the season roster, so a player in the organization
+                // without a membership was invisible here and visible there —
+                // the preview offered Create for someone the server matched.
+                existingPlayers={(matchCandidates ?? []).map(toCandidate)}
                 seasonName={seasonName}
                 onCancel={() => setIntaking(false)}
               />
