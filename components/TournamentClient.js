@@ -4,6 +4,8 @@ import { money } from "../lib/finance-rules";
 import { useMutation } from "./useMutation";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
+import { typeLabel, RESOURCE_TYPES } from "../lib/facility-fields";
+import { linkTournamentResource, unlinkTournamentResource } from "../lib/actions/facilities";
 import { PageHelp } from "./PageHelp";
 import { useState, useTransition, useEffect } from "react";
 import { useOpenParam } from "./useOpenParam";
@@ -105,6 +107,12 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const router = useRouter();
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
+  // Linking a place to this trip. Separate from the playing-facility picker
+  // above, which writes tournaments.facility_id.
+  const [linkingResource, setLinkingResource] = useState(false);
+  const [confirmUnlink, setConfirmUnlink] = useState(null);
+  // Applies to the next link made from the picker. Defaults to Used.
+  const [linkContext, setLinkContext] = useState("used");
   const [justCreatedFacilityId, setJustCreatedFacilityId] = useState(null);
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
@@ -201,6 +209,28 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
    * browser that suppresses dialogs returns false from it — the handler
    * returned early with no request and nothing on screen.
    */
+  function linkResource(facilityId, context) {
+    const fd = new FormData();
+    fd.set("tournament_id", detail.id);
+    fd.set("facility_id", facilityId);
+    fd.set("context", context);
+    setDrawerError(null);
+    runMutation(linkTournamentResource, fd, {
+      onSuccess: () => setLinkingResource(false),
+      onError: (message) => setDrawerError(message),
+    });
+  }
+
+  function unlinkResource(id) {
+    const fd = new FormData();
+    fd.set("id", id);
+    setDrawerError(null);
+    runMutation(unlinkTournamentResource, fd, {
+      onSuccess: () => setConfirmUnlink(null),
+      onError: (message) => setDrawerError(message),
+    });
+  }
+
   function askRemove(row) { setDrawerError(null); confirm.ask(row.id); }
 
   function doRemove(row) {
@@ -438,6 +468,10 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           onCancelDelete={() => confirm.cancel()}
           confirmingDelete={confirm.isAsking(detail?.id)}
           drawerError={drawerError}
+          onLinkResource={() => setLinkingResource(true)}
+          onUnlinkResource={unlinkResource}
+          confirmUnlink={confirmUnlink}
+          setConfirmUnlink={setConfirmUnlink}
           onStatus={setStatus}
         />
       )}
@@ -455,6 +489,48 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
             setEditing(null);
             setError(null);
           }}
+        />
+      )}
+
+      {linkingResource && (
+        <SearchPicker
+          title="Link a location or resource"
+          hint="Somewhere your team wants to remember for this trip — a hotel, a restaurant, another facility. Linking it does not mean everyone used it."
+          placeholder="Search by name, city, or type…"
+          /* SEARCH, NOT A DUMP. There are already 180 shared facilities and
+             the directory only grows, so the same picker the budget line
+             and playing facility use handles this too. */
+          items={(facilities ?? []).map((f) => ({
+            ...f,
+            searchText: `${f.name} ${f.city ?? ""} ${f.state ?? ""} ${typeLabel(f.type)}`,
+          }))}
+          renderItem={(f) => (
+            <>
+              <span className="picker-item-name">{f.name}</span>
+              <span className="picker-item-meta">
+                {/* Type first: a hotel and a ballpark are hard to tell
+                    apart by name alone. */}
+                {typeLabel(f.type)}
+                {f.city ? ` · ${[f.city, f.state].filter(Boolean).join(", ")}` : ""}
+              </span>
+            </>
+          )}
+          /* Context is chosen HERE rather than after picking, so the whole
+             link completes in one step. Used is the common case and the
+             default. */
+          headerExtra={
+            <span className="tr-context-choose">
+              <label htmlFor="tr-context">How was it used?</label>
+              <select id="tr-context" value={linkContext}
+                      onChange={(e) => setLinkContext(e.target.value)}>
+                <option value="used">Used</option>
+                <option value="recommended">Recommended</option>
+                <option value="considered">Considered</option>
+              </select>
+            </span>
+          }
+          onSelect={(f) => linkResource(f.id, linkContext)}
+          onCancel={() => setLinkingResource(false)}
         />
       )}
 
@@ -537,7 +613,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
   );
 }
 
-export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
+export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onLinkResource, onUnlinkResource, confirmUnlink = null, setConfirmUnlink = () => {}, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -688,6 +764,72 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               </div>
             </section>
           )}
+
+          {/* PLACES REMEMBERED WITH THIS TRIP: the hotel, the restaurant.
+              Deliberately NOT the playing venue, which is the facility shown
+              above and is never touched here.
+
+              "Used" records that the organization wants to remember the place.
+              It does not mean every family stayed or ate there, that it was an
+              official team hotel, or that Season Tempo booked anything.
+
+              Compact by design: with nothing linked this is a heading and one
+              button, because the tournament drawer already carries
+              registration, roster, games, costs and documents. */}
+          <Section title="Locations &amp; Resources">
+            {(t.resources ?? []).length === 0 ? (
+              canWrite ? (
+                <button className="btn btn-ghost btn-sm" onClick={onLinkResource} disabled={pending}>
+                  + Link location or resource
+                </button>
+              ) : (
+                <p className="section-body muted">Nothing linked yet.</p>
+              )
+            ) : (
+              <>
+                <ul className="tr-list">
+                  {t.resources.map((r) => (
+                    <li key={r.id} className="tr-item">
+                      <span className="tr-main">
+                        <span className="tr-name">{r.facility?.name ?? "Location"}</span>
+                        <span className="tr-meta">
+                          {typeLabel(r.facility?.type)} ·{" "}
+                          <span className={`lr-context lr-context-${r.context}`}>
+                            {r.context === "used" ? "Used"
+                              : r.context === "recommended" ? "Recommended" : "Considered"}
+                          </span>
+                        </span>
+                      </span>
+                      {canWrite && (
+                        confirmUnlink === r.id ? (
+                          <span className="tr-confirm">
+                            <button className="btn btn-secondary btn-sm"
+                                    onClick={() => setConfirmUnlink(null)} disabled={pending}>
+                              Keep
+                            </button>
+                            <button className="btn btn-danger-ghost btn-sm"
+                                    onClick={() => onUnlinkResource(r.id)} disabled={pending}>
+                              {pending ? "Removing…" : "Remove link"}
+                            </button>
+                          </span>
+                        ) : (
+                          <button className="btn btn-ghost btn-sm"
+                                  onClick={() => setConfirmUnlink(r.id)} disabled={pending}>
+                            Unlink
+                          </button>
+                        )
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {canWrite && (
+                  <button className="btn btn-ghost btn-sm" onClick={onLinkResource} disabled={pending}>
+                    + Link location or resource
+                  </button>
+                )}
+              </>
+            )}
+          </Section>
 
           {/* Kept open deliberately: this is why a coach opens a tournament on
               a phone during an event. */}

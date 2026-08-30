@@ -22,7 +22,10 @@ const NAV = [
   { href: "/dashboard", label: "Home", Icon: IconHome, primary: true },
   { href: "/tournaments", label: "Tournaments", Icon: IconTournaments, primary: true },
   { href: "/team", label: "Team", Icon: IconTeam, primary: true },
-  { href: "/facilities", label: "Facilities", Icon: IconFacilities },
+  // Route stays /facilities: it is referenced across the app and in saved
+  // links, and the URL need not match the label any more than the table name
+  // does.
+  { href: "/facilities", label: "Locations & Resources", Icon: IconFacilities },
   { href: "/finance", label: "Finance", Icon: IconFinance },
   { href: "/performance", label: "Performance", Icon: IconPerformance, feature: "qab", primary: true },
   /* Reports spans Finance, Tournaments and Performance, so it belongs to no

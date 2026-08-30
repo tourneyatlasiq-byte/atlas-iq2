@@ -23,7 +23,12 @@ import {
   suggestFacilityCorrection,
   approveFacilityCorrection,
   rejectFacilityCorrection,
+  linkTournamentResource,
+  unlinkTournamentResource,
 } from "../lib/actions/facilities";
+import {
+  RESOURCE_TYPES, typeLabel, WOULD_USE_AGAIN, wouldUseAgainLabel,
+} from "../lib/facility-fields";
 import { findCatalogDuplicates, DUPLICATE_RULES } from "../lib/facility-matching";
 import {
   EDITABLE_FIELDS,
@@ -126,6 +131,9 @@ const surfaceClass = (s) =>
 export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = new Map(), documentTargets, seasonName }) {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
+  // All | Facilities | Lodging | Dining. A type chip and the existing filters
+  // combine rather than replace each other, so "lodging in Colorado" works.
+  const [typeFilter, setTypeFilter] = useState("all");
   const [surfaceFilter, setSurfaceFilter] = useState("all");
   const [amenityFilter, setAmenityFilter] = useState("all");
   const [countyFilter, setCountyFilter] = useState("all");
@@ -182,6 +190,26 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
   const ourCount = useMemo(() => facilities.filter((f) => f.isOurs).length, [facilities]);
 
+  /**
+   * Chip counts answer "how many will I see if I tap this", so they respect
+   * the current view and search. A count that disagreed with the list is the
+   * defect we fixed on Files.
+   */
+  const typeCounts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const pool = facilities.filter((f) => {
+      if (view === "ours" && !f.isOurs) return false;
+      if (!q) return true;
+      return `${f.atlas_id ?? ""} ${f.name} ${f.city ?? ""} ${f.state ?? ""} ${typeLabel(f.type)}`
+        .toLowerCase().includes(q);
+    });
+    const counts = { all: pool.length };
+    for (const t of RESOURCE_TYPES) {
+      counts[t.key] = pool.filter((f) => (f.type ?? "facility") === t.key).length;
+    }
+    return counts;
+  }, [facilities, view, query]);
+
   const states = useMemo(
     () => [...new Set(facilities.map((f) => f.state).filter(Boolean))].sort(),
     [facilities]
@@ -203,16 +231,22 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
     const q = query.trim().toLowerCase();
     return facilities.filter((f) => {
       if (view === "ours" && !f.isOurs) return false;
+      if (typeFilter !== "all" && (f.type ?? "facility") !== typeFilter) return false;
       if (stateFilter !== "all" && f.state !== stateFilter) return false;
       if (countyFilter !== "all" && f.county !== countyFilter) return false;
-      if (surfaceFilter !== "all" && (f.surface_type ?? "Unknown") !== surfaceFilter) return false;
-      if (amenityFilter !== "all" && f[amenityFilter] !== true) return false;
+      // Surface and amenities describe a ballpark. Applying them to lodging or
+      // dining would filter those out on a field they can never have, so a
+      // record that is not a facility is simply not subject to them.
+      const isFacility = (f.type ?? "facility") === "facility";
+      if (surfaceFilter !== "all" && (!isFacility
+        || (f.surface_type ?? "Unknown") !== surfaceFilter)) return false;
+      if (amenityFilter !== "all" && (!isFacility || f[amenityFilter] !== true)) return false;
       if (!q) return true;
-      return `${f.atlas_id ?? ""} ${f.name} ${f.city ?? ""} ${f.state ?? ""} ${f.street_address ?? ""} ${f.zip ?? ""} ${f.county ?? ""}`
+      return `${f.atlas_id ?? ""} ${f.name} ${f.city ?? ""} ${f.state ?? ""} ${f.street_address ?? ""} ${f.zip ?? ""} ${f.county ?? ""} ${typeLabel(f.type)}`
         .toLowerCase()
         .includes(q);
     });
-  }, [facilities, query, stateFilter, surfaceFilter, amenityFilter, countyFilter, view]);
+  }, [facilities, query, typeFilter, stateFilter, surfaceFilter, amenityFilter, countyFilter, view]);
 
   /**
    * Groups the visible facilities by state only.
@@ -298,7 +332,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
       <div className="page-head">
         <div>
-          <h1>Facilities</h1>
+          <h1>Locations &amp; Resources</h1>
           <div className="page-sub">{MODULE_DESCRIPTIONS.facilities}</div>
         </div>
         {canWrite && (
@@ -342,33 +376,55 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
 
       <div className="view-toggle-row">
-      <div className="segmented view-toggle" role="group" aria-label="Which facilities to show">
+      <div className="segmented view-toggle" role="group" aria-label="Which places to show">
         <button
           className={`segment${view === "ours" ? " on" : ""}`}
           onClick={() => { setView("ours"); setSort(null); }}
           aria-pressed={view === "ours"}
         >
-          Our Facilities <span className="seg-count">{ourCount}</span>
+          Ours <span className="seg-count">{ourCount}</span>
         </button>
         <button
           className={`segment${view === "all" ? " on" : ""}`}
           onClick={() => { setView("all"); setSort(null); }}
           aria-pressed={view === "all"}
         >
-          All facilities <span className="seg-count">{facilities.length}</span>
+          All <span className="seg-count">{facilities.length}</span>
         </button>
       </div>
       <HelpTip term="Our Facilities" />
+      </div>
+
+      {/* Type is a second, narrower cut than Ours/All, so it sits on its own
+          row and combines with the filters below rather than replacing them. */}
+      <div className="segmented lr-types" role="group" aria-label="Which kind of place">
+        <button
+          className={`segment${typeFilter === "all" ? " on" : ""}`}
+          onClick={() => { setTypeFilter("all"); setSort(null); }}
+          aria-pressed={typeFilter === "all"}
+        >
+          All <span className="seg-count">{typeCounts.all}</span>
+        </button>
+        {RESOURCE_TYPES.map((t) => (
+          <button
+            key={t.key}
+            className={`segment${typeFilter === t.key ? " on" : ""}`}
+            onClick={() => { setTypeFilter(t.key); setSort(null); }}
+            aria-pressed={typeFilter === t.key}
+          >
+            {t.plural} <span className="seg-count">{typeCounts[t.key]}</span>
+          </button>
+        ))}
       </div>
 
       <div className="toolbar">
         <input
           className="toolbar-search"
           type="search"
-          placeholder="Search by facility, city, county, or address"
+          placeholder="Search by name, city, county, or address"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search facilities"
+          aria-label="Search locations and resources"
         />
         {/* Discovery filters belong with the 178-record directory, not with
             seven facilities you already know. */}
@@ -446,7 +502,10 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
             )}
           </div>
         ) : view === "ours" ? (
-          <OurVenuesTable rows={visible} onOpen={openFacility} sort={sort} onSort={toggleSort} />
+          <>
+            <OurVenuesTable rows={visible} onOpen={openFacility} sort={sort} onSort={toggleSort} />
+            <ResourceCards rows={visible} onOpen={openFacility} />
+          </>
         ) : groups ? (
           <>
             <div className="fac-expand-bar">
@@ -476,12 +535,20 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
                   <span className="fac-state-toggle">{isOpen(g.state) ? "Collapse" : "Expand"}</span>
                 </button>
 
-                {isOpen(g.state) && <FacilityTable rows={g.rows} onOpen={openFacility} sort={sort} onSort={toggleSort} />}
+                {isOpen(g.state) && (
+                  <>
+                    <FacilityTable rows={g.rows} onOpen={openFacility} sort={sort} onSort={toggleSort} />
+                    <ResourceCards rows={g.rows} onOpen={openFacility} />
+                  </>
+                )}
               </div>
             ))}
           </>
         ) : (
-          <FacilityTable rows={visible} onOpen={openFacility} sort={sort} onSort={toggleSort} />
+          <>
+            <FacilityTable rows={visible} onOpen={openFacility} sort={sort} onSort={toggleSort} />
+            <ResourceCards rows={visible} onOpen={openFacility} />
+          </>
         )}
       </div>
 
@@ -687,6 +754,11 @@ function OurVenuesTable({ rows, onOpen, sort, onSort }) {
             <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
               <td className="fc-name">
                 <span className="cell-name">{f.name}</span>
+                {/* Only non-facility types are tagged. Marking all 180 ballparks
+                    "Facility" would be noise on a page that is mostly ballparks. */}
+                {(f.type ?? "facility") !== "facility" && (
+                  <span className="lr-type-tag">{typeLabel(f.type)}</span>
+                )}
                 <span className="fc-sub">
                   {[
                     [f.city, f.state].filter(Boolean).join(", "),
@@ -770,6 +842,47 @@ function applySort(rows, sort, comparators) {
   );
 }
 
+/**
+ * The phone view.
+ *
+ * Both tables carry six or seven columns; on a 375px screen the right-hand
+ * ones sit off the edge with nothing to suggest they exist. Desktop keeps its
+ * tables. The phone gets a card per place, built from the same rows and
+ * opening the same drawer, showing what a coach actually scans for: what it
+ * is, where it is, and whether they have been before.
+ */
+function ResourceCards({ rows, onOpen }) {
+  return (
+    <div className="lr-cards">
+      {rows.map((f) => {
+        const type = f.type ?? "facility";
+        const wua = f.orgNotes?.would_use_again;
+        return (
+          <button type="button" key={f.id} className="lr-card" onClick={() => onOpen(f)}>
+            <span className="lr-card-name">{f.name}</span>
+            <span className="lr-card-meta">
+              <span className="lr-type-tag">{typeLabel(type)}</span>
+              <span>{cityState(f)}</span>
+            </span>
+            {(wua || f.orgNotes || (f.resourceLinks ?? []).length > 0) && (
+              <span className="lr-card-meta">
+                {wua && (
+                  <span className={`lr-wua lr-wua-${wua}`}>
+                    Would use again: {wouldUseAgainLabel(wua)}
+                  </span>
+                )}
+                {(f.resourceLinks ?? []).length > 0 && (
+                  <span>{f.resourceLinks.length} linked</span>
+                )}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Header cell that toggles ascending, then descending. */
 function SortHeader(props) {
   // The shared header. Facilities styled its own with fc-sort classes; the
@@ -842,6 +955,9 @@ function FacilityTable({ rows, onOpen, sort, onSort }) {
           <tr key={f.id} className="row-click" onClick={() => onOpen(f)}>
             <td className="fc-name">
               <span className="cell-name">{f.name}</span>
+              {(f.type ?? "facility") !== "facility" && (
+                <span className="lr-type-tag">{typeLabel(f.type)}</span>
+              )}
               {f.orgNotes ? (
                 <span className="role-tag" title="Your team has notes on this facility">
                   Notes
@@ -940,13 +1056,24 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
   }, [historyTarget, f?.id]);
 
   const n = f.orgNotes;
-  const hasNotes = Boolean(n && NOTE_CATEGORIES.some(({ key }) => n[key]));
+  // Would use again counts as content: a rated place with no written notes
+  // still has this organization's judgement on it.
+  const hasNotes = Boolean(n && (NOTE_CATEGORIES.some(({ key }) => n[key]) || n.would_use_again));
 
   const address = formatFacilityAddress(f);
   const mapsUrl = facilityMapsUrl(f);
   const surface = displayableSurface(f.surface_type);
   const amenities = AMENITIES.filter((a) => f[a.key] === true);
-  const hasFacilityInfo = Boolean(f.description || f.website || f.field_count != null || amenities.length);
+  const isFacility = (f.type ?? "facility") === "facility";
+
+  /**
+   * Website and phone are shared facts every type has. Fields, surface and
+   * amenities describe a ballpark, so they are gated on the type rather than
+   * rendered empty on a hotel.
+   */
+  const hasSharedInfo = Boolean(f.description || f.website || f.phone);
+  const hasFacilityInfo = isFacility
+    && Boolean(f.field_count != null || surface || amenities.length);
 
   return (
     <DrawerShell onClose={onClose} ariaLabel="Facility details">
@@ -982,7 +1109,7 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           )}
 
           <Section
-            title="Team Notes"
+            title="Your Notes"
             action={
               canWrite ? (
                 <button className="btn btn-ghost" onClick={onEditNotes} disabled={pending}>
@@ -993,17 +1120,32 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           >
             {hasNotes ? (
               <>
+                {/* PRIVATE TO THIS ORGANIZATION. RLS enforces it on
+                    organization_facilities; the label says so once, quietly,
+                    rather than repeating a paragraph of reassurance. */}
+                <p className="lr-private-note">Only your organization can see this.</p>
+                <Row
+                  label="Would use again"
+                  value={
+                    <span className={`lr-wua lr-wua-${n.would_use_again ?? "none"}`}>
+                      {wouldUseAgainLabel(n.would_use_again)}
+                    </span>
+                  }
+                />
                 {/* Only categories this organization has actually filled in.
-                    An empty category is not information about the facility. */}
-                {NOTE_CATEGORIES.map(({ key, label }) =>
-                  n[key] ? <Row key={key} label={label} value={n[key]} /> : null
-                )}
+                    An empty category is not information about the facility.
+                    The ballpark-specific ones are skipped for a hotel. */}
+                {NOTE_CATEGORIES.map(({ key, label }) => {
+                  if (!n[key]) return null;
+                  if (!isFacility && key !== "internal_notes") return null;
+                  return <Row key={key} label={isFacility ? label : "Notes"} value={n[key]} />;
+                })}
               </>
             ) : (
               <div className="notes-empty">
                 <p className="section-body muted">
-                  Parking, gate entry, concessions — what your team will want to know next time.
-                  Private to your organization.
+                  What your team will want to know next time — and whether you would
+                  use it again. Only your organization can see this.
                 </p>
                 {canWrite && (
                   <button className="btn btn-primary" onClick={onEditNotes} disabled={pending}>
@@ -1017,10 +1159,15 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
           {/* Shared, publicly true facts — secondary to the team's own notes.
               Address is not repeated here: it renders once, at the top.
               County, coordinates and Atlas ID are internal and never shown. */}
-          {hasFacilityInfo && (
-            <Section title="Facility Information">
+          {hasSharedInfo && (
+            <Section title={isFacility ? "Facility Information" : "Details"}>
               {f.description && <p className="section-body fac-blurb">{f.description}</p>}
-              {f.field_count != null && <Row label="Fields" value={f.field_count} />}
+              {f.phone && (
+                <Row
+                  label="Phone"
+                  value={<a className="link" href={`tel:${f.phone}`}>{f.phone}</a>}
+                />
+              )}
               {f.website && (
                 <Row
                   label="Website"
@@ -1029,6 +1176,15 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
                   }
                 />
               )}
+            </Section>
+          )}
+
+          {/* Ballpark operations. A hotel has no surface and no batting cages,
+              so this whole block is absent rather than showing empty rows. */}
+          {hasFacilityInfo && (
+            <Section title="Fields &amp; Amenities">
+              {f.field_count != null && <Row label="Fields" value={f.field_count} />}
+              {surface && <Row label="Surface" value={surface} />}
               {/* Only amenities confirmed present. "Unknown" on a facility we
                   have no data for is not a fact worth a row. */}
               {amenities.length > 0 && (
@@ -1041,9 +1197,39 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
             </Section>
           )}
 
+          {/* Places this organization associated with a trip: the hotel, the
+              restaurant. Separate from the tournament history below, which is
+              where games were actually played.
+
+              A link means the organization wanted to remember the place. It
+              does NOT mean every family used it. */}
+          {(f.resourceLinks ?? []).length > 0 && (
+            <Section title="Linked Tournaments">
+              <ul className="lr-links">
+                {f.resourceLinks.map((l) => (
+                  <li key={l.id} className="lr-link">
+                    <span className="lr-link-name">{l.tournament?.name ?? "Tournament"}</span>
+                    <span className="lr-link-meta">
+                      {l.tournament?.start_date ? fmtDate(l.tournament.start_date) : null}
+                      {l.tournament?.start_date ? " · " : ""}
+                      <span className={`lr-context lr-context-${l.context}`}>
+                        {l.context === "used" ? "Used"
+                          : l.context === "recommended" ? "Recommended" : "Considered"}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
           <Section title="Tournament History" anchor="history">
             {f.history.length === 0 ? (
-              <p className="section-body muted">No tournaments have been held here yet.</p>
+              <p className="section-body muted">
+                {isFacility
+                  ? "No tournaments have been held here yet."
+                  : "No games are played here — link this to a tournament to record when you used it."}
+              </p>
             ) : (
               <>
                 {f.upcoming.length > 0 && (
@@ -1302,6 +1488,10 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
   // and it cannot fire on values the component never reads.
   const [street, setStreet] = useState(row?.street_address ?? "");
   const [stateCode, setStateCode] = useState(row?.state ?? "");
+  // Drives which fields the form shows. Editing keeps the record's own type;
+  // creating starts at facility, which is what most records are.
+  const [resourceType, setResourceType] = useState(row?.type ?? "facility");
+  const typeIsFacility = resourceType === "facility";
   const [acknowledged, setAcknowledged] = useState(false);
   const [prefill, setPrefill] = useState(null);
   // Declared AFTER prefill: reading prefill above its own declaration is a
@@ -1655,9 +1845,25 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               </div>
             )}
 
+            {/* First field, because it decides what the rest of the form is. */}
             <div className="field">
-              <label htmlFor="f-name">Facility name</label>
+              <label htmlFor="f-type">Type</label>
+              <select id="f-type" name="type" value={resourceType}
+                      onChange={(e) => setResourceType(e.target.value)}>
+                {RESOURCE_TYPES.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="f-name">Name</label>
               <input id="f-name" name="name" required value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div className="field">
+              <label htmlFor="f-phone">Phone</label>
+              <input id="f-phone" name="phone" type="tel" defaultValue={row?.phone ?? ""} />
             </div>
 
             <div className="field">
@@ -1715,6 +1921,12 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
               }}
             />
 
+            {/* BALLPARK FIELDS ONLY. A hotel has no surface and no cages, and
+                the action writes null for these on a non-facility, so a record
+                whose type is corrected does not keep stale attributes behind a
+                form that no longer shows them. */}
+            {typeIsFacility && (
+            <>
             <div className="field">
               <label htmlFor="f-fields">Number of fields</label>
               <input id="f-fields" name="field_count" type="number" min="0" defaultValue={row?.field_count ?? ""} />
@@ -1769,6 +1981,8 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                 </div>
               ))}
             </div>
+            </>
+            )}
 
             {/* Carried, not collected.
                 tri() maps "true"/"false"/"" back to true/false/null exactly, so
@@ -1845,6 +2059,9 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
 
 function NotesForm({ f, pending, onSubmit, onCancel }) {
   const n = f.orgNotes ?? {};
+  // The ballpark note categories are meaningless for a hotel or a restaurant;
+  // those types get the rating and one Notes field.
+  const isFacility = (f.type ?? "facility") === "facility";
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
@@ -1859,6 +2076,21 @@ function NotesForm({ f, pending, onSubmit, onCancel }) {
           </div>
 
           <div className="modal-body">
+            {/* First, because it is the question a coach answers fastest and
+                the one this feature exists to preserve. "Not rated" submits an
+                empty value, which stores NULL — the absence of a judgement
+                rather than a third kind of judgement. */}
+            <div className="field">
+              <label htmlFor="n-wua">Would use again</label>
+              <select id="n-wua" name="would_use_again" defaultValue={n.would_use_again ?? ""}>
+                {WOULD_USE_AGAIN.map((o) => (
+                  <option key={o.value || "none"} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {isFacility && (
+            <>
             <div className="field">
               <label htmlFor="n-parking">Parking</label>
               <textarea id="n-parking" name="parking_notes" rows={2} defaultValue={n.parking_notes ?? ""} />
@@ -1879,6 +2111,8 @@ function NotesForm({ f, pending, onSubmit, onCancel }) {
               <label htmlFor="n-seat">Seating / shade</label>
               <textarea id="n-seat" name="seating_notes" rows={2} defaultValue={n.seating_notes ?? ""} />
             </div>
+            </>
+            )}
             <div className="field">
               <label htmlFor="n-internal">General notes</label>
               <textarea id="n-internal" name="internal_notes" rows={3} defaultValue={n.internal_notes ?? ""} />

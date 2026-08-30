@@ -125,6 +125,95 @@ const noneUpcoming = { name: "Satterfield Park", upcoming: [], past: [] };
     applySort(rows, null, comparators).map((f) => f.name),
     ["Heritage Point Park", "Cherokee Veterans Park", "Satterfield Park", "Edwards Park"]);
 
-  console.log(`\n${ran} assertions, ${failures} failed`);
+  
+/* ---- Locations & Resources ----------------------------------------------
+   Facilities grew to hold lodging and dining. The table keeps its name; the
+   navigation does not.
+
+   The line that matters: facilities is globally readable, so a place FACT can
+   live there and a team's OPINION cannot. Would-use-again and private notes
+   are on organization_facilities, which RLS scopes to the owning org. */
+
+console.log("\nLocations & Resources");
+
+{
+  const fsx = require("fs");
+  const fields = fsx.readFileSync("lib/facility-fields.js", "utf8");
+  const q = fsx.readFileSync("lib/queries/facilities.js", "utf8");
+  const tq = fsx.readFileSync("lib/queries/tournaments.js", "utf8");
+  const act = fsx.readFileSync("lib/actions/facilities.js", "utf8");
+  const ui = fsx.readFileSync("components/FacilitiesClient.js", "utf8");
+  const tui = fsx.readFileSync("components/TournamentClient.js", "utf8");
+  const nav = fsx.readFileSync("components/NavSidebar.js", "utf8");
+  const css = fsx.readFileSync("app/globals.css", "utf8");
+
+  // One vocabulary.
+  assertEq("three types, no Services in V1",
+    /facility[\s\S]{0,120}?lodging[\s\S]{0,120}?dining/.test(fields), true);
+  assertEq("Services is deliberately absent", /Services is deliberately absent/.test(fields), true);
+  assertEq("unknown type reads as Facility", /TYPE_LABEL\.get\(key\) \?\? "Facility"/.test(fields), true);
+  assertEq("nine ballpark-only fields", /FACILITY_ONLY_FIELDS = \[/.test(fields), true);
+  assertEq("Not rated is NULL, not a third stored value",
+    /there is deliberately no third stored value/.test(fields), true);
+
+  // Query layer.
+  assertEq("query selects type and phone", /type, phone, created_at, updated_at/.test(q), true);
+  assertEq("private select carries the judgement", /would_use_again/.test(q), true);
+  assertEq("resource links are fetched", /from\("tournament_resources"\)/.test(q), true);
+  assertEq("isOurs counts a link", /links\.length > 0/.test(q), true);
+
+  // Actions.
+  assertEq("submitted type is validated, not trusted",
+    /RESOURCE_TYPE_KEYS\.includes\(submittedType\)/.test(act), true);
+  assertEq("ballpark fields null for non-facility", /facilityOnly \? /.test(act), true);
+  assertEq("would_use_again refuses anything but yes/no",
+    /\["yes", "no"\]\.includes/.test(act), true);
+  assertEq("re-linking updates rather than duplicating",
+    /onConflict: "tournament_id,facility_id"/.test(act), true);
+  assertEq("unlink verifies affected rows", /\(removed \?\? \[\]\)\.length === 0/.test(act), true);
+
+  // Page.
+  assertEq("type filter combines with the others",
+    /typeFilter !== "all" && \(f\.type \?\? "facility"\) !== typeFilter/.test(ui), true);
+  assertEq("surface never hides a non-facility", /!isFacility\s*\n?\s*\|\| \(f\.surface_type/.test(ui), true);
+  assertEq("chip counts respect view and search", /const typeCounts = useMemo/.test(ui), true);
+  assertEq("only non-facility types are tagged",
+    /\(f\.type \?\? "facility"\) !== "facility" && \(/.test(ui), true);
+
+  // Drawer.
+  assertEq("ballpark block is gated on type", /const hasFacilityInfo = isFacility/.test(ui), true);
+  assertEq("phone shows for every type", /label="Phone"/.test(ui), true);
+  assertEq("privacy is stated once, quietly",
+    /Only your organization can see this/.test(ui), true);
+  assertEq("linked tournaments are shown", /Linked Tournaments/.test(ui), true);
+
+  // Create/edit.
+  assertEq("type selector drives the form", /const \[resourceType, setResourceType\]/.test(ui), true);
+  assertEq("ballpark fields hidden for lodging/dining", /\{typeIsFacility && \(/.test(ui), true);
+
+  // Tournament side.
+  assertEq("tournament fetches its links", /from\("tournament_resources"\)/.test(tq), true);
+  assertEq("playing venue stays separate",
+    /DELIBERATELY NOT the playing venue/.test(tq), true);
+  assertEq("compact section in the drawer", /Locations &amp; Resources/.test(tui), true);
+  assertEq("empty state is one button", /\+ Link location or resource/.test(tui), true);
+  assertEq("picker searches rather than dumps", /SEARCH, NOT A DUMP/.test(tui), true);
+  assertEq("type shown first in the picker", /typeLabel\(f\.type\)/.test(tui), true);
+  assertEq("context chosen with the place", /headerExtra=\{/.test(tui), true);
+  assertEq("unlink confirms in place", /confirmUnlink === r\.id/.test(tui), true);
+  assertEq("Used never implies everyone used it",
+    /does not mean every family/.test(tui), true);
+
+  // Nav and mobile.
+  assertEq("nav renamed", /label: "Locations & Resources"/.test(nav), true);
+  assertEq("route unchanged", /href: "\/facilities"/.test(nav), true);
+  const deskAt = css.indexOf(".lr-cards { display: none; }");
+  const mobAt = css.indexOf(".lr-cards { display: grid;");
+  assertEq("desktop rule precedes the mobile override", deskAt !== -1 && deskAt < mobAt, true);
+  assertEq("list tables hidden on mobile only",
+    /@media \(max-width: 720px\)[\s\S]*?\.facility-table \{ display: none; \}/.test(css), true);
+}
+
+console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

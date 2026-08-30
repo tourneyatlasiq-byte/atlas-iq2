@@ -5984,3 +5984,108 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .errpage-actions { flex-direction: column; }
   .errpage-actions .btn { width: 100%; min-height: 44px; }
 }
+
+/* ---- Locations & Resources ---------------------------------------------- */
+
+/* Type chips. A second, narrower cut than Ours/All, so a lighter weight. */
+.lr-types { margin-bottom: 10px; }
+
+/* Marks a record that is not a ballpark. Facilities are deliberately
+   unlabelled: tagging all 180 of them would be noise on a page that is
+   mostly ballparks. */
+.lr-type-tag {
+  display: inline-block; margin-left: 8px; padding: 1px 7px;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: var(--surface-sunken, #f1f5f9); color: var(--slate);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+
+/* Said once, quietly, rather than a paragraph of reassurance. */
+.lr-private-note {
+  margin: 0 0 10px; font-size: 12.5px; color: var(--slate);
+}
+
+.lr-wua { font-weight: 600; }
+.lr-wua-yes { color: #15803d; }
+.lr-wua-no { color: #b91c1c; }
+.lr-wua-none { color: var(--slate); font-weight: 500; }
+
+/* Linked tournaments: compact, one line each. This is accumulated knowledge,
+   not a table that needs sorting. */
+.lr-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.lr-link {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; font-size: 13.5px;
+}
+.lr-link-name { color: var(--navy); font-weight: 600; }
+.lr-link-meta { color: var(--slate); font-size: 12.5px; white-space: nowrap; }
+.lr-context { font-weight: 600; }
+.lr-context-used { color: var(--navy); }
+.lr-context-recommended { color: #15803d; }
+.lr-context-considered { color: var(--slate); }
+
+/* Desktop keeps its tables and never renders the cards. Declared BEFORE the
+   media query: same specificity, so a later rule would win at every width. */
+.lr-cards { display: none; }
+
+@media (max-width: 720px) {
+  /* Chips scroll themselves rather than widening the page. */
+  .lr-types {
+    display: flex; flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .lr-types::-webkit-scrollbar { display: none; }
+  .lr-types > * { flex: 0 0 auto; min-height: 40px; }
+
+  /* The two LIST tables are replaced, not reflowed. Scoped to
+     .facility-table so the history table inside the drawer, which is narrow
+     and belongs there, is untouched. */
+  .facility-table { display: none; }
+  .lr-cards { display: grid; gap: 8px; }
+}
+
+.lr-card {
+  width: 100%; text-align: left; cursor: pointer;
+  display: grid; gap: 6px; padding: 12px 14px; min-height: 44px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-control); font-family: inherit;
+}
+.lr-card:hover { background: var(--surface-sunken, #f8fafc); }
+.lr-card-name {
+  font-size: 14.5px; font-weight: 600; color: var(--navy); line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lr-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-size: 12.5px; color: var(--slate);
+}
+.lr-card-meta .lr-type-tag { margin-left: 0; }
+
+/* ---- Tournament: linked locations & resources --------------------------- */
+
+/* Compact by design. The tournament drawer already carries registration,
+   roster, games, costs and documents; this is a reminder, not a module. */
+.tr-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+.tr-item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; font-size: 13.5px;
+}
+.tr-main { display: grid; gap: 2px; min-width: 0; }
+.tr-name { color: var(--navy); font-weight: 600; overflow-wrap: anywhere; }
+.tr-meta { color: var(--slate); font-size: 12.5px; }
+.tr-confirm { display: flex; gap: 6px; flex: 0 0 auto; }
+
+/* Chosen with the place, so linking completes in one step. */
+.tr-context-choose { display: flex; align-items: center; gap: 8px; }
+.tr-context-choose label { font-size: 12.5px; color: var(--slate); }
+.picker-extra { margin: 10px 0 4px; }
+
+@media (max-width: 720px) {
+  .tr-item { flex-direction: column; align-items: stretch; gap: 6px; }
+  .tr-confirm .btn, .tr-item > .btn { min-height: 44px; }
+  .tr-context-choose { flex-direction: column; align-items: stretch; }
+  .tr-context-choose select { min-height: 44px; }
+}

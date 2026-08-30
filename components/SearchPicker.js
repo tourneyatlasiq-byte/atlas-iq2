@@ -24,6 +24,14 @@ export function SearchPicker({
   items,
   suggested = [],
   suggestedLabel,
+  /**
+   * Optional control rendered under the search box, above the results.
+   *
+   * Added for tournament resource linking, where the coach chooses HOW a place
+   * was used at the same moment they choose the place. suggestedLabel could
+   * not serve: it renders inside a <p>, and only when suggestions exist.
+   */
+  headerExtra = null,
   renderItem,
   onSelect,
   onCreate,
@@ -62,6 +70,8 @@ export function SearchPicker({
               aria-label={placeholder}
             />
           </div>
+
+          {headerExtra && <div className="picker-extra">{headerExtra}</div>}
 
           {showSuggested && (
             <>
