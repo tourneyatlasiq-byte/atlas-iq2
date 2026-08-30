@@ -1958,6 +1958,75 @@ console.log("\nDate of birth survives export and re-import");
   ok("...so nothing is rewritten", plan.writes.some((w) => w.table === "players"), false);
 }
 
+
+/* ---- The real XLSX ingestion boundary -----------------------------------
+   A coach's workbook stores a date of birth as an EXCEL SERIAL — cell type
+   "n", value 40303 — not as text. Two things stopped that reaching the
+   parser, and neither was visible from a unit test that called
+   toDate(new Date(...)) directly:
+
+     XLSX.read() was called without cellDates, so the serial stayed a number.
+     Even with it, the reader stringifies every cell, so a Date became
+     "Wed May 05 2010 00:00:00 GMT-0400 (Eastern Daylight Time)".
+
+   readSpreadsheet now asks for raw: false — the cell's displayed text,
+   "5/5/2010" — which survives stringification and is already in the format
+   this product uses. This test goes through readSpreadsheet itself, from a
+   real .xlsx on disk, so the boundary is what is under test. */
+
+console.log("\nExcel date cells through the real reader");
+
+{
+  const fsx = require("fs");
+  const ss = await load("lib/spreadsheet.js");
+  const bytes = fsx.readFileSync("scripts/fixtures/excel-dates.xlsx");
+
+  // The cells really are serials, not text — otherwise this proves nothing.
+  const XLSX = require("xlsx");
+  const probe = XLSX.read(bytes, { type: "buffer" }).Sheets.Players;
+  ok("the fixture stores a serial, as Excel does", probe.D2.t, "n");
+  ok("...and the raw value is a number", typeof probe.D2.v, "number");
+
+  const file = {
+    name: "excel-dates.xlsx",
+    arrayBuffer: async () =>
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  };
+  const { grid, error } = await ss.readSpreadsheet(file);
+  ok("readSpreadsheet succeeds", error ?? "ok", "ok");
+
+  const header = grid[0];
+  const iName = header.indexOf("Player Name");
+  const iDob = header.indexOf("Date of Birth");
+  const row = (n) => grid.slice(1).find((r) => r[iName] === n);
+
+  for (const [name, shown, canonical] of [
+    ["Tenley Lynch",    "5/5/2010",   "2010-05-05"],
+    ["Nicole Gooden",   "9/11/2010",  "2010-09-11"],
+    ["Hadley O'Kelley", "6/14/2010",  "2010-06-14"],
+    ["Lindy Ledden",    "11/22/2010", "2010-11-22"],
+  ]) {
+    const v = row(name)[iDob];
+    ok(`${name}: not an Excel serial`, /^\d{5}$/.test(v), false);
+    ok(`${name}: previewed as ${shown}`, v, shown);
+    ok(`${name}: normalises to ${canonical}`, nrm.toDate(v), canonical);
+  }
+
+  ok("a blank date of birth stays blank", row("No Birthday")[iDob], "");
+  ok("...and is absent rather than unreadable",
+    nrm.classifyDate(row("No Birthday")[iDob]).ok, true);
+
+  // Other column types must not be damaged by asking for formatted text.
+  ok("grad year survives", row("Tenley Lynch")[header.indexOf("Grad Year")], "2028");
+  ok("position survives", row("Tenley Lynch")[header.indexOf("Position")], "MIF");
+
+  // The reader's configuration, asserted so it cannot silently regress.
+  const src = fsx.readFileSync("lib/spreadsheet.js", "utf8");
+  ok("cellDates is on the read itself",
+    /XLSX\.read\(buffer, \{ type: "array", cellDates: true \}\)/.test(src), true);
+  ok("...and formatted text is requested", /raw: false/.test(src), true);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
