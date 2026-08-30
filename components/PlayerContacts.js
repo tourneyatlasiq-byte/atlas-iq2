@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   addPlayerContact,
   updatePlayerContact,
@@ -37,16 +38,46 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
   const [editing, setEditing] = useState(null);   // contact id, "legacy", or "new"
   const [form, setForm] = useState(BLANK);
   const [error, setError] = useState(null);
+  // The contact the current error belongs to, so it can be shown BESIDE the
+  // form that failed. A panel-level message sat above the card and, on a
+  // phone, off the top of the screen — the coach saw Save do nothing and had
+  // no way to know why.
+  const [errorFor, setErrorFor] = useState(null);
+  // Set when the edit would leave the contact with nothing on it. Removal
+  // stays an explicit act, so this offers the action rather than taking it.
+  const [emptyOffer, setEmptyOffer] = useState(null);
+  // Which contact is awaiting an in-page Remove confirmation.
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const router = useRouter();
 
   const pending = busy || parentPending;
   const contacts = contactInfo?.contacts ?? [];
 
-  function run(action, fd) {
+  function run(action, fd, { forContact = null, onDone = null } = {}) {
     setError(null);
+    setErrorFor(null);
+    setEmptyOffer(null);
     startTransition(async () => {
       const res = await action(fd);
-      if (res?.ok) { setEditing(null); setForm(BLANK); }
-      else setError(res?.error ?? "That didn't save.");
+      if (res?.ok) {
+        setEditing(null); setForm(BLANK); setEmptyOffer(null);
+        onDone?.();
+        // revalidatePath() marks the server cache stale; this is what makes
+        // THIS open drawer re-render with the contact gone. Without it a
+        // successful delete could leave the card on screen, which is
+        // indistinguishable from the delete having failed.
+        router.refresh();
+        return;
+      }
+      // The server refuses an edit that would empty a contact. That is not a
+      // failure to explain away — it is a choice to put in front of the coach,
+      // next to the form they were editing.
+      if (res?.code === "would_be_empty" && forContact) {
+        setEmptyOffer(forContact);
+        return;
+      }
+      setError(res?.error ?? "That didn't save.");
+      setErrorFor(forContact);
     });
   }
 
@@ -66,20 +97,38 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
     fd.set("player_id", playerId);
     for (const [k, v] of Object.entries(form)) fd.set(k, v);
 
-    if (editing === "new") return run(addPlayerContact, fd);
+    if (editing === "new") return run(addPlayerContact, fd, { forContact: "new" });
     // A legacy contact has no row yet. The action rebuilds it from the whole
     // resolved contact plus these edits, so changing one field cannot drop the
     // others.
     if (editing !== "legacy") fd.set("contact_id", editing);
-    run(updatePlayerContact, fd);
+    run(updatePlayerContact, fd, { forContact: editing });
   }
 
-  function remove(c) {
-    if (!confirm(`Remove ${contactHeading(c)} from this player's contacts?`)) return;
+  /**
+   * REMOVAL IS CONFIRMED IN THE PAGE, not by window.confirm().
+   *
+   * This used to be `if (!confirm(...)) return;`. A native dialog is the one
+   * step in this flow with no visible failure mode: when a mobile browser
+   * suppresses it — pop-up blocking, repeated-dialog suppression, an in-app
+   * webview — confirm() returns false, the handler returns early, and NOTHING
+   * happens. No request, no spinner, no error. The coach taps Remove and the
+   * card sits there.
+   *
+   * An inline confirmation cannot be suppressed, is visible where the thumb
+   * already is, and states what is about to happen.
+   */
+  function askRemove(c) {
+    setError(null);
+    setErrorFor(null);
+    setConfirmRemove(c.id);
+  }
+
+  function doRemove(c) {
     const fd = new FormData();
     fd.set("player_id", playerId);
     fd.set("contact_id", c.id);
-    run(removePlayerContact, fd);
+    run(removePlayerContact, fd, { forContact: c.id, onDone: () => setConfirmRemove(null) });
   }
 
   function makePrimary(c) {
@@ -102,7 +151,9 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
         )}
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {/* Panel level keeps the errors that belong to no form — a failed
+          Remove or Make primary. An edit's error is shown on the edit. */}
+      {error && errorFor === null && <div className="alert alert-error">{error}</div>}
 
       {/* ONE section answers one question: how do I reach this family?
           The athlete's own details and her guardians' used to sit under two
@@ -155,8 +206,17 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
         const isEditing = editing === (c.source === "legacy" ? "legacy" : c.id);
 
         if (isEditing) {
-          return <Editor key={key} form={form} setForm={setForm} onSave={save}
-                         onCancel={() => { setEditing(null); setError(null); }} pending={pending} />;
+          const slot = c.source === "legacy" ? "legacy" : c.id;
+          return (
+            <Editor key={key} form={form} setForm={setForm} onSave={save}
+                    onCancel={() => { setEditing(null); setError(null);
+                                      setErrorFor(null); setEmptyOffer(null); }}
+                    pending={pending}
+                    error={errorFor === slot ? error : null}
+                    emptyOffer={emptyOffer === slot}
+                    canRemove={c.source !== "legacy"}
+                    onRemove={() => doRemove(c)} />
+          );
         }
 
         return (
@@ -186,7 +246,25 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
               )}
             </dl>
 
-            {canWrite && editing === null && (
+            {/* The confirmation replaces the action row in place, so the
+                decision sits exactly where the thumb already is. */}
+            {canWrite && editing === null && confirmRemove === c.id && (
+              <div className="pc-confirm" role="alert">
+                <p>Remove {contactHeading(c)} from this player&rsquo;s contacts?</p>
+                <div className="pc-actions">
+                  <button type="button" className="btn btn-secondary btn-sm"
+                          onClick={() => setConfirmRemove(null)} disabled={pending}>
+                    Keep
+                  </button>
+                  <button type="button" className="btn btn-danger-ghost btn-sm"
+                          onClick={() => doRemove(c)} disabled={pending}>
+                    {pending ? "Removing…" : "Remove contact"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canWrite && editing === null && confirmRemove !== c.id && (
               <div className="pc-actions">
                 <button type="button" className="btn btn-ghost btn-sm"
                         onClick={() => beginEdit(c)} disabled={pending}>Edit</button>
@@ -197,7 +275,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
                 )}
                 {c.source !== "legacy" && (
                   <button type="button" className="btn btn-danger-ghost btn-sm"
-                          onClick={() => remove(c)} disabled={pending}>Remove</button>
+                          onClick={() => askRemove(c)} disabled={pending}>Remove</button>
                 )}
               </div>
             )}
@@ -207,7 +285,12 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
 
       {editing === "new" && (
         <Editor form={form} setForm={setForm} onSave={save}
-                onCancel={() => { setEditing(null); setError(null); }} pending={pending} />
+                onCancel={() => { setEditing(null); setError(null);
+                                  setErrorFor(null); setEmptyOffer(null); }}
+                pending={pending}
+                error={errorFor === "new" ? error : null}
+                emptyOffer={emptyOffer === "new"}
+                canRemove={false} />
       )}
     </section>
   );
@@ -221,7 +304,8 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
  * refused by the server rather than treated as a delete — deleting is the
  * Remove button, never a side effect of an empty form.
  */
-function Editor({ form, setForm, onSave, onCancel, pending }) {
+function Editor({ form, setForm, onSave, onCancel, pending,
+                  error = null, emptyOffer = false, canRemove = false, onRemove }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   return (
@@ -247,6 +331,25 @@ function Editor({ form, setForm, onSave, onCancel, pending }) {
           <input id="c_phone" value={form.phone} onChange={set("phone")} />
         </div>
       </div>
+      {/* Beside the fields that failed, not at the top of a panel the coach
+          may have scrolled past. */}
+      {error && <p className="pc-form-error" role="alert">{error}</p>}
+
+      {/* Clearing the last detail is a real intention, but an empty contact is
+          not a thing worth storing. So the choice is offered here, with the
+          action attached — never taken automatically. */}
+      {emptyOffer && (
+        <div className="pc-empty-offer" role="alert">
+          <p>This would leave the contact empty. Remove this contact instead?</p>
+          {canRemove && (
+            <button type="button" className="btn btn-danger-ghost btn-sm"
+                    onClick={onRemove} disabled={pending}>
+              Remove this contact
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="pc-actions">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onCancel} disabled={pending}>
           Cancel

@@ -5811,3 +5811,40 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .pi-switch input { width: 20px; height: 20px; }
   .pi-required { min-height: 44px; }
 }
+
+/* ---- Contact editing: errors where the action happened ------------------ */
+
+/* Inside the edit card, directly above its buttons. The panel-level alert
+   still exists for actions that belong to no form, but an edit's refusal
+   belongs to the edit. */
+.pc-form-error {
+  margin: 2px 0 10px; padding: 9px 11px;
+  border-radius: var(--radius-control);
+  background: #fdf2f2; border: 1px solid #f0c9c9; color: #8a2c2c;
+  font-size: 13px; line-height: 1.5;
+}
+
+/* The empty-contact choice. Offers removal; never performs it. */
+.pc-empty-offer {
+  margin: 2px 0 10px; padding: 11px 13px;
+  border-radius: var(--radius-control);
+  background: #fffaf0; border: 1px solid #f0d9a8; color: #6b4a00;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
+}
+.pc-empty-offer p { margin: 0; font-size: 13px; line-height: 1.5; }
+
+/* In-page removal confirmation. Replaces window.confirm(), which a mobile
+   browser can suppress silently — the tap then did nothing at all, with no
+   request and no message. */
+.pc-confirm {
+  margin-top: 10px; padding: 11px 13px;
+  border-radius: var(--radius-control);
+  background: #fdf2f2; border: 1px solid #f0c9c9;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.pc-confirm p { margin: 0; font-size: 13px; line-height: 1.5; color: #8a2c2c; }
+
+@media (max-width: 720px) {
+  /* Same reach as every other control in the drawer. */
+  .pc-confirm .btn, .pc-empty-offer .btn { min-height: 44px; }
+}

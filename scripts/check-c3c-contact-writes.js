@@ -126,11 +126,16 @@ section("Legacy contact materialization keeps every field");
     /const contactId = text\(formData\.get\("contact_id"\)\)/.test(src));
   ok("the legacy branch INSERTs rather than updating players",
     /legacy[\s\S]{0,900}?from\("player_contacts"\)\.insert/.test(src));
-  ok("the merge reads the whole resolved contact, not just submitted fields",
-    /full_name: fields\.full_name \?\? legacy\.full_name/.test(src)
-    && /email: fields\.email \?\? legacy\.email/.test(src)
-    && /phone: fields\.phone \?\? legacy\.phone/.test(src)
-    && /relationship: fields\.relationship \?\? legacy\.relationship/.test(src));
+  // SUPERSEDED. The merge used to fall back to the stored value per field
+  // (`fields.email ?? legacy.email`), which made a deliberate clear
+  // impossible on a legacy contact: the same Edit button behaved differently
+  // depending on where the contact came from. The form submits every field,
+  // so what arrives IS the intended state. Import keeps blank-no-erase; an
+  // import cannot see what it would overwrite and a coach can.
+  ok("the legacy merge uses the submitted state, so a clear is honoured",
+    /const merged = \{ \.\.\.fields \};/.test(src));
+  ok("...and no field silently restores the stored value",
+    !/\?\? legacy\./.test(src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")));
   ok("no action writes players.parent_* during materialization",
     !/from\("players"\)[\s\S]{0,200}?\.update/.test(src));
 
@@ -172,8 +177,15 @@ section("Authoritative contacts: edit, remove, primary");
     /\.eq\("id", contactId\)\s*\n\s*\.eq\("player_id", playerId\)/.test(src));
   ok("an update never touches is_primary",
     /is_primary is deliberately absent/.test(src));
+  // Still refused, but now with a CODE so the caller can offer removal beside
+  // the form. The old sentence told the coach to go and find another button,
+  // and rendered where they could not see it.
   ok("an all-blank edit is refused rather than deleting",
-    /Use Remove contact to delete it/.test(src));
+    /code: "would_be_empty"/.test(src));
+  ok("...from both the normal and the legacy branch",
+    (src.match(/code: "would_be_empty"/g) || []).length === 2);
+  ok("...and removal is never automatic",
+    !/hasDetail[\s\S]{0,200}?\.delete\(\)/.test(src));
   ok("removal verifies affected rows, not the absence of an error",
     /\.delete\(\)[\s\S]{0,300}?\.select\("id"\)/.test(src)
     && /\(deleted \?\? \[\]\)\.length === 0/.test(src));

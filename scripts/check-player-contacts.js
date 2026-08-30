@@ -308,6 +308,109 @@ section("Staff never resolve guardian contacts");
 }
 
 // -------------------------------------------------------------------- report
+
+/* ---- Deliberate clearing, and the empty-contact choice -------------------
+   A coach put the player's own email on a guardian card by mistake, cleared
+   the field and pressed Save. Nothing happened. The server was refusing
+   correctly -- the contact held only that email, so clearing it would have
+   left an empty row -- but the refusal rendered at the top of the contacts
+   panel, which on a phone was off the screen. Save looked broken.
+
+   Import's blank-no-erase rule is deliberately NOT reused for manual edits:
+   an import cannot see what it would overwrite, and a coach can. */
+
+section("Clearing a contact field");
+
+{
+  const fs = require("fs");
+  const act = fs.readFileSync("lib/actions/player-contacts.js", "utf8");
+  const ui  = fs.readFileSync("components/PlayerContacts.js", "utf8");
+  const css = fs.readFileSync("app/globals.css", "utf8");
+
+  ok("an emptying edit returns a code", /code: "would_be_empty"/.test(act));
+  ok("...from both the normal and legacy branches",
+     (act.match(/code: "would_be_empty"/g) || []).length === 2);
+  ok("the empty-contact guard still exists",
+     (act.match(/if \(!hasDetail\(/g) || []).length >= 2);
+
+  // Strip comments: the fix is DESCRIBED in one, so matching raw text would
+  // report the explanation as the defect.
+  const actCode = act.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("legacy no longer falls back to the stored value",
+     !/\?\? legacy\./.test(actCode));
+  ok("...and uses the submitted state directly",
+     /const merged = \{ \.\.\.fields \};/.test(act));
+  ok("the normal branch keeps the same rule",
+     /const next = \{ \.\.\.fields \};/.test(act));
+
+  ok("full_name is read from the form", /full_name: text\(formData\.get/.test(act));
+  ok("relationship is read from the form", /relationship: text\(formData\.get/.test(act));
+  ok("email is read from the form", /email: text\(formData\.get/.test(act));
+  ok("phone is read from the form", /phone: text\(formData\.get/.test(act));
+  ok("blank reads as null, which is what clears",
+     /return s === "" \? null : s;/.test(act));
+
+  ok("the editor takes an error prop", /error = null, emptyOffer = false/.test(ui));
+  ok("...and renders it inside the card", /className="pc-form-error"/.test(ui));
+  ok("the panel alert now shows only unattached errors",
+     /error && errorFor === null &&/.test(ui));
+  ok("the error is routed to the form that failed", /setErrorFor\(forContact\)/.test(ui));
+
+  ok("an emptying edit offers removal", /className="pc-empty-offer"/.test(ui));
+  ok("...with the promised wording",
+     /This would leave the contact empty\. Remove this contact instead\?/.test(ui));
+  ok("...and the action attached", /Remove this contact/.test(ui));
+  ok("removal still confirms first", /if \(!confirm\(/.test(ui));
+
+  ok(".pc-form-error is styled", /\.pc-form-error \{/.test(css));
+  ok(".pc-empty-offer is styled", /\.pc-empty-offer \{/.test(css));
+}
+
+
+section("Removing a contact");
+
+{
+  const fs = require("fs");
+  const ui  = fs.readFileSync("components/PlayerContacts.js", "utf8");
+  const act = fs.readFileSync("lib/actions/player-contacts.js", "utf8");
+  const css = fs.readFileSync("app/globals.css", "utf8");
+  const uiCode = ui.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  // ROOT CAUSE: window.confirm() is the one step with a silent failure mode.
+  // Suppressed by the browser -> returns false -> early return -> no request,
+  // no spinner, no error. Indistinguishable from a broken button.
+  ok("no native confirm() gates removal", !/\bconfirm\(/.test(uiCode));
+  ok("removal is confirmed in the page", /className="pc-confirm"/.test(ui));
+  ok("...with an explicit confirm action", /"Remove contact"/.test(ui));
+  ok("...and a way out", /\n\s*Keep\n/.test(ui));
+  ok("the first tap only asks", /onClick=\{\(\) => askRemove\(c\)\}/.test(ui));
+  ok("...and the second deletes", /onClick=\{\(\) => doRemove\(c\)\}/.test(ui));
+
+  // A successful delete must leave the OPEN drawer, not just the cache.
+  ok("a successful action refreshes the router", /router\.refresh\(\)/.test(ui));
+  ok("...and the server still revalidates", /revalidatePath\("\/team"\)/.test(act));
+
+  // Progress is visible while it runs.
+  ok("the confirm button shows progress", /Removing…/.test(ui));
+
+  // Works for every guardian shape, including the ones just cleaned up.
+  ok("removal is offered for any stored contact",
+     /c\.source !== "legacy" && \(/.test(ui));
+  ok("a primary contact is removable too — no is_primary gate on Remove",
+     !/is_primary[\s\S]{0,120}?askRemove/.test(ui));
+  ok("an email-only contact is removable: nothing inspects its fields",
+     !/hasDetail[\s\S]{0,160}?askRemove/.test(ui));
+
+  // The server side proven earlier stays as it was.
+  ok("the delete still scopes to the player", /\.eq\("player_id", playerId\)/.test(act));
+  ok("...and verifies affected rows", /\(deleted \?\? \[\]\)\.length === 0/.test(act));
+
+  ok(".pc-confirm is styled", /\.pc-confirm \{/.test(css));
+  ok("confirmation buttons meet the mobile target",
+     /\.pc-confirm \.btn, \.pc-empty-offer \.btn \{ min-height: 44px; \}/.test(css));
+}
+
+
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);
 if (failures.length) {
   for (const f of failures) console.log(`  - ${f}`);
