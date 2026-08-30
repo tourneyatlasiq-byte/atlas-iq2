@@ -49,7 +49,7 @@ function northgate() {
     reasons: [
       { key: "walk", label: "Walk", count: 15 },
       { key: "hit", label: "Hit", count: 11 },
-      { key: "situation_success", label: "Situation success", count: 7 },
+      { key: "situation_success", label: "Situational success", count: 7 },
       { key: "sac_fly", label: "Sac fly", count: 6 },
       { key: "hard_hit", label: "Hard hit ball", count: 5 },
       { key: "sac_bunt", label: "Sac bunt", count: 5 },
@@ -232,6 +232,42 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
   assertEq("an untracked season reports null percent, not a manufactured 0%",
     [r4.summary.qabPct, r4.summary.pa, r4.games.length, r4.players.length], [null, 0, 0, 0]);
 
-  console.log(`\n${ran} assertions, ${failures} failed`);
+  
+/* ---- Season scoping and terminology ------------------------------------ */
+
+{
+  const fsx = require("fs");
+  const perf = fsx.readFileSync("lib/queries/performance.js", "utf8");
+  const rules = fsx.readFileSync("lib/qab-rules.js", "utf8");
+  // This suite stubs its module graph, so load the real rules directly.
+  const qab = await import(pathToFileURL(path.resolve("lib/qab-rules.js")).href);
+
+  // The W/L/T record was read organization-wide with a comment claiming RLS
+  // supplied the scope. RLS scopes by ORGANIZATION, not season, so a second
+  // season would have shown a lifetime record beside season-scoped QAB.
+  assertEq("the record query is season-scoped",
+    /\.from\("games"\)\s*\n\s*\.select\("result"\)\s*\n\s*\.eq\("season_id", seasonId\)/.test(perf), true);
+  assertEq("...and the misleading RLS comment is gone",
+    /Scoped by RLS like every other query here/.test(perf), false);
+  assertEq("...replaced by what RLS actually does",
+    /RLS scopes\s*\n?\s*\* by ORGANIZATION, not by season/.test(perf), true);
+
+  // QAB remains independently season-scoped.
+  assertEq("QAB stays filtered by season", /\.eq\("season_id", seasonId\)/.test(perf), true);
+  assertEq("...and still excludes voided plate appearances",
+    /\.is\("voided_at", null\)/.test(perf), true);
+
+  // Terminology: display only.
+  assertEq("the reason label reads Situational success",
+    qab.reasonLabel("situation_success"), "Situational success");
+  assertEq("...while the stored key is unchanged",
+    qab.REASON_KEYS.includes("situation_success"), true);
+  assertEq("...and the key is still the one the constraint expects",
+    /key: "situation_success"/.test(rules), true);
+  assertEq("no user-facing copy still says Situation success",
+    /"Situation success"/.test(rules), false);
+}
+
+console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

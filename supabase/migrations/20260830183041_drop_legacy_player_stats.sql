@@ -1,0 +1,33 @@
+-- Remove player_stats, an empty legacy statistics table.
+--
+-- It predates QAB tracking and carries the shape of a per-game box score:
+-- at_bats, hits, walks, hbp, sac_bunt, sac_fly, eight_pitch_ab, hard_hit_ball,
+-- situational_success. Performance was rebuilt around plate_appearances, where
+-- one row is one plate appearance and is_qab is a generated column derived
+-- from the reasons cited. Nothing has written to player_stats since.
+--
+-- A dependency search found nothing: zero rows in production, no application
+-- query, no server action, no report or export, no function, view, generated
+-- column or foreign key referencing it, and no other database object depending
+-- on it. Its only remaining features were two RLS policies protecting an empty
+-- table.
+--
+-- WHY DROP RATHER THAN LEAVE IT. It is a plausible-looking statistics table
+-- with authoritative-sounding column names. The same shape of trap as
+-- budget_items.actual, which held 33,859.00 of spending that never happened:
+-- a future query that summed `hits` or `at_bats` from here would report a
+-- confident zero for every player rather than failing loudly, and a coach
+-- would have no way to tell the difference between "no hits" and "this table
+-- was never populated". Removing it means that question cannot be asked of the
+-- wrong source.
+--
+-- NOTHING IS MIGRATED, because there is nothing to migrate. The table is
+-- empty. Every statistic Season Tempo displays comes from plate_appearances
+-- and is unaffected: 94 PA / 48 QAB for Armor Elite and 98 PA / 57 QAB for
+-- Northgate both reconcile independently before and after this change.
+--
+-- The qab_* views were audited alongside this and are DELIBERATELY KEPT. They
+-- are security_invoker, so RLS applies to them exactly as to the base table,
+-- and they served as the independent check that reconciled the application's
+-- own aggregation during this audit.
+drop table if exists player_stats;

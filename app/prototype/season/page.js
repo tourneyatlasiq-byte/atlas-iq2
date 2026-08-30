@@ -1,31 +1,21 @@
-import "./home.css";
-import "./season-home.css";
-import { getViewer } from "../lib/context";
-import { MarketingHeader, MarketingFooter } from "../components/MarketingChrome";
+import "./season.css";
 
-export const dynamic = "force-dynamic";
-
-export const metadata = {
-  title: "Season Tempo — Run a travel softball season in one place",
-  description:
-    "From the first entry fee to the last at-bat. Tournaments, facilities, Finance, games and performance for travel softball teams and organizations.",
-};
+export const dynamic = "force-static";
+export const metadata = { title: "Season proof", robots: { index: false, follow: false } };
 
 /**
- * Home.
+ * ART DIRECTION PROOF — Variant B's language, resequenced.
  *
- * Promoted from the approved prototype. The art direction is the prototype's:
- * light editorial ground, condensed display, real Northgate season data,
- * product captures as evidence rather than feature cards.
+ * The previous proof established travel softball in the hero and then became a
+ * Finance page. This one leads with the SEASON, and lets Finance arrive as a
+ * consequence of a weekend rather than as a separate feature.
  *
- * The narrative: plan the season, see what it has already cost, play the
- * weekend, capture what happened, and get something back you can hand to a
- * family. Finance arrives as a consequence of a weekend rather than as a
- * feature, and no section presents a module.
+ * The connection between them is expressed with evidence, not a diagram:
+ * $6,365 appears on the tournaments screen as committed cost, and again inside
+ * the budget as "committed to tournaments". Two screens, two paths, one
+ * figure. No arrows, no console, no tabs, no workflow illustration.
  *
- * Every number is real and was verified against production before it was
- * written. Two relationships have already been caught being wrong here, so
- * nothing numerical or relational is inferred.
+ * Every number and result is real Northgate 2026-27 production data.
  */
 
 /* The only three games in the season with a recorded result. */
@@ -35,14 +25,19 @@ const RESULTS = [
   { date: "AUG 6", opp: "Lake City Lightning", res: "L", score: "6–7" },
 ];
 
-export default async function HomePage() {
-  const { user, hasOrganization } = await getViewer();
-  const signedIn = Boolean(user);
-  const appHref = hasOrganization ? "/dashboard" : "/welcome";
-
+export default function SeasonProof() {
   return (
     <div className="sp">
-      <MarketingHeader signedIn={signedIn} appHref={appHref} />
+      <header className="sp-nav">
+        <div className="sp-wrap sp-nav-inner">
+          <span className="sp-mark">Season Tempo</span>
+          {/* Pricing is absent: the route does not exist on this branch, so it
+              is not shown at all rather than displayed as a destination that
+              cannot be reached. */}
+          <nav className="sp-nav-links"><span>Product</span><span>About</span></nav>
+          <span className="sp-signin">Sign in</span>
+        </div>
+      </header>
 
       {/* --- Statement -------------------------------------------------- */}
       <section className="sp-hero">
@@ -68,6 +63,7 @@ export default async function HomePage() {
               </p>
               <div className="sp-actions">
                 <span className="sp-btn">Try Season Tempo</span>
+                <span className="sp-note">Free during early access.</span>
               </div>
             </div>
 
@@ -87,6 +83,11 @@ export default async function HomePage() {
             </div>
           </div>
 
+          <p className="sp-attrib">
+            <span>Northgate 16U Gold</span>
+            <span>2026–27 season</span>
+            <span>Real data throughout</span>
+          </p>
         </div>
       </section>
 
@@ -162,37 +163,31 @@ export default async function HomePage() {
 
       {/* --- Saturday ----------------------------------------------------
 
-           ONE chapter, not two. The opener and the at-bat block previously
-           carried separate eyebrows and separate heads for a single idea,
-           which cost roughly 340px of runway and made the fifth section in a
-           row begin the same way. The QAB evidence and the strongest line are
-           unchanged.
+           The planned weekend becomes an actual game. Two plates, not three:
+           the lineup is described rather than shown, because a third
+           screenshot turns a chapter into a gallery.
 
-           EVERY FIGURE VERIFIED against production:
-             97 plate appearances · 56 quality at-bats · 57 reasons
-             5 games tracked · 13 players
+           EVERY FIGURE VERIFIED against production before it was written:
+             97 plate appearances, 56 quality at-bats  = 57.7%
+             5 games tracked, 13 players
+             57 reasons across 56 QABs (an at-bat can earn more than one)
              walk 15 · hit 10 · situational 7 · sac fly 6 · hard hit 5 ·
              8+ pitch 5 · sac bunt 5 · HBP 4
-           No causal claim: the product counts reasons, it never relates them
-           to runs or to winning. */}
+           No causal claim is made anywhere: the product counts reasons, it
+           never relates them to runs or to winning. */}
       <section className="sp-saturday">
         <div className="sp-wrap">
           <hr className="sp-rule" />
           <p className="sp-eyebrow">The weekend itself</p>
           <h2 className="sp-chapter">Then Saturday happens.</h2>
+          <p className="sp-body sp-chapter-body">
+            The batting order is set from the roster that travelled. Two games that weekend,
+            both already attached to the tournament they belong to. From here the season stops
+            being a plan and starts being something that happened.
+          </p>
         </div>
 
-        {/* ONE composition, not three horizontal layers. The phone sat at
-            268px inside a 402px column — 134px of dead space around the
-            object carrying the differentiator, and the smallest plate on a
-            page whose others run 815px and wider.
-
-            The tally now lives inside the right-hand argument rather than
-            announcing itself 96px below, so a coach's decision and its
-            season-long consequence read as one thought. It keeps its own
-            scale: still the second focal point of the section, just no longer
-            a separate horizontal band. */}
-        <div className="sp-wrap sp-perf">
+        <div className="sp-wrap sp-split sp-split-tight">
           <figure className="sp-plate sp-plate-phone">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/proof/plate-atbat.webp"
@@ -200,19 +195,33 @@ export default async function HomePage() {
             <figcaption>Recorded between innings, on the phone in your pocket.</figcaption>
           </figure>
 
-          <div className="sp-perf-copy">
-            <h3 className="sp-section">A hit is not the only thing worth writing down.</h3>
+          <div>
+            <p className="sp-eyebrow">One at-bat at a time</p>
+            <h2 className="sp-section">
+              A hit is not the only thing worth writing down.
+            </h2>
             <p className="sp-body">
-              The batting order is set from the roster that travelled. Then the eight-pitch
-              battle that wore a pitcher out, the bunt that moved a runner to third, the walk
-              that started the inning. A coach who watched it decides what it was, in the
-              moment, before the detail is gone.
+              The eight-pitch battle that wore a pitcher out. The bunt that moved a runner to
+              third. The walk that started the inning. A coach who watched it decides what it
+              was, in the moment, before the detail is gone.
             </p>
+          </div>
+        </div>
 
+        <div className="sp-wrap sp-monday">
+          <div className="sp-monday-lead">
+            <p className="sp-eyebrow">And by Monday</p>
+            {/* The arithmetic IS the statement. 97 appearances produced 56
+                quality at-bats, and those 56 carried 57 reasons between them —
+                one at-bat can earn more than one. Nothing here implies a
+                reason exists for every plate appearance. */}
             <p className="sp-tally">
               <span><b>97</b> plate appearances.</span>
               <span><b>56</b> quality at-bats.</span>
               <span><b>57</b> reasons why.</span>
+            </p>
+            <p className="sp-body sp-tally-note">
+              Walks outnumbered hits, fifteen to ten. Not a number a box score keeps.
             </p>
           </div>
 
@@ -221,7 +230,7 @@ export default async function HomePage() {
             <img src="/proof/plate-reasons.webp"
               alt="Reasons cited across the season: walk 15, hit 10, situational success 7, sacrifice fly 6, hard hit ball 5, eight-pitch at-bat 5, sacrifice bunt 5, hit by pitch 4" />
             <figcaption>
-              Walks outnumbered hits, fifteen to ten. Not a number a box score keeps.
+              Reasons cited · 57 across 56 quality at-bats, Northgate 16U Gold.
             </figcaption>
           </figure>
         </div>
@@ -265,35 +274,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* --- Conclusion ---------------------------------------------------
-
-           Type only, no plate. A conclusion to the story rather than another
-           section.
-
-           The list names ONLY what Season Tempo actually holds: entry fees
-           (Finance), the schedule (Tournaments), the field (Facilities), the
-           paperwork (Files), the at-bats (Performance). An earlier draft said
-           "the group text", which would have claimed messaging the product
-           does not have.
-
-           The CTA block is built to take a starting price and a /pricing link
-           later without changing its composition. Neither exists yet: the
-           pricing is a hypothesis, and /pricing is not a route. */}
-      <section className="sp-close">
-        <div className="sp-wrap">
-          <h2 className="sp-close-head">One season.<br />One place.</h2>
-          <p className="sp-close-body">
-            The entry fees, the schedule, the field you played last year, the paperwork and
-            every at-bat that came out of it — kept together instead of scattered across
-            whatever was closest at the time.
-          </p>
-          <div className="sp-close-cta">
-            <span className="sp-btn">Try Season Tempo</span>
-          </div>
-        </div>
-      </section>
-
-      <MarketingFooter signedIn={signedIn} />
     </div>
   );
 }
