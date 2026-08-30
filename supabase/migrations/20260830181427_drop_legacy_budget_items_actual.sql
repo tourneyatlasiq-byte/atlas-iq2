@@ -1,0 +1,32 @@
+-- Remove budget_items.actual, a stale second source of truth for money.
+--
+-- The column held hand-maintained actual spend from before Season Tempo, kept
+-- when the Finance module was rebuilt. Since then actual spend has been
+-- derived entirely from budget_transactions: listBudget() rolls transactions
+-- up per budget line and every displayed figure -- Spent, Available, variance,
+-- percent used, category totals -- comes from that roll. Nothing reads this
+-- column.
+--
+-- A dependency search found no reader and no writer anywhere: no select list
+-- includes it, no server action sets it, no function, view, trigger,
+-- generated column, constraint or index references it, and no report, export
+-- or import path touches it. The only mentions in the repository are comments
+-- describing it as legacy.
+--
+-- WHY DROP RATHER THAN DOCUMENT. It currently holds 33,859.00 across 18
+-- Georgia Power 2025-26 lines whose season has zero recorded transactions --
+-- a plausible-looking money value with nothing behind it. A future query that
+-- innocently SUMs a column called `actual` would report 33,859.00 of spending
+-- that never happened, against a 32,048.00 budget. A comment does not prevent
+-- that; removing the column does.
+--
+-- THE VALUES ARE NOT MIGRATED. Turning them into transactions would convert
+-- stale pre-Atlas bookkeeping into real recorded spending and change Georgia
+-- Power's Spent from 0.00 to 33,859.00. That figure is not evidence of
+-- anything this system recorded. It is preserved here as history and nowhere
+-- else:
+--
+--   Georgia Power 2028, 2025-26 -- 18 lines, actual 33,859.00, budgeted 32,048.00
+--
+-- Every other organization holds 0.00, so nothing else is affected.
+alter table budget_items drop column if exists actual;

@@ -429,6 +429,79 @@ const duesUnlinked = (n, amount) =>
     [resolveCategoryChoice(CATEGORY_OTHER, ""), resolveCategoryChoice(CATEGORY_OTHER, "   ")],
     [null, null]);
 
-  console.log(`\n${ran} assertions, ${failures} failed`);
+  
+/* ---- Finance hardening ---------------------------------------------------
+   Three fixes, none of which may change a single displayed total:
+
+     budget_items.actual was a stored money column nothing read or wrote. It
+     held 33,859.00 against a season with zero transactions — a plausible
+     figure with nothing behind it, waiting for a future query to SUM it.
+
+     The Tournaments tile added committed cost with a raw float reduce while
+     Finance worked in cents, so the two could disagree by a penny.
+
+     A deleted player leaves player_payments.player_id NULL, deliberately, so
+     the money survives — but the row then displayed with no name at all. */
+
+console.log("\nFinance hardening");
+
+{
+  const fsx = require("fs");
+  const rules = fsx.readFileSync("lib/finance-rules.js", "utf8");
+  const tq = fsx.readFileSync("lib/queries/tournaments.js", "utf8");
+  const fq = fsx.readFileSync("lib/queries/finance.js", "utf8");
+  const mig = fsx.readFileSync(
+    "supabase/migrations/20260830181427_drop_legacy_budget_items_actual.sql", "utf8");
+
+  // 1. The stale column is gone, and its value was NOT converted to spending.
+  assertEq("the legacy actual column is dropped",
+    /alter table budget_items drop column if exists actual;/.test(mig), true);
+  assertEq("...and its value was not migrated into transactions",
+    /THE VALUES ARE NOT MIGRATED/.test(mig), true);
+  assertEq("no query selects it", /select\("id, category, name, budgeted/.test(fq), true);
+  assertEq("...and nothing writes it", /actual:/.test(fsx.readFileSync("lib/actions/finance.js", "utf8")), false);
+
+  // 2. One cents-safe calculation for committed tournament cost.
+  assertEq("the tournaments tile uses sumMoney",
+    /sumMoney\(committed\.map\(\(t\) => t\.total_cost \?\? 0\)\)/.test(tq), true);
+  assertEq("...and no longer reduces floats",
+    /reduce\(\(sum, t\) => sum \+ Number\(t\.total_cost/.test(tq), false);
+  // A tournament set that a float reduce genuinely gets wrong. Not every
+  // decimal drifts — this one does, which is the point: the failure is
+  // data-dependent and would surface on some seasons and not others.
+  const fees = [2700.10, 2700.20, 2700.30];
+  assertEq("cents-safe committed cost", sumMoney(fees), 8100.60);
+  assertEq("...where a float reduce drifts",
+    fees.reduce((a, b) => a + b, 0), 8100.599999999999);
+
+  // 3. A detached obligation shows the name it was created with.
+  assertEq("the stored name is the display fallback",
+    /p\.player\?\.full_name \?\? p\.player_name \?\? null/.test(rules), true);
+  assertEq("...and player_name is actually selected", /player_name,/.test(fq), true);
+
+  const detached = reconcileDues(
+    [{ id: "live", full_name: "Live Player" }],
+    [
+      { id: "o1", player_id: null, player_name: "Bohannon", player: null,
+        totalDue: 2700, totalPaid: 2400, log: [] },
+      { id: "o2", player_id: "live", player_name: "Old Name",
+        player: { full_name: "Live Player" }, totalDue: 100, totalPaid: 0, log: [] },
+      { id: "o3", player_id: null, player_name: null, player: null,
+        totalDue: 50, totalPaid: 0, log: [] },
+    ]
+  );
+  const byId = Object.fromEntries(detached.former.map((f) => [f.key, f]));
+  assertEq("a deleted player's obligation shows its stored name", byId.o1.name, "Bohannon");
+  assertEq("...and stays detached", byId.o1.playerId, null);
+  assertEq("a record with no name at all is still honest", byId.o3.name, null);
+  assertEq("a live player is unaffected by the fallback",
+    detached.former.some((f) => f.key === "o2"), false);
+
+  // Totals are untouched by any of the three.
+  assertEq("the detached obligation still counts",
+    sumMoney([2700, 100, 50]), 2850);
+}
+
+console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();

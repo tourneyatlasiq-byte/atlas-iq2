@@ -1957,10 +1957,14 @@ function FormerDuesTable({ rows, onOpen }) {
                 <td className="pay-player">
                   <div className="pay-cell">
                     <span className="cell-name">
-                      {r.kind === "former" ? r.name : <span className="muted">No player linked</span>}
+                      {r.name ?? <span className="muted">No player linked</span>}
                     </span>
                     <span className="pay-sub">
-                      {r.kind === "former" ? "No longer on the active roster" : "Not linked to a player"}
+                      {r.kind === "former"
+                        ? "No longer on the active roster"
+                        : r.name
+                          ? "Former player — no longer in this organization"
+                          : "Not linked to a player"}
                     </span>
                   </div>
                 </td>
