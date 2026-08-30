@@ -2173,6 +2173,105 @@ console.log("\nMobile viewport");
     /\.pi-required \{ min-height: 44px; \}/.test(css), true);
 }
 
+
+/* ---- Manually remapping an ambiguous column -----------------------------
+   A real workbook carried jersey sizes in a column headed "Code", holding
+   AM / AL / AS. "Code" matches no synonym, so it arrives unmapped and shows
+   as Don't import — which is correct. It could be a uniform size, a player
+   code or a discount code, and writing "AM" into the wrong field on the
+   strength of a guess is worse than asking.
+
+   DELIBERATELY NOT ADDED: "code" as a jersey_size synonym, and any inference
+   from the VALUES. Both are name- or value-shaped guesses; a semantic mapper
+   is a larger design than this. The manual path is the supported one, which
+   is exactly why unmapped columns must be reachable on a phone. */
+
+console.log("\nRemapping an unrecognised column by hand");
+
+{
+  const fsx = require("fs");
+  const ss = await load("lib/spreadsheet.js");
+  const bytes = fsx.readFileSync("scripts/fixtures/excel-dates.xlsx");
+
+  // A header the mapper cannot know, alongside ones it can.
+  const XLSX = require("xlsx");
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ["Player Name", "Grad Year", "Code"],
+    ["Tenley Lynch", 2028, "AM"],
+    ["Peyton Currie", 2028, "AL"],
+    ["Dakota McDaniel", 2029, "AS"],
+  ]);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, "Players");
+  const wb = XLSX.write(book, { type: "buffer", bookType: "xlsx" });
+  const { grid } = await ss.readSpreadsheet({ name: "code.xlsx",
+    arrayBuffer: async () => wb.buffer.slice(wb.byteOffset, wb.byteOffset + wb.byteLength) });
+
+  const header = grid[0];
+  const sug = map.suggestMappings(header);
+
+  ok("Code arrives unmapped", sug.unmapped.includes("Code"), true);
+  ok("...and is not guessed into a destination",
+    sug.mappings.some((m) => m.header === "Code"), false);
+  ok("no value-based inference happened",
+    sug.mappings.some((m) => m.key === "jersey_size"), false);
+  ok("'code' is not a jersey_size synonym",
+    reg.BY_KEY.get("jersey_size").synonyms.includes("code"), false);
+
+  // The coach picks Jersey size and ticks Include.
+  const f = reg.BY_KEY.get("jersey_size");
+  const effective = [
+    ...sug.mappings,
+    { header: "Code", key: "jersey_size", index: null, level: f.level,
+      required: Boolean(f.requiredForIntake) },
+  ];
+  const enabled = new Set(sug.mappings.filter((m) => m.autoEnabled || m.required)
+    .map((m) => m.header));
+  enabled.add("Code");
+
+  const active = effective.filter((m) => enabled.has(m.header));
+  const buildRow = (cells) => {
+    const raw = Object.fromEntries(header.map((h, c) => [h, cells[c] ?? ""]));
+    const mapped = map.applyMappings(raw, active);
+    const row = { contacts: [] };
+    for (const [k, v] of Object.entries(mapped)) {
+      if (k === "contacts") continue;
+      const fld = reg.BY_KEY.get(k);
+      if (!fld || reg.isIgnored(k)) continue;
+      row[k] = nrm.normalizeValue(fld.type, v);
+    }
+    return row;
+  };
+
+  ok("AM plans into jersey_size", buildRow(grid[1]).jersey_size, "AM");
+  ok("AL plans into jersey_size", buildRow(grid[2]).jersey_size, "AL");
+  ok("AS plans into jersey_size", buildRow(grid[3]).jersey_size, "AS");
+  ok("pants_size is untouched", buildRow(grid[1]).pants_size, undefined);
+  ok("remapping one column left the others alone",
+    [enabled.has("Player Name"), enabled.has("Grad Year")], [true, true]);
+
+  // Re-importing the same file must fill the size and rewrite nothing else.
+  const stored = grid.slice(1).map((cells, i) => mat.toCandidate({
+    id: `p${i}`, full_name: cells[0], grad_year: Number(cells[1]),
+    date_of_birth: "2010-05-05",
+    player_contacts: [{ id: `c${i}`, email: `p${i}@example.invalid` }],
+  }));
+
+  let playerWrites = 0, sizes = 0, blockedRows = 0;
+  for (const cells of grid.slice(1)) {
+    const row = buildRow(cells);
+    const m = mat.matchPlayer(row, stored);
+    const plan = pln.buildRowPlan({ row, match: m, existingPlayer: m.candidate,
+      existingContacts: m.candidate?.contacts ?? [], decisions: {}, identity: null });
+    if (plan.writes.some((w) => w.table === "players")) playerWrites += 1;
+    if (plan.writes.find((w) => w.table === "team_season_players")?.values?.jersey_size) sizes += 1;
+    if (!plan.executable) blockedRows += 1;
+  }
+  ok("re-import rewrites no player field", playerWrites, 0);
+  ok("...blocks nothing", blockedRows, 0);
+  ok("...and fills the size for every row", sizes, 3);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
