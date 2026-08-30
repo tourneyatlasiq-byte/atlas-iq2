@@ -1,208 +1,217 @@
 import Link from "next/link";
-import "../home.css";
-import "./product.css";
-import { getViewer } from "../../lib/context";
+import { createClient } from "../../lib/supabase/server";
 import { MarketingHeader, MarketingFooter, ProductShot } from "../../components/MarketingChrome";
-import { ProductConsole } from "../../components/ProductConsole";
-
-export const dynamic = "force-dynamic";
+import "../home.css";
 
 export const metadata = {
   title: "Product — Season Tempo",
   description:
-    "Explore Season Tempo: tournaments, finance, game day, performance and reports for travel softball teams and organizations.",
+    "Tournaments, roster, dues, facilities and games for a travel softball season, in one place.",
 };
 
-/**
- * Product.
- *
- * The job of this page is exploration and belief in depth. Home creates
- * interest; this page answers "what is actually in it?"
- *
- * The Console carries the breadth. Eight of the nine areas are a single
- * surface in the application, so a panel expresses them as completely as a
- * stacked section would — and stacking nine areas vertically would add scroll
- * without adding information. Only two things earn their own space below:
- *
- *   How it connects — a directory shows one area at a time, so it structurally
- *     cannot show the relationship between them.
- *   Game day — three routes, two devices, and the differentiator.
- *
- * Every figure here was read from production, and the relationship between
- * them was traced through the code before it was described.
- *
- * $650 is a GENERATED column on the tournament. $6,365 is a READ-TIME AGGREGATE
- * of committed tournaments. $29,480 is an aggregate of separately entered
- * budget lines. They are linked by a foreign key, NOT the same record, so this
- * page does not claim they are.
- *
- * The Tournament Fees line ($22,000) was deliberately dropped from the
- * sequence: it is a planned figure a coach typed, not a roll-up of
- * tournaments, and two committed tournaments carry no budget category at all,
- * so $6,365 is not contained within it. Showing it as a containing step would
- * have asserted a nesting the data contradicts.
- */
+export const dynamic = "force-dynamic";
+
 export default async function ProductPage() {
-  const { user, hasOrganization } = await getViewer();
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const signedIn = Boolean(user);
-  const appHref = hasOrganization ? "/dashboard" : "/welcome";
+  const appHref = "/dashboard";
 
   return (
     <div className="mk">
       <MarketingHeader signedIn={signedIn} appHref={appHref} />
 
-      {/* 1 — Orient. Not a second pitch; Home already made the argument. */}
-      <section className="pr-hero">
+      {/* 1 — Hero. Product before prose: this page argues the software is real,
+              so it shows the software before describing it. */}
+      <section className="mk-page-hero">
         <div className="mk-wrap">
-          <p className="pr-eyebrow">Product</p>
-          <h1>What a season looks like inside Season Tempo.</h1>
-          <p className="pr-lede">
-            Nine areas, built for travel softball, that know about each other. Open any of them
-            below.
-          </p>
-        </div>
-      </section>
-
-      {/* 2 — The Console. All breadth lives here. */}
-      <section className="pr-console-section">
-        <div className="mk-wrap">
-          <ProductConsole />
-        </div>
-      </section>
-
-      {/* 3 — The one argument a directory cannot make. */}
-      <section className="pr-connect">
-        <div className="mk-wrap">
-          <div className="pr-connect-head">
-            <h2>Commit to one weekend, and the money follows.</h2>
-            <p>
-              An entry fee is not a number in a spreadsheet. It is part of what your season has
-              already promised to spend, measured against the budget families are being asked
-              to fund.
-            </p>
+          <div className="mk-workflow">
+            <div className="mk-workflow-text">
+              <h1>Everything you need to run a travel softball season, in one place.</h1>
+              <p className="mk-lede">
+                Season Tempo follows a season the way you actually run one — from the
+                tournaments and showcases you&rsquo;re weighing up to what the whole thing cost.
+              </p>
+              {!signedIn && (
+                <Link href="/login?new=1" className="btn btn-primary mk-btn-lg mk-hero-cta">
+                  Try Season Tempo
+                </Link>
+              )}
+            </div>
+            <ProductShot
+              src="/home-dashboard.png"
+              alt="Season Tempo Home — the next tournament, what needs attention, and where the season stands"
+              ratio="2461 / 1297"
+            />
           </div>
+        </div>
+      </section>
 
-          {/* A roll-up, described as one. Each figure contains the one above
-              it; no value is claimed to travel or repeat. */}
-          <ol className="pr-rollup">
-            <li>
-              <span className="pr-rollup-value">$650</span>
-              <span className="pr-rollup-label">Peach State Showdown entry fee</span>
-            </li>
-            <li>
-              <span className="pr-rollup-value">$6,365</span>
-              <span className="pr-rollup-label">
-                committed across eight tournaments, this one included
-              </span>
-            </li>
-            <li>
-              <span className="pr-rollup-value">$29,480</span>
-              <span className="pr-rollup-label">the season budget it is measured against</span>
-            </li>
+      {/* 3 — Home */}
+      <section className="mk-section">
+        <div className="mk-wrap">
+          <div className="mk-workflow">
+            <div className="mk-workflow-text">
+              <span className="mk-eyebrow">Know what&rsquo;s next</span>
+              <h2>Open it Monday morning and see where the season stands.</h2>
+              <p>
+                Your next tournament, how many days away it is, and where it is. Underneath, the
+                things that actually need you — players who still owe dues, an event you&rsquo;ve
+                committed to but haven&rsquo;t registered for, information missing from a player
+                record. Each one links to the screen where you fix it.
+              </p>
+            </div>
+            {/* A focused crop of the same Home capture — the next event and the
+                attention list only. Materially different from the hero, not the
+                same image twice. */}
+            <ProductShot
+              src="/home-focus.png"
+              alt="The next tournament and what needs attention"
+              caption="Home"
+              ratio="1798 / 808"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 4 — Tournament operations */}
+      <section className="mk-section mk-alt">
+        <div className="mk-wrap">
+          <div className="mk-workflow mk-workflow-reverse mk-workflow-tall">
+            <div className="mk-workflow-text">
+              <span className="mk-eyebrow">Run the weekend</span>
+              <h2>One tournament, everything about it.</h2>
+              <p>
+                Dates, facility and entry cost at the top. Registration status you can update as
+                you go, and the tournament director&rsquo;s number so you can call from the
+                parking lot when the bracket changes. Underneath: the games, who&rsquo;s playing including pickups, what it
+                cost, and the paperwork for that event.
+              </p>
+            </div>
+            <ProductShot
+              src="/tournament-drawer.png"
+              alt="A Season Tempo tournament — registration, contact, games, roster and costs"
+              caption="Tournament"
+              ratio="928 / 1306"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 5 — Finance, including the Committed explanation */}
+      <section className="mk-section">
+        <div className="mk-wrap">
+          <div className="mk-workflow">
+            <div className="mk-workflow-text">
+              <span className="mk-eyebrow">Know where the money stands</span>
+              <h2>What your budget has already gone on — not just what you&rsquo;ve paid.</h2>
+              <p>
+                Every budget line shows three figures. <strong>Budget</strong> is what you set
+                aside. <strong>Used</strong> is everything you&rsquo;ve agreed to, including
+                tournaments you&rsquo;ve said yes to but haven&rsquo;t been invoiced for yet.{" "}
+                <strong>Left</strong> is what&rsquo;s genuinely still available. Underneath,
+                quietly: how much of that you&rsquo;ve actually paid, and how much you still owe.
+              </p>
+              <p>
+                A budget that only counts cheques already written looks healthier than it is.
+                Commit to four tournaments and Season Tempo counts them straight away — paid or
+                not — so the number you&rsquo;re looking at is the one you can actually spend.
+              </p>
+            </div>
+            <ProductShot
+              src="/finance-budget.png"
+              alt="Season Tempo Finance — budget, used and left by category"
+              caption="Finance"
+              ratio="1981 / 1125"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Below the proof, not above it: a first-time visitor wants to see the
+          product before reading how the pieces fit together. */}
+      <section className="mk-section mk-alt">
+        <div className="mk-wrap">
+          <h2 className="mk-centered">A season, start to finish</h2>
+          <ol className="mk-lifecycle">
+            <Phase n="1" name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Phase>
+            <Phase n="2" name="Commit">Decide what you&rsquo;re playing. Costs start counting straight away.</Phase>
+            <Phase n="3" name="Play">Record pool play and bracket results as the weekend happens.</Phase>
+            <Phase n="4" name="Track">Watch the budget, dues and what still needs your attention.</Phase>
+            <Phase n="5" name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Phase>
+            <Phase n="6" name="Next season">Carry your roster forward. Prior seasons stay for reference.</Phase>
           </ol>
-
-          <p className="pr-connect-foot">
-            Enter the fee once, on the tournament. It counts toward what you&rsquo;ve committed
-            from that moment &mdash; before an invoice, and before anyone has paid.
-          </p>
         </div>
       </section>
 
-      {/* 4 — Game day. Three routes, two devices, the differentiator. */}
-      <section className="pr-gameday">
+      {/* 6 — Also included, relocated from the homepage capability grid */}
+      <section className="mk-section">
         <div className="mk-wrap">
-          <div className="pr-gameday-head">
-            <h2>
-              Game day
-              <span className="mk-premium">Premium</span>
-            </h2>
-            <p>
-              Quality at-bat tracking and Performance are advanced capabilities, currently enabled
-              for selected early-access organizations.
+          <h2 className="mk-centered">Also included</h2>
+          <div className="mk-grid mk-grid-3">
+            <Capability title="Facilities">
+              A shared directory of facilities, plus your own notes on parking, gates and
+              concessions for next time.
+            </Capability>
+            <Capability title="Games">
+              Schedule and results inside each tournament. Enter the score; Season Tempo works out
+              the record.
+            </Capability>
+            <Capability title="Files">
+              Player documents, waivers, insurance and schedules, attached to the player or
+              tournament they belong to.
+            </Capability>
+          </div>
+        </div>
+      </section>
+
+      {/* 7 — CTA */}
+      {/* A signed-in reader is already a customer. Asking them to convert at the
+          bottom of a marketing page is a dead end, so they get a quiet way back
+          instead of a pitch. */}
+      {signedIn ? (
+        <section className="mk-section mk-return">
+          <div className="mk-wrap mk-narrow mk-centered">
+            <Link href={appHref} className="mk-return-link">
+              Back to Season Tempo &rarr;
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <section className="mk-final">
+          <div className="mk-wrap">
+            <h2>Ready to run your season?</h2>
+            <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
+            <Link href="/login?new=1" className="btn btn-primary mk-btn-lg">
+              Try Season Tempo
+            </Link>
+            <p className="mk-note">
+              Free during early access. We&rsquo;ll give you advance notice before that changes.
             </p>
           </div>
-
-          <div className="pr-gameday-grid">
-            <div className="pr-gd-step">
-              <p className="pr-gd-n">Before the first pitch</p>
-              <h3>Set the batting order.</h3>
-              <p>
-                Build the lineup from your tournament roster, including pickups. Copy it from a
-                game you already played, then change what needs changing.
-              </p>
-            </div>
-
-            <div className="pr-gd-shot phone">
-              <ProductShot
-                src="/mk-qab-phone.webp"
-                alt="Recording what made a plate appearance a quality at-bat, on a phone"
-                ratio="3 / 4"
-              />
-            </div>
-
-            <div className="pr-gd-step">
-              <p className="pr-gd-n">Between innings</p>
-              <h3>Record what actually happened.</h3>
-              <p>
-                Not just hits. The eight-pitch battle, the sacrifice that moved the runner, the
-                walk that started the inning — tapped in by the coach who saw it. Leave and come
-                back and it resumes where each batter left off.
-              </p>
-            </div>
-
-            <div className="pr-gd-step">
-              <p className="pr-gd-n">Afterwards</p>
-              <h3>See what earned them.</h3>
-              <p>
-                Quality at-bats by game and by player, and the reasons coaches recorded across the
-                season. Win, loss and tie sit beside each game as context.
-              </p>
-            </div>
-
-            <div className="pr-gd-shot wide">
-              <ProductShot
-                src="/mk-qab-reasons.webp"
-                alt="Reasons cited across the season: walks, hits, situational success, sacrifices and long at-bats"
-                ratio="16 / 5"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5 — Closing principle, then convert. */}
-      <section className="pr-forward">
-        <div className="mk-wrap">
-          <div className="pr-forward-grid">
-            <div>
-              <h2>It carries forward.</h2>
-              <p>
-                A season ends; the knowledge does not. Your roster, your facility notes, your
-                tournament history and last year&rsquo;s numbers are all still there when the next
-                season starts.
-              </p>
-            </div>
-
-            <div className="pr-forward-cta">
-              <Link
-                href={signedIn ? appHref : "/login?new=1"}
-                className="btn btn-primary mk-btn-lg"
-              >
-                {signedIn ? "Go to Season Tempo" : "Try Season Tempo"}
-              </Link>
-              {/* "View pricing" is the approved secondary CTA, hidden until
-                  /pricing exists so no live link reaches a 404. Restore this
-                  block, and the two in MarketingChrome, when Pricing ships. */}
-              {/* <Link href="/pricing" className="pr-secondary">
-                View pricing &rarr;
-              </Link> */}
-              <p className="mk-note">Free during early access.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <MarketingFooter signedIn={signedIn} />
     </div>
+  );
+}
+
+function Capability({ title, children }) {
+  return (
+    <div className="mk-card">
+      <h3>{title}</h3>
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function Phase({ n, name, children }) {
+  return (
+    <li className="mk-phase">
+      <span className="mk-phase-n">{n}</span>
+      <span className="mk-phase-name">{name}</span>
+      <span className="mk-phase-text">{children}</span>
+    </li>
   );
 }
