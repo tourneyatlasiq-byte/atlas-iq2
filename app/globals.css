@@ -6128,3 +6128,14 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .dues-budget-actions { width: 100%; flex-direction: column; }
   .dues-budget-actions .btn { width: 100%; min-height: 44px; }
 }
+
+/* A short confirmation, not a form. Narrower than the editing modals so the
+   question reads as a question. */
+.modal-confirm { max-width: 460px; }
+.modal-confirm .modal-body { padding-top: 4px; }
+.modal-confirm .modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 720px) {
+  .modal-confirm .modal-foot { flex-direction: column-reverse; }
+  .modal-confirm .modal-foot .btn { width: 100%; min-height: 44px; }
+}

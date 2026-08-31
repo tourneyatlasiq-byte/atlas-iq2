@@ -708,6 +708,43 @@ console.log("\nTeam dues allocation");
   assertEq("...with no automatic synchronisation afterwards",
     /NOT syncing the two\s*\n\s*\* afterwards/.test(act), true);
 
+
+  /* ---- Budget delete ----------------------------------------------------
+     Clicking Delete did nothing visible. The handler fired and the state
+     changed; BudgetTab simply never passed the confirmation props on, so
+     nothing rendered. The earlier scroll-into-view change was aimed at the
+     wrong cause and had no effect. */
+
+  assertEq("BudgetTab destructures the confirmation props",
+    /onDelete, pending,\s*\n\s*confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null \}\)/.test(ui), true);
+  assertEq("...and passes them to BudgetSection",
+    /confirmingDelete=\{confirmingDelete\}/.test(ui), true);
+
+  assertEq("a row-level delete uses the modal, not the inline form",
+    /export function ConfirmDialog/.test(conf), true);
+  assertEq("...rendered outside the collapsible groups, so collapsing cannot unmount it",
+    ui.indexOf("{confirmRow && (") > ui.lastIndexOf("{open &&"), true);
+  assertEq("...resolving the row across every category",
+    /groups\.flatMap\(\(g\) => g\.rows\)\.find/.test(ui), true);
+  assertEq("...and no inline confirmation remains on a budget row",
+    /confirmingDelete === `budget:\$\{r\.id\}`/.test(ui), false);
+
+  assertEq("escape cancels the dialog", /e\.key === "Escape" && !pending/.test(conf), true);
+  assertEq("...but not while the request is running",
+    /onClick=\{pending \? undefined : onCancel\}/.test(conf), true);
+  assertEq("...and both buttons are disabled in flight",
+    (conf.match(/disabled=\{pending\}/g) || []).length >= 2, true);
+  assertEq("cancelling deletes nothing",
+    /onCancel=\{onCancelDelete\}/.test(ui), true);
+  assertEq("confirming passes the resolved row",
+    /onConfirm=\{\(\) => onConfirmDelete\(confirmRow\)\}/.test(ui), true);
+  // The guard refuses and asks where the transactions should go, rather than
+  // deleting financial history along with the line.
+  assertEq("a referenced line is still protected",
+    /filed against this budget line\. Move them to another line first/.test(act), true);
+  assertEq("...offering reassignment rather than deletion",
+    /needsReassign: true/.test(act), true);
+
   assertEq("an inline confirmation scrolls itself into view",
     /scrollIntoView\(\{ block: "nearest"/.test(conf), true);
 }

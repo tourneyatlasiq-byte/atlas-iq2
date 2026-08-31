@@ -304,6 +304,41 @@ for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/
   }
 }
 
+
+/* ---- 4j. A prop passed by a parent must be destructured by the child ----
+   FinanceClient passed confirmingDelete, onCancelDelete, onConfirmDelete and
+   deleteError to BudgetTab. BudgetTab's parameter list did not name them, so
+   they were dropped, and BudgetSection's own `confirmingDelete = null` default
+   meant its comparison was never true and the confirmation never mounted.
+
+   Clicking Delete fired and set state. Nothing rendered it. Nothing was
+   hidden, off-screen or behind a z-index, which is why a scroll-into-view fix
+   changed nothing.
+
+   Same shape as 4i: a default value turning a wiring mistake into a silently
+   wrong screen instead of an error. */
+
+{
+  const src = fs.readFileSync("components/FinanceClient.js", "utf8");
+
+  for (const child of ["BudgetTab", "BudgetSection"]) {
+    const sig = new RegExp(`function ${child}\\(\\{([\\s\\S]*?)\\}\\)`).exec(src);
+    const use = new RegExp(`<${child}\\b([\\s\\S]*?)/>`).exec(src);
+    if (!sig || !use) continue;
+
+    const declared = sig[1];
+    const passed = [...use[1].matchAll(/(\w+)=\{/g)].map((m) => m[1]);
+    const dropped = passed.filter((name) => !new RegExp(`\\b${name}\\b`).test(declared));
+
+    if (dropped.length > 0) {
+      failures.push(
+        `${child}: receives ${dropped.join(", ")} but does not destructure ` +
+        `${dropped.length === 1 ? "it" : "them"} — the value is silently dropped`
+      );
+    }
+  }
+}
+
 /* ---- 4i. A required prop must actually be passed by its page ----------
    isOwner was added to SettingsClient and never passed, so it defaulted to
    false and every user — including the owner — was told they could not change

@@ -1,10 +1,10 @@
-# Player dues, tournament fix, and Saved-on-create
+# Budget delete hotfix
 
-14 files. Nothing to delete — every file is replaced or new, so copying the
-folders over the top is all that is needed.
+6 files. Nothing to delete — copy the folders over the top and replace.
 
-Tested at 2224 assertions with 0 failures, and a production build run from the
-committed files rather than from a working folder.
+Built on top of `ed48bff`, which is what production is running now. Tested at
+2238 assertions with 0 failures and a production build from the committed
+files.
 
 ---
 
@@ -13,53 +13,42 @@ committed files rather than from a working folder.
 In GitHub Desktop:
 
 - **Current branch must be `main`.**
-- Click **Fetch origin**, then **Pull origin** if offered.
-- The changes list should be empty. If it is not, stop and tell me what it
-  shows.
+- **Fetch origin**, then **Pull origin** if offered.
+- The changes list should be empty. If it is not, stop and tell me.
 
 ---
 
 ## Step 1 — Copy the files
 
-This download contains five folders:
+The download contains three folders:
 
 ```
 app/
 components/
-lib/
 scripts/
-supabase/
 ```
 
-Copy all five into the top level of your `atlas-iq2` folder.
-
-Windows will ask whether to merge and replace. Choose
+Copy all three into the top level of your `atlas-iq2` folder. Choose
 **Replace the files in the destination**.
 
 ---
 
 ## Step 2 — Check the count
 
-GitHub Desktop should show **exactly 14 changes**:
+GitHub Desktop should show **exactly 6 changes**:
 
 ```
-app/globals.css                                          modified
-components/ConfirmAction.js                              modified
-components/FacilitiesClient.js                           modified
-components/FinanceClient.js                              modified
-components/TournamentClient.js                           modified
-lib/actions/facilities.js                                modified
-lib/actions/finance.js                                   modified
-lib/finance-rules.js                                     modified
-lib/queries/finance.js                                   modified
-scripts/check-conventions.js                             modified
-scripts/check-facility-directory.js                      modified
-scripts/check-mutation-reliability.js                    modified
-scripts/check-report.js                                  modified
-supabase/migrations/20260830214936_player_dues_exemption.sql   new
+app/globals.css                            modified
+components/ConfirmAction.js                modified
+components/FinanceClient.js                modified
+scripts/check-conventions.js               modified
+scripts/check-mutation-reliability.js      modified
+scripts/check-report.js                    modified
 ```
 
-**If you see more or fewer than 14, stop and tell me.**
+**If you see more or fewer than 6, stop and tell me what is listed.**
+
+No migration this time. Nothing changes in the database.
 
 ---
 
@@ -68,62 +57,55 @@ supabase/migrations/20260830214936_player_dues_exemption.sql   new
 Summary:
 
 ```
-Player dues, tournament creation refresh, and Saved-on-create
+Budget delete confirmation fix
 ```
 
 **Commit to main**, then **Push origin**.
 
 ---
 
-## About the database
-
-**Already done.** Both migrations in play were applied to production earlier
-today. The migration file here is included only so the repository matches the
-database — applying it again would change nothing.
-
-The Lynch correction is also already live: $48,000 total, Dakota and Tenley
-exempt, the other twelve at $4,000 each, nothing collected.
-
----
-
 ## What to check once it is live
 
-**Tournament creation** — this is the one that looked broken.
+**The main one.** Finance → Budget → expand a category → click **Delete** on a
+line. A confirmation box should appear in the middle of the screen straight
+away, every time, on any row.
 
-Add a tournament and save. It should save once, appear straight away, open its
-drawer, and need no refresh. The Save button should grey out and read
-"Saving…" while it works, so a second click cannot create a duplicate.
+Then **Cancel**. The box closes and nothing is deleted.
 
-Previously every attempt succeeded and none of them appeared, which is how the
-second "Show Me The Money" was created.
+**A safe delete.** Add a throwaway budget line first — something like
+"QA test line", $1, in any category, with no transactions against it. Then
+Delete it, Confirm, and it should disappear immediately.
 
-**Lynch player dues.** Team total $48,000. Dakota McDaniel and Tenley Lynch
-should read as owing no dues — not "not set". The other twelve at $4,000 each.
-Collected $0, outstanding $48,000.
+Please do not use **Coach stipends** or **Tournament Entry Fees** for this.
 
-**Setting dues for a team.** Team total is the default. There is a checklist of
-who owes; unchecking someone removes them from the split and records them as
-owing no dues. The preview should add up to exactly what you typed. Amount per
-player should multiply out correctly.
-
-**Budget to dues.** Add a budget line with "Dues" in the name. The notice
-should say plainly that players have not been charged yet, and offer to set
-dues with the amount carried across. Nothing is charged until you submit.
-
-**Locations & Resources.** Create a hotel. It should appear under Saved
-immediately.
+**Protection still works.** Try deleting a line that has transactions filed
+against it. It should refuse and offer to move those transactions to another
+line rather than deleting them.
 
 ---
 
-## If something looks wrong
+## What was wrong
 
-Tell me what you see and I will diagnose before changing anything. Nothing here
-alters existing financial history: all payments, obligations and tournament
-records were verified intact.
+The confirmation was never being drawn on the page at all.
+
+FinanceClient handed the confirmation settings to the Budget tab, and the
+Budget tab's list of accepted settings did not include them, so they were
+quietly thrown away before reaching the part that draws the box. Clicking
+Delete did work and did register — there was simply nothing to show for it.
+
+That is also why the previous fix changed nothing: it adjusted where the box
+would appear, and the box was never being created.
+
+It is now a centred box rather than one tucked inside the table row, so
+collapsing a category or scrolling cannot lose it.
+
+I have also added an automatic check that catches this kind of wiring mistake,
+so a setting passed to a component but not accepted by it will now fail the
+test suite rather than producing a screen that quietly does nothing.
 
 ---
 
 ## Alternative
 
-`0001-*.patch` is the same change with the commit message preserved, if you
-prefer `git am`. It needs a command line — ignore it otherwise.
+`0001-*.patch` is the same change with the commit message preserved, for
+`git am`. Ignore it unless you want a command line.

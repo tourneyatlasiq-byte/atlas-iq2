@@ -83,3 +83,68 @@ export function ConfirmAction({
     </div>
   );
 }
+
+/**
+ * The same question, as a modal.
+ *
+ * An inline confirmation is right inside a drawer or a card, where it sits
+ * next to what it is about and cannot be lost. It is the wrong shape inside an
+ * expandable table: it renders as a block child of a grid board, it is
+ * unmounted the moment the coach collapses the category, and on the last row
+ * it lands against the page footer.
+ *
+ * A row-level destructive action gets this instead. It is centred, it cannot
+ * be scrolled past, and collapsing the category behind it changes nothing.
+ *
+ * Escape and a backdrop click both cancel, and neither does while the action is
+ * in flight — dismissing a request that is already running would leave the
+ * coach unsure whether it happened.
+ */
+export function ConfirmDialog({
+  title,
+  message,
+  confirmLabel = "Delete",
+  pendingLabel = "Working…",
+  cancelLabel = "Cancel",
+  onConfirm,
+  onCancel,
+  pending = false,
+  error = null,
+}) {
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape" && !pending) onCancel?.();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, pending]);
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      onClick={pending ? undefined : onCancel}
+    >
+      <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>{title ?? confirmLabel}</h2>
+        </div>
+
+        <div className="modal-body">
+          <p className="section-body">{message}</p>
+          {error && <div className="alert alert-error">{error}</div>}
+        </div>
+
+        <div className="modal-foot">
+          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
+            {cancelLabel}
+          </button>
+          <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={pending}>
+            {pending ? pendingLabel : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

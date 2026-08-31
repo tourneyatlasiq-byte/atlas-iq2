@@ -48,8 +48,15 @@ section("Shared primitives");
   ok("...and errors reach the caller, not a shared surface",
     /onError: onErrorLocal/.test(mut));
 
+  // Scoped per component: the file now holds ConfirmAction and ConfirmDialog,
+  // and a whole-file count would pass with one of them broken.
+  const inline = conf.slice(conf.indexOf("export function ConfirmAction"),
+                            conf.indexOf("export function ConfirmDialog"));
+  const dialog = conf.slice(conf.indexOf("export function ConfirmDialog"));
   ok("ConfirmAction disables both controls while pending",
-    (conf.match(/disabled=\{pending\}/g) || []).length === 2);
+    (inline.match(/disabled=\{pending\}/g) || []).length === 2);
+  ok("ConfirmDialog disables both controls while pending",
+    (dialog.match(/disabled=\{pending\}/g) || []).length === 2);
   ok("...shows progress on the destructive control", /\{pending \? pendingLabel/.test(conf));
   ok("...and renders its own error, not a container's", /confirm-inline-error/.test(conf));
   ok("useConfirm asks one question at a time", /const \[asking, setAsking\]/.test(conf));

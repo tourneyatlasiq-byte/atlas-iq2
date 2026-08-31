@@ -1,0 +1,356 @@
+From 8b2df2e934f8ba5cfaa17ebc4733e9ccfae27983 Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Mon, 31 Aug 2026 17:16:59 +0000
+Subject: [PATCH] Budget delete: the confirmation was never rendered
+
+Clicking Delete on a budget line did nothing visible. No modal, no error, no
+change to the row.
+
+FinanceClient passed confirmingDelete, onCancelDelete, onConfirmDelete and
+deleteError to BudgetTab. BudgetTab's parameter list did not name them, so they
+were dropped there and never reached BudgetSection, whose own
+`confirmingDelete = null` default then made the comparison against
+`budget:<id>` permanently false.
+
+The click handler fired and the state changed. Nothing rendered it. Nothing was
+hidden, off-screen or behind a z-index, which is why the earlier
+scroll-into-view change had no effect on it at all.
+
+The confirmation is now a modal rather than an inline block. Inline is right in
+a drawer, where it sits beside what it is about; inside an expandable table it
+is unmounted the moment the coach collapses the category, stranding the state.
+The modal renders once at section level, outside every group, and resolves the
+row across all categories so a collapsed one still works. Escape and a backdrop
+click cancel, neither while the request is in flight.
+
+Convention check 4j is added for the class of fault: a prop a parent passes must
+be destructured by the child. Like 4i, this is a default value turning a wiring
+mistake into a silently wrong screen instead of an error.
+---
+ app/globals.css                       | 11 +++++
+ components/ConfirmAction.js           | 65 +++++++++++++++++++++++++++
+ components/FinanceClient.js           | 64 ++++++++++++++++++--------
+ scripts/check-conventions.js          | 35 +++++++++++++++
+ scripts/check-mutation-reliability.js |  9 +++-
+ scripts/check-report.js               | 37 +++++++++++++++
+ 6 files changed, 201 insertions(+), 20 deletions(-)
+
+diff --git a/app/globals.css b/app/globals.css
+index cf0fafe..59d4d42 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -6128,3 +6128,14 @@ td.committed { color: var(--status-wait); font-weight: 600; }
+   .dues-budget-actions { width: 100%; flex-direction: column; }
+   .dues-budget-actions .btn { width: 100%; min-height: 44px; }
+ }
++
++/* A short confirmation, not a form. Narrower than the editing modals so the
++   question reads as a question. */
++.modal-confirm { max-width: 460px; }
++.modal-confirm .modal-body { padding-top: 4px; }
++.modal-confirm .modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
++
++@media (max-width: 720px) {
++  .modal-confirm .modal-foot { flex-direction: column-reverse; }
++  .modal-confirm .modal-foot .btn { width: 100%; min-height: 44px; }
++}
+diff --git a/components/ConfirmAction.js b/components/ConfirmAction.js
+index 6ec0a97..cebdc52 100644
+--- a/components/ConfirmAction.js
++++ b/components/ConfirmAction.js
+@@ -83,3 +83,68 @@ export function ConfirmAction({
+     </div>
+   );
+ }
++
++/**
++ * The same question, as a modal.
++ *
++ * An inline confirmation is right inside a drawer or a card, where it sits
++ * next to what it is about and cannot be lost. It is the wrong shape inside an
++ * expandable table: it renders as a block child of a grid board, it is
++ * unmounted the moment the coach collapses the category, and on the last row
++ * it lands against the page footer.
++ *
++ * A row-level destructive action gets this instead. It is centred, it cannot
++ * be scrolled past, and collapsing the category behind it changes nothing.
++ *
++ * Escape and a backdrop click both cancel, and neither does while the action is
++ * in flight — dismissing a request that is already running would leave the
++ * coach unsure whether it happened.
++ */
++export function ConfirmDialog({
++  title,
++  message,
++  confirmLabel = "Delete",
++  pendingLabel = "Working…",
++  cancelLabel = "Cancel",
++  onConfirm,
++  onCancel,
++  pending = false,
++  error = null,
++}) {
++  useEffect(() => {
++    function onKey(e) {
++      if (e.key === "Escape" && !pending) onCancel?.();
++    }
++    document.addEventListener("keydown", onKey);
++    return () => document.removeEventListener("keydown", onKey);
++  }, [onCancel, pending]);
++
++  return (
++    <div
++      className="modal-backdrop"
++      role="dialog"
++      aria-modal="true"
++      onClick={pending ? undefined : onCancel}
++    >
++      <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
++        <div className="modal-head">
++          <h2>{title ?? confirmLabel}</h2>
++        </div>
++
++        <div className="modal-body">
++          <p className="section-body">{message}</p>
++          {error && <div className="alert alert-error">{error}</div>}
++        </div>
++
++        <div className="modal-foot">
++          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
++            {cancelLabel}
++          </button>
++          <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={pending}>
++            {pending ? pendingLabel : confirmLabel}
++          </button>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index 59b72e6..151b767 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -4,7 +4,7 @@ import Link from "next/link";
+ import { DrawerShell } from "./DrawerShell";
+ 
+ import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
+-import { ConfirmAction, useConfirm } from "./ConfirmAction";
++import { ConfirmAction, ConfirmDialog, useConfirm } from "./ConfirmAction";
+ import { useActionFeedback } from "../lib/useActionFeedback";
+ import { PageHelp } from "./PageHelp";
+ import { useOpenParam } from "./useOpenParam";
+@@ -972,7 +972,21 @@ export function FundsInTab({ funds, dues }) {
+ 
+ /* ---------------- Budget ---------------- */
+ 
+-export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending }) {
++/**
++ * The confirmation props are threaded through deliberately.
++ *
++ * FinanceClient passed confirmingDelete, onCancelDelete, onConfirmDelete and
++ * deleteError to this component, and the parameter list did not destructure
++ * them, so they were dropped here and never reached BudgetSection. Its own
++ * `confirmingDelete = null` default then meant the comparison against
++ * `budget:<id>` was never true and the confirmation never mounted at all.
++ *
++ * Clicking Delete DID fire and DID set state; there was simply nothing
++ * rendering it. Nothing was hidden, off-screen or behind a z-index — this is
++ * why the scroll-into-view change had no effect.
++ */
++export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending,
++                            confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
+ 
+   return (
+     <>
+@@ -1019,6 +1033,10 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
+             title="Expenses" groups={budget.expenses} openCats={openCats}
+             setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
+             onDelete={onDelete} pending={pending}
++            confirmingDelete={confirmingDelete}
++            onCancelDelete={onCancelDelete}
++            onConfirmDelete={onConfirmDelete}
++            deleteError={deleteError}
+           />
+         </>
+       )}
+@@ -1053,6 +1071,12 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+                         confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
+   if (groups.length === 0) return null;
+ 
++  // The parent holds an id; the dialog needs the row it names. Looked up
++  // across every category so a collapsed one still resolves.
++  const confirmRow = confirmingDelete
++    ? groups.flatMap((g) => g.rows).find((r) => `budget:${r.id}` === confirmingDelete) ?? null
++    : null;
++
+   return (
+     <div className="group">
+       <div className="group-head group-head-action" style={{ cursor: "default" }}>
+@@ -1160,29 +1184,31 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+                       )}
+                     </span>
+                   </div>
+-                  {/* Scrolled into view when it appears. On the last budget
+-                      row the confirmation renders directly above the page
+-                      footer, and a coach who clicked Delete near the bottom of
+-                      a long budget saw nothing happen — the question was below
+-                      the fold. */}
+-                  {confirmingDelete === `budget:${r.id}` && (
+-                    <ConfirmAction
+-                      message={`Delete the budget line "${r.name}"? Transactions already recorded against it are not deleted.`}
+-                      confirmLabel="Delete budget line"
+-                      pendingLabel="Deleting…"
+-                      cancelLabel="Keep budget line"
+-                      pending={pending}
+-                      error={deleteError}
+-                      onCancel={onCancelDelete}
+-                      onConfirm={() => onConfirmDelete(r)}
+-                    />
+-                  )}
+                   </Fragment>
+                 ))}
+             </div>
+           );
+         })}
+       </div>
++
++      {/* OUTSIDE THE GROUPS ON PURPOSE.
++          Rendered inside a category, this confirmation was unmounted the
++          moment the coach collapsed it, and on the last row it landed against
++          the page footer. A modal cannot be scrolled past or collapsed away,
++          and it is the same question either way. */}
++      {confirmRow && (
++        <ConfirmDialog
++          title="Delete budget line"
++          message={`Delete the budget line "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
++          confirmLabel="Delete budget line"
++          pendingLabel="Deleting…"
++          cancelLabel="Keep budget line"
++          pending={pending}
++          error={deleteError}
++          onCancel={onCancelDelete}
++          onConfirm={() => onConfirmDelete(confirmRow)}
++        />
++      )}
+     </div>
+   );
+ }
+diff --git a/scripts/check-conventions.js b/scripts/check-conventions.js
+index 0cc821e..b0c222c 100644
+--- a/scripts/check-conventions.js
++++ b/scripts/check-conventions.js
+@@ -304,6 +304,41 @@ for (const f of ["lib/finance-rules.js", "lib/queries/finance.js", "lib/actions/
+   }
+ }
+ 
++
++/* ---- 4j. A prop passed by a parent must be destructured by the child ----
++   FinanceClient passed confirmingDelete, onCancelDelete, onConfirmDelete and
++   deleteError to BudgetTab. BudgetTab's parameter list did not name them, so
++   they were dropped, and BudgetSection's own `confirmingDelete = null` default
++   meant its comparison was never true and the confirmation never mounted.
++
++   Clicking Delete fired and set state. Nothing rendered it. Nothing was
++   hidden, off-screen or behind a z-index, which is why a scroll-into-view fix
++   changed nothing.
++
++   Same shape as 4i: a default value turning a wiring mistake into a silently
++   wrong screen instead of an error. */
++
++{
++  const src = fs.readFileSync("components/FinanceClient.js", "utf8");
++
++  for (const child of ["BudgetTab", "BudgetSection"]) {
++    const sig = new RegExp(`function ${child}\\(\\{([\\s\\S]*?)\\}\\)`).exec(src);
++    const use = new RegExp(`<${child}\\b([\\s\\S]*?)/>`).exec(src);
++    if (!sig || !use) continue;
++
++    const declared = sig[1];
++    const passed = [...use[1].matchAll(/(\w+)=\{/g)].map((m) => m[1]);
++    const dropped = passed.filter((name) => !new RegExp(`\\b${name}\\b`).test(declared));
++
++    if (dropped.length > 0) {
++      failures.push(
++        `${child}: receives ${dropped.join(", ")} but does not destructure ` +
++        `${dropped.length === 1 ? "it" : "them"} — the value is silently dropped`
++      );
++    }
++  }
++}
++
+ /* ---- 4i. A required prop must actually be passed by its page ----------
+    isOwner was added to SettingsClient and never passed, so it defaulted to
+    false and every user — including the owner — was told they could not change
+diff --git a/scripts/check-mutation-reliability.js b/scripts/check-mutation-reliability.js
+index 2d90df7..7214992 100644
+--- a/scripts/check-mutation-reliability.js
++++ b/scripts/check-mutation-reliability.js
+@@ -48,8 +48,15 @@ section("Shared primitives");
+   ok("...and errors reach the caller, not a shared surface",
+     /onError: onErrorLocal/.test(mut));
+ 
++  // Scoped per component: the file now holds ConfirmAction and ConfirmDialog,
++  // and a whole-file count would pass with one of them broken.
++  const inline = conf.slice(conf.indexOf("export function ConfirmAction"),
++                            conf.indexOf("export function ConfirmDialog"));
++  const dialog = conf.slice(conf.indexOf("export function ConfirmDialog"));
+   ok("ConfirmAction disables both controls while pending",
+-    (conf.match(/disabled=\{pending\}/g) || []).length === 2);
++    (inline.match(/disabled=\{pending\}/g) || []).length === 2);
++  ok("ConfirmDialog disables both controls while pending",
++    (dialog.match(/disabled=\{pending\}/g) || []).length === 2);
+   ok("...shows progress on the destructive control", /\{pending \? pendingLabel/.test(conf));
+   ok("...and renders its own error, not a container's", /confirm-inline-error/.test(conf));
+   ok("useConfirm asks one question at a time", /const \[asking, setAsking\]/.test(conf));
+diff --git a/scripts/check-report.js b/scripts/check-report.js
+index 90b551d..15157f9 100644
+--- a/scripts/check-report.js
++++ b/scripts/check-report.js
+@@ -708,6 +708,43 @@ console.log("\nTeam dues allocation");
+   assertEq("...with no automatic synchronisation afterwards",
+     /NOT syncing the two\s*\n\s*\* afterwards/.test(act), true);
+ 
++
++  /* ---- Budget delete ----------------------------------------------------
++     Clicking Delete did nothing visible. The handler fired and the state
++     changed; BudgetTab simply never passed the confirmation props on, so
++     nothing rendered. The earlier scroll-into-view change was aimed at the
++     wrong cause and had no effect. */
++
++  assertEq("BudgetTab destructures the confirmation props",
++    /onDelete, pending,\s*\n\s*confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null \}\)/.test(ui), true);
++  assertEq("...and passes them to BudgetSection",
++    /confirmingDelete=\{confirmingDelete\}/.test(ui), true);
++
++  assertEq("a row-level delete uses the modal, not the inline form",
++    /export function ConfirmDialog/.test(conf), true);
++  assertEq("...rendered outside the collapsible groups, so collapsing cannot unmount it",
++    ui.indexOf("{confirmRow && (") > ui.lastIndexOf("{open &&"), true);
++  assertEq("...resolving the row across every category",
++    /groups\.flatMap\(\(g\) => g\.rows\)\.find/.test(ui), true);
++  assertEq("...and no inline confirmation remains on a budget row",
++    /confirmingDelete === `budget:\$\{r\.id\}`/.test(ui), false);
++
++  assertEq("escape cancels the dialog", /e\.key === "Escape" && !pending/.test(conf), true);
++  assertEq("...but not while the request is running",
++    /onClick=\{pending \? undefined : onCancel\}/.test(conf), true);
++  assertEq("...and both buttons are disabled in flight",
++    (conf.match(/disabled=\{pending\}/g) || []).length >= 2, true);
++  assertEq("cancelling deletes nothing",
++    /onCancel=\{onCancelDelete\}/.test(ui), true);
++  assertEq("confirming passes the resolved row",
++    /onConfirm=\{\(\) => onConfirmDelete\(confirmRow\)\}/.test(ui), true);
++  // The guard refuses and asks where the transactions should go, rather than
++  // deleting financial history along with the line.
++  assertEq("a referenced line is still protected",
++    /filed against this budget line\. Move them to another line first/.test(act), true);
++  assertEq("...offering reassignment rather than deletion",
++    /needsReassign: true/.test(act), true);
++
+   assertEq("an inline confirmation scrolls itself into view",
+     /scrollIntoView\(\{ block: "nearest"/.test(conf), true);
+ }
+-- 
+2.43.0
+

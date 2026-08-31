@@ -4,7 +4,7 @@ import Link from "next/link";
 import { DrawerShell } from "./DrawerShell";
 
 import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
-import { ConfirmAction, useConfirm } from "./ConfirmAction";
+import { ConfirmAction, ConfirmDialog, useConfirm } from "./ConfirmAction";
 import { useActionFeedback } from "../lib/useActionFeedback";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
@@ -972,7 +972,21 @@ export function FundsInTab({ funds, dues }) {
 
 /* ---------------- Budget ---------------- */
 
-export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending }) {
+/**
+ * The confirmation props are threaded through deliberately.
+ *
+ * FinanceClient passed confirmingDelete, onCancelDelete, onConfirmDelete and
+ * deleteError to this component, and the parameter list did not destructure
+ * them, so they were dropped here and never reached BudgetSection. Its own
+ * `confirmingDelete = null` default then meant the comparison against
+ * `budget:<id>` was never true and the confirmation never mounted at all.
+ *
+ * Clicking Delete DID fire and DID set state; there was simply nothing
+ * rendering it. Nothing was hidden, off-screen or behind a z-index — this is
+ * why the scroll-into-view change had no effect.
+ */
+export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending,
+                            confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
 
   return (
     <>
@@ -1019,6 +1033,10 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
             title="Expenses" groups={budget.expenses} openCats={openCats}
             setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
             onDelete={onDelete} pending={pending}
+            confirmingDelete={confirmingDelete}
+            onCancelDelete={onCancelDelete}
+            onConfirmDelete={onConfirmDelete}
+            deleteError={deleteError}
           />
         </>
       )}
@@ -1052,6 +1070,12 @@ function summaryMoney(n) {
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
                         confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
   if (groups.length === 0) return null;
+
+  // The parent holds an id; the dialog needs the row it names. Looked up
+  // across every category so a collapsed one still resolves.
+  const confirmRow = confirmingDelete
+    ? groups.flatMap((g) => g.rows).find((r) => `budget:${r.id}` === confirmingDelete) ?? null
+    : null;
 
   return (
     <div className="group">
@@ -1160,29 +1184,31 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                       )}
                     </span>
                   </div>
-                  {/* Scrolled into view when it appears. On the last budget
-                      row the confirmation renders directly above the page
-                      footer, and a coach who clicked Delete near the bottom of
-                      a long budget saw nothing happen — the question was below
-                      the fold. */}
-                  {confirmingDelete === `budget:${r.id}` && (
-                    <ConfirmAction
-                      message={`Delete the budget line "${r.name}"? Transactions already recorded against it are not deleted.`}
-                      confirmLabel="Delete budget line"
-                      pendingLabel="Deleting…"
-                      cancelLabel="Keep budget line"
-                      pending={pending}
-                      error={deleteError}
-                      onCancel={onCancelDelete}
-                      onConfirm={() => onConfirmDelete(r)}
-                    />
-                  )}
                   </Fragment>
                 ))}
             </div>
           );
         })}
       </div>
+
+      {/* OUTSIDE THE GROUPS ON PURPOSE.
+          Rendered inside a category, this confirmation was unmounted the
+          moment the coach collapsed it, and on the last row it landed against
+          the page footer. A modal cannot be scrolled past or collapsed away,
+          and it is the same question either way. */}
+      {confirmRow && (
+        <ConfirmDialog
+          title="Delete budget line"
+          message={`Delete the budget line "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
+          confirmLabel="Delete budget line"
+          pendingLabel="Deleting…"
+          cancelLabel="Keep budget line"
+          pending={pending}
+          error={deleteError}
+          onCancel={onCancelDelete}
+          onConfirm={() => onConfirmDelete(confirmRow)}
+        />
+      )}
     </div>
   );
 }
