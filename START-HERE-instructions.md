@@ -2,9 +2,11 @@
 
 6 files. Nothing to delete — copy the folders over the top and replace.
 
-Built on top of `ed48bff`, which is what production is running now. Tested at
-2238 assertions with 0 failures and a production build from the committed
-files.
+Built on `ed48bff`, which is what production is running now. No migration; the
+database does not change.
+
+Tested at 2259 assertions with 0 failures and a production build from the
+committed files.
 
 ---
 
@@ -48,8 +50,6 @@ scripts/check-report.js                    modified
 
 **If you see more or fewer than 6, stop and tell me what is listed.**
 
-No migration this time. Nothing changes in the database.
-
 ---
 
 ## Step 3 — Commit and push
@@ -57,7 +57,7 @@ No migration this time. Nothing changes in the database.
 Summary:
 
 ```
-Budget delete confirmation fix
+Budget delete confirmation and blocked-delete workflow
 ```
 
 **Commit to main**, then **Push origin**.
@@ -66,42 +66,54 @@ Budget delete confirmation fix
 
 ## What to check once it is live
 
-**The main one.** Finance → Budget → expand a category → click **Delete** on a
-line. A confirmation box should appear in the middle of the screen straight
-away, every time, on any row.
+**A line that cannot be deleted.** Finance → Budget → expand **Coaches** →
+Delete on **Coach stipends**. You should get:
 
-Then **Cancel**. The box closes and nothing is deleted.
+> **Can't delete this budget line yet**
+> 1 transaction is assigned to "Coach stipends". Reassign it before deleting
+> this budget line.
 
-**A safe delete.** Add a throwaway budget line first — something like
-"QA test line", $1, in any category, with no transactions against it. Then
-Delete it, Confirm, and it should disappear immediately.
+Below that, the transaction itself — Coaching staff, Mid-season stipend,
+15/01/2027. The amount will show as a dash, not $0.00, because that transaction
+is Planned and has no amount recorded yet. That is correct.
 
-Please do not use **Coach stipends** or **Tournament Entry Fees** for this.
+Buttons should be **Keep budget line** and **Review transaction**. There should
+be no Delete button.
 
-**Protection still works.** Try deleting a line that has transactions filed
-against it. It should refuse and offer to move those transactions to another
-line rather than deleting them.
+Click **Review transaction**. It should take you straight to that transaction,
+where **Change** next to the budget line lets you reassign it.
+
+**A line that can be deleted.** Add a throwaway line first — "QA test line",
+$1, any category, no transactions. Delete it. You should get the normal
+confirmation with **Keep budget line** and **Delete budget line**, and
+confirming should remove it immediately.
+
+Please do not use Coach stipends or Tournament Entry Fees for the delete test.
 
 ---
 
 ## What was wrong
 
-The confirmation was never being drawn on the page at all.
+Two things.
 
-FinanceClient handed the confirmation settings to the Budget tab, and the
-Budget tab's list of accepted settings did not include them, so they were
-quietly thrown away before reaching the part that draws the box. Clicking
-Delete did work and did register — there was simply nothing to show for it.
+The confirmation was never being drawn at all. FinanceClient handed the
+confirmation settings to the Budget tab, and the Budget tab's list of accepted
+settings did not include them, so they were quietly discarded before reaching
+the part that draws the box. Clicking Delete did register — there was simply
+nothing to show for it. That is also why the earlier fix changed nothing: it
+adjusted where the box would appear, and no box was being created.
 
-That is also why the previous fix changed nothing: it adjusted where the box
-would appear, and the box was never being created.
+And when a line genuinely cannot be deleted, saying so was not enough. The
+message named no transaction and offered no way to reach it, while still
+showing a Delete button that could only fail. It now lists what is in the way
+and takes you there.
 
-It is now a centred box rather than one tucked inside the table row, so
-collapsing a category or scrolling cannot lose it.
+Nothing is moved for you. Reassigning a transaction is a decision about
+financial history and stays with you; the database protection is unchanged.
 
-I have also added an automatic check that catches this kind of wiring mistake,
-so a setting passed to a component but not accepted by it will now fail the
-test suite rather than producing a screen that quietly does nothing.
+I have also added an automatic check for the original wiring mistake, so a
+setting passed to a component but not accepted by it now fails the test suite
+rather than producing a screen that quietly does nothing.
 
 ---
 

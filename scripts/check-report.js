@@ -716,14 +716,14 @@ console.log("\nTeam dues allocation");
      wrong cause and had no effect. */
 
   assertEq("BudgetTab destructures the confirmation props",
-    /onDelete, pending,\s*\n\s*confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null \}\)/.test(ui), true);
+    /confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,/.test(ui), true);
   assertEq("...and passes them to BudgetSection",
     /confirmingDelete=\{confirmingDelete\}/.test(ui), true);
 
   assertEq("a row-level delete uses the modal, not the inline form",
     /export function ConfirmDialog/.test(conf), true);
   assertEq("...rendered outside the collapsible groups, so collapsing cannot unmount it",
-    ui.indexOf("{confirmRow && (") > ui.lastIndexOf("{open &&"), true);
+    ui.indexOf("{confirmRow && blockers.length === 0 && (") > ui.lastIndexOf("{open &&"), true);
   assertEq("...resolving the row across every category",
     /groups\.flatMap\(\(g\) => g\.rows\)\.find/.test(ui), true);
   assertEq("...and no inline confirmation remains on a budget row",
@@ -744,6 +744,62 @@ console.log("\nTeam dues allocation");
     /filed against this budget line\. Move them to another line first/.test(act), true);
   assertEq("...offering reassignment rather than deletion",
     /needsReassign: true/.test(act), true);
+
+
+  /* ---- Blocked delete is a resolution, not a refusal --------------------
+     The modal said a transaction was in the way without saying which one or
+     where to go, and offered a Delete button that could only fail. A coach had
+     to close it, open Transactions, and work out for themselves what to
+     change. */
+
+  assertEq("what blocks the delete is known before the click",
+    /const blockers = confirmRow\s*\n?\s*\? transactions\.filter\(\(t\) => t\.budget_item_id === confirmRow\.id\)/.test(ui), true);
+  assertEq("a clean line still gets the plain confirmation",
+    /confirmRow && blockers\.length === 0 && \(/.test(ui), true);
+  assertEq("a blocked line gets a different dialog",
+    /confirmRow && blockers\.length > 0 && \(/.test(ui), true);
+  assertEq("...titled as a blocker, not a confirmation",
+    /Can&rsquo;t delete this budget line yet/.test(ui), true);
+  assertEq("...naming the budget line", /assigned to\{" "\}\s*\n\s*&ldquo;\{confirmRow\.name\}&rdquo;/.test(ui), true);
+
+  // Date, description and amount for each blocker.
+  assertEq("each blocker shows a description",
+    /\{t\.vendor \|\| t\.item \|\| "Transaction"\}/.test(ui), true);
+  assertEq("...a date", /\{fmtDate\(t\.txn_date\)\}/.test(ui), true);
+  assertEq("...and an amount", /\{money\(t\.actual_amount\)\}/.test(ui), true);
+  assertEq("a planned transaction with no amount shows a dash, not $0.00",
+    mod.money(null), "—");
+
+  // Many blockers must not produce a modal taller than the screen.
+  assertEq("the list is capped", /blockers\.slice\(0, 5\)/.test(ui), true);
+  assertEq("...with the remainder counted", /and \{blockers\.length - 5\} more/.test(ui), true);
+
+  // Singular and plural.
+  assertEq("one blocker reads Review transaction",
+    /blockers\.length === 1 \? "Review transaction" : "Review transactions"/.test(ui), true);
+  assertEq("...and the sentence agrees",
+    /blockers\.length === 1 \? "transaction is" : "transactions are"/.test(ui), true);
+
+  // No button that could only fail.
+  assertEq("no Delete button while blocked",
+    /No Delete button at all\. It could only fail\./.test(ui), true);
+  assertEq("Keep budget line is still offered", /Keep budget line/.test(ui), true);
+
+  // The route out.
+  assertEq("a blocker row opens that transaction",
+    /onClick=\{\(\) => onReviewTransaction\?\.\(t\)\}/.test(ui), true);
+  assertEq("...the primary action opens the first",
+    /onClick=\{\(\) => onReviewTransaction\?\.\(blockers\[0\]\)\}/.test(ui), true);
+  assertEq("...closing the confirmation and switching tab",
+    /confirmDelete\.cancel\(\);\s*\n\s*setTab\("transactions"\);\s*\n\s*setDetailTxn\(t\)/.test(ui), true);
+  assertEq("...to a form where the budget line can actually be changed",
+    /onClick=\{\(\) => setPickingLine\(true\)\}/.test(ui), true);
+
+  // Nothing is moved for them.
+  assertEq("the server still refuses without an explicit destination",
+    /needsReassign: true/.test(act), true);
+  assertEq("...and nothing is reassigned automatically",
+    /Do not automatically move|moveTo/.test(act), true);
 
   assertEq("an inline confirmation scrolls itself into view",
     /scrollIntoView\(\{ block: "nearest"/.test(conf), true);

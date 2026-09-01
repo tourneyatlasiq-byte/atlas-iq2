@@ -697,6 +697,15 @@ export function FinanceClient({
           }}
           deleteError={error}
           pending={pending}
+          transactions={transactions}
+          /* Straight to the transaction that is in the way, with its budget
+             line editable there. The confirmation closes first so the coach is
+             not left with a stale modal behind the drawer. */
+          onReviewTransaction={(t) => {
+            confirmDelete.cancel();
+            setTab("transactions");
+            setDetailTxn(t);
+          }}
         />
       )}
 
@@ -986,7 +995,8 @@ export function FundsInTab({ funds, dues }) {
  * why the scroll-into-view change had no effect.
  */
 export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending,
-                            confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
+                            confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
+                            transactions = [], onReviewTransaction }) {
 
   return (
     <>
@@ -1037,6 +1047,8 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
             onCancelDelete={onCancelDelete}
             onConfirmDelete={onConfirmDelete}
             deleteError={deleteError}
+            transactions={transactions}
+            onReviewTransaction={onReviewTransaction}
           />
         </>
       )}
@@ -1068,7 +1080,8 @@ function summaryMoney(n) {
 }
 
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
-                        confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null }) {
+                        confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
+                        transactions = [], onReviewTransaction }) {
   if (groups.length === 0) return null;
 
   // The parent holds an id; the dialog needs the row it names. Looked up
@@ -1076,6 +1089,18 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
   const confirmRow = confirmingDelete
     ? groups.flatMap((g) => g.rows).find((r) => `budget:${r.id}` === confirmingDelete) ?? null
     : null;
+
+  /**
+   * What is actually in the way.
+   *
+   * Known before the coach clicks Delete, from data already on the page, so
+   * the modal can offer the right thing straight away rather than presenting a
+   * Delete button and then refusing. The server still checks: this decides
+   * what to show, not what is allowed.
+   */
+  const blockers = confirmRow
+    ? transactions.filter((t) => t.budget_item_id === confirmRow.id)
+    : [];
 
   return (
     <div className="group">
@@ -1196,7 +1221,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           moment the coach collapsed it, and on the last row it landed against
           the page footer. A modal cannot be scrolled past or collapsed away,
           and it is the same question either way. */}
-      {confirmRow && (
+      {confirmRow && blockers.length === 0 && (
         <ConfirmDialog
           title="Delete budget line"
           message={`Delete the budget line "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
@@ -1208,6 +1233,76 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           onCancel={onCancelDelete}
           onConfirm={() => onConfirmDelete(confirmRow)}
         />
+      )}
+
+      {/* BLOCKED IS A DIFFERENT QUESTION.
+          Telling a coach that a transaction is in the way, without saying
+          which one or where to go, leaves them to close the box, open
+          Transactions, and work out for themselves what to change. And
+          offering Delete while deletion is impossible invites a click that can
+          only fail.
+
+          So when something blocks it, this stops being a confirmation and
+          becomes the thing that resolves it: what is in the way, and a way
+          straight to it. Nothing is moved automatically — reassigning is a
+          decision about financial history and stays with the coach. */}
+      {confirmRow && blockers.length > 0 && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancelDelete}>
+          <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Can&rsquo;t delete this budget line yet</h2>
+            </div>
+
+            <div className="modal-body">
+              <p className="section-body">
+                <strong>{blockers.length}</strong>{" "}
+                {blockers.length === 1 ? "transaction is" : "transactions are"} assigned to{" "}
+                &ldquo;{confirmRow.name}&rdquo;. Reassign{" "}
+                {blockers.length === 1 ? "it" : "them"} before deleting this budget line.
+              </p>
+
+              <ul className="blocker-list">
+                {/* Capped so a line with forty transactions does not produce a
+                    modal taller than the screen. */}
+                {blockers.slice(0, 5).map((t) => (
+                  <li key={t.id} className="blocker">
+                    <button
+                      type="button"
+                      className="blocker-open"
+                      onClick={() => onReviewTransaction?.(t)}
+                    >
+                      <span className="blocker-main">
+                        <span className="blocker-name">{t.vendor || t.item || "Transaction"}</span>
+                        <span className="blocker-date">{fmtDate(t.txn_date)}</span>
+                      </span>
+                      <span className="blocker-amount">{money(t.actual_amount)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {blockers.length > 5 && (
+                <p className="field-note">
+                  and {blockers.length - 5} more.
+                </p>
+              )}
+            </div>
+
+            <div className="modal-foot">
+              <button type="button" className="btn btn-secondary" onClick={onCancelDelete}>
+                Keep budget line
+              </button>
+              {/* No Delete button at all. It could only fail. */}
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => onReviewTransaction?.(blockers[0])}
+              >
+                {blockers.length === 1 ? "Review transaction" : "Review transactions"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

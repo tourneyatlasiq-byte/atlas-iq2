@@ -6139,3 +6139,26 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .modal-confirm .modal-foot { flex-direction: column-reverse; }
   .modal-confirm .modal-foot .btn { width: 100%; min-height: 44px; }
 }
+
+/* What is blocking a budget line from being deleted. Each row opens that
+   transaction, so the modal is the route to fixing it rather than a notice
+   about it. */
+.blocker-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.blocker-open {
+  width: 100%; display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; padding: 9px 12px; cursor: pointer; text-align: left;
+  background: var(--surface-sunken, #f8fafc);
+  border: 1px solid var(--border); border-radius: var(--radius-control);
+  font: inherit; color: inherit;
+}
+.blocker-open:hover { background: #eef2f7; }
+.blocker-main { display: grid; gap: 2px; min-width: 0; }
+.blocker-name {
+  font-weight: 600; color: var(--navy); font-size: 13.5px; overflow-wrap: anywhere;
+}
+.blocker-date { font-size: 12.5px; color: var(--slate); }
+.blocker-amount { font-weight: 600; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .blocker-open { min-height: 44px; }
+}
