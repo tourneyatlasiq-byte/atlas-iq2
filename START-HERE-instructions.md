@@ -1,12 +1,14 @@
-# Budget delete hotfix
+# Budget Line picker: show lines immediately
 
-6 files. Nothing to delete — copy the folders over the top and replace.
+1 file. Nothing to delete — copy it over the top and replace.
 
-Built on `ed48bff`, which is what production is running now. No migration; the
-database does not change.
+Built on `40bdbed`, which is what production is running now. No migration; the database does not
+change.
 
-Tested at 2259 assertions with 0 failures and a production build from the
-committed files.
+Tested at 765 assertions with 0 failures (full syntax check across all 185 files, plus the full
+convention suite). I could not run a production build myself this time — my sandbox has no route to
+Google Fonts, which the build needs. GitHub's own build will run automatically the moment you push, and
+will fail loudly on the pull request/commit if anything's actually wrong.
 
 ---
 
@@ -20,35 +22,36 @@ In GitHub Desktop:
 
 ---
 
-## Step 1 — Copy the files
+## Step 1 — Copy the file
 
-The download contains three folders:
+The download contains one folder and one file:
 
 ```
-app/
-components/
-scripts/
+components/FinanceClient.js
+0001-Transaction-Budget-Line-show-available-lines-immedia.patch
 ```
 
-Copy all three into the top level of your `atlas-iq2` folder. Choose
-**Replace the files in the destination**.
+Copy the `components` folder into the top level of your `atlas-iq2` folder. Choose **Replace the
+files in the destination**.
+
+The `.patch` file is optional — copy it into the top level too if you want the same paper trail as
+past updates (it's just this same change, saved in a format `git am` can read). Skip it if you don't
+care to keep it; nothing about the app depends on it being there.
 
 ---
 
 ## Step 2 — Check the count
 
-GitHub Desktop should show **exactly 6 changes**:
+GitHub Desktop should show **exactly 1 change** (2 if you also copied the `.patch` file):
 
 ```
-app/globals.css                            modified
-components/ConfirmAction.js                modified
-components/FinanceClient.js                modified
-scripts/check-conventions.js               modified
-scripts/check-mutation-reliability.js      modified
-scripts/check-report.js                    modified
+components/FinanceClient.js                                      modified
+0001-Transaction-Budget-Line-show-available-lines-immedia.patch   added        (only if you copied it)
 ```
 
-**If you see more or fewer than 6, stop and tell me what is listed.**
+**If you see anything else listed — especially anything under `app/`, `lib/`, `scripts/`, or
+`supabase/` — stop and tell me what's listed. Nothing outside `components/FinanceClient.js` should
+be touched by this one.**
 
 ---
 
@@ -57,7 +60,7 @@ scripts/check-report.js                    modified
 Summary:
 
 ```
-Budget delete confirmation and blocked-delete workflow
+Transaction Budget Line: show available lines immediately, not after typing
 ```
 
 **Commit to main**, then **Push origin**.
@@ -66,58 +69,66 @@ Budget delete confirmation and blocked-delete workflow
 
 ## What to check once it is live
 
-**A line that cannot be deleted.** Finance → Budget → expand **Coaches** →
-Delete on **Coach stipends**. You should get:
+Finance → Transactions → **Add transaction**. Click **Choose a budget line**. The list of your
+expense budget lines should appear immediately — nothing to type first. Type a few letters of one of
+them; the list should narrow to match. Pick one, save the transaction, reload the page, open it again
+— the same budget line should still be shown.
 
-> **Can't delete this budget line yet**
-> 1 transaction is assigned to "Coach stipends". Reassign it before deleting
-> this budget line.
+Switch **Type** to Income before picking a line, and check the picker shows your income lines instead,
+same as before.
 
-Below that, the transaction itself — Coaching staff, Mid-season stipend,
-15/01/2027. The amount will show as a dash, not $0.00, because that transaction
-is Planned and has no amount recorded yet. That is correct.
+Edit an existing transaction and click **Change** next to its budget line — same immediate list,
+same filtering, and the transaction's original line should still show correctly before you change
+anything.
 
-Buttons should be **Keep budget line** and **Review transaction**. There should
-be no Delete button.
+Then the reassignment path: Finance → Budget → find a line with a transaction against it (**Coach
+stipends** works, same as last time) → Delete → **Review transaction** → **Change**. Same immediate
+list there too, since it's the same field.
 
-Click **Review transaction**. It should take you straight to that transaction,
-where **Change** next to the budget line lets you reassign it.
+Try this on your phone too — tap the field, the list should be usable right away without the keyboard
+needing to be involved first.
 
-**A line that can be deleted.** Add a throwaway line first — "QA test line",
-$1, any category, no transactions. Delete it. You should get the normal
-confirmation with **Keep budget line** and **Delete budget line**, and
-confirming should remove it immediately.
+If an organization/season genuinely has no budget lines of the type you're adding (rare, but try it on
+a fresh test org if you have one), the picker should say plainly that none exist yet, with the **+ Add
+budget line** button still there as the way out.
 
-Please do not use Coach stipends or Tournament Entry Fees for the delete test.
+Nothing about saving a transaction changed — opening or closing this picker, or typing into it,
+should never create or change a transaction by itself. Only clicking Save does that, same as always.
 
 ---
 
 ## What was wrong
 
-Two things.
+Clicking Budget Line opened a search box with nothing under it. Every line existed, but none of them
+would show until you typed a character, so you had to already know what a budget line was called
+before you could pick it.
 
-The confirmation was never being drawn at all. FinanceClient handed the
-confirmation settings to the Budget tab, and the Budget tab's list of accepted
-settings did not include them, so they were quietly discarded before reaching
-the part that draws the box. Clicking Delete did register — there was simply
-nothing to show for it. That is also why the earlier fix changed nothing: it
-adjusted where the box would appear, and no box was being created.
+The picker component behind this field (used for a few different lookups in the app) has two ways to
+show items: a filtered list once you start typing, and a second list meant to show something before
+you type anything. Every other field that uses this picker was already using that second list.
+Transaction Budget Line was the one field that never filled it in, so it had nothing to show until
+search kicked in.
 
-And when a line genuinely cannot be deleted, saying so was not enough. The
-message named no transaction and offered no way to reach it, while still
-showing a Delete button that could only fail. It now lists what is in the way
-and takes you there.
+It now fills that in with the season's budget lines, split by Expense/Income to match what you'd end
+up picking anyway. Typing still narrows the list exactly as before — nothing about search changed.
+The message under an empty list now says there are no budget lines yet, instead of telling you to
+start typing.
 
-Nothing is moved for you. Reassigning a transaction is a decision about
-financial history and stays with you; the database protection is unchanged.
+Selecting a line still only ever picks a real, existing budget line. There is still no way to type
+something in that field and have it saved directly as a budget line — creating one still goes through
+the same "+ Add budget line" form it always did. Add, Edit, and reassigning a line from the Budget
+delete blocked screen all use this one field, so fixing it here fixes all three at once.
 
-I have also added an automatic check for the original wiring mistake, so a
-setting passed to a component but not accepted by it now fails the test suite
-rather than producing a screen that quietly does nothing.
+I deliberately did not touch the shared picker component itself, or the other places in the app that
+use it (Contacts, Facilities, and the budget-line picker used when linking a tournament) — those have
+the same "type first" behavior today, but changing the shared component would have changed all of them
+at once, and for Facilities in particular that search-first behavior looks intentional (181 facilities
+is too many to dump in a list at once). That's a separate decision for the broader Finance sweep, not
+bundled into this fix.
 
 ---
 
 ## Alternative
 
-`0001-*.patch` is the same change with the commit message preserved, for
-`git am`. Ignore it unless you want a command line.
+`0001-Transaction-Budget-Line-show-available-lines-immedia.patch` is the same change with the commit
+message preserved, for `git am`. Ignore it unless you want a command line.

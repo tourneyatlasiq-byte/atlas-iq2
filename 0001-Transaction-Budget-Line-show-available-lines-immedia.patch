@@ -1,0 +1,65 @@
+From 0097cabcad78a9cf0c0247bbd64ac7f350be04aa Mon Sep 17 00:00:00 2001
+From: Season Tempo Build <claude@seasontempo.local>
+Date: Wed, 2 Sep 2026 12:37:38 +0000
+Subject: [PATCH] Transaction Budget Line: show available lines immediately,
+ not after typing
+
+Clicking Budget Line in Add/Edit Transaction opened a search box with nothing
+under it. Every line existed, but none of them would show until you typed a
+character, so you had to already know what a budget line was called before
+you could pick it.
+
+The picker component (SearchPicker, shared by several fields in the app) has
+two ways to show items: a filtered list once you start typing, and a
+'suggested' list meant to show something before you type. Every other field
+that uses this picker passes something into 'suggested'. The Transaction
+Budget Line field never did, so it had nothing to show until search kicked
+in.
+
+It now passes the season's budget lines into that existing slot, split by
+Expense/Income to match what you'd end up picking anyway. Typing still
+narrows the list exactly as before. The message under an empty list now says
+there are no budget lines yet, instead of telling you to start typing.
+
+Nothing else about the field changed. Selecting a line still only ever picks
+a real budget line -- there is still no way to type something in and have it
+saved as a budget line directly. Add, Edit, and reassigning a line from the
+Budget delete blocked screen all use this same field, so all three are fixed
+together.
+
+Season Tempo QA: ST-004.
+---
+ components/FinanceClient.js | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index 444bc4c..80478c5 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -1754,13 +1754,22 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
+                   ...b,
+                   searchText: `${b.name} ${b.category}`,
+                 }))}
++                /* ST-004: shown immediately when the picker opens, before any
++                   typing — a coach shouldn't have to already know a budget
++                   line's name to see what exists. `suggested` is the picker's
++                   existing pre-search slot (used elsewhere for likely
++                   matches); typing still narrows the list via `matches`,
++                   computed separately from `items` above, so search behavior
++                   is unchanged. */
++                suggested={eligibleLines}
++                suggestedLabel={isIncome ? "Income budget lines" : "Expense budget lines"}
+                 renderItem={(b) => (
+                   <>
+                     <span className="picker-item-name">{b.name}</span>
+                     <span className="picker-item-meta">{b.category}</span>
+                   </>
+                 )}
+-                emptyHint="Start typing to search your budget lines."
++                emptyHint={`No ${isIncome ? "income" : "expense"} budget lines exist yet for this season.`}
+                 createLabel="+ Add budget line"
+                 onSelect={(b) => {
+                   setBudgetItemId(b.id);
+-- 
+2.43.0
+

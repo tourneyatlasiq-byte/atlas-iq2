@@ -1754,13 +1754,22 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
                   ...b,
                   searchText: `${b.name} ${b.category}`,
                 }))}
+                /* ST-004: shown immediately when the picker opens, before any
+                   typing — a coach shouldn't have to already know a budget
+                   line's name to see what exists. `suggested` is the picker's
+                   existing pre-search slot (used elsewhere for likely
+                   matches); typing still narrows the list via `matches`,
+                   computed separately from `items` above, so search behavior
+                   is unchanged. */
+                suggested={eligibleLines}
+                suggestedLabel={isIncome ? "Income budget lines" : "Expense budget lines"}
                 renderItem={(b) => (
                   <>
                     <span className="picker-item-name">{b.name}</span>
                     <span className="picker-item-meta">{b.category}</span>
                   </>
                 )}
-                emptyHint="Start typing to search your budget lines."
+                emptyHint={`No ${isIncome ? "income" : "expense"} budget lines exist yet for this season.`}
                 createLabel="+ Add budget line"
                 onSelect={(b) => {
                   setBudgetItemId(b.id);
