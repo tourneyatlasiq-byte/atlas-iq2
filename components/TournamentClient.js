@@ -11,7 +11,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useOpenParam } from "./useOpenParam";
 import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FilterChip } from "./NeedsAction";
 import { DocumentSection } from "./DocumentSection";
 import { QuickAddFacility } from "./QuickAddFacility";
@@ -666,8 +666,19 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   /**
    * Games opens while the event is happening — that is when scores are being
    * entered. Everything else starts closed.
+   *
+   * ST-007: a coach routed here from "Review tournament" (the Budget Delete
+   * blocker) needs the Costs section open on arrival, not a drawer that
+   * requires finding and expanding it themselves — that's what would make
+   * the route out of the blocker a dead end in practice. `?section=costs`
+   * is read once, on mount, the same way `?open=` already seeds which
+   * drawer opens.
    */
-  const [open, setOpen] = useState(() => ({ games: phase === "during" }));
+  const searchParams = useSearchParams();
+  const [open, setOpen] = useState(() => ({
+    games: phase === "during",
+    costs: searchParams.get("section") === "costs",
+  }));
   const isOpen = (key) => Boolean(open[key]);
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }));
 

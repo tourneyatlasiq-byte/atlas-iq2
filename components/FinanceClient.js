@@ -698,6 +698,7 @@ export function FinanceClient({
           deleteError={error}
           pending={pending}
           transactions={transactions}
+          tournaments={tournaments}
           /* Straight to the transaction that is in the way, with its budget
              line editable there. The confirmation closes first so the coach is
              not left with a stale modal behind the drawer. */
@@ -996,7 +997,7 @@ export function FundsInTab({ funds, dues }) {
  */
 export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending,
                             confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
-                            transactions = [], onReviewTransaction }) {
+                            transactions = [], onReviewTransaction, tournaments = [] }) {
 
   return (
     <>
@@ -1049,6 +1050,7 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
             deleteError={deleteError}
             transactions={transactions}
             onReviewTransaction={onReviewTransaction}
+            tournaments={tournaments}
           />
         </>
       )}
@@ -1081,7 +1083,7 @@ function summaryMoney(n) {
 
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
                         confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
-                        transactions = [], onReviewTransaction }) {
+                        transactions = [], onReviewTransaction, tournaments = [] }) {
   if (groups.length === 0) return null;
 
   // The parent holds an id; the dialog needs the row it names. Looked up
@@ -1100,6 +1102,21 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
    */
   const blockers = confirmRow
     ? transactions.filter((t) => t.budget_item_id === confirmRow.id)
+    : [];
+
+  /**
+   * ST-007: a tournament can be allocated to a budget line without a single
+   * transaction existing yet — that's the normal state for a Committed event
+   * nobody has paid toward. `blockers` above never saw those, so this line
+   * deleted clean, the FK quietly cleared the tournament's budget_item_id
+   * (ON DELETE SET NULL), and the tournament's committed cost vanished from
+   * Finance with nothing on screen to explain it. Checked separately from
+   * transaction blockers, and — like them — never auto-resolved: which
+   * budget line a tournament's cost counts against is a decision that stays
+   * with the coach.
+   */
+  const tournamentBlockers = confirmRow
+    ? tournaments.filter((t) => t.budget_item_id === confirmRow.id)
     : [];
 
   return (
@@ -1221,7 +1238,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           moment the coach collapsed it, and on the last row it landed against
           the page footer. A modal cannot be scrolled past or collapsed away,
           and it is the same question either way. */}
-      {confirmRow && blockers.length === 0 && (
+      {confirmRow && blockers.length === 0 && tournamentBlockers.length === 0 && (
         <ConfirmDialog
           title="Delete budget line"
           message={`Delete the budget line "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
@@ -1233,6 +1250,68 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           onCancel={onCancelDelete}
           onConfirm={() => onConfirmDelete(confirmRow)}
         />
+      )}
+
+      {/* ST-007: tournament allocations block the same as transactions do,
+          shown once transaction blockers (if any) are cleared. There's no
+          move_to here — reassigning which budget line a tournament counts
+          against happens on the tournament itself, the same record that
+          shows its cost and its committed/considering status, not from a
+          picker inside this dialog. */}
+      {confirmRow && blockers.length === 0 && tournamentBlockers.length > 0 && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancelDelete}>
+          <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Can&rsquo;t delete this budget line yet</h2>
+            </div>
+
+            <div className="modal-body">
+              <p className="section-body">
+                <strong>{tournamentBlockers.length}</strong>{" "}
+                {tournamentBlockers.length === 1 ? "tournament is" : "tournaments are"} allocated to{" "}
+                &ldquo;{confirmRow.name}&rdquo;. Change{" "}
+                {tournamentBlockers.length === 1 ? "its" : "their"} budget line before deleting this one.
+              </p>
+
+              <ul className="blocker-list">
+                {tournamentBlockers.slice(0, 5).map((t) => (
+                  <li key={t.id} className="blocker">
+                    <RelatedLink
+                      href={`/tournaments?open=${t.id}&section=costs`}
+                      className="blocker-open"
+                      title={`Open ${t.name} in Tournaments`}
+                    >
+                      <span className="blocker-main">
+                        <span className="blocker-name">{t.name}</span>
+                      </span>
+                      <span className="blocker-amount">{money(t.total_cost)}</span>
+                    </RelatedLink>
+                  </li>
+                ))}
+              </ul>
+
+              {tournamentBlockers.length > 5 && (
+                <p className="field-note">
+                  and {tournamentBlockers.length - 5} more.
+                </p>
+              )}
+            </div>
+
+            <div className="modal-foot">
+              <button type="button" className="btn btn-secondary" onClick={onCancelDelete}>
+                Keep budget line
+              </button>
+              {/* No Delete button here either — it could only fail. */}
+              <RelatedLink
+                href={`/tournaments?open=${tournamentBlockers[0].id}&section=costs`}
+                className="btn btn-primary"
+                title={`Open ${tournamentBlockers[0].name} in Tournaments`}
+              >
+                {tournamentBlockers.length === 1 ? "Review tournament" : "Review tournaments"}
+              </RelatedLink>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* BLOCKED IS A DIFFERENT QUESTION.
@@ -1908,7 +1987,7 @@ const PAYMENT_VIEWS = [
   { key: "owes", label: "Owes balance" },
   { key: "none", label: "Not started" },
   { key: "notset", label: "Dues not set" },
-  { key: "paid", label: "Paid" },
+  { key: "paid", label: "Paid in full" },
   { key: "former", label: "Former / unlinked" },
 ];
 
@@ -2383,6 +2462,27 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
   // Drives the preview, so a coach sees the arithmetic before saving rather
   // than discovering it in the totals afterwards.
   const [amount, setAmount] = useState(row?.totalDue ?? prefillTotal ?? "");
+
+  const taken = new Set(existing.map((p) => p.player_id));
+  // Season fees are owed by players. Coaches and other staff are excluded.
+  /**
+   * Who the amount applies to.
+   *
+   * Setting dues acts on players who have NONE — giving one to a player who
+   * joined mid-season must not disturb anybody else. Editing team dues acts on
+   * everyone who HAS one, because that is what a team total is.
+   *
+   * ST-005: declared here, ahead of `payers`/`payerIds` below, which read it
+   * immediately on the first render. It previously sat after those reads —
+   * a `const` is hoisted but stays in the temporal dead zone until its own
+   * declaration runs, so every open of this form (Add, Edit Total Due, Edit
+   * team dues all render this same component) threw a ReferenceError before
+   * anything reached the screen. No behavior changes here, only order.
+   */
+  const available = teamEdit
+    ? players.filter((p) => taken.has(p.id) && (p.person_type ?? "player") === "player")
+    : players.filter((p) => !taken.has(p.id) && (p.person_type ?? "player") === "player");
+
   /**
    * Who owes. Defaults to every eligible player, because that is the common
    * case — but a coach's own child may not be charged, and dividing the team
@@ -2420,19 +2520,6 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
       even: Math.min(...shares) === Math.max(...shares),
     };
   }, [amount, duesMode, selected.length]);
-
-  const taken = new Set(existing.map((p) => p.player_id));
-  // Season fees are owed by players. Coaches and other staff are excluded.
-  /**
-   * Who the amount applies to.
-   *
-   * Setting dues acts on players who have NONE — giving one to a player who
-   * joined mid-season must not disturb anybody else. Editing team dues acts on
-   * everyone who HAS one, because that is what a team total is.
-   */
-  const available = teamEdit
-    ? players.filter((p) => taken.has(p.id) && (p.person_type ?? "player") === "player")
-    : players.filter((p) => !taken.has(p.id) && (p.person_type ?? "player") === "player");
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>

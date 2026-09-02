@@ -723,7 +723,7 @@ console.log("\nTeam dues allocation");
   assertEq("a row-level delete uses the modal, not the inline form",
     /export function ConfirmDialog/.test(conf), true);
   assertEq("...rendered outside the collapsible groups, so collapsing cannot unmount it",
-    ui.indexOf("{confirmRow && blockers.length === 0 && (") > ui.lastIndexOf("{open &&"), true);
+    ui.indexOf("{confirmRow && blockers.length === 0 && tournamentBlockers.length === 0 && (") > ui.lastIndexOf("{open &&"), true);
   assertEq("...resolving the row across every category",
     /groups\.flatMap\(\(g\) => g\.rows\)\.find/.test(ui), true);
   assertEq("...and no inline confirmation remains on a budget row",
@@ -755,7 +755,7 @@ console.log("\nTeam dues allocation");
   assertEq("what blocks the delete is known before the click",
     /const blockers = confirmRow\s*\n?\s*\? transactions\.filter\(\(t\) => t\.budget_item_id === confirmRow\.id\)/.test(ui), true);
   assertEq("a clean line still gets the plain confirmation",
-    /confirmRow && blockers\.length === 0 && \(/.test(ui), true);
+    /confirmRow && blockers\.length === 0 && tournamentBlockers\.length === 0 && \(/.test(ui), true);
   assertEq("a blocked line gets a different dialog",
     /confirmRow && blockers\.length > 0 && \(/.test(ui), true);
   assertEq("...titled as a blocker, not a confirmation",
@@ -803,6 +803,143 @@ console.log("\nTeam dues allocation");
 
   assertEq("an inline confirmation scrolls itself into view",
     /scrollIntoView\(\{ block: "nearest"/.test(conf), true);
+}
+
+/* ============================================================================
+ * ST-005 / ST-006 / ST-007 — Finance stabilization batch, 2026-09.
+ * ========================================================================= */
+
+{
+  const fsx = require("fs");
+  const ui = fsx.readFileSync("components/FinanceClient.js", "utf8");
+  const act = fsx.readFileSync("lib/actions/finance.js", "utf8");
+  const tact = fsx.readFileSync("lib/actions/tournaments.js", "utf8");
+
+  /* ---- ST-005: PaymentForm reference-before-declaration ------------------
+     `available` was read at first render by `payerIds`/`selected` before its
+     own declaration ran, throwing a ReferenceError on every open of this
+     form — Add payment, Edit Total Due, and Edit team dues all render it. */
+
+  assertEq("available is declared before payerIds reads it",
+    ui.indexOf("const available = teamEdit") > 0 &&
+    ui.indexOf("const available = teamEdit") < ui.indexOf("const payerIds = payers"),
+    true);
+  assertEq("...and before selected reads it",
+    ui.indexOf("const available = teamEdit") < ui.indexOf("const selected = available.filter"),
+    true);
+  assertEq("...and before toggle's fallback reads it",
+    ui.indexOf("const available = teamEdit") < ui.indexOf("const toggle = (id) =>"),
+    true);
+  // taken is available's own dependency and must move with it.
+  assertEq("taken moved up alongside available, ahead of both",
+    ui.indexOf('const taken = new Set(existing.map((p) => p.player_id));') <
+    ui.indexOf("const available = teamEdit"),
+    true);
+
+  /* ---- ST-005: server-side floor on individual Total Due ------------------
+     UI-only validation would still let a direct form post (or a UI bug)
+     record an obligation below money already paid. The server is the only
+     path that writes initial_cost, so it is the only place this can be
+     guaranteed. */
+
+  assertEq("an edit looks up what's already been paid before writing anything",
+    /from\("payment_log"\)\s*\n\s*\.select\("amount"\)\s*\n\s*\.eq\("payment_id", id\)/.test(act),
+    true);
+  assertEq("...summed with the same money-safe helper the rest of Finance uses",
+    /sumMoney\(\(paidRows \?\? \[\]\)\.map/.test(act), true);
+  assertEq("strictly less than is rejected, equal is allowed (paying off in full succeeds)",
+    /if \(amount < alreadyPaid\)/.test(act), true);
+  assertEq("...not <= , which would also reject paying off the balance exactly",
+    /amount <= alreadyPaid/.test(act), false);
+  assertEq("the rejection happens before either the update or insert branch",
+    act.indexOf("if (amount < alreadyPaid)") <
+    act.indexOf(".update({ initial_cost: amount, exempt })"),
+    true);
+  assertEq("exemption hits the same floor as a manual number",
+    /Can't mark this player exempt/.test(act), true);
+  assertEq("...because it is checked after amount is already forced to 0 for exempt",
+    act.indexOf("const amount = exempt ? 0 : cost;") < act.indexOf("if (amount < alreadyPaid)"),
+    true);
+  assertEq("payment history itself is never touched by a Total Due edit",
+    /\.from\("payment_log"\)\s*\n\s*\.update/.test(act), false);
+
+  /* ---- ST-006: filter label matches row text ------------------------------
+     The predicate (totalDue > 0 && balance <= 0, in reconcileDues) was
+     already correct — audited separately — so only the label changes. */
+
+  assertEq('the "paid" filter chip reads "Paid in full"',
+    /\{ key: "paid", label: "Paid in full" \}/.test(ui), true);
+  assertEq("...and the old, narrower label is gone",
+    /\{ key: "paid", label: "Paid" \}/.test(ui), false);
+
+  /* ---- ST-007: blank fee behaves as zero, not null ------------------------
+     total_cost is GENERATED ALWAYS AS (entry_fee + gate_fee) STORED and that
+     addition is not null-safe. Fixed at the one place both fees are written,
+     rather than the generated column (which Postgres can't alter in place
+     without dropping and re-adding it). "Neither fee entered yet" is kept
+     distinct from "$0" — both stay null in that case. */
+
+  assertEq("both fees blank stays fully unset (cost genuinely not priced yet)",
+    /if \(entry_fee == null && gate_fee == null\) return \{ entry_fee: null, gate_fee: null \};/.test(tact),
+    true);
+  assertEq("one fee present coalesces the other to 0",
+    /return \{ entry_fee: entry_fee \?\? 0, gate_fee: gate_fee \?\? 0 \};/.test(tact),
+    true);
+  assertEq("fieldsFrom writes through the null-safe helper, not two raw money() calls",
+    /\.\.\.feesFrom\(formData\)/.test(tact), true);
+  assertEq("...so a bare, uncoordinated pair of money() calls hasn't crept back in",
+    /entry_fee: money\(formData\.get\("entry_fee"\)\),\s*\n\s*gate_fee: money\(formData\.get\("gate_fee"\)\),/.test(tact),
+    false);
+
+  /* ---- ST-007: a budget line referenced by a tournament can't vanish ------
+     Only budget_transactions was checked before deletion; a tournament
+     linked with zero transactions filed (the normal state for a Committed
+     event nobody has paid toward yet) sailed through, and ON DELETE SET NULL
+     cleared the link with nothing on screen to explain it. */
+
+  assertEq("the server checks tournaments before allowing the delete",
+    /from\("tournaments"\)\s*\n\s*\.select\("id, name"\)\s*\n\s*\.eq\("budget_item_id", id\)/.test(act),
+    true);
+  assertEq("...and refuses outright, with no move_to escape hatch for tournaments",
+    /tournamentCount > 0\) \{\s*\n\s*return \{\s*\n\s*ok: false,\s*\n\s*tournamentBlockers:/.test(act),
+    true);
+  assertEq("the tournament check runs before the transaction check",
+    act.indexOf('.from("tournaments")\n      .select("id, name")') <
+    act.indexOf('.from("budget_transactions")\n      .select("id, is_income")'),
+    true);
+  assertEq("the client knows about tournament blockers before the click, same as transactions",
+    /const tournamentBlockers = confirmRow\s*\n\s*\? tournaments\.filter\(\(t\) => t\.budget_item_id === confirmRow\.id\)/.test(ui),
+    true);
+  assertEq("a tournament-blocked line gets its own dialog",
+    /confirmRow && blockers\.length === 0 && tournamentBlockers\.length > 0 && \(/.test(ui),
+    true);
+  assertEq("...routing to the tournament itself via the shared ?open= deep link",
+    /href=\{`\/tournaments\?open=\$\{t\.id\}&section=costs`\}/.test(ui), true);
+  assertEq("...landing straight on the Costs section, not a drawer the coach has to search",
+    /href=\{`\/tournaments\?open=\$\{tournamentBlockers\[0\]\.id\}&section=costs`\}/.test(ui), true);
+  assertEq("...not a reassignment picker inside the dialog (tournaments are changed on the tournament)",
+    /There's no\s*\n\s*move_to here/.test(ui), true);
+  assertEq("nothing reassigns a tournament's budget line automatically",
+    /automatically reassign|auto-resolved/.test(ui), true);
+
+  /* ---- ST-007: the destination actually supports reassignment --------------
+     A "Review tournament" link that lands on a drawer with the control
+     buried behind an unrelated collapsed section is a dead end in practice,
+     even though the button technically exists somewhere on the page. */
+
+  const tui = fsx.readFileSync("components/TournamentClient.js", "utf8");
+
+  assertEq("the tournament drawer reads which section to open from the URL",
+    /searchParams\.get\("section"\) === "costs"/.test(tui), true);
+  assertEq("...seeded once, on mount, the same way ?open= already seeds the drawer itself",
+    /const \[open, setOpen\] = useState\(\(\) => \(\{\s*\n\s*games: phase === "during",\s*\n\s*costs: searchParams\.get\("section"\) === "costs",/.test(tui),
+    true);
+  assertEq("an unlinked tournament offers Choose a budget line inside that same section",
+    /Choose a budget line/.test(tui), true);
+  assertEq("a linked tournament offers Change budget line in the same place",
+    /Change budget line/.test(tui), true);
+  assertEq("both write through the one action that links a tournament to a budget line",
+    /setTournamentBudgetLine/.test(tui), true);
 }
 
 console.log(`\n${ran} assertions, ${failures} failed`);

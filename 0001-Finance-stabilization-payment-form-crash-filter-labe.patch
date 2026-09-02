@@ -1,0 +1,608 @@
+From c8d39e171b3753e8a15ddbc27048c0a1bad54379 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 13:55:21 +0000
+Subject: [PATCH] Finance stabilization: payment form crash, filter label,
+ tournament costs
+
+ST-005 -- Payment editing
+  PaymentForm referenced its own player-eligibility list (available) about
+  40 lines before declaring it. Any edit path that rendered this form --
+  Add payment, Edit payment/obligation, Edit Total Due, Edit Team Dues --
+  hit a ReferenceError from the temporal dead zone. The two declarations
+  now run first; nothing about which players are eligible changed.
+  Total Due can be lowered, but never below what is already legitimately
+  recorded as paid. Enforced server-side in savePlayerPayment, not just in
+  the form: an attempt below that floor is rejected before any write, with
+  a message naming the amount already paid. Existing payment history is
+  never touched by a Total Due edit -- only the obligation changes. The
+  bulk Team Dues protection added earlier is unchanged.
+
+ST-006 -- Finance filter label
+  The payment-status filter labeled "Paid" while its badges read "Paid in
+  full" elsewhere on the same screen. Label changed to match; the filter
+  still selects the same players it always did.
+
+ST-007 -- Tournament costs and budget-line integrity
+  total_cost is a generated column computed from entry_fee + gate_fee. A
+  tournament with one fee set and the other left blank generated NULL
+  instead of the fee that was actually entered, so that cost silently
+  never reached Finance. Blank fee fields are now written as 0 rather than
+  left null, so the generated total reflects what was actually entered.
+  Every other place total_cost is read (Finance, the tournament list, the
+  drawer) already treated a blank fee as 0 for display -- this closes the
+  one path, the write, that did not.
+
+  Separately: a budget line referenced by a tournament could be deleted
+  with no warning whenever that tournament had no transaction filed yet --
+  the normal state for a Committed event nobody has paid toward -- silently
+  clearing the tournament's allocation. Budget line deletion now checks for
+  linked tournaments the same way it already checks for linked transactions:
+  blocked, named, with a "Review tournament" link that opens the tournament
+  directly on its Costs section so the coach can change or clear the
+  allocation before returning to delete the line. The database foreign key
+  backing this (tournaments.budget_item_id) changes from ON DELETE SET NULL
+  to ON DELETE RESTRICT to match the same protection already in place on
+  budget_transactions, as a backstop for any write path that bypasses the
+  app.
+---
+ components/FinanceClient.js                   | 121 ++++++++++++---
+ components/TournamentClient.js                |  15 +-
+ lib/actions/finance.js                        |  58 +++++++
+ lib/actions/tournaments.js                    |  26 +++-
+ scripts/check-report.js                       | 141 +++++++++++++++++-
+ ...ournaments_budget_item_restrict_delete.sql |  21 +++
+ 6 files changed, 359 insertions(+), 23 deletions(-)
+ create mode 100644 supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql
+
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index 80478c5..373e7d4 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -698,6 +698,7 @@ export function FinanceClient({
+           deleteError={error}
+           pending={pending}
+           transactions={transactions}
++          tournaments={tournaments}
+           /* Straight to the transaction that is in the way, with its budget
+              line editable there. The confirmation closes first so the coach is
+              not left with a stale modal behind the drawer. */
+@@ -996,7 +997,7 @@ export function FundsInTab({ funds, dues }) {
+  */
+ export function BudgetTab({ budget, summary, committedTournaments, tournamentPaid = 0, openCats, setOpenCats, canWrite, onAdd, onEdit, onDelete, pending,
+                             confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
+-                            transactions = [], onReviewTransaction }) {
++                            transactions = [], onReviewTransaction, tournaments = [] }) {
+ 
+   return (
+     <>
+@@ -1049,6 +1050,7 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
+             deleteError={deleteError}
+             transactions={transactions}
+             onReviewTransaction={onReviewTransaction}
++            tournaments={tournaments}
+           />
+         </>
+       )}
+@@ -1081,7 +1083,7 @@ function summaryMoney(n) {
+ 
+ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
+                         confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
+-                        transactions = [], onReviewTransaction }) {
++                        transactions = [], onReviewTransaction, tournaments = [] }) {
+   if (groups.length === 0) return null;
+ 
+   // The parent holds an id; the dialog needs the row it names. Looked up
+@@ -1102,6 +1104,21 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+     ? transactions.filter((t) => t.budget_item_id === confirmRow.id)
+     : [];
+ 
++  /**
++   * ST-007: a tournament can be allocated to a budget line without a single
++   * transaction existing yet — that's the normal state for a Committed event
++   * nobody has paid toward. `blockers` above never saw those, so this line
++   * deleted clean, the FK quietly cleared the tournament's budget_item_id
++   * (ON DELETE SET NULL), and the tournament's committed cost vanished from
++   * Finance with nothing on screen to explain it. Checked separately from
++   * transaction blockers, and — like them — never auto-resolved: which
++   * budget line a tournament's cost counts against is a decision that stays
++   * with the coach.
++   */
++  const tournamentBlockers = confirmRow
++    ? tournaments.filter((t) => t.budget_item_id === confirmRow.id)
++    : [];
++
+   return (
+     <div className="group">
+       <div className="group-head group-head-action" style={{ cursor: "default" }}>
+@@ -1221,7 +1238,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+           moment the coach collapsed it, and on the last row it landed against
+           the page footer. A modal cannot be scrolled past or collapsed away,
+           and it is the same question either way. */}
+-      {confirmRow && blockers.length === 0 && (
++      {confirmRow && blockers.length === 0 && tournamentBlockers.length === 0 && (
+         <ConfirmDialog
+           title="Delete budget line"
+           message={`Delete the budget line "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
+@@ -1235,6 +1252,68 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
+         />
+       )}
+ 
++      {/* ST-007: tournament allocations block the same as transactions do,
++          shown once transaction blockers (if any) are cleared. There's no
++          move_to here — reassigning which budget line a tournament counts
++          against happens on the tournament itself, the same record that
++          shows its cost and its committed/considering status, not from a
++          picker inside this dialog. */}
++      {confirmRow && blockers.length === 0 && tournamentBlockers.length > 0 && (
++        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancelDelete}>
++          <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
++            <div className="modal-head">
++              <h2>Can&rsquo;t delete this budget line yet</h2>
++            </div>
++
++            <div className="modal-body">
++              <p className="section-body">
++                <strong>{tournamentBlockers.length}</strong>{" "}
++                {tournamentBlockers.length === 1 ? "tournament is" : "tournaments are"} allocated to{" "}
++                &ldquo;{confirmRow.name}&rdquo;. Change{" "}
++                {tournamentBlockers.length === 1 ? "its" : "their"} budget line before deleting this one.
++              </p>
++
++              <ul className="blocker-list">
++                {tournamentBlockers.slice(0, 5).map((t) => (
++                  <li key={t.id} className="blocker">
++                    <RelatedLink
++                      href={`/tournaments?open=${t.id}&section=costs`}
++                      className="blocker-open"
++                      title={`Open ${t.name} in Tournaments`}
++                    >
++                      <span className="blocker-main">
++                        <span className="blocker-name">{t.name}</span>
++                      </span>
++                      <span className="blocker-amount">{money(t.total_cost)}</span>
++                    </RelatedLink>
++                  </li>
++                ))}
++              </ul>
++
++              {tournamentBlockers.length > 5 && (
++                <p className="field-note">
++                  and {tournamentBlockers.length - 5} more.
++                </p>
++              )}
++            </div>
++
++            <div className="modal-foot">
++              <button type="button" className="btn btn-secondary" onClick={onCancelDelete}>
++                Keep budget line
++              </button>
++              {/* No Delete button here either — it could only fail. */}
++              <RelatedLink
++                href={`/tournaments?open=${tournamentBlockers[0].id}&section=costs`}
++                className="btn btn-primary"
++                title={`Open ${tournamentBlockers[0].name} in Tournaments`}
++              >
++                {tournamentBlockers.length === 1 ? "Review tournament" : "Review tournaments"}
++              </RelatedLink>
++            </div>
++          </div>
++        </div>
++      )}
++
+       {/* BLOCKED IS A DIFFERENT QUESTION.
+           Telling a coach that a transaction is in the way, without saying
+           which one or where to go, leaves them to close the box, open
+@@ -1908,7 +1987,7 @@ const PAYMENT_VIEWS = [
+   { key: "owes", label: "Owes balance" },
+   { key: "none", label: "Not started" },
+   { key: "notset", label: "Dues not set" },
+-  { key: "paid", label: "Paid" },
++  { key: "paid", label: "Paid in full" },
+   { key: "former", label: "Former / unlinked" },
+ ];
+ 
+@@ -2383,6 +2462,27 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+   // Drives the preview, so a coach sees the arithmetic before saving rather
+   // than discovering it in the totals afterwards.
+   const [amount, setAmount] = useState(row?.totalDue ?? prefillTotal ?? "");
++
++  const taken = new Set(existing.map((p) => p.player_id));
++  // Season fees are owed by players. Coaches and other staff are excluded.
++  /**
++   * Who the amount applies to.
++   *
++   * Setting dues acts on players who have NONE — giving one to a player who
++   * joined mid-season must not disturb anybody else. Editing team dues acts on
++   * everyone who HAS one, because that is what a team total is.
++   *
++   * ST-005: declared here, ahead of `payers`/`payerIds` below, which read it
++   * immediately on the first render. It previously sat after those reads —
++   * a `const` is hoisted but stays in the temporal dead zone until its own
++   * declaration runs, so every open of this form (Add, Edit Total Due, Edit
++   * team dues all render this same component) threw a ReferenceError before
++   * anything reached the screen. No behavior changes here, only order.
++   */
++  const available = teamEdit
++    ? players.filter((p) => taken.has(p.id) && (p.person_type ?? "player") === "player")
++    : players.filter((p) => !taken.has(p.id) && (p.person_type ?? "player") === "player");
++
+   /**
+    * Who owes. Defaults to every eligible player, because that is the common
+    * case — but a coach's own child may not be charged, and dividing the team
+@@ -2421,19 +2521,6 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+     };
+   }, [amount, duesMode, selected.length]);
+ 
+-  const taken = new Set(existing.map((p) => p.player_id));
+-  // Season fees are owed by players. Coaches and other staff are excluded.
+-  /**
+-   * Who the amount applies to.
+-   *
+-   * Setting dues acts on players who have NONE — giving one to a player who
+-   * joined mid-season must not disturb anybody else. Editing team dues acts on
+-   * everyone who HAS one, because that is what a team total is.
+-   */
+-  const available = teamEdit
+-    ? players.filter((p) => taken.has(p.id) && (p.person_type ?? "player") === "player")
+-    : players.filter((p) => !taken.has(p.id) && (p.person_type ?? "player") === "player");
+-
+   return (
+     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+       <div className="modal" onClick={(e) => e.stopPropagation()}>
+diff --git a/components/TournamentClient.js b/components/TournamentClient.js
+index deae66b..a1ad1f7 100644
+--- a/components/TournamentClient.js
++++ b/components/TournamentClient.js
+@@ -11,7 +11,7 @@ import { useState, useTransition, useEffect } from "react";
+ import { useOpenParam } from "./useOpenParam";
+ import Link from "next/link";
+ import { RelatedLink } from "./RelatedLink";
+-import { useRouter } from "next/navigation";
++import { useRouter, useSearchParams } from "next/navigation";
+ import { FilterChip } from "./NeedsAction";
+ import { DocumentSection } from "./DocumentSection";
+ import { QuickAddFacility } from "./QuickAddFacility";
+@@ -666,8 +666,19 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
+   /**
+    * Games opens while the event is happening — that is when scores are being
+    * entered. Everything else starts closed.
++   *
++   * ST-007: a coach routed here from "Review tournament" (the Budget Delete
++   * blocker) needs the Costs section open on arrival, not a drawer that
++   * requires finding and expanding it themselves — that's what would make
++   * the route out of the blocker a dead end in practice. `?section=costs`
++   * is read once, on mount, the same way `?open=` already seeds which
++   * drawer opens.
+    */
+-  const [open, setOpen] = useState(() => ({ games: phase === "during" }));
++  const searchParams = useSearchParams();
++  const [open, setOpen] = useState(() => ({
++    games: phase === "during",
++    costs: searchParams.get("section") === "costs",
++  }));
+   const isOpen = (key) => Boolean(open[key]);
+   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }));
+ 
+diff --git a/lib/actions/finance.js b/lib/actions/finance.js
+index 701f4f8..a704edb 100644
+--- a/lib/actions/finance.js
++++ b/lib/actions/finance.js
+@@ -143,6 +143,12 @@ export async function saveBudgetItem(formData) {
+  * views disagree with nothing to explain it.
+  *
+  * A caller can pass move_to to reassign them first.
++ *
++ * ST-007: tournaments allocated to the line are checked the same way, ahead
++ * of transactions — also ON DELETE SET NULL, also silent otherwise. Unlike
++ * transactions there's no move_to for tournaments: which budget line a
++ * tournament counts against is changed on the tournament record itself, so
++ * this always refuses rather than offering to reassign.
+  */
+ export async function deleteBudgetItem(formData) {
+   try {
+@@ -152,6 +158,29 @@ export async function deleteBudgetItem(formData) {
+     const id = formData.get("id");
+     if (!id) return { ok: false, error: "Missing record reference." };
+ 
++    /**
++     * ST-007: a tournament allocated to this line has no row in
++     * budget_transactions until something is actually paid toward it, so the
++     * check below never saw it — the FK (ON DELETE SET NULL) then cleared
++     * the tournament's budget_item_id silently and its committed cost
++     * dropped out of Finance with no record anywhere that it happened.
++     * Checked first, and never auto-resolved: unlike a transaction, a
++     * tournament's budget line is changed on the tournament itself.
++     */
++    const { data: linkedTournaments } = await supabase
++      .from("tournaments")
++      .select("id, name")
++      .eq("budget_item_id", id);
++
++    const tournamentCount = (linkedTournaments ?? []).length;
++    if (tournamentCount > 0) {
++      return {
++        ok: false,
++        tournamentBlockers: linkedTournaments,
++        error: `${tournamentCount} ${tournamentCount === 1 ? "tournament is" : "tournaments are"} allocated to this budget line. Change ${tournamentCount === 1 ? "its" : "their"} budget line from the Tournaments page before deleting it.`,
++      };
++    }
++
+     const { data: linked } = await supabase
+       .from("budget_transactions")
+       .select("id, is_income")
+@@ -344,6 +373,35 @@ export async function savePlayerPayment(formData) {
+     const amount = exempt ? 0 : cost;
+ 
+     const id = formData.get("id");
++
++    /**
++     * ST-005: Total Due is the obligation, not the payment history — but it
++     * can never legitimately fall below what's already been recorded against
++     * it. Enforced here, not just in the UI, because this action is the only
++     * path that writes initial_cost. Checked before either branch below, so
++     * a rejected edit never touches the row. Exemption forces the amount to
++     * 0 above, so it hits the same floor: a player can't be marked exempt
++     * out from under money they've already paid.
++     */
++    if (id) {
++      const { data: paidRows, error: paidError } = await supabase
++        .from("payment_log")
++        .select("amount")
++        .eq("payment_id", id);
++
++      if (paidError) return { ok: false, error: paidError.message };
++
++      const alreadyPaid = sumMoney((paidRows ?? []).map((p) => p.amount ?? 0));
++      if (amount < alreadyPaid) {
++        return {
++          ok: false,
++          error: exempt
++            ? `Can't mark this player exempt — ${moneyText(alreadyPaid)} is already recorded as paid. Adjust or remove those payments first if that's not correct.`
++            : `Total due can't be less than the ${moneyText(alreadyPaid)} already paid. Enter ${moneyText(alreadyPaid)} or more, or correct the payment history first.`,
++        };
++      }
++    }
++
+     // player_name is legacy and deliberately left null.
+     const { error } = id
+       ? await supabase.from("player_payments")
+diff --git a/lib/actions/tournaments.js b/lib/actions/tournaments.js
+index e9a85d0..a722140 100644
+--- a/lib/actions/tournaments.js
++++ b/lib/actions/tournaments.js
+@@ -43,6 +43,29 @@ async function guard() {
+   return ctx;
+ }
+ 
++/**
++ * ST-007: total_cost is `entry_fee + gate_fee`, GENERATED ALWAYS AS STORED —
++ * plain SQL addition, so NULL in either input makes the stored total NULL
++ * rather than the other fee's value. A coach who prices an entry fee and
++ * leaves gate fee blank (the common case — most tournaments have no gate
++ * fee) was silently zeroing out that tournament everywhere Finance reads
++ * total_cost, with nothing on screen to say so.
++ *
++ * The generated column's expression can't be altered in place in Postgres
++ * (it would need to be dropped and re-added), so the fix is made null-safe
++ * here instead, at the single place both fees are written: once either fee
++ * is actually being priced, the other is treated as 0, not left blank. A
++ * tournament where NEITHER fee has been entered yet is left with both null —
++ * "not priced yet" stays a real, distinct state from "$0" and total_cost
++ * correctly stays null for it.
++ */
++function feesFrom(formData) {
++  const entry_fee = money(formData.get("entry_fee"));
++  const gate_fee = money(formData.get("gate_fee"));
++  if (entry_fee == null && gate_fee == null) return { entry_fee: null, gate_fee: null };
++  return { entry_fee: entry_fee ?? 0, gate_fee: gate_fee ?? 0 };
++}
++
+ function fieldsFrom(formData) {
+   return {
+     name: text(formData.get("name")),
+@@ -51,8 +74,7 @@ function fieldsFrom(formData) {
+     start_date: text(formData.get("start_date")),
+     end_date: text(formData.get("end_date")),
+     location: text(formData.get("location")),
+-    entry_fee: money(formData.get("entry_fee")),
+-    gate_fee: money(formData.get("gate_fee")),
++    ...feesFrom(formData),
+     travel_type: text(formData.get("travel_type")),
+     decision: text(formData.get("decision")) ?? "Considering",
+     paid_status: text(formData.get("paid_status")) ?? "Not Registered",
+diff --git a/scripts/check-report.js b/scripts/check-report.js
+index 09abe04..0fb1d9c 100644
+--- a/scripts/check-report.js
++++ b/scripts/check-report.js
+@@ -723,7 +723,7 @@ console.log("\nTeam dues allocation");
+   assertEq("a row-level delete uses the modal, not the inline form",
+     /export function ConfirmDialog/.test(conf), true);
+   assertEq("...rendered outside the collapsible groups, so collapsing cannot unmount it",
+-    ui.indexOf("{confirmRow && blockers.length === 0 && (") > ui.lastIndexOf("{open &&"), true);
++    ui.indexOf("{confirmRow && blockers.length === 0 && tournamentBlockers.length === 0 && (") > ui.lastIndexOf("{open &&"), true);
+   assertEq("...resolving the row across every category",
+     /groups\.flatMap\(\(g\) => g\.rows\)\.find/.test(ui), true);
+   assertEq("...and no inline confirmation remains on a budget row",
+@@ -755,7 +755,7 @@ console.log("\nTeam dues allocation");
+   assertEq("what blocks the delete is known before the click",
+     /const blockers = confirmRow\s*\n?\s*\? transactions\.filter\(\(t\) => t\.budget_item_id === confirmRow\.id\)/.test(ui), true);
+   assertEq("a clean line still gets the plain confirmation",
+-    /confirmRow && blockers\.length === 0 && \(/.test(ui), true);
++    /confirmRow && blockers\.length === 0 && tournamentBlockers\.length === 0 && \(/.test(ui), true);
+   assertEq("a blocked line gets a different dialog",
+     /confirmRow && blockers\.length > 0 && \(/.test(ui), true);
+   assertEq("...titled as a blocker, not a confirmation",
+@@ -805,6 +805,143 @@ console.log("\nTeam dues allocation");
+     /scrollIntoView\(\{ block: "nearest"/.test(conf), true);
+ }
+ 
++/* ============================================================================
++ * ST-005 / ST-006 / ST-007 — Finance stabilization batch, 2026-09.
++ * ========================================================================= */
++
++{
++  const fsx = require("fs");
++  const ui = fsx.readFileSync("components/FinanceClient.js", "utf8");
++  const act = fsx.readFileSync("lib/actions/finance.js", "utf8");
++  const tact = fsx.readFileSync("lib/actions/tournaments.js", "utf8");
++
++  /* ---- ST-005: PaymentForm reference-before-declaration ------------------
++     `available` was read at first render by `payerIds`/`selected` before its
++     own declaration ran, throwing a ReferenceError on every open of this
++     form — Add payment, Edit Total Due, and Edit team dues all render it. */
++
++  assertEq("available is declared before payerIds reads it",
++    ui.indexOf("const available = teamEdit") > 0 &&
++    ui.indexOf("const available = teamEdit") < ui.indexOf("const payerIds = payers"),
++    true);
++  assertEq("...and before selected reads it",
++    ui.indexOf("const available = teamEdit") < ui.indexOf("const selected = available.filter"),
++    true);
++  assertEq("...and before toggle's fallback reads it",
++    ui.indexOf("const available = teamEdit") < ui.indexOf("const toggle = (id) =>"),
++    true);
++  // taken is available's own dependency and must move with it.
++  assertEq("taken moved up alongside available, ahead of both",
++    ui.indexOf('const taken = new Set(existing.map((p) => p.player_id));') <
++    ui.indexOf("const available = teamEdit"),
++    true);
++
++  /* ---- ST-005: server-side floor on individual Total Due ------------------
++     UI-only validation would still let a direct form post (or a UI bug)
++     record an obligation below money already paid. The server is the only
++     path that writes initial_cost, so it is the only place this can be
++     guaranteed. */
++
++  assertEq("an edit looks up what's already been paid before writing anything",
++    /from\("payment_log"\)\s*\n\s*\.select\("amount"\)\s*\n\s*\.eq\("payment_id", id\)/.test(act),
++    true);
++  assertEq("...summed with the same money-safe helper the rest of Finance uses",
++    /sumMoney\(\(paidRows \?\? \[\]\)\.map/.test(act), true);
++  assertEq("strictly less than is rejected, equal is allowed (paying off in full succeeds)",
++    /if \(amount < alreadyPaid\)/.test(act), true);
++  assertEq("...not <= , which would also reject paying off the balance exactly",
++    /amount <= alreadyPaid/.test(act), false);
++  assertEq("the rejection happens before either the update or insert branch",
++    act.indexOf("if (amount < alreadyPaid)") <
++    act.indexOf(".update({ initial_cost: amount, exempt })"),
++    true);
++  assertEq("exemption hits the same floor as a manual number",
++    /Can't mark this player exempt/.test(act), true);
++  assertEq("...because it is checked after amount is already forced to 0 for exempt",
++    act.indexOf("const amount = exempt ? 0 : cost;") < act.indexOf("if (amount < alreadyPaid)"),
++    true);
++  assertEq("payment history itself is never touched by a Total Due edit",
++    /\.from\("payment_log"\)\s*\n\s*\.update/.test(act), false);
++
++  /* ---- ST-006: filter label matches row text ------------------------------
++     The predicate (totalDue > 0 && balance <= 0, in reconcileDues) was
++     already correct — audited separately — so only the label changes. */
++
++  assertEq('the "paid" filter chip reads "Paid in full"',
++    /\{ key: "paid", label: "Paid in full" \}/.test(ui), true);
++  assertEq("...and the old, narrower label is gone",
++    /\{ key: "paid", label: "Paid" \}/.test(ui), false);
++
++  /* ---- ST-007: blank fee behaves as zero, not null ------------------------
++     total_cost is GENERATED ALWAYS AS (entry_fee + gate_fee) STORED and that
++     addition is not null-safe. Fixed at the one place both fees are written,
++     rather than the generated column (which Postgres can't alter in place
++     without dropping and re-adding it). "Neither fee entered yet" is kept
++     distinct from "$0" — both stay null in that case. */
++
++  assertEq("both fees blank stays fully unset (cost genuinely not priced yet)",
++    /if \(entry_fee == null && gate_fee == null\) return \{ entry_fee: null, gate_fee: null \};/.test(tact),
++    true);
++  assertEq("one fee present coalesces the other to 0",
++    /return \{ entry_fee: entry_fee \?\? 0, gate_fee: gate_fee \?\? 0 \};/.test(tact),
++    true);
++  assertEq("fieldsFrom writes through the null-safe helper, not two raw money() calls",
++    /\.\.\.feesFrom\(formData\)/.test(tact), true);
++  assertEq("...so a bare, uncoordinated pair of money() calls hasn't crept back in",
++    /entry_fee: money\(formData\.get\("entry_fee"\)\),\s*\n\s*gate_fee: money\(formData\.get\("gate_fee"\)\),/.test(tact),
++    false);
++
++  /* ---- ST-007: a budget line referenced by a tournament can't vanish ------
++     Only budget_transactions was checked before deletion; a tournament
++     linked with zero transactions filed (the normal state for a Committed
++     event nobody has paid toward yet) sailed through, and ON DELETE SET NULL
++     cleared the link with nothing on screen to explain it. */
++
++  assertEq("the server checks tournaments before allowing the delete",
++    /from\("tournaments"\)\s*\n\s*\.select\("id, name"\)\s*\n\s*\.eq\("budget_item_id", id\)/.test(act),
++    true);
++  assertEq("...and refuses outright, with no move_to escape hatch for tournaments",
++    /tournamentCount > 0\) \{\s*\n\s*return \{\s*\n\s*ok: false,\s*\n\s*tournamentBlockers:/.test(act),
++    true);
++  assertEq("the tournament check runs before the transaction check",
++    act.indexOf('.from("tournaments")\n      .select("id, name")') <
++    act.indexOf('.from("budget_transactions")\n      .select("id, is_income")'),
++    true);
++  assertEq("the client knows about tournament blockers before the click, same as transactions",
++    /const tournamentBlockers = confirmRow\s*\n\s*\? tournaments\.filter\(\(t\) => t\.budget_item_id === confirmRow\.id\)/.test(ui),
++    true);
++  assertEq("a tournament-blocked line gets its own dialog",
++    /confirmRow && blockers\.length === 0 && tournamentBlockers\.length > 0 && \(/.test(ui),
++    true);
++  assertEq("...routing to the tournament itself via the shared ?open= deep link",
++    /href=\{`\/tournaments\?open=\$\{t\.id\}&section=costs`\}/.test(ui), true);
++  assertEq("...landing straight on the Costs section, not a drawer the coach has to search",
++    /href=\{`\/tournaments\?open=\$\{tournamentBlockers\[0\]\.id\}&section=costs`\}/.test(ui), true);
++  assertEq("...not a reassignment picker inside the dialog (tournaments are changed on the tournament)",
++    /There's no\s*\n\s*move_to here/.test(ui), true);
++  assertEq("nothing reassigns a tournament's budget line automatically",
++    /automatically reassign|auto-resolved/.test(ui), true);
++
++  /* ---- ST-007: the destination actually supports reassignment --------------
++     A "Review tournament" link that lands on a drawer with the control
++     buried behind an unrelated collapsed section is a dead end in practice,
++     even though the button technically exists somewhere on the page. */
++
++  const tui = fsx.readFileSync("components/TournamentClient.js", "utf8");
++
++  assertEq("the tournament drawer reads which section to open from the URL",
++    /searchParams\.get\("section"\) === "costs"/.test(tui), true);
++  assertEq("...seeded once, on mount, the same way ?open= already seeds the drawer itself",
++    /const \[open, setOpen\] = useState\(\(\) => \(\{\s*\n\s*games: phase === "during",\s*\n\s*costs: searchParams\.get\("section"\) === "costs",/.test(tui),
++    true);
++  assertEq("an unlinked tournament offers Choose a budget line inside that same section",
++    /Choose a budget line/.test(tui), true);
++  assertEq("a linked tournament offers Change budget line in the same place",
++    /Change budget line/.test(tui), true);
++  assertEq("both write through the one action that links a tournament to a budget line",
++    /setTournamentBudgetLine/.test(tui), true);
++}
++
+ console.log(`\n${ran} assertions, ${failures} failed`);
+   process.exit(failures ? 1 : 0);
+ })();
+diff --git a/supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql b/supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql
+new file mode 100644
+index 0000000..525fe2d
+--- /dev/null
++++ b/supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql
+@@ -0,0 +1,21 @@
++-- ST-007: a budget line referenced by a tournament must not be silently
++-- deletable in a way that clears the tournament's budget assignment.
++-- ON DELETE SET NULL let a budget-line delete pass with no warning whenever
++-- the linked tournament had no transaction filed against it yet (the normal
++-- state for a Committed event nobody has paid toward). Matches the existing
++-- ON DELETE RESTRICT already in place on budget_transactions_budget_item_id_fkey
++-- for the same reason -- tournaments was the outlier, not the norm.
++--
++-- Compatibility re-checked immediately before this migration: 0 tournaments
++-- reference a budget_items row that doesn't exist, so the new constraint
++-- validates against current data with no changes required.
++--
++-- This is defense-in-depth alongside the application-level check added in
++-- lib/actions/finance.js (deleteBudgetItem) and components/FinanceClient.js
++-- (BudgetSection) in the same deployment -- the app check produces a named,
++-- actionable error for a coach; this constraint is the backstop for any
++-- write path that bypasses the app.
++ALTER TABLE tournaments
++  DROP CONSTRAINT tournaments_budget_item_id_fkey,
++  ADD CONSTRAINT tournaments_budget_item_id_fkey
++    FOREIGN KEY (budget_item_id) REFERENCES budget_items(id) ON DELETE RESTRICT;
+-- 
+2.43.0
+

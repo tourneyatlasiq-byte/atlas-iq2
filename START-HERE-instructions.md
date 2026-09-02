@@ -1,14 +1,16 @@
-# Budget Line picker: show lines immediately
+# Finance stabilization: payment editing, filter label, tournament costs
 
-1 file. Nothing to delete — copy it over the top and replace.
+7 items. Nothing to delete -- copy everything over the top and replace.
 
-Built on `40bdbed`, which is what production is running now. No migration; the database does not
-change.
+Built on `df43333`, which is what production is running now (already includes the earlier
+Budget-line-picker fix). One database change is included -- see "About the migration" below,
+it does not need to be run, it is already live.
 
-Tested at 765 assertions with 0 failures (full syntax check across all 185 files, plus the full
-convention suite). I could not run a production build myself this time — my sandbox has no route to
-Google Fonts, which the build needs. GitHub's own build will run automatically the moment you push, and
-will fail loudly on the pull request/commit if anything's actually wrong.
+Tested at 758 assertions plus 7 migration-directory checks, all 0 failures (full syntax check
+across all 185 files, plus the full convention suite). I could not run a production build myself
+this time -- my sandbox has no route to Google Fonts, which the build needs. GitHub's own build
+will run automatically the moment you push, and will fail loudly on the pull request/commit if
+anything's actually wrong.
 
 ---
 
@@ -22,113 +24,141 @@ In GitHub Desktop:
 
 ---
 
-## Step 1 — Copy the file
+## Step 1 -- Copy the files
 
-The download contains one folder and one file:
+The download contains these files, at these paths:
 
 ```
 components/FinanceClient.js
-0001-Transaction-Budget-Line-show-available-lines-immedia.patch
+components/TournamentClient.js
+lib/actions/finance.js
+lib/actions/tournaments.js
+scripts/check-report.js
+supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql
+0001-Finance-stabilization-payment-form-crash-filter-labe.patch
 ```
 
-Copy the `components` folder into the top level of your `atlas-iq2` folder. Choose **Replace the
-files in the destination**.
+Copy the `components`, `lib`, `scripts`, and `supabase` folders into the top level of your
+`atlas-iq2` folder. Choose **Replace the files in the destination** wherever it asks.
 
-The `.patch` file is optional — copy it into the top level too if you want the same paper trail as
-past updates (it's just this same change, saved in a format `git am` can read). Skip it if you don't
-care to keep it; nothing about the app depends on it being there.
+The `.patch` file is optional -- copy it into the top level too if you want the same paper trail
+as past updates (it's just this same change, saved in a format `git am` can read). Skip it if you
+don't care to keep it; nothing about the app depends on it being there.
 
 ---
 
-## Step 2 — Check the count
+## Step 2 -- Check the count
 
-GitHub Desktop should show **exactly 1 change** (2 if you also copied the `.patch` file):
+GitHub Desktop should show **exactly 6 changes** (7 if you also copied the `.patch` file):
 
 ```
-components/FinanceClient.js                                      modified
-0001-Transaction-Budget-Line-show-available-lines-immedia.patch   added        (only if you copied it)
+components/FinanceClient.js                                              modified
+components/TournamentClient.js                                            modified
+lib/actions/finance.js                                                    modified
+lib/actions/tournaments.js                                                modified
+scripts/check-report.js                                                   modified
+supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql   added
+0001-Finance-stabilization-payment-form-crash-filter-labe.patch           added   (only if you copied it)
 ```
 
-**If you see anything else listed — especially anything under `app/`, `lib/`, `scripts/`, or
-`supabase/` — stop and tell me what's listed. Nothing outside `components/FinanceClient.js` should
-be touched by this one.**
+**If you see anything else listed -- especially anything under `app/`, or any other file under
+`lib/`, `components/`, or `supabase/` -- stop and tell me what's listed.**
 
 ---
 
-## Step 3 — Commit and push
+## Step 3 -- Commit and push
 
 Summary:
 
 ```
-Transaction Budget Line: show available lines immediately, not after typing
+Finance stabilization: payment form crash, filter label, tournament costs
 ```
 
 **Commit to main**, then **Push origin**.
 
 ---
 
+## About the migration
+
+The `.sql` file changes one thing in the database: a tournament's budget line can no longer be
+deleted out from under it silently. I already applied this change directly to the production
+database, before this package reached you -- so pushing it does not run anything or change your
+data. It's included only so your repository's migration history matches what the database is
+actually running. **Nothing is reapplied.**
+
+I rechecked compatibility immediately before applying it: zero tournaments pointed at a missing
+budget line, so the change applied cleanly with nothing to fix first.
+
+---
+
 ## What to check once it is live
 
-Finance → Transactions → **Add transaction**. Click **Choose a budget line**. The list of your
-expense budget lines should appear immediately — nothing to type first. Type a few letters of one of
-them; the list should narrow to match. Pick one, save the transaction, reload the page, open it again
-— the same budget line should still be shown.
+**Payment editing (ST-005).** Finance -> Dues. Open a player and use **Add payment** -- the form
+should open normally, not show an error. Do the same from **Edit** on an existing payment, from
+**Edit Total Due** on an individual player, and from the **Edit Team Dues** bulk screen. All four
+should open cleanly.
 
-Switch **Type** to Income before picking a line, and check the picker shows your income lines instead,
-same as before.
+Then the new guardrail: open a player who already has a payment recorded (Avery Myers is a
+good one -- $500 already paid toward a $3,600 total). Try to lower their Total Due below $500.
+It should be rejected with a message telling you $500 is already paid, and nothing should change
+-- reload the page and confirm the $500 payment is still there. Lowering it to $500 or anything
+above should work normally. The bulk Team Dues screen behaves as it did before -- no change there.
 
-Edit an existing transaction and click **Change** next to its budget line — same immediate list,
-same filtering, and the transaction's original line should still show correctly before you change
-anything.
+**Filter label (ST-006).** Finance -> Dues -> the payment-status filter. It should read **Paid in
+full** instead of **Paid**. It should still select the same players as before -- only the word
+changed.
 
-Then the reassignment path: Finance → Budget → find a line with a transaction against it (**Coach
-stipends** works, same as last time) → Delete → **Review transaction** → **Change**. Same immediate
-list there too, since it's the same field.
+**Tournament costs (ST-007).** Open **TC Veterans Tribute** (or any tournament that has only one
+of Entry fee / Gate fee filled in) -- its total should now be exactly the fee that's entered, not
+blank or zero. Add a new tournament with only an entry fee, save it, and confirm the total matches
+the entry fee. Same test with only a gate fee. Both fees present should still add normally, and
+both blank should still show $0.
 
-Try this on your phone too — tap the field, the list should be usable right away without the keyboard
-needing to be involved first.
-
-If an organization/season genuinely has no budget lines of the type you're adding (rare, but try it on
-a fresh test org if you have one), the picker should say plainly that none exist yet, with the **+ Add
-budget line** button still there as the way out.
-
-Nothing about saving a transaction changed — opening or closing this picker, or typing into it,
-should never create or change a transaction by itself. Only clicking Save does that, same as always.
+Then the budget-line protection: go to Finance -> Budget, find a line that's assigned to a
+tournament as its budget line, and try to delete it. You should see a screen telling you it's
+allocated to that tournament, with a **Review tournament** button -- not the usual delete
+confirmation. Click it: the tournament should open with its **Costs** section already expanded,
+budget line control right there, no extra click needed. Change or clear the budget line, return to
+Finance, and the same line should now delete normally.
 
 ---
 
 ## What was wrong
 
-Clicking Budget Line opened a search box with nothing under it. Every line existed, but none of them
-would show until you typed a character, so you had to already know what a budget line was called
-before you could pick it.
+**Payment editing.** The payment form referred to its own list of eligible players about 40 lines
+before that list was actually built. Every screen that opens this form hit an error the instant it
+tried to render. It's a code-ordering mistake, not a data problem -- nothing about who's eligible
+to pay changed.
 
-The picker component behind this field (used for a few different lookups in the app) has two ways to
-show items: a filtered list once you start typing, and a second list meant to show something before
-you type anything. Every other field that uses this picker was already using that second list.
-Transaction Budget Line was the one field that never filled it in, so it had nothing to show until
-search kicked in.
+Separately, Total Due had no floor. You could type any number, including one lower than what a
+player had already legitimately paid, and it would save -- which would make the record say less
+was paid than the payment history actually shows. It now checks what's already recorded and won't
+let Total Due go below that, on the server, not just in the form, so there's no way around it.
 
-It now fills that in with the season's budget lines, split by Expense/Income to match what you'd end
-up picking anyway. Typing still narrows the list exactly as before — nothing about search changed.
-The message under an empty list now says there are no budget lines yet, instead of telling you to
-start typing.
+**Filter label.** Cosmetic only -- the filter already selected the right players, it just said
+"Paid" instead of "Paid in full" like the rest of the screen does.
 
-Selecting a line still only ever picks a real, existing budget line. There is still no way to type
-something in that field and have it saved directly as a budget line — creating one still goes through
-the same "+ Add budget line" form it always did. Add, Edit, and reassigning a line from the Budget
-delete blocked screen all use this one field, so fixing it here fixes all three at once.
+**Tournament costs.** A tournament's total is entry fee plus gate fee, calculated automatically.
+If one of those two was left blank, the database treated the whole total as unknown instead of
+treating the blank as zero -- so a tournament with only an entry fee showed no total at all, and
+didn't show up anywhere in Finance as a cost. Twelve existing tournaments had this exact gap,
+totaling $21,090 in real committed cost that Finance was not counting. I already corrected those
+twelve records after you approved it and confirmed the exact count and amount matched before
+writing anything -- that part is done and does not need to be repeated. This package is the fix
+so it can't happen to a new tournament going forward: a blank fee is now written as $0 the moment
+you save, so the total is always a real number.
 
-I deliberately did not touch the shared picker component itself, or the other places in the app that
-use it (Contacts, Facilities, and the budget-line picker used when linking a tournament) — those have
-the same "type first" behavior today, but changing the shared component would have changed all of them
-at once, and for Facilities in particular that search-first behavior looks intentional (181 facilities
-is too many to dump in a list at once). That's a separate decision for the broader Finance sweep, not
-bundled into this fix.
+The second part is a different gap: a budget line that a tournament was pointed at could be
+deleted with no warning at all, as long as no money had actually been spent against that
+tournament yet -- which is the normal state for something you've committed to but haven't started
+paying. Deleting it would silently disconnect the tournament from its budget with nothing to tell
+you it happened. Budget line deletion now checks for this the same way it already checks for
+linked transactions, blocks it, names the tournament, and sends you straight to the one place you
+can fix it.
 
 ---
 
 ## Alternative
 
-`0001-Transaction-Budget-Line-show-available-lines-immedia.patch` is the same change with the commit
-message preserved, for `git am`. Ignore it unless you want a command line.
+`0001-Finance-stabilization-payment-form-crash-filter-labe.patch` is the same change with the
+commit message preserved, for `git am`. Ignore it unless you want a command line.
