@@ -589,8 +589,15 @@ console.log("\nTeam dues allocation");
     /allocateMoney\(value, n\)/.test(ui), true);
   // Now keyed on the SELECTION: deselecting everyone must also block, since
   // a team total with no payers has nobody to allocate to.
+  // ST-005 follow-up (2026-10): the rule moved into canSaveDuesForm, shared
+  // with scripts/check-dues-edit.js, which exercises it behaviourally. The
+  // previous expression also applied this bulk guard to a single-player
+  // edit, which disabled Edit total due once every player had dues.
   assertEq("zero selected players cannot submit",
-    /disabled=\{pending \|\| \(effectiveScope === "all" && \(isNew \? selected\.length === 0 : available\.length === 0\)\)\}/.test(ui), true);
+    /mode: !isNew \? "edit" : effectiveScope === "all" \? "bulk" : "one"/.test(ui) &&
+    /selectedCount: selected\.length/.test(ui) &&
+    /if \(mode === "bulk"\) return selectedCount > 0;/.test(require("fs").readFileSync("lib/finance-rules.js", "utf8")),
+    true);
   assertEq("the all-set state explains where to change an amount",
     /obligations with recorded payments cannot be changed in bulk/.test(ui), true);
 

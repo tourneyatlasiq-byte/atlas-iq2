@@ -1,16 +1,13 @@
-# Finance stabilization: payment editing, filter label, tournament costs
+# ST-005 follow-up: Save button on Edit Total Due
 
-7 items. Nothing to delete -- copy everything over the top and replace.
+One fix. Nothing to delete -- copy everything over the top and replace.
 
-Built on `df43333`, which is what production is running now (already includes the earlier
-Budget-line-picker fix). One database change is included -- see "About the migration" below,
-it does not need to be run, it is already live.
+Built on `92ab283` ("payments"), which is what production is running now. **No database change** in
+this package, and no production data has been touched.
 
-Tested at 758 assertions plus 7 migration-directory checks, all 0 failures (full syntax check
-across all 185 files, plus the full convention suite). I could not run a production build myself
-this time -- my sandbox has no route to Google Fonts, which the build needs. GitHub's own build
-will run automatically the moment you push, and will fail loudly on the pull request/commit if
-anything's actually wrong.
+Tested: full `npm run check` suite, 21 scripts, 0 failures (including 44 new behavioural checks for
+this fix). Production build (`next build`) compiled successfully -- my sandbox can't reach Google
+Fonts, so fonts were stood in for that build only; Vercel's build will use the real ones.
 
 ---
 
@@ -20,6 +17,8 @@ In GitHub Desktop:
 
 - **Current branch must be `main`.**
 - **Fetch origin**, then **Pull origin** if offered.
+- The latest commit on `main` should be **`payments`** (`92ab283`). If it is something newer, stop
+  and tell me.
 - The changes list should be empty. If it is not, stop and tell me.
 
 ---
@@ -30,20 +29,20 @@ The download contains these files, at these paths:
 
 ```
 components/FinanceClient.js
-components/TournamentClient.js
-lib/actions/finance.js
-lib/actions/tournaments.js
+lib/finance-rules.js
+package.json
 scripts/check-report.js
-supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql
-0001-Finance-stabilization-payment-form-crash-filter-labe.patch
+scripts/check-dues-edit.js
+START-HERE-instructions.md
+0001-ST-005-follow-up-enable-Save-on-Edit-Total-Due.patch
 ```
 
-Copy the `components`, `lib`, `scripts`, and `supabase` folders into the top level of your
-`atlas-iq2` folder. Choose **Replace the files in the destination** wherever it asks.
+Copy the `components`, `lib` and `scripts` folders, plus `package.json` and
+`START-HERE-instructions.md`, into the top level of your `atlas-iq2` folder. Choose **Replace the
+files in the destination** wherever it asks.
 
-The `.patch` file is optional -- copy it into the top level too if you want the same paper trail
-as past updates (it's just this same change, saved in a format `git am` can read). Skip it if you
-don't care to keep it; nothing about the app depends on it being there.
+The `.patch` file is optional -- copy it into the top level too if you want the same paper trail as
+past updates. Nothing about the app depends on it.
 
 ---
 
@@ -52,17 +51,18 @@ don't care to keep it; nothing about the app depends on it being there.
 GitHub Desktop should show **exactly 6 changes** (7 if you also copied the `.patch` file):
 
 ```
-components/FinanceClient.js                                              modified
-components/TournamentClient.js                                            modified
-lib/actions/finance.js                                                    modified
-lib/actions/tournaments.js                                                modified
-scripts/check-report.js                                                   modified
-supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql   added
-0001-Finance-stabilization-payment-form-crash-filter-labe.patch           added   (only if you copied it)
+components/FinanceClient.js                                  modified
+lib/finance-rules.js                                         modified
+package.json                                                 modified
+scripts/check-report.js                                      modified
+scripts/check-dues-edit.js                                   added
+START-HERE-instructions.md                                   modified
+0001-ST-005-follow-up-enable-Save-on-Edit-Total-Due.patch    added   (only if you copied it)
 ```
 
-**If you see anything else listed -- especially anything under `app/`, or any other file under
-`lib/`, `components/`, or `supabase/` -- stop and tell me what's listed.**
+`package.json` should show a **one-line** change (the new check added to the `check` list). If it
+shows anything more than that, or if you see anything under `app/`, `supabase/`, or any other file
+under `lib/` or `components/`, **stop and tell me what's listed.**
 
 ---
 
@@ -71,94 +71,56 @@ supabase/migrations/20260902134850_tournaments_budget_item_restrict_delete.sql  
 Summary:
 
 ```
-Finance stabilization: payment form crash, filter label, tournament costs
+ST-005 follow-up: enable Save on Edit Total Due
 ```
 
-**Commit to main**, then **Push origin**.
+**Commit to main**, then **Push origin**. Vercel deploys automatically. Tell me when it's pushed and
+I'll confirm the new production deployment and its commit ID before you start testing.
 
 ---
 
-## About the migration
+## Browser acceptance -- Cora Lindqvist (Northgate 16U Gold)
 
-The `.sql` file changes one thing in the database: a tournament's budget line can no longer be
-deleted out from under it silently. I already applied this change directly to the production
-database, before this package reached you -- so pushing it does not run anything or change your
-data. It's included only so your repository's migration history matches what the database is
-actually running. **Nothing is reapplied.**
+Production is the source of truth: Cora's Total Due is **$2,400** and she has **$700** paid
+($200 Aug 5, $200 Sep 5, $300 Oct 5).
 
-I rechecked compatibility immediately before applying it: zero tournaments pointed at a missing
-budget line, so the change applied cleanly with nothing to fix first.
+1. Finance -> Dues -> Cora -> **Edit total due**. Change $2,400 to **$2,000**. **Save changes**
+   should become clickable.
+2. Click it. It should save without an error.
+3. Cora's Total Due shows **$2,000**.
+4. Her payment history is unchanged: the same three payments, **$700** total.
+5. Open **Edit total due** again. With $2,000 left as is, **Save changes** should stay greyed out.
+6. Enter **$699.99** and click Save. The form should stay open and show, inside the form:
+   *"Total due can't be less than the $700.00 already paid. Enter $700.00 or more, or correct the
+   payment history first."* Nothing should change.
+7. Cancel. Total Due still **$2,000**, payments still **$700**.
 
----
-
-## What to check once it is live
-
-**Payment editing (ST-005).** Finance -> Dues. Open a player and use **Add payment** -- the form
-should open normally, not show an error. Do the same from **Edit** on an existing payment, from
-**Edit Total Due** on an individual player, and from the **Edit Team Dues** bulk screen. All four
-should open cleanly.
-
-Then the new guardrail: open a player who already has a payment recorded (Avery Myers is a
-good one -- $500 already paid toward a $3,600 total). Try to lower their Total Due below $500.
-It should be rejected with a message telling you $500 is already paid, and nothing should change
--- reload the page and confirm the $500 payment is still there. Lowering it to $500 or anything
-above should work normally. The bulk Team Dues screen behaves as it did before -- no change there.
-
-**Filter label (ST-006).** Finance -> Dues -> the payment-status filter. It should read **Paid in
-full** instead of **Paid**. It should still select the same players as before -- only the word
-changed.
-
-**Tournament costs (ST-007).** Open **TC Veterans Tribute** (or any tournament that has only one
-of Entry fee / Gate fee filled in) -- its total should now be exactly the fee that's entered, not
-blank or zero. Add a new tournament with only an entry fee, save it, and confirm the total matches
-the entry fee. Same test with only a gate fee. Both fees present should still add normally, and
-both blank should still show $0.
-
-Then the budget-line protection: go to Finance -> Budget, find a line that's assigned to a
-tournament as its budget line, and try to delete it. You should see a screen telling you it's
-allocated to that tournament, with a **Review tournament** button -- not the usual delete
-confirmation. Click it: the tournament should open with its **Costs** section already expanded,
-budget line control right there, no extra click needed. Change or clear the budget line, return to
-Finance, and the same line should now delete normally.
+Afterwards, if you want Cora back where she started, set her Total Due to $2,400 the same way.
 
 ---
 
 ## What was wrong
 
-**Payment editing.** The payment form referred to its own list of eligible players about 40 lines
-before that list was actually built. Every screen that opens this form hit an error the instant it
-tried to render. It's a code-ordering mistake, not a data problem -- nothing about who's eligible
-to pay changed.
+The dues form is shared by three screens: Set player dues, Edit total due, and Edit team dues.
+"Set player dues for all players" correctly greys out Save when every player already has dues
+(there's nobody left to add). But Edit total due was being treated as that same "all players"
+screen, so it inherited the rule: once every player on the team had dues -- the normal state -- Save
+could never turn on, whatever you typed. The earlier crash was hiding this.
 
-Separately, Total Due had no floor. You could type any number, including one lower than what a
-player had already legitimately paid, and it would save -- which would make the record say less
-was paid than the payment history actually shows. It now checks what's already recorded and won't
-let Total Due go below that, on the server, not just in the form, so there's no way around it.
+Edit total due now has its own rule: Save turns on when you've entered a valid amount that's
+different from the current one.
 
-**Filter label.** Cosmetic only -- the filter already selected the right players, it just said
-"Paid" instead of "Paid in full" like the rest of the screen does.
+Also fixed: when the server rejects a save (for example, an amount below what's already been paid),
+the message used to appear on the page behind the open form, so it looked like nothing happened. It
+now appears inside the form.
 
-**Tournament costs.** A tournament's total is entry fee plus gate fee, calculated automatically.
-If one of those two was left blank, the database treated the whole total as unknown instead of
-treating the blank as zero -- so a tournament with only an entry fee showed no total at all, and
-didn't show up anywhere in Finance as a cost. Twelve existing tournaments had this exact gap,
-totaling $21,090 in real committed cost that Finance was not counting. I already corrected those
-twelve records after you approved it and confirmed the exact count and amount matched before
-writing anything -- that part is done and does not need to be repeated. This package is the fix
-so it can't happen to a new tournament going forward: a blank fee is now written as $0 the moment
-you save, so the total is always a real number.
-
-The second part is a different gap: a budget line that a tournament was pointed at could be
-deleted with no warning at all, as long as no money had actually been spent against that
-tournament yet -- which is the normal state for something you've committed to but haven't started
-paying. Deleting it would silently disconnect the tournament from its budget with nothing to tell
-you it happened. Budget line deletion now checks for this the same way it already checks for
-linked transactions, blocks it, names the tournament, and sends you straight to the one place you
-can fix it.
+**Not changed:** Total Due still can't go below payments received (checked on the server); payment
+history is never touched by a Total Due edit; Edit team dues still refuses if any payment exists;
+Set dues works exactly as before.
 
 ---
 
 ## Alternative
 
-`0001-Finance-stabilization-payment-form-crash-filter-labe.patch` is the same change with the
-commit message preserved, for `git am`. Ignore it unless you want a command line.
+`0001-ST-005-follow-up-enable-Save-on-Edit-Total-Due.patch` is the same change with the commit
+message preserved, for `git am`. Ignore it unless you want a command line.

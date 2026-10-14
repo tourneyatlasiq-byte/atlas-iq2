@@ -1,0 +1,493 @@
+From 7da7edfabc6d4b44017f3fb60d0aa976d2535b4d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 14 Oct 2026 12:39:50 -0400
+Subject: [PATCH] ST-005 follow-up: enable Save on Edit Total Due
+
+Editing one player's Total Due inherited the bulk "Set dues for all
+players" scope, so the Save button applied the bulk guard (disabled when
+no rostered player is without dues). Once every player had dues, Save
+could never enable. An edit is now always a single-player edit, and Save
+reads one shared rule (canSaveDuesForm): enabled only when the amount is
+a valid number that differs from the current Total Due.
+
+A server rejection (e.g. Total Due below payments already recorded) is
+now shown inside the open dues form instead of behind it.
+
+Server-side protections unchanged: the payment floor in savePlayerPayment,
+no payment_log writes on Total Due edits, the bulk Team Dues restrictions,
+and Set Dues behaviour.
+
+Adds scripts/check-dues-edit.js (44 behavioural assertions) to npm run check.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01U71QFs2ZMqAJL3URRe7Bix
+---
+ components/FinanceClient.js |  40 +++++-
+ lib/finance-rules.js        |  31 ++++
+ package.json                |   2 +-
+ scripts/check-dues-edit.js  | 280 ++++++++++++++++++++++++++++++++++++
+ scripts/check-report.js     |   9 +-
+ 5 files changed, 353 insertions(+), 9 deletions(-)
+ create mode 100644 scripts/check-dues-edit.js
+
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index 373e7d4..9141ea4 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -15,7 +15,7 @@ import { setDuesForAll } from "../lib/actions/finance";
+ import { setTournamentBudgetLine } from "../lib/actions/tournaments";
+ import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
+ import {
+-  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney,
++  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
+   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
+   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
+ } from "../lib/finance-rules";
+@@ -863,6 +863,7 @@ export function FinanceClient({
+           players={players}
+           existing={payments}
+           pending={pending}
++          formError={error}
+           onSubmit={(fd) =>
+             run(editDuesForAll, fd, {
+               onDone: () => setEditingTeamDues(false),
+@@ -881,6 +882,7 @@ export function FinanceClient({
+           prefillTotal={duesPrefill}
+           existing={payments}
+           pending={pending}
++          formError={error}
+           onSubmit={(fd, scope) =>
+             run(scope === "all" ? setDuesForAll : savePlayerPayment, fd, () => {
+               setEditPay(null);
+@@ -2449,13 +2451,20 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
+   );
+ }
+ 
+-function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null }) {
++function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null, formError = null }) {
+   const isNew = !row;
+   // Opened from a specific player's row: go straight to that player rather
+   // than defaulting to the bulk action.
+   const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
+-  // A team edit is by definition every player who has dues.
+-  const effectiveScope = teamEdit ? "all" : scope;
++  // A team edit is by definition every player who has dues. Editing one
++  // player's existing obligation is by definition that one player.
++  //
++  // ST-005 follow-up: an edit used to inherit `scope`'s default of "all",
++  // which made the Save button apply the bulk-assignment guard ("no players
++  // without dues left") to a single-player edit. Once every player had dues,
++  // Save was permanently disabled on Edit total due whatever was typed.
++  // Submission already treated an edit as "one"; this makes the button agree.
++  const effectiveScope = teamEdit ? "all" : isNew ? scope : "one";
+   // Team total is the default because it is how a manager states dues: "the
+   // season costs $48,000". Per player is the explicit alternative.
+   const [duesMode, setDuesMode] = useState("total");
+@@ -2521,10 +2530,25 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+     };
+   }, [amount, duesMode, selected.length]);
+ 
++  // One rule for whether Save is available, shared with its regression tests.
++  const canSave = canSaveDuesForm({
++    pending,
++    mode: !isNew ? "edit" : effectiveScope === "all" ? "bulk" : "one",
++    amount,
++    originalAmount: row?.totalDue ?? null,
++    selectedCount: selected.length,
++  });
++
++  // A rejected save (for example, Total Due below what's already been paid)
++  // is reported by the page's error state, which sits behind this modal.
++  // Shown here instead, but only once this form has been submitted, so an
++  // older unrelated error never appears in a freshly opened form.
++  const [submitted, setSubmitted] = useState(false);
++
+   return (
+     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+       <div className="modal" onClick={(e) => e.stopPropagation()}>
+-        <form action={(fd) => onSubmit(fd, isNew ? scope : "one")}>
++        <form action={(fd) => { setSubmitted(true); onSubmit(fd, isNew ? scope : "one"); }}>
+           {row && <input type="hidden" name="id" value={row.id} />}
+           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
+           <div className="modal-head">
+@@ -2708,11 +2732,13 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+                 </p>
+               )}
+             </div>
++            {submitted && formError && !pending && (
++              <p className="drawer-foot-error" role="alert">{formError}</p>
++            )}
+           </div>
+           <div className="modal-foot">
+             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
+-            <button type="submit" className="btn btn-primary"
+-                    disabled={pending || (effectiveScope === "all" && (isNew ? selected.length === 0 : available.length === 0))}>
++            <button type="submit" className="btn btn-primary" disabled={!canSave}>
+               {pending
+                 ? "Saving…"
+                 : !isNew
+diff --git a/lib/finance-rules.js b/lib/finance-rules.js
+index da083f7..6ba223b 100644
+--- a/lib/finance-rules.js
++++ b/lib/finance-rules.js
+@@ -98,6 +98,37 @@ export function cents(n) {
+   return Math.round((Number(n ?? 0) + Number.EPSILON) * 100);
+ }
+ 
++/**
++ * Whether the dues form (PaymentForm) may be submitted. ST-005 follow-up.
++ *
++ * One rule for the three ways that form opens, so the button and its tests
++ * read from the same place:
++ *
++ *   "edit" — one player's existing obligation (Edit total due). Savable only
++ *            when the amount is a real number that differs from what is
++ *            already recorded, compared in whole cents so 2400 and "2400.00"
++ *            count as the same. The payment floor is NOT checked here: the
++ *            server (savePlayerPayment) is the authority on what has been
++ *            paid, and its rejection message is shown inside the form.
++ *   "bulk" — Set dues for all players, or Edit team dues. Savable when at
++ *            least one player is selected (unchanged from before).
++ *   "one"  — Set dues for one player. Always savable; the browser's own
++ *            required-field checks cover the inputs (unchanged from before).
++ *
++ * Nothing is savable while a save is already in flight.
++ */
++export function canSaveDuesForm({ pending = false, mode, amount, originalAmount = null, selectedCount = 0 }) {
++  if (pending) return false;
++  if (mode === "edit") {
++    if (amount === "" || amount == null) return false;
++    const value = Number(amount);
++    if (!Number.isFinite(value) || value < 0) return false;
++    return cents(value) !== cents(originalAmount);
++  }
++  if (mode === "bulk") return selectedCount > 0;
++  return true;
++}
++
+ /**
+  * Splits a team total across players so the parts add back to the whole.
+  *
+diff --git a/package.json b/package.json
+index 0b47757..8984d20 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "build": "next build",
+     "start": "next start",
+     "lint": "next lint",
+-    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
++    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-edit.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
+   },
+   "dependencies": {
+     "next": "14.2.5",
+diff --git a/scripts/check-dues-edit.js b/scripts/check-dues-edit.js
+new file mode 100644
+index 0000000..8a496c3
+--- /dev/null
++++ b/scripts/check-dues-edit.js
+@@ -0,0 +1,280 @@
++/**
++ * ST-005 follow-up — Player Dues form (PaymentForm) behaviour, 2026-10.
++ *
++ * The first ST-005 fix was covered only by source-text assertions, which
++ * passed while the live Edit total due button stayed disabled. These checks
++ * exercise real behaviour instead:
++ *
++ *   A. canSaveDuesForm, the one rule behind the Save button.
++ *   B. PaymentForm itself, rendered with React for each way it opens
++ *      (Edit total due, Set player dues for all / one, Edit team dues).
++ *   C. savePlayerPayment, the server action, run against an in-memory
++ *      Supabase stand-in so the payment floor and "payment history is never
++ *      written" are proven by what the action actually does.
++ *
++ * JSX and ESM are compiled on the fly with the SWC compiler that ships inside
++ * Next.js, so nothing new is added to package.json. Framework and database
++ * modules are replaced with small stand-ins; no network or database is used.
++ */
++
++const path = require("path");
++const fs = require("fs");
++const Module = require("module");
++
++const ROOT = path.resolve(__dirname, "..");
++let failed = 0;
++let passed = 0;
++function assertEq(label, actual, expected) {
++  const ok = JSON.stringify(actual) === JSON.stringify(expected);
++  if (ok) passed++; else failed++;
++  console.log(`  ${ok ? "ok  " : "FAIL"}  ${label}${ok ? "" : `\n        expected ${JSON.stringify(expected)}\n        actual   ${JSON.stringify(actual)}`}`);
++}
++
++/* ---------------- module loading ---------------- */
++
++const STUB_DIR = path.join(ROOT, "scripts", "__dues_stubs__");
++const stubs = new Map();
++function stub(name, exportsObj) { stubs.set(name, exportsObj); }
++
++// Server-side stand-ins, swapped per test via `db`.
++let db = null;
++stub("next/cache", { revalidatePath() {} });
++stub("next/headers", { cookies() { return { get() {}, set() {} }; }, headers() { return new Map(); } });
++stub("next/navigation", {
++  useRouter: () => ({ refresh() {}, push() {}, replace() {} }),
++  useSearchParams: () => new URLSearchParams(),
++  usePathname: () => "/finance",
++  redirect() { throw new Error("redirect"); },
++  notFound() { throw new Error("notFound"); },
++});
++stub("next/link", { __esModule: true, default: (props) => require("react").createElement("a", props, props.children) });
++const SUPABASE_SERVER = path.join(ROOT, "lib", "supabase", "server.js");
++const CONTEXT = path.join(ROOT, "lib", "context.js");
++
++const origResolve = Module._resolveFilename;
++Module._resolveFilename = function (request, parent, ...rest) {
++  if (stubs.has(request)) return `${STUB_DIR}/${request}`;
++  return origResolve.call(this, request, parent, ...rest);
++};
++const origLoad = Module._load;
++Module._load = function (request, parent, ...rest) {
++  if (stubs.has(request)) return stubs.get(request);
++  const resolved = (() => { try { return Module._resolveFilename(request, parent); } catch { return null; } })();
++  if (resolved === SUPABASE_SERVER) return { createClient: () => db };
++  if (resolved === CONTEXT) {
++    return {
++      requireSeasonContext: async () => ({
++        profile: { role: "owner" },
++        organization: { id: "org-1" },
++        season: { id: "season-1" },
++      }),
++      canWrite: () => true,
++    };
++  }
++  return origLoad.call(this, request, parent, ...rest);
++};
++
++const swc = require("next/dist/build/swc");
++const SWC_OPTS = {
++  jsc: { parser: { syntax: "ecmascript", jsx: true }, transform: { react: { runtime: "automatic" } }, target: "es2020" },
++  module: { type: "commonjs" },
++};
++const origJs = Module._extensions[".js"];
++Module._extensions[".js"] = function (module, filename) {
++  if (filename.includes(`${path.sep}node_modules${path.sep}`)) return origJs(module, filename);
++  let src = fs.readFileSync(filename, "utf8");
++  // PaymentForm is file-private; expose it to this check only.
++  if (filename === path.join(ROOT, "components", "FinanceClient.js")) {
++    src += "\nexport { PaymentForm as __PaymentForm };\n";
++  }
++  const { code } = swc.transformSync(src, { ...SWC_OPTS, filename });
++  module._compile(code, filename);
++};
++
++/* ---------------- A. the Save rule ---------------- */
++
++const { canSaveDuesForm } = require(path.join(ROOT, "lib", "finance-rules.js"));
++console.log("A. canSaveDuesForm");
++
++const edit = (amount, extra = {}) =>
++  canSaveDuesForm({ mode: "edit", amount, originalAmount: 2400, ...extra });
++
++assertEq("edit: $2,400 -> $2,000 enables Save", edit("2000"), true);
++assertEq("edit: $2,400 -> $1,200 enables Save (the server decides the floor)", edit("1200"), true);
++assertEq("edit: unchanged $2,400 does not enable Save", edit(2400), false);
++assertEq("edit: \"2400.00\" typed over 2400 is unchanged, Save stays off", edit("2400.00"), false);
++assertEq("edit: \"2400.001\" rounds to the same cents, Save stays off", edit("2400.001"), false);
++assertEq("edit: a one-cent change enables Save", edit("2399.99"), true);
++assertEq("edit: a blank amount does not enable Save", edit(""), false);
++assertEq("edit: a negative amount does not enable Save", edit("-5"), false);
++assertEq("edit: non-numeric text does not enable Save", edit("abc"), false);
++assertEq("edit: a $0 obligation can be raised", canSaveDuesForm({ mode: "edit", amount: "500", originalAmount: 0 }), true);
++assertEq("edit: nothing is savable while a save is in flight", edit("2000", { pending: true }), false);
++assertEq("edit: the outcome ignores how many players lack dues (the old bug)",
++  [0, 1, 13].map((n) => canSaveDuesForm({ mode: "edit", amount: "2000", originalAmount: 2400, selectedCount: n })),
++  [true, true, true]);
++assertEq("bulk: at least one selected player enables Save", canSaveDuesForm({ mode: "bulk", amount: "", selectedCount: 3 }), true);
++assertEq("bulk: no selected players keeps Save off (unchanged behaviour)", canSaveDuesForm({ mode: "bulk", amount: "100", selectedCount: 0 }), false);
++assertEq("one: setting dues for one player stays available (unchanged behaviour)", canSaveDuesForm({ mode: "one", amount: "" }), true);
++
++/* ---------------- B. PaymentForm rendered ---------------- */
++
++const React = require("react");
++const { renderToStaticMarkup } = require("react-dom/server");
++// React 18's server renderer warns that a function form `action` (a Next.js
++// server-action form) can't be serialised to HTML. Expected here; muted so
++// real failures stay readable.
++const consoleError = console.error;
++console.error = (msg, ...rest) => {
++  if (typeof msg === "string" && msg.includes("Invalid value for prop") && rest.includes("`action`")) return;
++  consoleError(msg, ...rest);
++};
++const { __PaymentForm: PaymentForm } = require(path.join(ROOT, "components", "FinanceClient.js"));
++console.log("B. PaymentForm rendered");
++
++const roster = Array.from({ length: 13 }, (_, i) => ({
++  id: `p${i + 1}`, full_name: i === 0 ? "Cora Lindqvist" : `Player ${i + 1}`, person_type: "player",
++}));
++const everyoneHasDues = roster.map((p, i) => ({ id: `pay${i + 1}`, player_id: p.id }));
++const coraRow = { id: "pay1", player_id: "p1", totalDue: 2400, totalPaid: 1200, player: { full_name: "Cora Lindqvist" } };
++const noop = () => {};
++
++function render(props) {
++  return renderToStaticMarkup(React.createElement(PaymentForm, {
++    players: roster, existing: everyoneHasDues, pending: false, onSubmit: noop, onCancel: noop, ...props,
++  }));
++}
++function submitButton(html) {
++  const m = html.match(/<button type="submit"[^>]*>([^<]*)<\/button>/);
++  return m ? { label: m[1], disabled: /\sdisabled=""/.test(m[0]) } : null;
++}
++
++{
++  const html = render({ row: coraRow });
++  assertEq("Edit total due opens (no crash) with the player's name", /Edit Cora Lindqvist/.test(html), true);
++  assertEq("...pre-filled with the current $2,400", /value="2400"/.test(html), true);
++  assertEq("...Save is off until the amount changes, even with every player already owing dues",
++    submitButton(html), { label: "Save changes", disabled: true });
++  assertEq("...and no error is shown in a freshly opened form, even if the page has one",
++    /role="alert"/.test(render({ row: coraRow, formError: "an older, unrelated error" })), false);
++}
++{
++  const html = render({ row: null, existing: everyoneHasDues.slice(3) });
++  assertEq("Set player dues (all players) opens", /Set player dues/.test(html), true);
++  assertEq("...offers the 3 players who have no dues yet, Save available",
++    submitButton(html), { label: "Set dues for 3 players", disabled: false });
++}
++{
++  const html = render({ row: null });
++  assertEq("Set player dues when everyone already has dues: Save stays off (unchanged)",
++    submitButton(html), { label: "Set dues for 0 players", disabled: true });
++}
++{
++  const html = render({ row: null, presetPlayerId: "p2", existing: everyoneHasDues.slice(2) });
++  assertEq("Set dues for one specific player opens on that player, Add available",
++    submitButton(html), { label: "Add", disabled: false });
++}
++{
++  const html = render({ row: null, teamEdit: true });
++  assertEq("Edit team dues opens", /Edit team dues/.test(html), true);
++  assertEq("...states it replaces the amount for the 13 players who have dues",
++    /This replaces the amount owed by.*<strong>13<\/strong>/.test(html), true);
++  assertEq("...Save available for those 13 players",
++    submitButton(html), { label: "Set dues for 13 players", disabled: false });
++}
++{
++  const html = render({ row: coraRow, pending: true });
++  assertEq("while saving, the button shows Saving… and is off", submitButton(html), { label: "Saving…", disabled: true });
++}
++
++/* ---------------- C. savePlayerPayment against an in-memory database ---------------- */
++
++function fakeDb({ paid }) {
++  const writes = [];
++  function builder(table) {
++    const q = { table, op: "select", filters: {}, payload: null };
++    const result = () => {
++      if (q.op !== "select") return { data: null, error: null };
++      if (table === "team_season_players") return { data: { player_id: q.filters.player_id }, error: null };
++      if (table === "payment_log") return { data: paid.map((amount) => ({ amount })), error: null };
++      return { data: [], error: null };
++    };
++    const b = {
++      select() { return b; },
++      eq(col, val) { q.filters[col] = val; return b; },
++      maybeSingle() { return Promise.resolve(result()); },
++      single() { return Promise.resolve(result()); },
++      update(payload) { q.op = "update"; q.payload = payload; writes.push(q); return b; },
++      insert(payload) { q.op = "insert"; q.payload = payload; writes.push(q); return b; },
++      delete() { q.op = "delete"; writes.push(q); return b; },
++      upsert(payload) { q.op = "upsert"; q.payload = payload; writes.push(q); return b; },
++      then(res, rej) { return Promise.resolve(result()).then(res, rej); },
++    };
++    return b;
++  }
++  return { from: builder, writes };
++}
++
++function form(fields) {
++  const fd = new FormData();
++  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
++  return fd;
++}
++
++(async () => {
++  const { savePlayerPayment } = require(path.join(ROOT, "lib", "actions", "finance.js"));
++  console.log("C. savePlayerPayment (in-memory database, $1,200 already paid)");
++
++  async function edit(cost, extra = {}) {
++    db = fakeDb({ paid: [500, 700] }); // $1,200 recorded across two payments
++    const res = await savePlayerPayment(form({ id: "pay1", player_id: "p1", initial_cost: cost, ...extra }));
++    return { res, writes: db.writes.map((w) => ({ table: w.table, op: w.op, payload: w.payload, id: w.filters.id })) };
++  }
++
++  {
++    const { res, writes } = await edit("2000");
++    assertEq("$2,400 -> $2,000 saves", res, { ok: true });
++    assertEq("...writes exactly one change: this obligation's amount",
++      writes, [{ table: "player_payments", op: "update", payload: { initial_cost: 2000, exempt: false }, id: "pay1" }]);
++    assertEq("...and leaves the $1,200 payment history untouched (no payment_log write)",
++      writes.some((w) => w.table === "payment_log"), false);
++  }
++  {
++    const { res, writes } = await edit("1200");
++    assertEq("exactly $1,200 (the amount already paid) is allowed", res, { ok: true });
++    assertEq("...and saved as $1,200", writes[0]?.payload, { initial_cost: 1200, exempt: false });
++  }
++  {
++    const { res, writes } = await edit("$1,200.00");
++    assertEq("\"$1,200.00\" pasted with symbol and comma is also allowed", res, { ok: true });
++    assertEq("...saved as 1200", writes[0]?.payload?.initial_cost, 1200);
++  }
++  {
++    const { res, writes } = await edit("1199.99");
++    assertEq("$1,199.99 is rejected", res.ok, false);
++    assertEq("...with a message naming the $1,200.00 already paid",
++      res.error, "Total due can't be less than the $1,200.00 already paid. Enter $1,200.00 or more, or correct the payment history first.");
++    assertEq("...and nothing is written", writes, []);
++  }
++  {
++    const { res, writes } = await edit("0", { exempt: "true" });
++    assertEq("marking exempt with $1,200 paid is rejected", res.ok, false);
++    assertEq("...with the exemption-specific message", /Can't mark this player exempt/.test(res.error ?? ""), true);
++    assertEq("...and nothing is written", writes, []);
++  }
++
++  /* ---------------- D. wiring that rendering alone can't reach ---------------- */
++  console.log("D. wiring");
++  const ui = fs.readFileSync(path.join(ROOT, "components", "FinanceClient.js"), "utf8");
++  assertEq("the Save button reads the shared rule and nothing else",
++    /<button type="submit" className="btn btn-primary" disabled=\{!canSave\}>/.test(ui), true);
++  assertEq("an existing obligation is edited as one player, never as the bulk scope",
++    /const effectiveScope = teamEdit \? "all" : isNew \? scope : "one";/.test(ui), true);
++  assertEq("the rule compares against the obligation's current amount",
++    /originalAmount: row\?\.totalDue \?\? null/.test(ui), true);
++  assertEq("both PaymentForm call sites receive the page error so rejections show in the form",
++    (ui.match(/formError=\{error\}/g) ?? []).length, 2);
++
++  console.log(`\n${passed + failed} assertions, ${failed} failed`);
++  process.exit(failed ? 1 : 0);
++})().catch((e) => { console.error(e); process.exit(1); });
+diff --git a/scripts/check-report.js b/scripts/check-report.js
+index 0fb1d9c..f8794c3 100644
+--- a/scripts/check-report.js
++++ b/scripts/check-report.js
+@@ -589,8 +589,15 @@ console.log("\nTeam dues allocation");
+     /allocateMoney\(value, n\)/.test(ui), true);
+   // Now keyed on the SELECTION: deselecting everyone must also block, since
+   // a team total with no payers has nobody to allocate to.
++  // ST-005 follow-up (2026-10): the rule moved into canSaveDuesForm, shared
++  // with scripts/check-dues-edit.js, which exercises it behaviourally. The
++  // previous expression also applied this bulk guard to a single-player
++  // edit, which disabled Edit total due once every player had dues.
+   assertEq("zero selected players cannot submit",
+-    /disabled=\{pending \|\| \(effectiveScope === "all" && \(isNew \? selected\.length === 0 : available\.length === 0\)\)\}/.test(ui), true);
++    /mode: !isNew \? "edit" : effectiveScope === "all" \? "bulk" : "one"/.test(ui) &&
++    /selectedCount: selected\.length/.test(ui) &&
++    /if \(mode === "bulk"\) return selectedCount > 0;/.test(require("fs").readFileSync("lib/finance-rules.js", "utf8")),
++    true);
+   assertEq("the all-set state explains where to change an amount",
+     /obligations with recorded payments cannot be changed in bulk/.test(ui), true);
+ 
+-- 
+2.43.0
+

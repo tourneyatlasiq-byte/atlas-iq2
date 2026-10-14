@@ -15,7 +15,7 @@ import { setDuesForAll } from "../lib/actions/finance";
 import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import {
-  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney,
+  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
 } from "../lib/finance-rules";
@@ -863,6 +863,7 @@ export function FinanceClient({
           players={players}
           existing={payments}
           pending={pending}
+          formError={error}
           onSubmit={(fd) =>
             run(editDuesForAll, fd, {
               onDone: () => setEditingTeamDues(false),
@@ -881,6 +882,7 @@ export function FinanceClient({
           prefillTotal={duesPrefill}
           existing={payments}
           pending={pending}
+          formError={error}
           onSubmit={(fd, scope) =>
             run(scope === "all" ? setDuesForAll : savePlayerPayment, fd, () => {
               setEditPay(null);
@@ -2449,13 +2451,20 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
   );
 }
 
-function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null }) {
+function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null, formError = null }) {
   const isNew = !row;
   // Opened from a specific player's row: go straight to that player rather
   // than defaulting to the bulk action.
   const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
-  // A team edit is by definition every player who has dues.
-  const effectiveScope = teamEdit ? "all" : scope;
+  // A team edit is by definition every player who has dues. Editing one
+  // player's existing obligation is by definition that one player.
+  //
+  // ST-005 follow-up: an edit used to inherit `scope`'s default of "all",
+  // which made the Save button apply the bulk-assignment guard ("no players
+  // without dues left") to a single-player edit. Once every player had dues,
+  // Save was permanently disabled on Edit total due whatever was typed.
+  // Submission already treated an edit as "one"; this makes the button agree.
+  const effectiveScope = teamEdit ? "all" : isNew ? scope : "one";
   // Team total is the default because it is how a manager states dues: "the
   // season costs $48,000". Per player is the explicit alternative.
   const [duesMode, setDuesMode] = useState("total");
@@ -2521,10 +2530,25 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
     };
   }, [amount, duesMode, selected.length]);
 
+  // One rule for whether Save is available, shared with its regression tests.
+  const canSave = canSaveDuesForm({
+    pending,
+    mode: !isNew ? "edit" : effectiveScope === "all" ? "bulk" : "one",
+    amount,
+    originalAmount: row?.totalDue ?? null,
+    selectedCount: selected.length,
+  });
+
+  // A rejected save (for example, Total Due below what's already been paid)
+  // is reported by the page's error state, which sits behind this modal.
+  // Shown here instead, but only once this form has been submitted, so an
+  // older unrelated error never appears in a freshly opened form.
+  const [submitted, setSubmitted] = useState(false);
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <form action={(fd) => onSubmit(fd, isNew ? scope : "one")}>
+        <form action={(fd) => { setSubmitted(true); onSubmit(fd, isNew ? scope : "one"); }}>
           {row && <input type="hidden" name="id" value={row.id} />}
           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
           <div className="modal-head">
@@ -2708,11 +2732,13 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
                 </p>
               )}
             </div>
+            {submitted && formError && !pending && (
+              <p className="drawer-foot-error" role="alert">{formError}</p>
+            )}
           </div>
           <div className="modal-foot">
             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>Cancel</button>
-            <button type="submit" className="btn btn-primary"
-                    disabled={pending || (effectiveScope === "all" && (isNew ? selected.length === 0 : available.length === 0))}>
+            <button type="submit" className="btn btn-primary" disabled={!canSave}>
               {pending
                 ? "Saving…"
                 : !isNew
