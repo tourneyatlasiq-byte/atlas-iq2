@@ -171,8 +171,9 @@ function submitButton(html) {
 }
 {
   const html = render({ row: null, presetPlayerId: "p2", existing: everyoneHasDues.slice(2) });
-  assertEq("Set dues for one specific player opens on that player, Add available",
-    submitButton(html), { label: "Add", disabled: false });
+  // ST-010: the known player is fixed, and the action says what it does.
+  assertEq("Set dues for one specific player opens on that player, Set dues available",
+    submitButton(html), { label: "Set dues", disabled: false });
 }
 {
   const html = render({ row: null, teamEdit: true });

@@ -17,6 +17,7 @@ import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance"
 import {
   isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
+  actionPlayerIds, scopeReconciledDues, duesHeaderState, presetDuesTarget,
   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
@@ -365,23 +366,15 @@ export function FinanceClient({
   }
 
   /**
-   * Payments narrowed to the selected action.
+   * The players the selected Needs Attention action is about.
    *
-   * Matched on player_id, not row id. The three actions carry different record
-   * shapes in `affected`: "outstanding" and "not-started" hold player_payments
-   * rows, while "no-dues" holds team_season_players rows. Comparing `a.id` to
-   * `p.id` therefore compared keys from two different tables and could never
-   * match for "no-dues". player_id is the one identifier both shapes share.
-   *
-   * Note this narrows correctly but still yields an empty list for "no-dues",
-   * because those players have no player_payments row by definition. The empty
-   * state below distinguishes that from a team with no dues set up at all.
+   * ST-010: this used to narrow the PAYMENTS, and the list then reconciled
+   * the roster against that narrowed set — so a player whose record fell
+   * outside the filter was shown as "Dues not set" (Allie Cox, paid in full,
+   * under "players owing"). The list now always receives every record and
+   * uses these ids only to choose which reconciled rows to display.
    */
-  const visiblePayments = activeAction
-    ? payments.filter((p) =>
-        activeAction.affected.some((a) => a.player_id != null && a.player_id === p.player_id)
-      )
-    : payments;
+  const filterPlayerIds = useMemo(() => actionPlayerIds(activeAction), [activeAction]);
 
   return (
     <>
@@ -723,7 +716,8 @@ export function FinanceClient({
 
       {tab === "payments" && (
         <PaymentsTab
-          payments={visiblePayments}
+          payments={payments}
+          filterPlayerIds={filterPlayerIds}
           activePlayers={players}
           canWrite={canWrite}
           onAdd={() => { setDuesForPlayer(null); setEditPay("new"); }}
@@ -879,6 +873,11 @@ export function FinanceClient({
           row={editPay === "new" ? null : editPay}
           players={players}
           presetPlayerId={duesForPlayer}
+          onOpenExisting={(record) => {
+            setEditPay(null);
+            setDuesForPlayer(null);
+            openDetail(record);
+          }}
           prefillTotal={duesPrefill}
           existing={payments}
           pending={pending}
@@ -2001,6 +2000,7 @@ const PAYMENT_VIEWS = [
  */
 export function PaymentsTab({
   payments,
+  filterPlayerIds = null,
   activePlayers = [],
   canWrite,
   onAdd,
@@ -2017,7 +2017,12 @@ export function PaymentsTab({
   const [bulkAmount, setBulkAmount] = useState("");
 
   // The roster is the spine; dues attach to it.
-  const { roster, former, counts } = reconcileDues(activePlayers, payments);
+  //
+  // ST-010: reconciled from EVERY dues record for the season, then narrowed
+  // to the active filter's players. Narrowing happens after states are
+  // decided, so a filter can hide a row but never change what it says.
+  const full = reconcileDues(activePlayers, payments);
+  const { roster, former, counts } = scopeReconciledDues(full, filterPlayerIds);
 
   const countFor = (key) =>
     key === "all" ? counts.all
@@ -2038,7 +2043,10 @@ export function PaymentsTab({
           return true;
         });
 
-  const nothingSetUp = roster.length > 0 && counts.notSet === roster.length && former.length === 0;
+  // About the team, not the filter: "no dues set up yet" must not appear just
+  // because a filter is showing only players without dues.
+  const nothingSetUp =
+    full.roster.length > 0 && full.counts.notSet === full.roster.length && full.former.length === 0;
 
   /**
    * Once dues exist the primary action is no longer setup.
@@ -2052,22 +2060,22 @@ export function PaymentsTab({
    * across players when some have already paid produces a number that is no
    * longer the total the coach entered.
    */
-  const withDues = payments.filter((p) => p.totalDue != null);
-  const duesTotal = sumMoney(withDues.map((p) => p.totalDue ?? 0));
-  const anyPaid = payments.some((p) => (p.log ?? []).length > 0);
-  const playersWithoutDues = counts.notSet;
-  const canBulkEdit = withDues.length > 0 && !anyPaid;
+  //
+  // ST-010: decided from the complete season (every record, the unfiltered
+  // reconciliation), never from the rows a filter leaves on screen.
+  const header = duesHeaderState(payments, full.counts);
+  const { withDuesCount, duesTotal, anyPaid, playersWithoutDues, canBulkEdit } = header;
 
   return (
     <>
       <div className="tab-head">
         <div className="page-sub">
-          {withDues.length === 0 ? (
+          {withDuesCount === 0 ? (
             <>Every active player on the roster, and what they owe for this season.</>
           ) : (
             <>
               <strong>{money(duesTotal)}</strong> total ·{" "}
-              {withDues.length} {withDues.length === 1 ? "player" : "players"}
+              {withDuesCount} {withDuesCount === 1 ? "player" : "players"}
               {playersWithoutDues > 0 && (
                 <> · {playersWithoutDues} without dues set</>
               )}
@@ -2089,7 +2097,7 @@ export function PaymentsTab({
                 Edit team dues
               </button>
             )}
-            {withDues.length === 0 && playersWithoutDues === 0 && (
+            {withDuesCount === 0 && playersWithoutDues === 0 && (
               <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>
             )}
           </div>
@@ -2097,7 +2105,7 @@ export function PaymentsTab({
       </div>
 
       {/* Said once, where the missing action would have been. */}
-      {canWrite && withDues.length > 0 && anyPaid && (
+      {canWrite && withDuesCount > 0 && anyPaid && (
         <p className="field-note dues-locked-note">
           Team dues can no longer be reallocated as a group — payments have been
           recorded. Open a player to adjust their amount individually; their
@@ -2126,7 +2134,7 @@ export function PaymentsTab({
             <h3>No players match this filter</h3>
             <p>
               {filterLabel
-                ? `These players are ${filterLabel}, so they have no payment record to show yet.`
+                ? `No players are ${filterLabel} right now.`
                 : "No players match the selected filter."}
             </p>
             {onClearFilter && (
@@ -2451,8 +2459,14 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
   );
 }
 
-function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null, formError = null }) {
+function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, onOpenExisting = null, teamEdit = false, prefillTotal = null, formError = null }) {
   const isNew = !row;
+  /**
+   * ST-010: opened for ONE KNOWN player (the "Set dues" button on their row).
+   * The player is fixed — no All/One choice, no picker — and what is offered
+   * follows their real dues state from the complete season records.
+   */
+  const target = isNew && !teamEdit ? presetDuesTarget(presetPlayerId, players, existing) : null;
   // Opened from a specific player's row: go straight to that player rather
   // than defaulting to the bulk action.
   const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
@@ -2545,15 +2559,58 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
   // older unrelated error never appears in a freshly opened form.
   const [submitted, setSubmitted] = useState(false);
 
+  // ST-010: the known player already has dues, or is not an active player this
+  // season. Say so and offer the real next step, instead of an empty picker.
+  // Hooks above still run on every render, so this return is safe.
+  if (target && target.kind !== "set") {
+    const name = target.player?.full_name ?? target.record?.player?.full_name ?? target.record?.displayName ?? "This player";
+    const r = target.record;
+    return (
+      <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dues-target-title" onClick={onCancel}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-head">
+            <h2 id="dues-target-title">{target.kind === "exists" ? `Dues already set for ${name}` : "Dues can't be set here"}</h2>
+          </div>
+          <div className="modal-body">
+            {target.kind === "exists" ? (
+              <p className="dues-target-state">
+                {name} owes <strong>{money(r.totalDue ?? 0)}</strong> for this season
+                {r.exempt
+                  ? " and is exempt from dues."
+                  : <> and has paid <strong>{money(r.totalPaid ?? 0)}</strong>.</>}{" "}
+                Open their dues to view payments or change the amount.
+              </p>
+            ) : (
+              <p>
+                {name} isn&rsquo;t an active player on this season&rsquo;s roster, so dues
+                can&rsquo;t be set for them here.
+              </p>
+            )}
+          </div>
+          <div className="modal-foot">
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>Close</button>
+            {target.kind === "exists" && onOpenExisting && (
+              <button type="button" className="btn btn-primary" onClick={() => onOpenExisting(r)}>
+                View {name}&rsquo;s dues
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const fixedPlayer = target?.kind === "set" ? target.player : null;
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <form action={(fd) => { setSubmitted(true); onSubmit(fd, isNew ? scope : "one"); }}>
+        <form action={(fd) => { setSubmitted(true); onSubmit(fd, isNew ? (fixedPlayer ? "one" : scope) : "one"); }}>
           {row && <input type="hidden" name="id" value={row.id} />}
           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
           <div className="modal-head">
             <h2>
               {teamEdit ? "Edit team dues"
+                : fixedPlayer ? `Set dues for ${fixedPlayer.full_name}`
                 : isNew ? "Set player dues"
                 : `Edit ${row.player?.full_name}`}
             </h2>
@@ -2567,7 +2624,7 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
           <div className="modal-body">
             {/* Bulk assignment used to live only on the empty state, so once
                 one player had dues a coach could never reach it again. */}
-            {isNew && (
+            {isNew && !fixedPlayer && (
               <div className="field">
                 <label>Who owes this?</label>
                 <div className="segmented" role="group" aria-label="Who owes this">
@@ -2669,7 +2726,10 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
               </p>
             )}
 
-            {isNew && effectiveScope === "one" && (
+            {/* The known player: fixed, not re-selected. */}
+            {fixedPlayer && <input type="hidden" name="player_id" value={fixedPlayer.id} />}
+
+            {isNew && effectiveScope === "one" && !fixedPlayer && (
               <div className="field">
                 <label htmlFor="p-player">Player</label>
                 <select id="p-player" name="player_id" required defaultValue={presetPlayerId ?? ""}>
@@ -2745,7 +2805,9 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
                   ? "Save changes"
                   : effectiveScope === "all"
                     ? `Set dues for ${selected.length} ${selected.length === 1 ? "player" : "players"}`
-                    : "Add"}
+                    : fixedPlayer
+                      ? "Set dues"
+                      : "Add"}
             </button>
           </div>
         </form>

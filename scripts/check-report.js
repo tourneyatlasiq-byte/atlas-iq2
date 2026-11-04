@@ -646,8 +646,12 @@ console.log("\nTeam dues allocation");
     /<strong>\{money\(duesTotal\)\}<\/strong> total/.test(ui), true);
   assertEq("...and offers Edit team dues when safe",
     /canBulkEdit && \(/.test(ui) && /Edit team dues/.test(ui), true);
+  // ST-010: the rule moved, unchanged, into duesHeaderState (lib/finance-rules.js),
+  // and the UI must feed it the complete season, never a filtered list.
   assertEq("...only when nothing is paid",
-    /const canBulkEdit = withDues\.length > 0 && !anyPaid/.test(ui), true);
+    /canBulkEdit: withDues\.length > 0 && !anyPaid/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "lib", "finance-rules.js"), "utf8")), true);
+  assertEq("...decided from every season record, not the filtered rows",
+    /duesHeaderState\(payments, full\.counts\)/.test(ui), true);
   assertEq("...explaining why when it is unavailable",
     /Team dues can no longer be reallocated as a group/.test(ui), true);
   assertEq("...and still offering dues for players who have none",

@@ -1,0 +1,806 @@
+From 4335b263637e84fb7bdf5d8402ef5741381cc697 Mon Sep 17 00:00:00 2001
+From: Claude <claude@example.com>
+Date: Wed, 4 Nov 2026 22:50:34 +0000
+Subject: [PATCH] ST-010: Player Dues filters never change dues state;
+ fixed-player Set Dues
+
+---
+ components/FinanceClient.js  | 128 +++++++++----
+ lib/finance-rules.js         | 103 ++++++++++
+ package.json                 |   2 +-
+ scripts/check-dues-edit.js   |   5 +-
+ scripts/check-dues-filter.js | 356 +++++++++++++++++++++++++++++++++++
+ scripts/check-report.js      |   6 +-
+ 6 files changed, 563 insertions(+), 37 deletions(-)
+ create mode 100644 scripts/check-dues-filter.js
+
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index 9141ea4..86e0571 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -17,6 +17,7 @@ import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance"
+ import {
+   isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
+   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
++  actionPlayerIds, scopeReconciledDues, duesHeaderState, presetDuesTarget,
+   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
+ } from "../lib/finance-rules";
+ import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+@@ -365,23 +366,15 @@ export function FinanceClient({
+   }
+ 
+   /**
+-   * Payments narrowed to the selected action.
++   * The players the selected Needs Attention action is about.
+    *
+-   * Matched on player_id, not row id. The three actions carry different record
+-   * shapes in `affected`: "outstanding" and "not-started" hold player_payments
+-   * rows, while "no-dues" holds team_season_players rows. Comparing `a.id` to
+-   * `p.id` therefore compared keys from two different tables and could never
+-   * match for "no-dues". player_id is the one identifier both shapes share.
+-   *
+-   * Note this narrows correctly but still yields an empty list for "no-dues",
+-   * because those players have no player_payments row by definition. The empty
+-   * state below distinguishes that from a team with no dues set up at all.
++   * ST-010: this used to narrow the PAYMENTS, and the list then reconciled
++   * the roster against that narrowed set — so a player whose record fell
++   * outside the filter was shown as "Dues not set" (Allie Cox, paid in full,
++   * under "players owing"). The list now always receives every record and
++   * uses these ids only to choose which reconciled rows to display.
+    */
+-  const visiblePayments = activeAction
+-    ? payments.filter((p) =>
+-        activeAction.affected.some((a) => a.player_id != null && a.player_id === p.player_id)
+-      )
+-    : payments;
++  const filterPlayerIds = useMemo(() => actionPlayerIds(activeAction), [activeAction]);
+ 
+   return (
+     <>
+@@ -723,7 +716,8 @@ export function FinanceClient({
+ 
+       {tab === "payments" && (
+         <PaymentsTab
+-          payments={visiblePayments}
++          payments={payments}
++          filterPlayerIds={filterPlayerIds}
+           activePlayers={players}
+           canWrite={canWrite}
+           onAdd={() => { setDuesForPlayer(null); setEditPay("new"); }}
+@@ -879,6 +873,11 @@ export function FinanceClient({
+           row={editPay === "new" ? null : editPay}
+           players={players}
+           presetPlayerId={duesForPlayer}
++          onOpenExisting={(record) => {
++            setEditPay(null);
++            setDuesForPlayer(null);
++            openDetail(record);
++          }}
+           prefillTotal={duesPrefill}
+           existing={payments}
+           pending={pending}
+@@ -2001,6 +2000,7 @@ const PAYMENT_VIEWS = [
+  */
+ export function PaymentsTab({
+   payments,
++  filterPlayerIds = null,
+   activePlayers = [],
+   canWrite,
+   onAdd,
+@@ -2017,7 +2017,12 @@ export function PaymentsTab({
+   const [bulkAmount, setBulkAmount] = useState("");
+ 
+   // The roster is the spine; dues attach to it.
+-  const { roster, former, counts } = reconcileDues(activePlayers, payments);
++  //
++  // ST-010: reconciled from EVERY dues record for the season, then narrowed
++  // to the active filter's players. Narrowing happens after states are
++  // decided, so a filter can hide a row but never change what it says.
++  const full = reconcileDues(activePlayers, payments);
++  const { roster, former, counts } = scopeReconciledDues(full, filterPlayerIds);
+ 
+   const countFor = (key) =>
+     key === "all" ? counts.all
+@@ -2038,7 +2043,10 @@ export function PaymentsTab({
+           return true;
+         });
+ 
+-  const nothingSetUp = roster.length > 0 && counts.notSet === roster.length && former.length === 0;
++  // About the team, not the filter: "no dues set up yet" must not appear just
++  // because a filter is showing only players without dues.
++  const nothingSetUp =
++    full.roster.length > 0 && full.counts.notSet === full.roster.length && full.former.length === 0;
+ 
+   /**
+    * Once dues exist the primary action is no longer setup.
+@@ -2052,22 +2060,22 @@ export function PaymentsTab({
+    * across players when some have already paid produces a number that is no
+    * longer the total the coach entered.
+    */
+-  const withDues = payments.filter((p) => p.totalDue != null);
+-  const duesTotal = sumMoney(withDues.map((p) => p.totalDue ?? 0));
+-  const anyPaid = payments.some((p) => (p.log ?? []).length > 0);
+-  const playersWithoutDues = counts.notSet;
+-  const canBulkEdit = withDues.length > 0 && !anyPaid;
++  //
++  // ST-010: decided from the complete season (every record, the unfiltered
++  // reconciliation), never from the rows a filter leaves on screen.
++  const header = duesHeaderState(payments, full.counts);
++  const { withDuesCount, duesTotal, anyPaid, playersWithoutDues, canBulkEdit } = header;
+ 
+   return (
+     <>
+       <div className="tab-head">
+         <div className="page-sub">
+-          {withDues.length === 0 ? (
++          {withDuesCount === 0 ? (
+             <>Every active player on the roster, and what they owe for this season.</>
+           ) : (
+             <>
+               <strong>{money(duesTotal)}</strong> total ·{" "}
+-              {withDues.length} {withDues.length === 1 ? "player" : "players"}
++              {withDuesCount} {withDuesCount === 1 ? "player" : "players"}
+               {playersWithoutDues > 0 && (
+                 <> · {playersWithoutDues} without dues set</>
+               )}
+@@ -2089,7 +2097,7 @@ export function PaymentsTab({
+                 Edit team dues
+               </button>
+             )}
+-            {withDues.length === 0 && playersWithoutDues === 0 && (
++            {withDuesCount === 0 && playersWithoutDues === 0 && (
+               <button className="btn btn-primary" onClick={onAdd}>Set player dues</button>
+             )}
+           </div>
+@@ -2097,7 +2105,7 @@ export function PaymentsTab({
+       </div>
+ 
+       {/* Said once, where the missing action would have been. */}
+-      {canWrite && withDues.length > 0 && anyPaid && (
++      {canWrite && withDuesCount > 0 && anyPaid && (
+         <p className="field-note dues-locked-note">
+           Team dues can no longer be reallocated as a group — payments have been
+           recorded. Open a player to adjust their amount individually; their
+@@ -2126,7 +2134,7 @@ export function PaymentsTab({
+             <h3>No players match this filter</h3>
+             <p>
+               {filterLabel
+-                ? `These players are ${filterLabel}, so they have no payment record to show yet.`
++                ? `No players are ${filterLabel} right now.`
+                 : "No players match the selected filter."}
+             </p>
+             {onClearFilter && (
+@@ -2451,8 +2459,14 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
+   );
+ }
+ 
+-function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, teamEdit = false, prefillTotal = null, formError = null }) {
++function PaymentForm({ row, players, presetPlayerId = null, existing, pending, onSubmit, onCancel, onOpenExisting = null, teamEdit = false, prefillTotal = null, formError = null }) {
+   const isNew = !row;
++  /**
++   * ST-010: opened for ONE KNOWN player (the "Set dues" button on their row).
++   * The player is fixed — no All/One choice, no picker — and what is offered
++   * follows their real dues state from the complete season records.
++   */
++  const target = isNew && !teamEdit ? presetDuesTarget(presetPlayerId, players, existing) : null;
+   // Opened from a specific player's row: go straight to that player rather
+   // than defaulting to the bulk action.
+   const [scope, setScope] = useState(isNew && presetPlayerId ? "one" : "all");
+@@ -2545,15 +2559,58 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+   // older unrelated error never appears in a freshly opened form.
+   const [submitted, setSubmitted] = useState(false);
+ 
++  // ST-010: the known player already has dues, or is not an active player this
++  // season. Say so and offer the real next step, instead of an empty picker.
++  // Hooks above still run on every render, so this return is safe.
++  if (target && target.kind !== "set") {
++    const name = target.player?.full_name ?? target.record?.player?.full_name ?? target.record?.displayName ?? "This player";
++    const r = target.record;
++    return (
++      <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dues-target-title" onClick={onCancel}>
++        <div className="modal" onClick={(e) => e.stopPropagation()}>
++          <div className="modal-head">
++            <h2 id="dues-target-title">{target.kind === "exists" ? `Dues already set for ${name}` : "Dues can't be set here"}</h2>
++          </div>
++          <div className="modal-body">
++            {target.kind === "exists" ? (
++              <p className="dues-target-state">
++                {name} owes <strong>{money(r.totalDue ?? 0)}</strong> for this season
++                {r.exempt
++                  ? " and is exempt from dues."
++                  : <> and has paid <strong>{money(r.totalPaid ?? 0)}</strong>.</>}{" "}
++                Open their dues to view payments or change the amount.
++              </p>
++            ) : (
++              <p>
++                {name} isn&rsquo;t an active player on this season&rsquo;s roster, so dues
++                can&rsquo;t be set for them here.
++              </p>
++            )}
++          </div>
++          <div className="modal-foot">
++            <button type="button" className="btn btn-secondary" onClick={onCancel}>Close</button>
++            {target.kind === "exists" && onOpenExisting && (
++              <button type="button" className="btn btn-primary" onClick={() => onOpenExisting(r)}>
++                View {name}&rsquo;s dues
++              </button>
++            )}
++          </div>
++        </div>
++      </div>
++    );
++  }
++  const fixedPlayer = target?.kind === "set" ? target.player : null;
++
+   return (
+     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+       <div className="modal" onClick={(e) => e.stopPropagation()}>
+-        <form action={(fd) => { setSubmitted(true); onSubmit(fd, isNew ? scope : "one"); }}>
++        <form action={(fd) => { setSubmitted(true); onSubmit(fd, isNew ? (fixedPlayer ? "one" : scope) : "one"); }}>
+           {row && <input type="hidden" name="id" value={row.id} />}
+           {row && <input type="hidden" name="player_id" value={row.player_id ?? ""} />}
+           <div className="modal-head">
+             <h2>
+               {teamEdit ? "Edit team dues"
++                : fixedPlayer ? `Set dues for ${fixedPlayer.full_name}`
+                 : isNew ? "Set player dues"
+                 : `Edit ${row.player?.full_name}`}
+             </h2>
+@@ -2567,7 +2624,7 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+           <div className="modal-body">
+             {/* Bulk assignment used to live only on the empty state, so once
+                 one player had dues a coach could never reach it again. */}
+-            {isNew && (
++            {isNew && !fixedPlayer && (
+               <div className="field">
+                 <label>Who owes this?</label>
+                 <div className="segmented" role="group" aria-label="Who owes this">
+@@ -2669,7 +2726,10 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+               </p>
+             )}
+ 
+-            {isNew && effectiveScope === "one" && (
++            {/* The known player: fixed, not re-selected. */}
++            {fixedPlayer && <input type="hidden" name="player_id" value={fixedPlayer.id} />}
++
++            {isNew && effectiveScope === "one" && !fixedPlayer && (
+               <div className="field">
+                 <label htmlFor="p-player">Player</label>
+                 <select id="p-player" name="player_id" required defaultValue={presetPlayerId ?? ""}>
+@@ -2745,7 +2805,9 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
+                   ? "Save changes"
+                   : effectiveScope === "all"
+                     ? `Set dues for ${selected.length} ${selected.length === 1 ? "player" : "players"}`
+-                    : "Add"}
++                    : fixedPlayer
++                      ? "Set dues"
++                      : "Add"}
+             </button>
+           </div>
+         </form>
+diff --git a/lib/finance-rules.js b/lib/finance-rules.js
+index 6ba223b..8d88eff 100644
+--- a/lib/finance-rules.js
++++ b/lib/finance-rules.js
+@@ -661,6 +661,109 @@ export function reconcileDues(activePlayers = [], payments = [], membershipIds =
+   };
+ }
+ 
++/* ------------------------------------------------------------------------
++ * PLAYER DUES UNDER A FILTER (ST-010, 2026-11).
++ *
++ * The defect: the Player Dues list used to reconcile the roster against only
++ * the dues records that matched the active Needs Attention filter. A player
++ * whose record was filtered out then had "no record", and was displayed as
++ * "Dues not set" — Allie Cox, $3,600 due and $3,600 paid, showed that way
++ * under "players owing". The dues form, which saw every record, correctly
++ * refused to create a second obligation, so the coach hit a dead end.
++ *
++ * The rule now: dues state is ALWAYS reconciled from the complete season
++ * dataset. A filter only decides which already-reconciled rows are shown.
++ * Financial actions are decided from the complete dataset too, never from
++ * what happens to be on screen.
++ * ---------------------------------------------------------------------- */
++
++/**
++ * The players a Needs Attention action is about, as a Set of player ids.
++ *
++ * `affected` carries player_payments rows for "outstanding" and
++ * "not-started", and team_season_players rows for "no-dues". player_id is the
++ * one field both shapes share. null means "no filter".
++ */
++export function actionPlayerIds(action) {
++  if (!action) return null;
++  return new Set((action.affected ?? []).map((a) => a?.player_id).filter(Boolean));
++}
++
++/**
++ * Narrow an already-reconciled result to the filter's players.
++ *
++ * Takes reconcileDues() OUTPUT, never its input: states were decided against
++ * every record before this runs, so narrowing can hide a row but cannot change
++ * what any row says. Counts are recomputed over the rows still shown, so the
++ * view chips match the list beneath them.
++ */
++export function scopeReconciledDues(reconciled, playerIds) {
++  if (!playerIds) return reconciled;
++  const keep = (r) => r.playerId != null && playerIds.has(r.playerId);
++  const roster = reconciled.roster.filter(keep);
++  const former = reconciled.former.filter(keep);
++  const inState = (s) => roster.filter((r) => r.state === s).length;
++  return {
++    roster,
++    former,
++    counts: {
++      all: roster.length,
++      paid: inState("paid"),
++      notStarted: inState("not-started"),
++      notSet: inState("not-set"),
++      exempt: inState("exempt"),
++      owes: roster.filter((r) => r.record && r.record.balance > 0).length,
++      former: former.filter((f) => f.kind === "former").length,
++      unlinked: former.filter((f) => f.kind === "unlinked").length,
++      orphaned: former.filter((f) => f.kind === "orphaned").length,
++    },
++  };
++}
++
++/**
++ * What the Player Dues header states and offers, from the COMPLETE season.
++ *
++ * Pass every dues record for the season and the full reconciliation. Never a
++ * filtered list: filtering the screen must not change which actions the
++ * application treats as permissible. Under a "not paid anything" filter the
++ * old header saw no payments and offered Edit team dues to a team that had
++ * recorded payments (the server still refused it).
++ *
++ * canBulkEdit keeps the existing rule exactly: dues exist and nothing has
++ * been paid on any of them.
++ */
++export function duesHeaderState(payments = [], fullCounts = { notSet: 0 }) {
++  const withDues = (payments ?? []).filter((p) => p.totalDue != null);
++  const anyPaid = (payments ?? []).some((p) => (p.log ?? []).length > 0);
++  return {
++    withDuesCount: withDues.length,
++    duesTotal: sumMoney(withDues.map((p) => p.totalDue ?? 0)),
++    anyPaid,
++    playersWithoutDues: fullCounts.notSet ?? 0,
++    canBulkEdit: withDues.length > 0 && !anyPaid,
++  };
++}
++
++/**
++ * Where "Set dues" for one known player should lead.
++ *
++ *   { kind: "set", player }              no obligation: set it directly
++ *   { kind: "exists", player, record }   already has one: go to it, never an
++ *                                        empty selector
++ *   { kind: "ineligible", playerId }     not an active player this season
++ *
++ * Decided from the complete dues records, the same data the server's
++ * one-row-per-player-per-season rule protects.
++ */
++export function presetDuesTarget(presetPlayerId, players = [], existing = []) {
++  if (!presetPlayerId) return null;
++  const record = (existing ?? []).find((p) => p.player_id === presetPlayerId) ?? null;
++  const player = (players ?? []).find((p) => p.id === presetPlayerId) ?? null;
++  if (record) return { kind: "exists", player, record };
++  if (player && (player.person_type ?? "player") === "player") return { kind: "set", player };
++  return { kind: "ineligible", playerId: presetPlayerId };
++}
++
+ /**
+  * Which income bucket a budget category belongs to.
+  *
+diff --git a/package.json b/package.json
+index 796b254..db8dd7e 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "build": "next build",
+     "start": "next start",
+     "lint": "next lint",
+-    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-edit.js && node scripts/check-uniform-sizes.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
++    "check": "node scripts/check-syntax.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-edit.js && node scripts/check-dues-filter.js && node scripts/check-uniform-sizes.js && node scripts/check-schedule.js && node scripts/check-qab-report.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
+   },
+   "dependencies": {
+     "next": "14.2.5",
+diff --git a/scripts/check-dues-edit.js b/scripts/check-dues-edit.js
+index 8a496c3..2a6e6af 100644
+--- a/scripts/check-dues-edit.js
++++ b/scripts/check-dues-edit.js
+@@ -171,8 +171,9 @@ function submitButton(html) {
+ }
+ {
+   const html = render({ row: null, presetPlayerId: "p2", existing: everyoneHasDues.slice(2) });
+-  assertEq("Set dues for one specific player opens on that player, Add available",
+-    submitButton(html), { label: "Add", disabled: false });
++  // ST-010: the known player is fixed, and the action says what it does.
++  assertEq("Set dues for one specific player opens on that player, Set dues available",
++    submitButton(html), { label: "Set dues", disabled: false });
+ }
+ {
+   const html = render({ row: null, teamEdit: true });
+diff --git a/scripts/check-dues-filter.js b/scripts/check-dues-filter.js
+new file mode 100644
+index 0000000..16d11ef
+--- /dev/null
++++ b/scripts/check-dues-filter.js
+@@ -0,0 +1,356 @@
++/**
++ * ST-010 — Player Dues under a Needs Attention filter, and player-specific
++ * Set Dues. 2026-11.
++ *
++ * The defect: under a filter, the list reconciled the roster against only the
++ * filtered dues records, so Allie Cox ($3,600 due, $3,600 paid) showed as
++ * "Dues not set" and her Set dues button opened an empty player picker.
++ *
++ * Behavioural checks:
++ *   A. the rules: states from the complete dataset, filters only narrow rows
++ *   B. PaymentsTab rendered under every filter
++ *   C. PaymentForm opened for a known player, in every dues state
++ *   D. server protections: payment floor, bulk refusal, duplicate obligation
++ *
++ * Same harness as check-dues-edit.js: SWC from Next.js, stubbed framework and
++ * database modules, no network.
++ */
++
++const path = require("path");
++const fs = require("fs");
++const Module = require("module");
++
++const ROOT = path.resolve(__dirname, "..");
++let failed = 0;
++let passed = 0;
++function assertEq(label, actual, expected) {
++  const ok = JSON.stringify(actual) === JSON.stringify(expected);
++  if (ok) passed++; else failed++;
++  console.log(`  ${ok ? "ok  " : "FAIL"}  ${label}${ok ? "" : `\n        expected ${JSON.stringify(expected)}\n        actual   ${JSON.stringify(actual)}`}`);
++}
++
++/* ---------------- module loading ---------------- */
++
++const STUB_DIR = path.join(ROOT, "scripts", "__dues_filter_stubs__");
++const stubs = new Map();
++const stub = (name, exportsObj) => stubs.set(name, exportsObj);
++let db = null;
++stub("next/cache", { revalidatePath() {} });
++stub("next/headers", { cookies() { return { get() {}, set() {} }; }, headers() { return new Map(); } });
++stub("next/navigation", {
++  useRouter: () => ({ refresh() {}, push() {}, replace() {} }),
++  useSearchParams: () => new URLSearchParams(),
++  usePathname: () => "/finance",
++  redirect() { throw new Error("redirect"); },
++  notFound() { throw new Error("notFound"); },
++});
++stub("next/link", { __esModule: true, default: (props) => require("react").createElement("a", props, props.children) });
++const SUPABASE_SERVER = path.join(ROOT, "lib", "supabase", "server.js");
++const CONTEXT = path.join(ROOT, "lib", "context.js");
++
++const origResolve = Module._resolveFilename;
++Module._resolveFilename = function (request, parent, ...rest) {
++  if (stubs.has(request)) return `${STUB_DIR}/${request}`;
++  return origResolve.call(this, request, parent, ...rest);
++};
++const origLoad = Module._load;
++Module._load = function (request, parent, ...rest) {
++  if (stubs.has(request)) return stubs.get(request);
++  const resolved = (() => { try { return Module._resolveFilename(request, parent); } catch { return null; } })();
++  if (resolved === SUPABASE_SERVER) return { createClient: () => db };
++  if (resolved === CONTEXT) {
++    return {
++      requireSeasonContext: async () => ({ profile: { role: "owner" }, organization: { id: "org-1" }, season: { id: "season-1" } }),
++      canWrite: () => true,
++    };
++  }
++  return origLoad.call(this, request, parent, ...rest);
++};
++
++const swc = require("next/dist/build/swc");
++const SWC_OPTS = {
++  jsc: { parser: { syntax: "ecmascript", jsx: true }, transform: { react: { runtime: "automatic" } }, target: "es2020" },
++  module: { type: "commonjs" },
++};
++const origJs = Module._extensions[".js"];
++Module._extensions[".js"] = function (module, filename) {
++  if (filename.includes(`${path.sep}node_modules${path.sep}`)) return origJs(module, filename);
++  let src = fs.readFileSync(filename, "utf8");
++  if (filename === path.join(ROOT, "components", "FinanceClient.js")) {
++    src += "\nexport { PaymentForm as __PaymentForm };\n";
++  }
++  const { code } = swc.transformSync(src, { ...SWC_OPTS, filename });
++  module._compile(code, filename);
++};
++
++const {
++  reconcileDues, actionPlayerIds, scopeReconciledDues, duesHeaderState, presetDuesTarget,
++} = require(path.join(ROOT, "lib", "finance-rules.js"));
++const { financeActions } = require(path.join(ROOT, "lib", "readiness", "finance.js"));
++
++/* ---------------- fixture: one player in every state ---------------- */
++
++// [name, active, record: null | { due, paid[], exempt }]
++const FIXTURE = [
++  ["Allie Cox", true, { due: 3600, paid: [3600] }],          // paid in full (the reported player)
++  ["Anna Owes", true, { due: 3600, paid: [500, 600] }],      // partially paid
++  ["Nora None", true, { due: 3600, paid: [] }],              // not started
++  ["Ellie Exempt", true, { due: 0, paid: [], exempt: true }], // exempt
++  ["Nia Notset", true, null],                                // genuinely no dues
++  ["Olivia Former", false, { due: 3600, paid: [] }],         // inactive, historical dues
++];
++const players = FIXTURE.filter(([, active]) => active)
++  .map(([name]) => ({ id: name, full_name: name, person_type: "player" }));
++const payments = FIXTURE.filter(([, , r]) => r).map(([name, , r]) => {
++  const totalPaid = r.paid.reduce((a, b) => a + b, 0);
++  return {
++    id: `pay-${name}`, player_id: name, player: { full_name: name }, displayName: name,
++    initial_cost: r.due, exempt: !!r.exempt, totalDue: r.due, totalPaid, balance: r.due - totalPaid,
++    log: r.paid.map((amount, i) => ({ id: `${name}-log-${i}`, amount })),
++  };
++});
++const roster = players.map((p) => ({ player_id: p.id, player: p }));
++
++const EXPECTED = {
++  "Allie Cox": "paid", "Anna Owes": "owes", "Nora None": "not-started",
++  "Ellie Exempt": "exempt", "Nia Notset": "not-set",
++};
++
++async function main() {
++  /* ---------------- A. rules ---------------- */
++  console.log("A. dues state is decided from the complete dataset");
++  const full = reconcileDues(players, payments);
++  const stateOf = (rec, name) => rec.roster.find((r) => r.playerId === name)?.state ?? null;
++  assertEq("unfiltered: every active player has the right state",
++    Object.fromEntries(Object.keys(EXPECTED).map((n) => [n, stateOf(full, n)])), EXPECTED);
++  assertEq("unfiltered: the inactive player's historical dues are a former record, not a roster row",
++    [stateOf(full, "Olivia Former"), full.former.map((f) => [f.name, f.kind])], [null, [["Olivia Former", "former"]]]);
++
++  const actions = financeActions(payments, roster);
++  assertEq("Needs Attention offers the three filters for this team",
++    actions.map((a) => a.id).sort(), ["no-dues", "not-started", "outstanding"]);
++
++  const filters = [["no filter", null], ...actions.map((a) => [a.id, a])];
++  for (const [label, action] of filters) {
++    const ids = actionPlayerIds(action);
++    const scoped = scopeReconciledDues(full, ids);
++    const shown = scoped.roster.map((r) => [r.name, r.state]);
++    assertEq(`[${label}] every row shown keeps its unfiltered state`,
++      shown.every(([n, s]) => EXPECTED[n] === s), true);
++    assertEq(`[${label}] "Dues not set" is shown only for a player with no record`,
++      scoped.roster.filter((r) => r.state === "not-set").map((r) => r.name).every((n) => !payments.some((p) => p.player_id === n)), true);
++    assertEq(`[${label}] Allie is never "Dues not set"`,
++      scoped.roster.some((r) => r.name === "Allie Cox" && r.state === "not-set"), false);
++    assertEq(`[${label}] the rows shown are exactly the filter's players`,
++      [...scoped.roster, ...scoped.former].map((r) => r.playerId).sort(),
++      ids ? [...ids].sort() : [...players.map((p) => p.id), "Olivia Former"].sort());
++    assertEq(`[${label}] view counts describe the rows shown`,
++      [scoped.counts.all, scoped.counts.notSet, scoped.counts.paid],
++      [scoped.roster.length, scoped.roster.filter((r) => r.state === "not-set").length, scoped.roster.filter((r) => r.state === "paid").length]);
++    const header = duesHeaderState(payments, full.counts);
++    assertEq(`[${label}] financial actions come from the complete season (payments exist: no Edit team dues)`,
++      [header.canBulkEdit, header.anyPaid, header.playersWithoutDues, header.withDuesCount], [false, true, 1, 5]);
++  }
++  {
++    const outstanding = actions.find((a) => a.id === "outstanding");
++    assertEq("[outstanding] Allie (paid in full) is not in the owing filter at all",
++      scopeReconciledDues(full, actionPlayerIds(outstanding)).roster.some((r) => r.name === "Allie Cox"), false);
++    assertEq("[outstanding] the inactive player's balance is shown as a former record",
++      scopeReconciledDues(full, actionPlayerIds(outstanding)).former.map((f) => f.name), ["Olivia Former"]);
++    const noDues = actions.find((a) => a.id === "no-dues");
++    assertEq("[no-dues] shows the genuinely-unset player, and only her (previously an empty list)",
++      scopeReconciledDues(full, actionPlayerIds(noDues)).roster.map((r) => [r.name, r.state]), [["Nia Notset", "not-set"]]);
++
++    // The defect, reproduced with the old approach, so this check fails loudly
++    // if anyone reintroduces "filter the records, then reconcile".
++    const oldWay = reconcileDues(players, payments.filter((p) => outstanding.affected.some((a) => a.player_id === p.player_id)));
++    assertEq("the old approach (filter records, then reconcile) made Allie 'not-set' — the reported bug",
++      stateOf(oldWay, "Allie Cox"), "not-set");
++  }
++  {
++    const before = JSON.stringify(full);
++    scopeReconciledDues(full, new Set(["Nia Notset"]));
++    assertEq("narrowing never modifies the full reconciliation", JSON.stringify(full), before);
++    assertEq("no filter returns the full reconciliation unchanged", scopeReconciledDues(full, null), full);
++    assertEq("actionPlayerIds(null) means no filter", actionPlayerIds(null), null);
++  }
++  {
++    const unpaid = payments.map((p) => ({ ...p, log: [], totalPaid: 0, balance: p.totalDue }));
++    const h = duesHeaderState(unpaid, reconcileDues(players, unpaid).counts);
++    assertEq("no payments anywhere: Edit team dues allowed (unchanged rule)", h.canBulkEdit, true);
++    assertEq("no dues anywhere: Edit team dues not offered", duesHeaderState([], { notSet: 5 }).canBulkEdit, false);
++  }
++  {
++    assertEq("preset target: no record -> set directly", presetDuesTarget("Nia Notset", players, payments)?.kind, "set");
++    assertEq("preset target: Allie has a record -> exists", presetDuesTarget("Allie Cox", players, payments)?.record?.id, "pay-Allie Cox");
++    assertEq("preset target: exempt has a record -> exists", presetDuesTarget("Ellie Exempt", players, payments)?.kind, "exists");
++    assertEq("preset target: inactive with historical dues -> exists (its record)", presetDuesTarget("Olivia Former", players, payments)?.kind, "exists");
++    assertEq("preset target: not an active player, no record -> ineligible", presetDuesTarget("Coach Kim", players, payments)?.kind, "ineligible");
++    assertEq("preset target: no preset -> none", presetDuesTarget(null, players, payments), null);
++  }
++
++  /* ---------------- B. PaymentsTab rendered ---------------- */
++  console.log("B. PaymentsTab under every filter");
++  const React = require("react");
++  const { renderToStaticMarkup } = require("react-dom/server");
++  const consoleError = console.error;
++  console.error = (msg, ...rest) => {
++    if (typeof msg === "string" && msg.includes("Invalid value for prop") && rest.includes("`action`")) return;
++    consoleError(msg, ...rest);
++  };
++  const FC = require(path.join(ROOT, "components", "FinanceClient.js"));
++  const noop = () => {};
++  const tab = (action, pays = payments) => renderToStaticMarkup(React.createElement(FC.PaymentsTab, {
++    payments: pays, filterPlayerIds: actionPlayerIds(action), activePlayers: players, canWrite: true,
++    onAdd: noop, onAddFor: noop, onOpen: noop, onBulk: noop, onEditTeamDues: noop, pending: false,
++    filtered: Boolean(action), filterLabel: action ? "in this filter" : null, onClearFilter: noop,
++  }));
++  const rows = (html) => (html.split("<tbody>")[1] ?? "").split("<tr").slice(1).map((tr) => ({
++    name: (tr.match(/class="cell-name">([^<]*)/) || [])[1], unset: /Dues not set/.test(tr),
++  }));
++
++  for (const [label, action] of filters) {
++    const html = tab(action);
++    const r = rows(html);
++    assertEq(`[${label}] rendered: "Dues not set" appears only on Nia's row`,
++      r.filter((x) => x.unset).map((x) => x.name).every((n) => n === "Nia Notset"), true);
++    assertEq(`[${label}] rendered: Allie's row, if shown, is not "Dues not set"`,
++      r.some((x) => x.name === "Allie Cox" && x.unset), false);
++    assertEq(`[${label}] rendered: Edit team dues not offered (payments exist)`, /Edit team dues/.test(html), false);
++    assertEq(`[${label}] rendered: the "payments recorded" note is shown`, /Team dues can no longer be reallocated as a group/.test(html), true);
++    assertEq(`[${label}] rendered: header states the full season: 5 players, 1 without dues`,
++      /5 players[\s\S]*?1 without dues set/.test(html), true);
++  }
++  {
++    const html = tab(null);
++    assertEq("no filter: Allie renders as Paid in full", /Allie Cox[\s\S]*?Paid in full/.test(html.split("Anna Owes")[0]), true);
++  }
++  {
++    const unpaid = payments.map((p) => ({ ...p, log: [], totalPaid: 0, balance: p.totalDue }));
++    const notStarted = financeActions(unpaid, roster).find((a) => a.id === "not-started");
++    assertEq("no payments: Edit team dues offered with no filter", /Edit team dues/.test(tab(null, unpaid)), true);
++    assertEq("no payments: ...and still offered under a filter", /Edit team dues/.test(tab(notStarted, unpaid)), true);
++    const outstandingOnly = { id: "outstanding", affected: [{ player_id: "Anna Owes" }] };
++    assertEq("payments exist but the filter shows only unpaid rows: still not offered (was the second symptom)",
++      /Edit team dues/.test(tab({ id: "not-started", affected: [{ player_id: "Nora None" }] })), false);
++    assertEq("a filter showing only players with dues does not fake 'no dues set up yet'",
++      /No player dues yet/.test(tab(outstandingOnly)), false);
++  }
++
++  /* ---------------- C. PaymentForm for a known player ---------------- */
++  console.log("C. Set Dues for a known player");
++  const PaymentForm = FC.__PaymentForm;
++  const formFor = (presetPlayerId, extra = {}) => renderToStaticMarkup(React.createElement(PaymentForm, {
++    row: null, players, existing: payments, presetPlayerId, pending: false, onSubmit: noop, onCancel: noop,
++    onOpenExisting: noop, ...extra,
++  }));
++  const submit = (html) => {
++    const m = html.match(/<button type="submit"[^>]*>([^<]*)<\/button>/);
++    return m ? { label: m[1], disabled: /\sdisabled=""/.test(m[0]) } : null;
++  };
++  {
++    const html = formFor("Nia Notset");
++    assertEq("no dues: titled with the player's name", /Set dues for Nia Notset/.test(html), true);
++    assertEq("no dues: no All players / One player choice", /Who owes this\?/.test(html), false);
++    assertEq("no dues: no player picker to re-select her", /id="p-player"/.test(html), false);
++    assertEq("no dues: the player is fixed in the form", /<input type="hidden" name="player_id" value="Nia Notset"/.test(html), true);
++    assertEq("no dues: amount field for that player", /Player dues for the season/.test(html), true);
++    assertEq("no dues: Set dues available", submit(html), { label: "Set dues", disabled: false });
++  }
++  {
++    const html = formFor("Allie Cox");
++    assertEq("Allie (has dues): says dues are already set", /Dues already set for Allie Cox/.test(html), true);
++    assertEq("Allie: states $3,600.00 owed and $3,600.00 paid", /\$3,600\.00<\/strong> for this season[\s\S]*?\$3,600\.00/.test(html), true);
++    assertEq("Allie: offers the way to her dues", /View Allie Cox&#x27;s dues|View Allie Cox’s dues/.test(html), true);
++    assertEq("Allie: no empty selector, no form, nothing to submit", [/id="p-player"/.test(html), /<form/.test(html), submit(html)], [false, false, null]);
++  }
++  {
++    const html = formFor("Ellie Exempt");
++    assertEq("exempt: already set, described as exempt (never 'paid')", [/Dues already set for Ellie Exempt/.test(html), /exempt from dues/.test(html), /has paid/.test(html)], [true, true, false]);
++  }
++  {
++    const html = formFor("Coach Kim");
++    assertEq("not an active player: explained, nothing to submit", [/isn.{1,8}t an active player/.test(html), submit(html)], [true, null]);
++  }
++  {
++    const html = formFor(null);
++    assertEq("header path (no known player): All / One choice unchanged", /Who owes this\?/.test(html), true);
++    const team = renderToStaticMarkup(React.createElement(PaymentForm, {
++      row: null, teamEdit: true, players, existing: payments, pending: false, onSubmit: noop, onCancel: noop,
++    }));
++    assertEq("Edit team dues form unchanged by this finding (ST-009 left alone)", /Edit team dues/.test(team) && /Who owes this\?/.test(team), true);
++    const edit = renderToStaticMarkup(React.createElement(PaymentForm, {
++      row: { ...payments[0], player: { full_name: "Allie Cox" } }, players, existing: payments, pending: false, onSubmit: noop, onCancel: noop,
++    }));
++    assertEq("Edit total due for an existing obligation unchanged", [/Edit Allie Cox/.test(edit), submit(edit)], [true, { label: "Save changes", disabled: true }]);
++  }
++  {
++    const src = fs.readFileSync(path.join(ROOT, "components", "FinanceClient.js"), "utf8");
++    assertEq("View dues closes the form and opens that player's dues record",
++      /onOpenExisting=\{\(record\) => \{\s*setEditPay\(null\);\s*setDuesForPlayer\(null\);\s*openDetail\(record\);/.test(src), true);
++    assertEq("the list receives every record, never a filtered set",
++      /<PaymentsTab\s+payments=\{payments\}\s+filterPlayerIds=\{filterPlayerIds\}/.test(src) && !/visiblePayments/.test(src), true);
++  }
++
++  /* ---------------- D. server protections ---------------- */
++  console.log("D. server protections unchanged");
++  function fakeDb({ paidByPayment = {}, obligations = [], insertError = null }) {
++    const writes = [];
++    const from = (table) => {
++      const q = { table, op: "select", filters: {}, payload: null };
++      const result = () => {
++        if (q.op === "insert") return { data: null, error: insertError };
++        if (q.op !== "select") return { data: null, error: null };
++        if (table === "team_season_players") return { data: { player_id: q.filters.player_id }, error: null };
++        if (table === "payment_log") return { data: (paidByPayment[q.filters.payment_id] ?? []).map((amount) => ({ amount })), error: null };
++        if (table === "player_payments") return { data: obligations, error: null };
++        return { data: [], error: null };
++      };
++      const b = {
++        select() { return b; },
++        eq(c, v) { q.filters[c] = v; return b; },
++        order() { return b; },
++        maybeSingle() { return Promise.resolve(result()); },
++        single() { return Promise.resolve(result()); },
++        update(p) { q.op = "update"; q.payload = p; writes.push(q); return b; },
++        insert(p) { q.op = "insert"; q.payload = p; writes.push(q); return b; },
++        upsert(p) { q.op = "upsert"; q.payload = p; writes.push(q); return b; },
++        delete() { q.op = "delete"; writes.push(q); return b; },
++        then(res, rej) { return Promise.resolve(result()).then(res, rej); },
++      };
++      return b;
++    };
++    return { from, writes };
++  }
++  const fd = (o) => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.set(k, v); return f; };
++  const { savePlayerPayment, editDuesForAll } = require(path.join(ROOT, "lib", "actions", "finance.js"));
++
++  db = fakeDb({});
++  assertEq("setting dues for the no-dues player creates exactly one obligation",
++    [await savePlayerPayment(fd({ player_id: "Nia Notset", initial_cost: "3600" })), db.writes.map((w) => [w.table, w.op, w.payload.player_id, w.payload.initial_cost])],
++    [{ ok: true }, [["player_payments", "insert", "Nia Notset", 3600]]]);
++
++  db = fakeDb({ insertError: { message: 'duplicate key value violates unique constraint "player_payments_one_per_player_season"' } });
++  const dup = await savePlayerPayment(fd({ player_id: "Allie Cox", initial_cost: "3600" }));
++  assertEq("a second obligation for Allie is refused (one per player per season)", [dup.ok, /player_payments_one_per_player_season/.test(dup.error)], [false, true]);
++  assertEq("...and nothing else is written", db.writes.map((w) => [w.table, w.op]), [["player_payments", "insert"]]);
++
++  db = fakeDb({ paidByPayment: { "pay-Allie Cox": [3600] } });
++  const low = await savePlayerPayment(fd({ id: "pay-Allie Cox", player_id: "Allie Cox", initial_cost: "3599.99" }));
++  assertEq("floor: Allie's Total Due can't go below her $3,600 paid, nothing written", [low.ok, db.writes.length], [false, 0]);
++  db = fakeDb({ paidByPayment: { "pay-Allie Cox": [3600] } });
++  assertEq("floor: exactly $3,600 is allowed", (await savePlayerPayment(fd({ id: "pay-Allie Cox", player_id: "Allie Cox", initial_cost: "3600" }))).ok, true);
++  db = fakeDb({ paidByPayment: { "pay-Allie Cox": [3600] } });
++  const ex = await savePlayerPayment(fd({ id: "pay-Allie Cox", player_id: "Allie Cox", initial_cost: "0", exempt: "true" }));
++  assertEq("floor: can't mark Allie exempt over $3,600 paid, nothing written", [ex.ok, db.writes.length], [false, 0]);
++
++  db = fakeDb({ obligations: payments.map((p) => ({ id: p.id, player_id: p.player_id, initial_cost: p.totalDue, exempt: p.exempt, log: p.log, player: p.player })) });
++  const bulk = await editDuesForAll(fd({ initial_cost: "40000", dues_mode: "total" }));
++  assertEq("bulk: Edit team dues refused whole once any payment exists, nothing written",
++    [bulk.ok, bulk.hasPayments, db.writes.length], [false, true, 0]);
++
++  console.log(`\nDues filter (ST-010): ${passed} passed, ${failed} failed`);
++  if (failed) process.exit(1);
++}
++
++main().catch((e) => { console.error(e); process.exit(1); });
+diff --git a/scripts/check-report.js b/scripts/check-report.js
+index f8794c3..9d1ceca 100644
+--- a/scripts/check-report.js
++++ b/scripts/check-report.js
+@@ -646,8 +646,12 @@ console.log("\nTeam dues allocation");
+     /<strong>\{money\(duesTotal\)\}<\/strong> total/.test(ui), true);
+   assertEq("...and offers Edit team dues when safe",
+     /canBulkEdit && \(/.test(ui) && /Edit team dues/.test(ui), true);
++  // ST-010: the rule moved, unchanged, into duesHeaderState (lib/finance-rules.js),
++  // and the UI must feed it the complete season, never a filtered list.
+   assertEq("...only when nothing is paid",
+-    /const canBulkEdit = withDues\.length > 0 && !anyPaid/.test(ui), true);
++    /canBulkEdit: withDues\.length > 0 && !anyPaid/.test(require("fs").readFileSync(require("path").join(__dirname, "..", "lib", "finance-rules.js"), "utf8")), true);
++  assertEq("...decided from every season record, not the filtered rows",
++    /duesHeaderState\(payments, full\.counts\)/.test(ui), true);
+   assertEq("...explaining why when it is unavailable",
+     /Team dues can no longer be reallocated as a group/.test(ui), true);
+   assertEq("...and still offering dues for players who have none",
+-- 
+2.43.0
+
