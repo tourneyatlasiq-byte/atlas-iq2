@@ -33,8 +33,16 @@ import {
 
 // The chips a coach picks from are the same list the importer accepts.
 // This was a third copy of the vocabulary.
-import { POSITION_CODES as POSITIONS } from "../lib/intake/registry";
-const SIZES = ["YS", "YM", "YL", "AS", "AM", "AL", "AXL"];
+import { POSITION_CODES as POSITIONS, UNIFORM_SIZES as SIZES } from "../lib/intake/registry";
+
+/**
+ * The size options for a select, keeping a stored value that is not in the
+ * list (e.g. "M" from an import). Without it the select falls back to "—" and
+ * saving the form would erase that player's size.
+ */
+function sizeOptions(current) {
+  return current && !SIZES.includes(current) ? [current, ...SIZES] : SIZES;
+}
 const PERSON_TYPES = [
   { value: "player", label: "Player" },
   { value: "staff", label: "Staff" },
@@ -1441,14 +1449,14 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                 <label htmlFor="jersey_size">Jersey size</label>
                 <select id="jersey_size" name="jersey_size" defaultValue={row?.jersey_size ?? ""}>
                   <option value="">—</option>
-                  {SIZES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {sizeOptions(row?.jersey_size).map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label htmlFor="pants_size">Pants size</label>
                 <select id="pants_size" name="pants_size" defaultValue={row?.pants_size ?? ""}>
                   <option value="">—</option>
-                  {SIZES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {sizeOptions(row?.pants_size).map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
             </div>
