@@ -22,6 +22,7 @@ import { SortHeader } from "./SortHeader";
 import { formatPlayerAddress } from "../lib/player-export";
 import { composeFullName, hasStructuredName } from "../lib/intake/normalize";
 import { DocumentSection } from "./DocumentSection";
+import { PlayerCityStateZip } from "./PlayerCityStateZip";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import {
   addRosterMember,
@@ -1491,23 +1492,9 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
                          placeholder="Apartment, suite, unit"
                          defaultValue={p.street_address_2 ?? ""} />
                 </div>
-                <div className="field-row">
-                  <div className="field">
-                    <label htmlFor="city">City</label>
-                    <input id="city" name="city" autoComplete="address-level2"
-                           defaultValue={p.city ?? ""} />
-                  </div>
-                  <div className="field field-narrow">
-                    <label htmlFor="state">State</label>
-                    <input id="state" name="state" autoComplete="address-level1"
-                           defaultValue={p.state ?? ""} />
-                  </div>
-                  <div className="field field-narrow">
-                    <label htmlFor="zip">ZIP</label>
-                    <input id="zip" name="zip" autoComplete="postal-code"
-                           inputMode="numeric" defaultValue={p.zip ?? ""} />
-                  </div>
-                </div>
+                {/* City / State / ZIP, with ZIP-assisted City and State.
+                    Same field names, so the roster actions are unchanged. */}
+                <PlayerCityStateZip player={p} />
               </>
             )}
 

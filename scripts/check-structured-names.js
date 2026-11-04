@@ -713,7 +713,10 @@ section("No caller can supply a partial candidate");
 section("Address is stored, editable and shown only when present");
 
 {
-  const ui  = read("components/RosterClient.js");
+  const ui  = read("components/RosterClient.js")
+    // City/State/ZIP moved into the PlayerForm's City/State/ZIP component
+    // (Player ZIP lookup, 2026-11); the form still renders all five inputs.
+    + read("components/PlayerCityStateZip.js");
   const act = read("lib/actions/roster.js");
   const q   = read("lib/queries/roster.js");
   const exp = read("lib/player-export.js");

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogoLockup } from "../../components/SeasonTempoLogo";
 import {
-  LEGAL_ENTITY, PRODUCT, PRIVACY_VERSION, EFFECTIVE_DATE,
+  LEGAL_ENTITY, PRODUCT, PRIVACY_VERSION, PRIVACY_EFFECTIVE_DATE,
   PRIVACY_EMAIL, SUPPORT_EMAIL, SUBPROCESSORS,
 } from "../../lib/legal";
 import "../home.css";
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
       <main className="legal-wrap">
         <h1>Privacy Policy</h1>
         <p className="legal-meta">
-          Version {PRIVACY_VERSION} · Effective {EFFECTIVE_DATE}
+          Version {PRIVACY_VERSION} · Effective {PRIVACY_EFFECTIVE_DATE}
         </p>
 
         <p className="legal-lede">
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
         <h3>Information about players</h3>
         <p>
           A player record can include a name, date of birth, graduation year, jersey number,
-          positions, uniform sizes, contact details, and a parent or guardian&rsquo;s name,
+          positions, uniform sizes, mailing address, contact details, and a parent or guardian&rsquo;s name,
           email and phone number. Which of these you provide is entirely your choice — only a
           name is required.
         </p>
