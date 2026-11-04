@@ -5570,6 +5570,15 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .drawer-foot-lifecycle { flex: 1 1 100%; }
 }
 
+/* Player drawer, phone: Edit details moves from the footer to the header,
+   where iPhone Safari's bottom toolbar cannot cover it. Desktop unchanged. */
+.drawer-head-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.drawer-head-edit { display: none; }
+@media (max-width: 720px) {
+  .drawer-head-edit { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; }
+  .drawer-foot-edit { display: none; }
+}
+
 /* A short numeric input should not span the modal. Width only — never a
    flex-basis, which resolves against the cross axis inside .modal-body's
    column layout and would set height instead. */

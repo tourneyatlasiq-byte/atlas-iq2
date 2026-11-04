@@ -5,6 +5,9 @@
  *   B. PlayerForm rendered: every size is offered, a saved size is selected,
  *      and a stored size outside the list (e.g. "M" from an import) is kept
  *      as an option, so saving the form can never blank it.
+ *   C. Player drawer on a phone: Edit details is in the header, where
+ *      iPhone Safari's bottom toolbar cannot cover it; desktop keeps it in
+ *      the footer. Exactly one is shown at any width.
  *
  * Same approach as check-dues-edit.js: JSX compiled with the SWC compiler
  * inside Next.js, framework and database modules stubbed, no network.
@@ -115,6 +118,26 @@ assertEq("edit: unlisted value is offered alongside the full list", selectOf(leg
 
 const none = selectOf(render({ ...base, jersey_size: null, pants_size: null }), "jersey_size");
 assertEq("edit: no saved size leaves the select on —", none && none.selected, [""]);
+
+console.log("C. player drawer Edit details placement");
+const { PlayerDetail } = require(path.join(ROOT, "components", "RosterClient.js"));
+function drawer(canWrite) {
+  return renderToStaticMarkup(React.createElement(PlayerDetail, {
+    row: { ...base, player: { ...base.player } }, canWrite, isAdmin: false, documentTargets: {},
+    seasonName: "2026-27", pending: false, onClose() {}, onEdit() {}, onRemove() {},
+    onToggleActive() {}, onRoster: true, playerId: "p1", contacts: [], recruiting: { links: [], interests: [] },
+  }));
+}
+const writable = drawer(true);
+const head = writable.slice(writable.indexOf('class="drawer-head"'), writable.indexOf('class="drawer-body"'));
+assertEq("writer: header carries the phone Edit details button", /drawer-head-edit[^>]*>Edit details</.test(head), true);
+assertEq("writer: footer keeps the desktop Edit details button", /drawer-foot-edit[^>]*>Edit details</.test(writable), true);
+assertEq("read-only: no Edit details anywhere", /Edit details/.test(drawer(false)), false);
+const css = fs.readFileSync(path.join(ROOT, "app", "globals.css"), "utf8");
+assertEq("css: header button hidden by default (desktop)", /\.drawer-head-edit \{ display: none; \}/.test(css), true);
+const phone = css.slice(css.indexOf(".drawer-head-edit { display: none; }"));
+assertEq("css: at 720px and below the header button shows and the footer one hides",
+  /@media \(max-width: 720px\) \{\s*\.drawer-head-edit \{ display: inline-flex;[^}]*min-height: 44px;[^}]*\}\s*\.drawer-foot-edit \{ display: none; \}/.test(phone), true);
 
 console.error = consoleError;
 console.log(`\n${passed} passed, ${failed} failed`);

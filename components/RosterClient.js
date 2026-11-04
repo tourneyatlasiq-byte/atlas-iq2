@@ -880,7 +880,18 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               <span className="pill pill-staff">{isPlayer ? "Player" : staffRole(p)}</span>
             </div>
           </div>
-          <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+          <div className="drawer-head-actions">
+            {/* ON A PHONE, EDIT DETAILS LIVES UP HERE. In the footer it wraps
+                onto the lowest row, and iPhone Safari's bottom toolbar covers
+                that row, so coaches could not find it. The top of the drawer
+                is never covered. CSS shows exactly one of the two buttons. */}
+            {canWrite && (
+              <button className="btn btn-primary btn-sm drawer-head-edit" onClick={onEdit} disabled={pending}>
+                Edit details
+              </button>
+            )}
+            <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+          </div>
         </div>
 
         <div className="drawer-body">
@@ -1067,7 +1078,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
                   Remove from roster
                 </button>
               </div>
-              <button className="btn btn-primary" onClick={onEdit} disabled={pending}>
+              <button className="btn btn-primary drawer-foot-edit" onClick={onEdit} disabled={pending}>
                 Edit details
               </button>
             </div>
