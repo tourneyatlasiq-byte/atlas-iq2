@@ -13,7 +13,7 @@
  *   E. the sentence the transaction drawer shows for each case
  *   F. saveTransaction, run against an in-memory database: what is written
  *   G. the transaction form and list, rendered
- *   H. the pending migration's mapping and guards
+ *   H. the applied migration's mapping and guards
  *
  * Same harness as check-dues-edit.js: SWC from Next.js compiles on the fly,
  * framework and database modules are stand-ins, no network or database.
@@ -356,10 +356,10 @@ const INCOME_LINE_ROW = { category: "Fundraising", is_income: true, season_id: "
       [/pill pill-deposit">To Pay</.test(html), /shows in To Pay until it&#x27;s marked Paid/.test(html)], [true, true]);
   }
 
-  /* ---------------- H. the pending migration ---------------- */
+  /* ---------------- H. the applied migration ---------------- */
 
-  console.log("H. pending migration");
-  const MIG = path.join(ROOT, "supabase", "pending", "fin_txn_status_to_pay_paid.sql");
+  console.log("H. applied migration (20261106224426)");
+  const MIG = path.join(ROOT, "supabase", "migrations", "20261106224426_fin_txn_status_to_pay_paid.sql");
   const sql = fs.readFileSync(MIG, "utf8").replace(/^\s*--.*$/gm, "");
   assertEq("Ordered and Received become To Pay; Planned only when it has no amount",
     /set status = 'To Pay'\s+where status in \('Ordered', 'Received'\)\s+or \(status = 'Planned' and actual_amount is null\);/.test(sql), true);

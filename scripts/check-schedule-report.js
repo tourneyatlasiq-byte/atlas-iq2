@@ -74,15 +74,18 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const day = (n) => iso(new Date(Date.now() + n * 86400000));
 const S = "season-1";
 const tournaments = [
-  { id: "c-past", season_id: S, name: "Dog Days Opener", decision: "Committed", start_date: day(-90), end_date: day(-89), location: "Cartersville, GA", facility: null },
+  { id: "c-past", season_id: S, name: "Dog Days Opener", decision: "Committed", paid_status: "Paid in Full", start_date: day(-90), end_date: day(-89), location: "Cartersville, GA", facility: null },
   { id: "k-past", season_id: S, name: "Old Idea Classic", decision: "Considering", start_date: day(-30), end_date: day(-29), location: null, facility: null },
-  { id: "k-next", season_id: S, name: "Magnolia Showcase", decision: "Considering", start_date: day(20), end_date: day(22), location: null,
+  { id: "k-next", season_id: S, name: "Magnolia Showcase", decision: "Considering", paid_status: "Waitlisted", start_date: day(20), end_date: day(22), location: null,
     facility: { name: "Magnolia Fields", city: "Huntsville", state: "AL", street_address: "900 Magnolia Trace", zip: "35806" } },
   { id: "d-next", season_id: S, name: "Declined Cup", decision: "Declined", start_date: day(10), end_date: day(11), location: "Nowhere", facility: null },
-  { id: "c-next", season_id: S, name: "Red Clay Classic", decision: "Committed", start_date: day(10), end_date: day(11), location: "Columbus, GA", facility: null },
+  { id: "c-next", season_id: S, name: "Red Clay Classic", decision: "Committed", paid_status: "Deposit Paid", start_date: day(10), end_date: day(11), location: "Columbus, GA", facility: null },
   // Start date is required by the form and the server, so every real
   // tournament has one; a single-day event has no end date.
   { id: "k-oneday", season_id: S, name: "One Day Shootout", decision: "Considering", start_date: day(30), end_date: null, location: null, facility: null },
+  { id: "c-wait", season_id: S, name: "Winter Warm-Up", decision: "Committed", paid_status: "Waitlisted", start_date: day(40), end_date: day(41), location: "Perry, GA", facility: null },
+  { id: "c-reg", season_id: S, name: "Spring Opener Slam", decision: "Committed", paid_status: "Registered", start_date: day(50), end_date: day(51), location: "Chattanooga, TN", facility: null },
+  { id: "c-notreg", season_id: S, name: "Gulf Coast Classic", decision: "Committed", paid_status: "Not Registered", start_date: day(60), end_date: day(61), location: "Gulf Shores, AL", facility: null },
   { id: "other", season_id: "season-2", name: "Another Season", decision: "Committed", start_date: day(5), end_date: day(6), location: null, facility: null },
 ];
 const games = [
@@ -103,21 +106,26 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
   assertEq("asks the database for Committed and Considering only",
     db.asked.filter((a) => a.table === "tournaments" && a.in).map((a) => a.in), [["decision", ["Committed", "Considering"]]]);
   assertEq("includes Committed (past and future) and upcoming Considering, in date order",
-    rows.map((t) => t.id), ["c-past", "c-next", "k-next", "k-oneday"]);
+    rows.map((t) => t.id), ["c-past", "c-next", "k-next", "k-oneday", "c-wait", "c-reg", "c-notreg"]);
   assertEq("excludes Declined", rows.some((t) => t.id === "d-next"), false);
   assertEq("excludes a Considering tournament that has already ended", rows.some((t) => t.id === "k-past"), false);
   assertEq("stays inside the season", rows.some((t) => t.id === "other"), false);
   assertEq("every row carries exactly Committed or Considering",
-    rows.map((t) => [t.id, t.status]), [["c-past", "Committed"], ["c-next", "Committed"], ["k-next", "Considering"], ["k-oneday", "Considering"]]);
+    rows.map((t) => [t.id, t.status]), [["c-past", "Committed"], ["c-next", "Committed"], ["k-next", "Considering"], ["k-oneday", "Considering"],
+      ["c-wait", "Committed"], ["c-reg", "Committed"], ["c-notreg", "Committed"]]);
+  assertEq("only Committed + Waitlisted is flagged waitlisted (Paid in Full, Deposit Paid, Registered, Not Registered and Considering + Waitlisted are not)",
+    rows.filter((t) => t.waitlisted).map((t) => t.id), ["c-wait"]);
+  assertEq("no registration wording reaches the payload",
+    ["Paid in Full", "Deposit Paid", "Not Registered", "\"Registered\"", "paid_status"].filter((w) => JSON.stringify(report).includes(w)), []);
   assertEq("no raw decision field reaches the document", rows.some((t) => "decision" in t), false);
   assertEq("the word Declined appears nowhere in the payload", JSON.stringify(report).includes("Declined"), false);
   assertEq("games attach to included tournaments only",
-    rows.map((t) => [t.id, t.games.map((g) => g.id)]), [["c-past", []], ["c-next", ["g1"]], ["k-next", ["g2"]], ["k-oneday", []]]);
+    rows.map((t) => [t.id, t.games.map((g) => g.id)]), [["c-past", []], ["c-next", ["g1"]], ["k-next", ["g2"]], ["k-oneday", []], ["c-wait", []], ["c-reg", []], ["c-notreg", []]]);
   assertEq("a Declined tournament's game is never printed", JSON.stringify(report).includes("Never Printed"), false);
   assertEq("existing details are kept (facility and address)", rows.find((t) => t.id === "k-next").place,
     { name: "Magnolia Fields", area: "Huntsville, AL", address: "900 Magnolia Trace, Huntsville, AL, 35806" });
   assertEq("the cost and note fields stay out of the payload",
-    rows.every((t) => Object.keys(t).sort().join() === "endDate,games,id,name,place,startDate,status"), true);
+    rows.every((t) => Object.keys(t).sort().join() === "endDate,games,id,name,place,startDate,status,waitlisted"), true);
 
   console.log("B. the document, rendered");
   const React = require("react");
@@ -129,17 +137,38 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
   {
     const html = render(report);
     assertEq("every tournament row has a status label", count(html, /<li class="sch-item[^"]*">/g), count(html, /<p class="sch-status /g));
-    assertEq("Committed rows are labelled Committed", count(html, /<p class="sch-status sch-status-committed">Committed<\/p>/g), 2);
+    assertEq("plain Committed rows are labelled Committed", count(html, /<p class="sch-status sch-status-committed">Committed<\/p>/g), 4);
+    assertEq("the Committed + Waitlisted row is labelled Committed • Waitlisted, in the committed style",
+      count(html, /<p class="sch-status sch-status-committed">Committed • Waitlisted<\/p>/g), 1);
     assertEq("Considering rows are labelled Considering, styled apart", count(html, /<p class="sch-status sch-status-considering">Considering<\/p>/g), 2);
     assertEq("Considering rows carry the tentative row style", count(html, /<li class="sch-item sch-item-tentative">/g), 2);
-    assertEq("the legend appears once, explaining Considering", [count(html, /class="sch-legend"/g), /Tentative and subject to change/.test(html)], [1, true]);
-    assertEq("a tentative tournament with no games does not promise game times",
-      count(html, /Game times and opponents will be added when available/g), 1);
+    assertEq("the legend appears once, explaining Considering and Waitlisted",
+      [count(html, /class="sch-legend"/g), /Tentative and subject to change/.test(html), /The team is committed to attending if a spot becomes available\./.test(html)], [1, true, true]);
+    assertEq("tentative and waitlisted tournaments with no games do not promise game times (3 plain Committed rows do)",
+      count(html, /Game times and opponents will be added when available/g), 3);
     assertEq("title and footer are unchanged", [/2026-27 Tournament Schedule<\/h1>/.test(html), /Tournament dates and game times can change\./.test(html)], [true, true]);
   }
   {
-    const html = render({ ...report, tournaments: report.tournaments.filter((t) => t.status === "Committed") });
-    assertEq("all Committed: labels still shown, no legend", [count(html, /sch-status-committed/g), count(html, /class="sch-legend"/g)], [2, 0]);
+    const legend = (ts) => {
+      const html = render({ ...report, tournaments: ts });
+      return {
+        legend: count(html, /class="sch-legend"/g),
+        considering: /Tentative and subject to change/.test(html),
+        waitlisted: /if a spot becomes available/.test(html),
+      };
+    };
+    const committedPlain = report.tournaments.filter((t) => t.status === "Committed" && !t.waitlisted);
+    const considering = report.tournaments.filter((t) => t.status === "Considering");
+    const waitRow = report.tournaments.filter((t) => t.waitlisted);
+    assertEq("only plain Committed: no legend", legend(committedPlain), { legend: 0, considering: false, waitlisted: false });
+    assertEq("Committed + Considering: Considering explained, no Waitlisted line",
+      legend([...committedPlain, ...considering]), { legend: 1, considering: true, waitlisted: false });
+    assertEq("Committed + Waitlisted, nothing Considering: Waitlisted explained, no Considering line",
+      legend([...committedPlain, ...waitRow]), { legend: 1, considering: false, waitlisted: true });
+    {
+      const html = render({ ...report, tournaments: committedPlain });
+      assertEq("all plain Committed: every row still labelled", count(html, /sch-status-committed/g), committedPlain.length);
+    }
   }
   {
     const html = render({ ...report, tournaments: [] });

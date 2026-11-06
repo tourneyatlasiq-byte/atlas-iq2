@@ -29,7 +29,7 @@ function assertEq(label, actual, expected) {
   const {
     isGameWithinTournament, compareGames, compareTournaments,
     formatDateRange, formatDayLabel, formatClock, groupGamesByDate, parseDate,
-    locationParts, SCHEDULE_DECISIONS, isOnParentSchedule,
+    locationParts, SCHEDULE_DECISIONS, isOnParentSchedule, isWaitlistedCommitment,
   } = m;
 
   console.log("\nTournament Schedule rules\n");
@@ -46,6 +46,12 @@ function assertEq(label, actual, expected) {
   assertEq("Considering with only a start date in the past: not shown", isOnParentSchedule(T("Considering", "2026-10-03", null), today), false);
   assertEq("Considering with no dates at all: shown (nothing says it has passed)", isOnParentSchedule(T("Considering", null, null), today), true);
   assertEq("Declined: never", [isOnParentSchedule(T("Declined", "2027-01-01", "2027-01-02"), today), isOnParentSchedule(T("Declined", null, null), today)], [false, false]);
+  const W = (decision, paid_status) => isWaitlistedCommitment({ decision, paid_status });
+  assertEq("Committed + Waitlisted is flagged as waitlisted", W("Committed", "Waitlisted"), true);
+  assertEq("Committed + every other registration status is plain Committed",
+    ["Not Registered", "Registered", "Deposit Paid", "Paid in Full", null].map((ps) => W("Committed", ps)), [false, false, false, false, false]);
+  assertEq("Considering + Waitlisted stays Considering (not flagged)", W("Considering", "Waitlisted"), false);
+  assertEq("Declined + Waitlisted is not flagged", W("Declined", "Waitlisted"), false);
   assertEq("an unknown or missing decision: never", [isOnParentSchedule(T(null, "2027-01-01"), today), isOnParentSchedule(T("Maybe", "2027-01-01"), today)], [false, false]);
 
   /* --- Dates parse as LOCAL, never UTC ---------------------------------- */

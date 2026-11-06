@@ -328,6 +328,14 @@ is going.
 money), and a Considering tournament whose last day has passed — it was never
 decided, and printing it as Considering would be wrong.
 
+**Committed + Waitlisted prints as "Committed • Waitlisted".** Registration
+status otherwise stays off the parent schedule — Registered, Deposit Paid, Paid
+in Full and Not Registered all print as plain Committed. Waitlisted is the one
+exception, because "Committed" alone would read as a secured spot. The legend
+explains it ("The team is committed to attending if a spot becomes available")
+only when a waitlisted tournament is shown, and a waitlisted row does not say
+game times "will be added". The decision and registration fields are unchanged.
+
 *Rejected:* a separate "possible tournaments" section. One chronological list
 answers the question a family actually has — what is happening which weekend.
 

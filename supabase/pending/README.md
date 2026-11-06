@@ -7,19 +7,8 @@ after it has been applied through the MCP tool and named with the version
 Supabase actually recorded — the process established in B0 that keeps the
 repository and production history aligned.
 
-**One migration is pending.**
-
-- `fin_txn_status_to_pay_paid.sql` — transaction statuses `Planned | Ordered |
-  Received | Paid` become `To Pay | Paid` (Ordered and Received → To Pay;
-  Planned → To Pay only when it has no amount; Paid untouched), with the
-  constraint and a `Paid` default. Guarded: it aborts and rolls back if a
-  Planned row has an amount, an income row isn't Paid, any non-status column
-  changes, or the money attributed to Paid or To Pay changes for any season,
-  budget line or tournament. Reviewed and tested against a local copy of the
-  production table. It is applied only after the matching application code is
-  deployed and READY — the release is code first, then this migration
-  immediately. Once applied, it moves to `supabase/migrations/` under the
-  version Supabase records, and this entry moves to the list below.
+**Nothing is currently pending.** This directory holds no SQL awaiting
+application.
 
 ## Standing rule: Import Players stays disabled
 
@@ -34,6 +23,16 @@ roster is the button staying switched off. Without persisted run identity
 Applying a migration is not the same as shipping a feature.
 
 ## Previously applied from here
+
+- `fin_txn_status_to_pay_paid.sql` — transaction statuses `Planned | Ordered |
+  Received | Paid` became `To Pay | Paid`, with the new constraint and a `Paid`
+  default. Applied 2026-11-06 as `20261106224426_fin_txn_status_to_pay_paid`,
+  after the matching application code was deployed and READY. Every guard
+  passed: 3 rows moved to To Pay, 32 Paid untouched, no other column changed,
+  and every Finance figure in all six seasons reconciled exactly to the
+  pre-release baseline. The migration file is byte-identical to what ran, so
+  its header still reads "PENDING. Not applied." — that line describes the
+  file as it was reviewed, not its current state.
 
 - `intake_apply.sql` — the atomic write path for Player Intake (C2). Applied
   as `20260823190858_intake_apply`. That migration file is now the single

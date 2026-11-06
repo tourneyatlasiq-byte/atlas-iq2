@@ -17,7 +17,8 @@ import {
  * Renders only what the payload contains. It has no access to costs, notes,
  * contacts or results, because the query never fetched them. Each tournament
  * carries one status word, Committed or Considering, and nothing else about
- * the coach's decision.
+ * the coach's decision — plus, for a Committed tournament only, whether it is
+ * waitlisted, because "Committed" alone would read as a secured spot.
  */
 
 function fmtGenerated(iso) {
@@ -31,6 +32,7 @@ export function TournamentScheduleReport({ report }) {
   const { organization, team, season, tournaments, warnings } = report;
   const generated = fmtGenerated(report.generatedAt);
   const hasTentative = tournaments.some((t) => t.status === "Considering");
+  const hasWaitlisted = tournaments.some((t) => t.status === "Committed" && t.waitlisted);
 
   return (
     <div className="rpt-shell">
@@ -82,14 +84,28 @@ export function TournamentScheduleReport({ report }) {
           {generated && <p className="rpt-doc-meta">Prepared {generated}</p>}
         </header>
 
-        {/* Only when something on the page is tentative. Every row carries its
-            own label as well, so a single printed page is never ambiguous. */}
-        {hasTentative && (
+        {/* Only when something on the page is tentative or waitlisted, and
+            each explanation only for a label that actually appears. Every row
+            carries its own label as well, so a single printed page is never
+            ambiguous. */}
+        {(hasTentative || hasWaitlisted) && (
           <p className="sch-legend">
-            <span className="sch-status sch-status-committed">Committed</span>
-            <span className="sch-legend-text">The team plans to attend.</span>
-            <span className="sch-status sch-status-considering">Considering</span>
-            <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
+            <span className="sch-legend-item">
+              <span className="sch-status sch-status-committed">Committed</span>
+              <span className="sch-legend-text">The team plans to attend.</span>
+            </span>
+            {hasTentative && (
+              <span className="sch-legend-item">
+                <span className="sch-status sch-status-considering">Considering</span>
+                <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
+              </span>
+            )}
+            {hasWaitlisted && (
+              <span className="sch-legend-item">
+                <span className="sch-status sch-status-committed">Committed &bull; Waitlisted</span>
+                <span className="sch-legend-text">The team is committed to attending if a spot becomes available.</span>
+              </span>
+            )}
           </p>
         )}
 
@@ -103,6 +119,7 @@ export function TournamentScheduleReport({ report }) {
               const range = formatDateRange(t.startDate, t.endDate);
               const days = groupGamesByDate(t.games);
               const tentative = t.status === "Considering";
+              const waitlisted = !tentative && Boolean(t.waitlisted);
 
               return (
                 <li key={t.id} className={tentative ? "sch-item sch-item-tentative" : "sch-item"}>
@@ -113,7 +130,7 @@ export function TournamentScheduleReport({ report }) {
                   <div className="sch-when">
                     <p className="sch-date">{range}</p>
                     <p className={`sch-status ${tentative ? "sch-status-considering" : "sch-status-committed"}`}>
-                      {tentative ? "Considering" : "Committed"}
+                      {tentative ? "Considering" : waitlisted ? <>Committed &bull; Waitlisted</> : "Committed"}
                     </p>
                   </div>
 
@@ -145,9 +162,9 @@ export function TournamentScheduleReport({ report }) {
                     /* Season Tempo knows only that nothing has been entered —
                        not whether the tournament has released a schedule. A
                        trailing status line, not another content row. Not shown
-                       for a tentative tournament: "will be added" would imply
-                       the team is going. */
-                    !tentative && <p className="sch-pending">
+                       for a tentative or waitlisted tournament: "will be added"
+                       would imply the team has a place. */
+                    !tentative && !waitlisted && <p className="sch-pending">
                       Game times and opponents will be added when available.
                     </p>
                   ) : (
