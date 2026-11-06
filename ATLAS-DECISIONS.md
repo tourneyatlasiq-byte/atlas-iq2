@@ -354,6 +354,13 @@ explains it ("The team is committed to attending if a spot becomes available")
 only when a waitlisted tournament is shown, and a waitlisted row does not say
 game times "will be added". The decision and registration fields are unchanged.
 
+**Legend at the end, light tints on the labels (2026-11).** The schedule starts
+right after the header; a "Schedule status" legend sits immediately above the
+footer, kept in one piece and with the footer. Labels carry restrained tints —
+light blue for Committed, light gold for Considering, muted violet for
+Waitlisted (never red) — on top of the word and the solid/dashed outline, which
+remain the black-and-white distinction. Rows and names are not coloured.
+
 *Rejected:* a separate "possible tournaments" section. One chronological list
 answers the question a family actually has — what is happening which weekend.
 

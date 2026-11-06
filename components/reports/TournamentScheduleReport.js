@@ -84,31 +84,6 @@ export function TournamentScheduleReport({ report }) {
           {generated && <p className="rpt-doc-meta">Prepared {generated}</p>}
         </header>
 
-        {/* Only when something on the page is tentative or waitlisted, and
-            each explanation only for a label that actually appears. Every row
-            carries its own label as well, so a single printed page is never
-            ambiguous. */}
-        {(hasTentative || hasWaitlisted) && (
-          <p className="sch-legend">
-            <span className="sch-legend-item">
-              <span className="sch-status sch-status-committed">Committed</span>
-              <span className="sch-legend-text">The team plans to attend.</span>
-            </span>
-            {hasTentative && (
-              <span className="sch-legend-item">
-                <span className="sch-status sch-status-considering">Considering</span>
-                <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
-              </span>
-            )}
-            {hasWaitlisted && (
-              <span className="sch-legend-item">
-                <span className="sch-status sch-status-committed">Committed &bull; Waitlisted</span>
-                <span className="sch-legend-text">The team is committed to attending if a spot becomes available.</span>
-              </span>
-            )}
-          </p>
-        )}
-
         {tournaments.length === 0 ? (
           <p className="sch-empty">
             No tournaments are on the schedule for this season yet.
@@ -129,7 +104,7 @@ export function TournamentScheduleReport({ report }) {
                       date, in the column's spare space, so no row grows. */}
                   <div className="sch-when">
                     <p className="sch-date">{range}</p>
-                    <p className={`sch-status ${tentative ? "sch-status-considering" : "sch-status-committed"}`}>
+                    <p className={`sch-status ${tentative ? "sch-status-considering" : waitlisted ? "sch-status-waitlisted" : "sch-status-committed"}`}>
                       {tentative ? "Considering" : waitlisted ? <>Committed &bull; Waitlisted</> : "Committed"}
                     </p>
                   </div>
@@ -194,6 +169,36 @@ export function TournamentScheduleReport({ report }) {
               );
             })}
           </ol>
+        )}
+
+        {/* Schedule status legend (2026-11: moved here from the top, so the
+            schedule starts right after the header). Only when something is
+            tentative or waitlisted, and each explanation only for a label
+            that actually appears. Every row carries its own label as well, so
+            a single printed page is never ambiguous. Kept in one piece and
+            with the footer when it paginates. */}
+        {(hasTentative || hasWaitlisted) && (
+          <section className="sch-legend" aria-label="Schedule status">
+            <p className="sch-legend-label">Schedule status</p>
+            <div className="sch-legend-items">
+              <span className="sch-legend-item">
+                <span className="sch-status sch-status-committed">Committed</span>
+                <span className="sch-legend-text">The team plans to attend.</span>
+              </span>
+              {hasTentative && (
+                <span className="sch-legend-item">
+                  <span className="sch-status sch-status-considering">Considering</span>
+                  <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
+                </span>
+              )}
+              {hasWaitlisted && (
+                <span className="sch-legend-item">
+                  <span className="sch-status sch-status-waitlisted">Committed &bull; Waitlisted</span>
+                  <span className="sch-legend-text">The team is committed to attending if a spot becomes available.</span>
+                </span>
+              )}
+            </div>
+          </section>
         )}
 
         <footer className="rpt-foot">

@@ -138,8 +138,19 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
     const html = render(report);
     assertEq("every tournament row has a status label", count(html, /<li class="sch-item[^"]*">/g), count(html, /<p class="sch-status /g));
     assertEq("plain Committed rows are labelled Committed", count(html, /<p class="sch-status sch-status-committed">Committed<\/p>/g), 4);
-    assertEq("the Committed + Waitlisted row is labelled Committed • Waitlisted, in the committed style",
-      count(html, /<p class="sch-status sch-status-committed">Committed • Waitlisted<\/p>/g), 1);
+    assertEq("the Committed + Waitlisted row is labelled Committed • Waitlisted, in its own waitlisted style",
+      count(html, /<p class="sch-status sch-status-waitlisted">Committed • Waitlisted<\/p>/g), 1);
+    {
+      const legendAt = html.indexOf('class="sch-legend"');
+      assertEq("the legend sits after the schedule and immediately before the footer, labelled Schedule status",
+        [legendAt > html.indexOf("</ol>"), html.indexOf("<footer", legendAt) > legendAt,
+          /<section class="sch-legend"[^>]*><p class="sch-legend-label">Schedule status<\/p>/.test(html),
+          html.indexOf('class="sch-legend"') > html.lastIndexOf("</li>")], [true, true, true, true]);
+      assertEq("the schedule begins directly after the header", /<\/header><ol class="sch-list">/.test(html), true);
+      assertEq("legend pills use the same three treatments as the rows",
+        ["sch-status-committed\">Committed<", "sch-status-considering\">Considering<", "sch-status-waitlisted\">Committed • Waitlisted<"]
+          .map((frag) => html.slice(legendAt).includes(frag.replace(/\\/g, ""))), [true, true, true]);
+    }
     assertEq("Considering rows are labelled Considering, styled apart", count(html, /<p class="sch-status sch-status-considering">Considering<\/p>/g), 2);
     assertEq("Considering rows carry the tentative row style", count(html, /<li class="sch-item sch-item-tentative">/g), 2);
     assertEq("the legend appears once, explaining Considering and Waitlisted",
@@ -174,6 +185,20 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
     const html = render({ ...report, tournaments: [] });
     assertEq("empty season: neutral wording that doesn't mention committing",
       /No tournaments are on the schedule for this season yet\./.test(html), true);
+  }
+
+  {
+    const css = fs.readFileSync(path.join(ROOT, "app", "reports", "tournament-schedule", "schedule.css"), "utf8");
+    const rule = (sel) => (css.match(new RegExp(`\\${sel}\\s*\\{([^}]*)\\}`)) ?? [])[1] ?? "";
+    assertEq("black-and-white distinction kept: Considering dashed, Committed and Waitlisted solid",
+      [/border-style:\s*dashed/.test(rule(".sch-status-considering")), /dashed/.test(rule(".sch-status")), /dashed/.test(rule(".sch-status-waitlisted"))],
+      [true, false, false]);
+    assertEq("each status has a tint, and print keeps it", [/background:/.test(rule(".sch-status")), /background:/.test(rule(".sch-status-considering")),
+      /background:/.test(rule(".sch-status-waitlisted")), /print-color-adjust:\s*exact/.test(rule(".sch-status"))], [true, true, true, true]);
+    assertEq("no red in the status treatments", /#(c0392b|d32f2f|e53935|b91c1c|dc2626|ef4444)|\bred\b/i.test(
+      rule(".sch-status") + rule(".sch-status-considering") + rule(".sch-status-waitlisted")), false);
+    assertEq("the legend is kept in one piece and with the footer", [/break-inside:\s*avoid/.test(rule(".sch-legend")), /break-after:\s*avoid/.test(rule(".sch-legend"))], [true, true]);
+    assertEq("rows and names are not tinted", [/background/.test(rule(".sch-item")), /background/.test(rule(".sch-name"))], [false, false]);
   }
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);

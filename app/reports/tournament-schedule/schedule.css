@@ -34,29 +34,44 @@
 .sch-when { min-width: 0; }
 
 /* Decision status, on every tournament (2026-11).
-   Told apart without colour, because schedules are printed on home printers in
-   black and white with background graphics off: the word itself, a solid
-   versus a dashed outline (borders always print), and a lighter date on a
-   tentative row. */
+   Never colour alone: schedules are printed on home printers in black and
+   white, often with background graphics off. The word itself always carries
+   the meaning; Committed and Waitlisted have a solid outline and Considering a
+   dashed one (borders always print); a tentative row's date is lighter.
+   The tints are a restrained extra for colour printing and screens, and
+   print-color-adjust asks the browser to keep them. Text on each tint meets
+   WCAG AA. Waitlisted takes a muted violet: distinct from both, and nothing
+   that reads as an error. */
 .sch-status {
   display: inline-block;
   margin: 4px 0 0; padding: 0 5px;
   border: 1px solid #0b2341; border-radius: 3px;
   font-size: 9.5px; font-weight: 800; line-height: 1.5;
   letter-spacing: .06em; text-transform: uppercase;
-  color: #0b2341;
+  color: #0b2341; background: #eaf2fd;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.sch-status-considering { border-style: dashed; border-color: #64748b; color: #475569; }
+.sch-status-considering { border-style: dashed; border-color: #8a6100; color: #6b4a00; background: #fdf3d7; }
+.sch-status-waitlisted { border-color: #5a4e8c; color: #3d3470; background: #efedf7; }
 .sch-item-tentative .sch-date { font-weight: 600; color: #64748b; }
 .sch-item-tentative .sch-name { font-weight: 700; color: #334155; }
 
-/* One restrained line between the header and the list. */
+/* At the end, immediately above the footer: a small label, then the items. */
 .sch-legend {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px;
-  margin: 0 0 18px; font-size: 11.5px; line-height: 1.4; color: #475569;
+  margin: 16px 0 0; padding-top: 10px; border-top: 1px solid #eef2f7;
+  font-size: 11.5px; line-height: 1.4; color: #475569;
+  break-inside: avoid; break-after: avoid;
 }
+.sch-legend-label {
+  margin: 0 0 6px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: #64748b;
+}
+.sch-legend-items { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px; }
 .sch-legend-item { display: inline-flex; align-items: center; gap: 8px; }
 .sch-legend .sch-status { margin: 0; white-space: nowrap; }
+/* The legend's own top rule replaces the footer's, so two lines don't stack. */
+.sch-legend + .rpt-foot { margin-top: 10px; border-top: none; padding-top: 0; }
 
 .sch-body { min-width: 0; }
 
@@ -120,5 +135,6 @@
   .rpt-doc-title { margin-top: 10px; }
   .sch-games { margin-top: 5px; }
   .sch-day-games li { padding: 0; }
-  .sch-legend { margin-bottom: 14px; break-after: avoid; }
+  .sch-legend { margin-top: 12px; }
+  .sch-legend + .rpt-foot { margin-top: 8px; }
 }
