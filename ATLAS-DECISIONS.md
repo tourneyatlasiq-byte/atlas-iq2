@@ -199,6 +199,24 @@ not track bank balances, so any such number would be a guess presented as fact.
 goods in hand and money still unspent. Those are reported separately as
 **committed, not yet paid**, so nothing becomes invisible.
 
+### Parent reports show standard dues only (2026-11)
+The Planned Season Budget states the team's standard player dues — "$X per
+player", then "Your family's dues are confirmed separately by the coach." —
+and nothing else about dues: no range, no team total, no roster count, no
+exemption. A range had told every family that someone pays less (and "$0 –
+$4,000" that someone pays nothing).
+
+No standard amount is stored, so it is derived (`standardDues`): the amount
+owed by MORE THAN HALF of the active, non-exempt players, compared in cents,
+with team-total splits one cent apart treated as one amount (the lower one is
+printed). Exempt players never vote and never appear. With no strict majority,
+or every player exempt, the report is blocked rather than guessing. The coach
+sees a non-printing notice when individual arrangements exist.
+
+*Rejected:* MAX or MODE without a majority (they guess on tiered or evenly
+split teams), and a stored standard-dues field for now (no schema change until
+teams with genuine dues tiers need it).
+
 ### Two transaction statuses: `To Pay` and `Paid` (2026-11, supersedes the four)
 `Planned | Ordered | Received | Paid` became `To Pay | Paid`. An audit found
 Ordered and Received identical in every calculation, and Planned counting

@@ -21,6 +21,14 @@ import { money } from "../../lib/finance-rules";
 const dollars = (n) =>
   n == null ? "—" : `$${Math.round(Number(n)).toLocaleString("en-US")}`;
 
+/**
+ * Dues keep their cents when they have any. A team-total split can make the
+ * standard $3,428.57, and rounding that to $3,429 would state more than most
+ * families owe.
+ */
+const duesAmount = (n) =>
+  n == null ? "—" : Number.isInteger(Number(n)) ? dollars(n) : money(n);
+
 /** Enough distinct tones for a typical budget; repeats beyond that. */
 const SEGMENT_COLORS = [
   "#0b2341", "#2f80ed", "#7d9bc1", "#f4b400",
@@ -203,40 +211,15 @@ export function SeasonBudgetReport({ report }) {
           <section className="rpt-card">
             <p className="rpt-h">Player dues</p>
 
-            {dues.status === "varied" ? (
-              <>
-                <p className="rpt-card-figure">
-                  {dollars(dues.min)} – {dollars(dues.max)}
-                </p>
-                <p className="rpt-card-label">Dues per player</p>
-                <p className="rpt-card-line">
-                  {dues.activeRosterCount} players on the roster
-                </p>
-                <p className="rpt-card-foot">
-                  Dues vary by player this season. Your family&rsquo;s amount is confirmed
-                  separately by the coach.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="rpt-card-figure">{dollars(dues.perPlayer)}</p>
-                <p className="rpt-card-label">Dues per player</p>
-                <p className="rpt-card-line">
-                  {dues.activeRosterCount} players on the roster
-                </p>
-                {dues.expectedTotal != null && (
-                  /* Scope stated explicitly. This total covers the CURRENT
-                     roster, so it can legitimately differ from Finance's
-                     season-wide expected dues, which also counts players who
-                     have since left. Naming the scope makes that difference
-                     self-explaining rather than alarming. */
-                  <p className="rpt-card-line">
-                    <strong>{dollars(dues.expectedTotal)}</strong> from the{" "}
-                    {dues.activeRosterCount} players on this roster
-                  </p>
-                )}
-              </>
-            )}
+            {/* The team's standard dues, stated the same way for every team
+                (2026-11). No range, no roster count, no total: any of those
+                would let a family work out that someone pays a different
+                amount. Individual arrangements stay in Player Dues. */}
+            <p className="rpt-card-figure">{duesAmount(dues.perPlayer)}</p>
+            <p className="rpt-card-label">per player</p>
+            <p className="rpt-card-foot">
+              Your family&rsquo;s dues are confirmed separately by the coach.
+            </p>
           </section>
 
           {otherIncome.total > 0 && (
