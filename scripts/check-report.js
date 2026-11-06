@@ -778,7 +778,7 @@ console.log("\nTeam dues allocation");
     /\{t\.vendor \|\| t\.item \|\| "Transaction"\}/.test(ui), true);
   assertEq("...a date", /\{fmtDate\(t\.txn_date\)\}/.test(ui), true);
   assertEq("...and an amount", /\{money\(t\.actual_amount\)\}/.test(ui), true);
-  assertEq("a planned transaction with no amount shows a dash, not $0.00",
+  assertEq("a transaction with no amount shows a dash, not $0.00",
     mod.money(null), "—");
 
   // Many blockers must not produce a modal taller than the screen.

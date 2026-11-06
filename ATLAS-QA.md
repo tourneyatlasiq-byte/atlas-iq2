@@ -126,7 +126,8 @@ passed for a while.
 
 - [ ] Home and Finance show the same dues collected (both call `fundsIn()`)
 - [ ] Money In = dues + paid income transactions, nothing else
-- [ ] Only `status = 'Paid'` counts as spend; `Ordered`/`Received` report separately
+- [ ] Only `status = 'Paid'` counts as spend; `To Pay` counts toward committed and To Pay, never Paid
+- [ ] Income transactions show no status and are stored as `Paid`
 - [ ] Player dues never appear as a transaction or budget category
 - [ ] Money In is never netted against spending
 - [ ] Committed tournament cost compares against **tournament-linked** paid

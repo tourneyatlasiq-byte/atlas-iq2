@@ -199,6 +199,20 @@ not track bank balances, so any such number would be a guess presented as fact.
 goods in hand and money still unspent. Those are reported separately as
 **committed, not yet paid**, so nothing becomes invisible.
 
+### Two transaction statuses: `To Pay` and `Paid` (2026-11, supersedes the four)
+`Planned | Ordered | Received | Paid` became `To Pay | Paid`. An audit found
+Ordered and Received identical in every calculation, and Planned counting
+toward nothing — a coach could record a real payment, leave it Planned, and see
+an amount that no total included. No real coach had used any status but Paid.
+
+`To Pay` keeps exactly what Ordered and Received did (committed, not yet paid);
+`Paid` is unchanged. New expenses default to `Paid`. Income has no status and
+is always stored as `Paid`; expected income is an income budget line.
+
+*Rejected:* keeping Planned for placeholder transactions. Budget lines and
+tournament decisions already hold plans, and a status that counts for nothing
+is how money goes missing from the numbers.
+
 ### Player dues are derived, never entered
 Recorded once in Player Payments, surfaced in Money In automatically. Player
 Dues is blocked as a transaction and budget category so the same payment cannot
@@ -297,6 +311,26 @@ fold. The button existing is not the same as the workflow being discoverable.
 
 ---
 
+### The parent Tournament Schedule shows Committed and Considering (2026-11)
+Previously Committed only, with the decision used to filter and never printed.
+Families asked to see possible weekends before everything is final, so the
+schedule now includes Considering tournaments, labelled on every row, with a
+one-line legend when any appear. Committed reads "The team plans to attend";
+Considering reads as tentative and subject to change.
+
+The two are told apart without relying on colour, because schedules are
+printed in black and white: the word, a solid versus dashed outline, and a
+lighter date and name on a tentative row. A tentative row does not show "Game
+times and opponents will be added when available", which would imply the team
+is going.
+
+*Still excluded:* Declined (and the word itself, which invites questions about
+money), and a Considering tournament whose last day has passed — it was never
+decided, and printing it as Considering would be wrong.
+
+*Rejected:* a separate "possible tournaments" section. One chronological list
+answers the question a family actually has — what is happening which weekend.
+
 ## Terminology
 
 | Use | Not | Why |
@@ -335,8 +369,8 @@ Recorded so the reasoning is not relitigated.
 - **Orphaned facility curator** — if the creating organization goes dormant, its
   facilities become uneditable
 - **`payment_log.month_label` is free text** — blocks ageing and due dates
-- **`budget_transactions` has one amount column** — a Planned line cannot hold an
-  estimate
+- **`budget_transactions` has one amount column** — a transaction holds what was
+  paid or owed, never an estimate; estimates live on budget lines
 - **Four tournaments have no facility** — Alliance Open Nationals, Alliance
   Scenic City, Atlanta Legacy Showcase, Show Me the Money. Their `location` text
   is the only record of where they are held and **must not be cleared** until

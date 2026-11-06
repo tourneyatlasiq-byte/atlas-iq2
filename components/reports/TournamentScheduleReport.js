@@ -15,7 +15,9 @@ import {
  * of the document.
  *
  * Renders only what the payload contains. It has no access to costs, notes,
- * contacts, results or decision metadata, because the query never fetched them.
+ * contacts or results, because the query never fetched them. Each tournament
+ * carries one status word, Committed or Considering, and nothing else about
+ * the coach's decision.
  */
 
 function fmtGenerated(iso) {
@@ -28,6 +30,7 @@ function fmtGenerated(iso) {
 export function TournamentScheduleReport({ report }) {
   const { organization, team, season, tournaments, warnings } = report;
   const generated = fmtGenerated(report.generatedAt);
+  const hasTentative = tournaments.some((t) => t.status === "Considering");
 
   return (
     <div className="rpt-shell">
@@ -79,22 +82,40 @@ export function TournamentScheduleReport({ report }) {
           {generated && <p className="rpt-doc-meta">Prepared {generated}</p>}
         </header>
 
+        {/* Only when something on the page is tentative. Every row carries its
+            own label as well, so a single printed page is never ambiguous. */}
+        {hasTentative && (
+          <p className="sch-legend">
+            <span className="sch-status sch-status-committed">Committed</span>
+            <span className="sch-legend-text">The team plans to attend.</span>
+            <span className="sch-status sch-status-considering">Considering</span>
+            <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
+          </p>
+        )}
+
         {tournaments.length === 0 ? (
           <p className="sch-empty">
-            No tournaments have been committed for this season yet.
+            No tournaments are on the schedule for this season yet.
           </p>
         ) : (
           <ol className="sch-list">
             {tournaments.map((t) => {
               const range = formatDateRange(t.startDate, t.endDate);
               const days = groupGamesByDate(t.games);
+              const tentative = t.status === "Considering";
 
               return (
-                <li key={t.id} className="sch-item">
+                <li key={t.id} className={tentative ? "sch-item sch-item-tentative" : "sch-item"}>
                   {/* Dates lead. They are the season-planning information a
                       family acts on, and the only field present on every
-                      tournament in the product. */}
-                  <p className="sch-date">{range}</p>
+                      tournament in the product. The status sits beneath the
+                      date, in the column's spare space, so no row grows. */}
+                  <div className="sch-when">
+                    <p className="sch-date">{range}</p>
+                    <p className={`sch-status ${tentative ? "sch-status-considering" : "sch-status-committed"}`}>
+                      {tentative ? "Considering" : "Committed"}
+                    </p>
+                  </div>
 
                   <div className="sch-body">
                   <h2 className="sch-name">{t.name}</h2>
@@ -123,8 +144,10 @@ export function TournamentScheduleReport({ report }) {
                   {days.length === 0 ? (
                     /* Season Tempo knows only that nothing has been entered —
                        not whether the tournament has released a schedule. A
-                       trailing status line, not another content row. */
-                    <p className="sch-pending">
+                       trailing status line, not another content row. Not shown
+                       for a tentative tournament: "will be added" would imply
+                       the team is going. */
+                    !tentative && <p className="sch-pending">
                       Game times and opponents will be added when available.
                     </p>
                   ) : (

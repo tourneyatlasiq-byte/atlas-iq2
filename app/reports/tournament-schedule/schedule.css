@@ -31,6 +31,33 @@
   color: #2f80ed;
 }
 
+.sch-when { min-width: 0; }
+
+/* Decision status, on every tournament (2026-11).
+   Told apart without colour, because schedules are printed on home printers in
+   black and white with background graphics off: the word itself, a solid
+   versus a dashed outline (borders always print), and a lighter date on a
+   tentative row. */
+.sch-status {
+  display: inline-block;
+  margin: 4px 0 0; padding: 0 5px;
+  border: 1px solid #0b2341; border-radius: 3px;
+  font-size: 9.5px; font-weight: 800; line-height: 1.5;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: #0b2341;
+}
+.sch-status-considering { border-style: dashed; border-color: #64748b; color: #475569; }
+.sch-item-tentative .sch-date { font-weight: 600; color: #64748b; }
+.sch-item-tentative .sch-name { font-weight: 700; color: #334155; }
+
+/* One restrained line between the header and the list. */
+.sch-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  margin: 0 0 18px; font-size: 11.5px; line-height: 1.4; color: #475569;
+}
+.sch-legend .sch-status { margin: 0; }
+.sch-legend-text + .sch-status { margin-left: 8px; }
+
 .sch-body { min-width: 0; }
 
 /* letter-spacing left at normal deliberately: negative tracking narrows the
@@ -93,4 +120,5 @@
   .rpt-doc-title { margin-top: 10px; }
   .sch-games { margin-top: 5px; }
   .sch-day-games li { padding: 0; }
+  .sch-legend { margin-bottom: 14px; break-after: avoid; }
 }

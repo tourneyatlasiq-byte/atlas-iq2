@@ -15,7 +15,7 @@ import { setDuesForAll } from "../lib/actions/finance";
 import { setTournamentBudgetLine } from "../lib/actions/tournaments";
 import { financeActions, FINANCE_FILTER_LABELS } from "../lib/readiness/finance";
 import {
-  isActual, TXN_STATUSES, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
+  TXN_STATUSES, DEFAULT_TXN_STATUS, transactionEffect, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
   actionPlayerIds, scopeReconciledDues, duesHeaderState, presetDuesTarget,
   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
@@ -199,8 +199,7 @@ const payClass = (s) =>
 
 const statusClass = (s) =>
   s === "Paid" ? "pill-paid"
-  : s === "Received" ? "pill-registered"
-  : s === "Ordered" ? "pill-deposit"
+  : s === "To Pay" ? "pill-deposit"
   : "pill-unregistered";
 
 
@@ -1613,9 +1612,12 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
                         {money(Math.abs(Number(t.actual_amount)))}
                       </span>
                     )}
-                    <span className={`txn-status ${statusClass(t.status)}`} title={t.status}>
-                      {t.status}
-                    </span>
+                    {/* Income has no status: it is recorded when it is received. */}
+                    {!t.is_income && (
+                      <span className={`txn-status ${statusClass(t.status)}`} title={t.status}>
+                        {t.status}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1639,7 +1641,6 @@ function DRow({ label, value }) {
 
 function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
                             confirmingDelete = false, onCancelDelete, onConfirmDelete, drawerError = null }) {
-  const counted = isActual(t);
   return (
     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
         <div className="drawer-head">
@@ -1650,8 +1651,9 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
               {t.vendor && <span>{t.vendor}</span>}
             </div>
             <div className="drawer-head-pills">
-              <span className={`pill ${statusClass(t.status)}`}>{t.status}</span>
-              {t.is_income && <span className="pill pill-paid">Income</span>}
+              {t.is_income
+                ? <span className="pill pill-paid">Income</span>
+                : <span className={`pill ${statusClass(t.status)}`}>{t.status}</span>}
             </div>
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
@@ -1663,13 +1665,7 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
               <span>Amount</span><span>{money(t.actual_amount)}</span>
             </div>
           </div>
-          <p className="section-note">
-            {counted
-              ? `Counts toward actual ${t.is_income ? "income" : "expenses"}.`
-              : t.actual_amount == null
-                ? "No amount recorded yet, so this does not affect actual reporting."
-                : "Not yet paid, so this is reported as committed rather than actual."}
-          </p>
+          <p className="section-note">{transactionEffect(t)}</p>
 
           <section className="detail-section" style={{ marginTop: 22 }}>
             <h3 className="detail-section-title">Details</h3>
@@ -1869,16 +1865,22 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
                 <input id="t-amount" name="actual_amount" type="number" min="0" step="0.01" inputMode="decimal"
                        value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
-              <div className="field">
-                <label htmlFor="t-status">Status</label>
-                <select id="t-status" name="status" defaultValue={row?.status ?? "Planned"}>
-                  {TXN_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
+              {/* Income has no status: it is recorded when it arrives and the
+                  server always stores it as Paid. */}
+              {!isIncome && (
+                <div className="field">
+                  <label htmlFor="t-status">Status</label>
+                  <select id="t-status" name="status" defaultValue={row?.status ?? DEFAULT_TXN_STATUS}>
+                    {TXN_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
 
             <p className="field-note">
-              Only paid transactions with an amount count toward actual reporting.
+              {isIncome
+                ? "Record income when you receive it. It counts toward Money In. Income you're expecting belongs on an income budget line."
+                : "Paid means the money has left the team. To Pay means it's owed but not paid yet: it counts against the budget and shows in To Pay."}
             </p>
 
             <div className="form-divider">Linked to (optional)</div>

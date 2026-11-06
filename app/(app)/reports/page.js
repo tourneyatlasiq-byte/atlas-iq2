@@ -43,7 +43,7 @@ export default async function ReportsPage() {
         {
           name: "Tournament Schedule",
           description:
-            "The season's committed tournaments with dates, locations and game times as they're entered.",
+            "The season's tournaments, committed and under consideration, with dates, locations and game times as they're entered.",
           href: "/reports/tournament-schedule",
           audience: "For parents",
         },

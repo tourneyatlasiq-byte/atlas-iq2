@@ -29,10 +29,24 @@ function assertEq(label, actual, expected) {
   const {
     isGameWithinTournament, compareGames, compareTournaments,
     formatDateRange, formatDayLabel, formatClock, groupGamesByDate, parseDate,
-    locationParts,
+    locationParts, SCHEDULE_DECISIONS, isOnParentSchedule,
   } = m;
 
   console.log("\nTournament Schedule rules\n");
+
+  /* --- Which tournaments a parent sees (2026-11) ------------------------ */
+  const T = (decision, start_date, end_date) => ({ decision, start_date, end_date });
+  const today = "2026-11-06";
+  assertEq("the schedule asks for Committed and Considering only", SCHEDULE_DECISIONS, ["Committed", "Considering"]);
+  assertEq("Committed: always, past or future",
+    [isOnParentSchedule(T("Committed", "2026-08-08", "2026-08-09"), today), isOnParentSchedule(T("Committed", "2027-03-13", "2027-03-14"), today)], [true, true]);
+  assertEq("Considering in the future: shown", isOnParentSchedule(T("Considering", "2027-04-23", "2027-04-25"), today), true);
+  assertEq("Considering that ends today: still shown", isOnParentSchedule(T("Considering", "2026-11-05", "2026-11-06"), today), true);
+  assertEq("Considering whose last day has passed: not shown", isOnParentSchedule(T("Considering", "2026-10-03", "2026-10-04"), today), false);
+  assertEq("Considering with only a start date in the past: not shown", isOnParentSchedule(T("Considering", "2026-10-03", null), today), false);
+  assertEq("Considering with no dates at all: shown (nothing says it has passed)", isOnParentSchedule(T("Considering", null, null), today), true);
+  assertEq("Declined: never", [isOnParentSchedule(T("Declined", "2027-01-01", "2027-01-02"), today), isOnParentSchedule(T("Declined", null, null), today)], [false, false]);
+  assertEq("an unknown or missing decision: never", [isOnParentSchedule(T(null, "2027-01-01"), today), isOnParentSchedule(T("Maybe", "2027-01-01"), today)], [false, false]);
 
   /* --- Dates parse as LOCAL, never UTC ---------------------------------- */
   const d = parseDate("2026-08-05");

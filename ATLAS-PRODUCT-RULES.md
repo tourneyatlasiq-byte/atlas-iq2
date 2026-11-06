@@ -125,15 +125,28 @@ actual_amount IS NOT NULL  AND  status = 'Paid'
 *Enforced: `lib/finance-rules.js`, `isActual()`. Defined once and imported
 everywhere; never reimplemented.*
 
-**Why only Paid.** It is the one status that unambiguously means money left the
-account. `Ordered` and `Received` are procurement states — a received net-30
-invoice is goods in hand and money still unspent.
+**Why only Paid.** It is the one status that means money left the account. A
+`To Pay` bill — a received net-30 invoice, say — is committed, with the money
+still unspent.
 
-`Ordered` and `Received` rows that carry an amount are reported separately as
-**committed but not yet paid**, so nothing becomes invisible.
+Expense statuses: `To Pay`, `Paid` (*`budget_transactions_status_check`*).
+New expense transactions default to `Paid`.
 
-Statuses: `Planned`, `Ordered`, `Received`, `Paid`
-(*`budget_transactions_status_check`*).
+| Status | Total Committed | To Pay | Available | Paid |
+|---|---|---|---|---|
+| `To Pay` | counts | counts | reduces | — |
+| `Paid` | counts | — | reduces | counts |
+
+An amount is required for either to count. Planning is not a transaction
+status: it lives on budget lines and on tournament decisions.
+
+**Income has no status choice.** It is recorded when it is received and always
+stored as `Paid`, so it counts toward Money In. Expected income is an income
+budget line.
+
+*Enforced: `lib/finance-rules.js`, `TXN_STATUSES`, `transactionStatusFor()`,
+`isCommittedUnpaid()`, `isFinanciallyRecorded()`. Behaviour locked by
+`scripts/check-txn-status.js`.*
 
 ### Two distinct money actions
 

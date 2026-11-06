@@ -419,7 +419,7 @@ begin
   select coalesce(sum(actual_amount),0) into paid
     from budget_transactions where season_id=c.season and not is_income and status='Paid';
   select coalesce(sum(actual_amount),0) into committed
-    from budget_transactions where season_id=c.season and not is_income and status in ('Ordered','Received');
+    from budget_transactions where season_id=c.season and not is_income and status = 'To Pay';
   select coalesce(sum(initial_cost),0) into dues_expected
     from player_payments where season_id=c.season;
   select coalesce(sum(pl.amount),0) into dues_collected
@@ -434,6 +434,16 @@ begin
 
   insert into qa(area,test,result) values ('Finance','committed-unpaid excluded from paid spend',
     case when committed >= 0 and paid >= 0 then 'PASS (paid '||paid||', committed '||committed||')' else 'FAIL' end);
+
+  insert into qa(area,test,result) values ('Finance','transaction statuses are To Pay | Paid, default Paid, income always Paid',
+    case when (select pg_get_constraintdef(oid) from pg_constraint
+                where conname = 'budget_transactions_status_check')
+              = 'CHECK ((status = ANY (ARRAY[''To Pay''::text, ''Paid''::text])))'
+          and (select column_default from information_schema.columns
+                where table_schema = 'public' and table_name = 'budget_transactions'
+                  and column_name = 'status') = '''Paid''::text'
+          and not exists (select 1 from budget_transactions where is_income and status <> 'Paid')
+         then 'PASS' else 'FAIL' end);
 
   insert into qa(area,test,result) values ('Finance','remaining budget = planned - paid',
     case when budgeted - paid = budgeted - paid then 'PASS ('||(budgeted-paid)||')' else 'FAIL' end);

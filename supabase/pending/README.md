@@ -7,8 +7,19 @@ after it has been applied through the MCP tool and named with the version
 Supabase actually recorded — the process established in B0 that keeps the
 repository and production history aligned.
 
-**Nothing is currently pending.** This directory holds no SQL awaiting
-application.
+**One migration is pending.**
+
+- `fin_txn_status_to_pay_paid.sql` — transaction statuses `Planned | Ordered |
+  Received | Paid` become `To Pay | Paid` (Ordered and Received → To Pay;
+  Planned → To Pay only when it has no amount; Paid untouched), with the
+  constraint and a `Paid` default. Guarded: it aborts and rolls back if a
+  Planned row has an amount, an income row isn't Paid, any non-status column
+  changes, or the money attributed to Paid or To Pay changes for any season,
+  budget line or tournament. Reviewed and tested against a local copy of the
+  production table. It is applied only after the matching application code is
+  deployed and READY — the release is code first, then this migration
+  immediately. Once applied, it moves to `supabase/migrations/` under the
+  version Supabase records, and this entry moves to the list below.
 
 ## Standing rule: Import Players stays disabled
 
