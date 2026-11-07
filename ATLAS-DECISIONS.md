@@ -201,8 +201,8 @@ goods in hand and money still unspent. Those are reported separately as
 
 ### Parent reports show standard dues only (2026-11)
 The Planned Season Budget states the team's standard player dues — "$X per
-player", then "Your family's dues are confirmed separately by the coach." —
-and nothing else about dues: no range, no team total, no roster count, no
+player", with no added disclaimer (the "confirmed separately by the coach"
+line was removed after review) — and nothing else about dues: no range, no team total, no roster count, no
 exemption. A range had told every family that someone pays less (and "$0 –
 $4,000" that someone pays nothing).
 
@@ -338,9 +338,11 @@ Considering reads as tentative and subject to change.
 
 The two are told apart without relying on colour, because schedules are
 printed in black and white: the word, a solid versus dashed outline, and a
-lighter date and name on a tentative row. A tentative row does not show "Game
-times and opponents will be added when available", which would imply the team
-is going.
+lighter date and name on a tentative row. Game times are no longer promised
+per row: one footer note ("Game times and opponents will be added as schedules
+become available") appears only while a Committed, non-waitlisted tournament
+has no games entered, so it never implies the team is going to a tentative or
+waitlisted one.
 
 *Still excluded:* Declined (and the word itself, which invites questions about
 money), and a Considering tournament whose last day has passed — it was never
@@ -351,8 +353,8 @@ status otherwise stays off the parent schedule — Registered, Deposit Paid, Pai
 in Full and Not Registered all print as plain Committed. Waitlisted is the one
 exception, because "Committed" alone would read as a secured spot. The legend
 explains it ("The team is committed to attending if a spot becomes available")
-only when a waitlisted tournament is shown, and a waitlisted row does not say
-game times "will be added". The decision and registration fields are unchanged.
+only when a waitlisted tournament is shown, and a waitlisted tournament never
+triggers the game-times note. The decision and registration fields are unchanged.
 
 **Legend at the end, light tints on the labels (2026-11).** The schedule starts
 right after the header; a "Schedule status" legend sits immediately above the

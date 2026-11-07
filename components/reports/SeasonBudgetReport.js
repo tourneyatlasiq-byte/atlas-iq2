@@ -140,7 +140,7 @@ export function SeasonBudgetReport({ report }) {
 
           <h1 className="rpt-doc-title">Planned Season Budget</h1>
           <p className="rpt-doc-meta">
-            {season.name} season{generated ? ` · Prepared ${generated}` : ""}
+            {season.name} season{generated ? ` · Updated ${generated}` : ""}
           </p>
         </header>
 
@@ -217,9 +217,6 @@ export function SeasonBudgetReport({ report }) {
                 amount. Individual arrangements stay in Player Dues. */}
             <p className="rpt-card-figure">{duesAmount(dues.perPlayer)}</p>
             <p className="rpt-card-label">per player</p>
-            <p className="rpt-card-foot">
-              Your family&rsquo;s dues are confirmed separately by the coach.
-            </p>
           </section>
 
           {otherIncome.total > 0 && (
@@ -251,9 +248,9 @@ export function SeasonBudgetReport({ report }) {
             footer both said amounts may change, and the prepared date appeared
             here as well as in the header — the same caution and the same date
             three times between them. */}
-        <footer className="rpt-foot">
-          Budget amounts reflect the team&rsquo;s current season plan and may be updated as
-          tournament schedules, team needs, or other season costs are finalized.
+        <footer className="rpt-foot rpt-foot-note">
+          Budget amounts reflect the team&rsquo;s current season plan and may change as the
+          season develops.
         </footer>
       </article>
     </div>

@@ -33,6 +33,17 @@ export function TournamentScheduleReport({ report }) {
   const generated = fmtGenerated(report.generatedAt);
   const hasTentative = tournaments.some((t) => t.status === "Considering");
   const hasWaitlisted = tournaments.some((t) => t.status === "Committed" && t.waitlisted);
+  /**
+   * One general note instead of a line under every tournament (2026-11).
+   * Shown only while a tournament the team is attending — Committed and not
+   * waitlisted — has no games entered yet. Considering and waitlisted
+   * tournaments don't trigger it: "will be added" would imply the team has a
+   * place. Season Tempo knows only that nothing has been entered, not whether
+   * the tournament has released a schedule.
+   */
+  const gamesPending = tournaments.some(
+    (t) => t.status === "Committed" && !t.waitlisted && (t.games ?? []).length === 0
+  );
 
   return (
     <div className="rpt-shell">
@@ -81,7 +92,7 @@ export function TournamentScheduleReport({ report }) {
           </div>
 
           <h1 className="rpt-doc-title">{season.name} Tournament Schedule</h1>
-          {generated && <p className="rpt-doc-meta">Prepared {generated}</p>}
+          {generated && <p className="rpt-doc-meta">Updated {generated}</p>}
         </header>
 
         {tournaments.length === 0 ? (
@@ -133,16 +144,9 @@ export function TournamentScheduleReport({ report }) {
                     </p>
                   )}
 
-                  {days.length === 0 ? (
-                    /* Season Tempo knows only that nothing has been entered —
-                       not whether the tournament has released a schedule. A
-                       trailing status line, not another content row. Not shown
-                       for a tentative or waitlisted tournament: "will be added"
-                       would imply the team has a place. */
-                    !tentative && !waitlisted && <p className="sch-pending">
-                      Game times and opponents will be added when available.
-                    </p>
-                  ) : (
+                  {/* Nothing under a tournament with no games entered: the
+                      document says it once, in the footer (2026-11). */}
+                  {days.length === 0 ? null : (
                     <div className="sch-games">
                       {days.map((d) => (
                         <div key={d.date} className="sch-day">
@@ -202,7 +206,12 @@ export function TournamentScheduleReport({ report }) {
         )}
 
         <footer className="rpt-foot">
-          Tournament dates and game times can change.
+          {gamesPending && (
+            <span className="sch-foot-line">
+              Game times and opponents will be added as schedules become available.
+            </span>
+          )}
+          <span className="sch-foot-line">Tournament dates and game times can change.</span>
         </footer>
       </article>
     </div>

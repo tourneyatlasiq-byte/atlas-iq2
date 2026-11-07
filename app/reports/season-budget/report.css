@@ -142,7 +142,10 @@
    to the season budget — the data model establishes no such relationship. */
 .rpt-cards {
   display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
-  margin-bottom: 26px; break-inside: avoid;
+  /* Each card is as tall as its own content. Stretching the short dues card
+     to the fundraising card's height left a large blank block in it. */
+  align-items: start;
+  margin-bottom: 22px; break-inside: avoid;
 }
 /* With no fundraising entries the dues card is alone. It spans the row rather
    than leaving half the page blank beside it. */
@@ -150,9 +153,11 @@
 .rpt-cards:has(> .rpt-card:only-child) { grid-template-columns: minmax(0, 1fr); }
 
 .rpt-card {
-  border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px 18px;
+  border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px;
   background: #fcfdfe; break-inside: avoid;
 }
+/* Even padding top and bottom: the last line carries no extra margin. */
+.rpt-card > :last-child { margin-bottom: 0; }
 .rpt-card .rpt-h { margin-bottom: 8px; }
 .rpt-card-figure {
   margin: 0; font-size: 27px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;
@@ -174,6 +179,9 @@
 .rpt-card-list-amt { font-variant-numeric: tabular-nums; color: #64748b; white-space: nowrap; }
 
 .rpt-note { margin: 0; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+
+/* The budget's closing note: close to what it qualifies, read as a footer. */
+.rpt-foot-note { margin-top: 0; padding-top: 9px; }
 
 /* One closing statement. Useful context, deliberately secondary — a note
    rather than a legal disclaimer. */
@@ -226,10 +234,11 @@
   .rpt-alloc-bar { margin: 4px 0 12px; }
   .rpt-table td { padding: 4px 0; }
   .rpt-table tr.rpt-total-row td { padding-top: 8px; }
-  .rpt-cards { gap: 14px; margin-bottom: 14px; }
+  .rpt-cards { gap: 14px; margin-bottom: 12px; }
   .rpt-card { padding: 14px 16px; }
   .rpt-card-label { margin-bottom: 8px; }
   .rpt-foot { margin-top: 14px; }
+  .rpt-foot-note { margin-top: 0; padding-top: 8px; }
   .rpt-section, .rpt-cards, .rpt-card { break-inside: avoid; }
   .rpt-head { break-after: avoid; }
   /* Grid must not collapse to one column in print; the two cards are the

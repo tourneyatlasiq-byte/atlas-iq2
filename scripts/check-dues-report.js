@@ -245,8 +245,9 @@ const northgate = { charged: [...ids(10).map((id) => [id, 2400]), ["r1", 2000]],
   };
   for (const [name, r] of Object.entries(reports)) {
     const doc = docOf(r);
-    assertEq(`${name}: the printed page says Player dues, the standard per player, and the coach line`,
-      /Player dues \$[\d,]+ per player Your family’s dues are confirmed separately by the coach\./.test(doc), true);
+    assertEq(`${name}: the dues card is exactly Player dues, the standard, per player — no disclaimer`,
+      /Player dues \$[\d,]+ per player (Fundraising|Budget amounts)/.test(doc), true);
+    assertEq(`${name}: no "confirmed separately" line`, /confirmed separately/i.test(doc), false);
     assertEq(`${name}: no "vary", no range, no exemption, no arrangement, no roster count, no team total`,
       [/var(y|ies)/i.test(doc), /\$[\d,.]+\s*[–-]\s*\$[\d,.]+/.test(doc), /exempt/i.test(doc), /arrangement/i.test(doc),
         /players? on (the|this) roster/i.test(doc), /from the \d+ players/i.test(doc)],
@@ -262,6 +263,15 @@ const northgate = { charged: [...ids(10).map((id) => [id, 2400]), ["r1", 2000]],
     const bar = html.slice(0, html.indexOf('<article class="rpt-page"'));
     assertEq("the coach notice is in the screen-only toolbar, not the document",
       [/rpt-no-print/.test(bar) && /individual arrangement/.test(bar), /individual arrangement/.test(docOf(reports.mower))], [true, false]);
+  }
+
+  {
+    const doc = docOf(reports.mower);
+    assertEq("header reads Updated <date>, not Prepared", [/· Updated [A-Z][a-z]+ \d{1,2}, \d{4}/.test(doc), /Prepared/.test(doc)], [true, false]);
+    assertEq("the closing note uses the approved wording",
+      /Budget amounts reflect the team’s current season plan and may change as the season develops\./.test(doc), true);
+    const css = fs.readFileSync(path.join(ROOT, "app", "reports", "season-budget", "report.css"), "utf8");
+    assertEq("cards size to their own content (no stretched blank space)", /\.rpt-cards \{[^}]*align-items:\s*start/.test(css), true);
   }
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);

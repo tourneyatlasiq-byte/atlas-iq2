@@ -155,8 +155,11 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
     assertEq("Considering rows carry the tentative row style", count(html, /<li class="sch-item sch-item-tentative">/g), 2);
     assertEq("the legend appears once, explaining Considering and Waitlisted",
       [count(html, /class="sch-legend"/g), /Tentative and subject to change/.test(html), /The team is committed to attending if a spot becomes available\./.test(html)], [1, true, true]);
-    assertEq("tentative and waitlisted tournaments with no games do not promise game times (3 plain Committed rows do)",
-      count(html, /Game times and opponents will be added when available/g), 3);
+    assertEq("no per-tournament game-times line anywhere", /will be added when available/.test(html), false);
+    assertEq("one general note in the footer while an attending tournament has no games",
+      [count(html, /Game times and opponents will be added as schedules become available\./g),
+        /<footer class="rpt-foot">[\s\S]*Game times and opponents will be added as schedules become available\.[\s\S]*<\/footer>/.test(html)], [1, true]);
+    assertEq("header reads Updated <date>", [/Updated [A-Z][a-z]+ \d{1,2}, \d{4}/.test(html), /Prepared/.test(html)], [true, false]);
     assertEq("title and footer are unchanged", [/2026-27 Tournament Schedule<\/h1>/.test(html), /Tournament dates and game times can change\./.test(html)], [true, true]);
   }
   {
@@ -199,6 +202,19 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
       rule(".sch-status") + rule(".sch-status-considering") + rule(".sch-status-waitlisted")), false);
     assertEq("the legend is kept in one piece and with the footer", [/break-inside:\s*avoid/.test(rule(".sch-legend")), /break-after:\s*avoid/.test(rule(".sch-legend"))], [true, true]);
     assertEq("rows and names are not tinted", [/background/.test(rule(".sch-item")), /background/.test(rule(".sch-name"))], [false, false]);
+  }
+
+  {
+    const withGames = (t) => ({ ...t, games: [{ id: `g-${t.id}`, date: t.startDate, startTime: "09:00:00", opponent: "Bayou Blaze 14U" }] });
+    const note = (ts) => /will be added as schedules become available/.test(render({ ...report, tournaments: ts }));
+    const attending = report.tournaments.filter((t) => t.status === "Committed" && !t.waitlisted);
+    const others = report.tournaments.filter((t) => !(t.status === "Committed" && !t.waitlisted));
+    assertEq("note hidden when every attending tournament has games, even if Considering/waitlisted ones have none",
+      note([...attending.map(withGames), ...others.map((t) => ({ ...t, games: [] }))]), false);
+    assertEq("note hidden when every tournament has games", note(report.tournaments.map(withGames)), false);
+    assertEq("note shown when one attending tournament has no games",
+      note([...attending.slice(1).map(withGames), { ...attending[0], games: [] }]), true);
+    assertEq("note hidden on an empty schedule", note([]), false);
   }
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
