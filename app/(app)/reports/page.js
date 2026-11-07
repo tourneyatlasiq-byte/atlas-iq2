@@ -51,7 +51,7 @@ export default async function ReportsPage() {
     },
     {
       title: "Performance",
-      blurb: "Quality At-Bat reporting across the team, a tournament, or one player.",
+      blurb: "Team Quality At-Bat reporting for the season.",
       // Not offered as a usable report without the entitlement. RLS already
       // returns nothing for these organizations; this keeps the hub honest
       // rather than linking to an empty document.

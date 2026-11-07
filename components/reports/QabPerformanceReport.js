@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { ReportToolbar } from "./ReportToolbar";
 
 /**
  * Coach-facing Team/Season QAB Performance report.
@@ -47,22 +47,8 @@ export function QabPerformanceReport({ report }) {
   return (
     <div className="rpt-shell">
       {/* Screen only. Never printed. */}
-      <div className="rpt-bar rpt-no-print">
-        <div className="rpt-bar-head">
-          <div>
-            <p className="rpt-bar-title">QAB performance</p>
-            <p className="rpt-bar-sub">Preview below. Print or save as PDF.</p>
-          </div>
-          <Link href="/reports" className="rpt-btn rpt-btn-secondary" style={{ textDecoration: "none" }}>
-            ← Reports
-          </Link>
-        </div>
-        <div className="rpt-actions">
-          <button type="button" className="rpt-btn rpt-btn-primary" onClick={() => window.print()}>
-            Print / Save as PDF
-          </button>
-        </div>
-      </div>
+      {/* Screen only. Never printed. */}
+      <ReportToolbar name="QAB Performance" />
 
       <article className="rpt-page">
         <header className="rpt-head">
@@ -80,7 +66,7 @@ export function QabPerformanceReport({ report }) {
           </div>
 
           <h1 className="rpt-doc-title">{season.name} QAB Performance</h1>
-          {generated && <p className="rpt-doc-meta">Prepared {generated}</p>}
+          {generated && <p className="rpt-doc-meta">Updated {generated}</p>}
         </header>
 
         {!tracked ? (

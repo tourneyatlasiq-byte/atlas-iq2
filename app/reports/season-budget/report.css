@@ -55,6 +55,52 @@
 .rpt-btn-secondary { background: #fff; color: #0b2341; border-color: #e2e8f0; }
 .rpt-btn:disabled { opacity: .55; cursor: not-allowed; }
 
+/* ---------- Shared report toolbar (screen only) ----------
+   Back | Report name | Print, then only what the report needs. Compact, so
+   the preview below is the dominant element. */
+.rpt-bar { padding: 10px 14px; margin-bottom: 14px; }
+.rpt-tb-head { display: flex; align-items: center; gap: 10px 14px; }
+.rpt-tb-back {
+  flex: 0 0 auto; padding: 8px 12px; min-height: 40px; display: inline-flex; align-items: center;
+  border: 1px solid #e2e8f0; border-radius: 10px; color: #0b2341; font-size: 13.5px; font-weight: 600;
+  text-decoration: none; background: #fff;
+}
+.rpt-tb-back:hover { border-color: #cbd5e1; }
+.rpt-tb-name { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 16px; font-weight: 800; color: #0b2341; }
+.rpt-tb-print { flex: 0 0 auto; }
+.rpt-bar .rpt-detail { margin: 10px 0 0; }
+
+.rpt-notes { margin-top: 8px; }
+.rpt-notes-toggle {
+  appearance: none; border: 0; background: none; padding: 4px 0; margin: 0; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: #475569; text-align: left;
+}
+.rpt-notes-toggle:hover { color: #0b2341; text-decoration: underline; }
+.rpt-notes-toggle.has-action { color: #8a5a00; }
+.rpt-notes-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+/* `hidden` must win over display: grid, or the collapsed notes still show. */
+.rpt-notes-list[hidden] { display: none; }
+.rpt-note-item {
+  padding: 8px 10px; border-left: 3px solid #cbd5e1; background: #f8fafc; border-radius: 0 8px 8px 0;
+  font-size: 13px; line-height: 1.5; color: #334155;
+}
+.rpt-note-item.action { border-left-color: #d9a400; background: #fffaf0; color: #6b4e12; }
+
+.rpt-pnote-line { margin: 8px 0 0; font-size: 13px; color: #475569; }
+.rpt-pnote-added { font-weight: 700; color: #0b2341; }
+.rpt-linkbtn {
+  appearance: none; border: 0; background: none; padding: 4px 0; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: #1f65c4;
+}
+.rpt-linkbtn:hover { text-decoration: underline; }
+.rpt-bar .rpt-note-field { margin-top: 10px; }
+
+@media (max-width: 560px) {
+  .rpt-tb-head { flex-wrap: wrap; }
+  .rpt-tb-name { flex: 1 1 calc(100% - 120px); }
+  .rpt-tb-print { flex: 1 1 100%; width: 100%; }
+}
+
 /* Report detail choice (screen only): one two-way toggle above Print.
    Shared by reports that offer a lighter and a fuller version. */
 .rpt-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 12px; }

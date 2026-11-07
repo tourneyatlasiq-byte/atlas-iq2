@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { ReportToolbar } from "./ReportToolbar";
 import {
   formatDateRange, formatDayLabel, formatClock, groupGamesByDate, locationParts,
 } from "../../lib/schedule-rules";
@@ -148,52 +148,31 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
   return (
     <div className="rpt-shell">
       {/* Screen only. Never printed. */}
-      <div className="rpt-bar rpt-no-print">
-        <div className="rpt-bar-head">
-          <div>
-            <p className="rpt-bar-title">Tournament schedule</p>
-            <p className="rpt-bar-sub">
-              Preview below. Print or save as PDF to share with families.
-            </p>
+      <ReportToolbar
+        name="Tournament Schedule"
+        notes={warnings.map((w) => ({ title: w.title, message: w.message, action: Boolean(w.action) }))}
+        controls={
+          <div className="rpt-detail" role="group" aria-label="Report detail">
+            <span className="rpt-detail-label">Report detail</span>
+            <span className="rpt-seg">
+              {[
+                [SCHEDULE_DETAIL.tournaments, "Tournaments only"],
+                [SCHEDULE_DETAIL.games, "Include game schedule"],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`rpt-seg-btn${detail === key ? " on" : ""}`}
+                  aria-pressed={detail === key}
+                  onClick={() => choose(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
           </div>
-          <Link href="/reports" className="rpt-btn rpt-btn-secondary" style={{ textDecoration: "none" }}>
-            ← Reports
-          </Link>
-        </div>
-
-        {warnings.map((w, i) => (
-          <div key={i} className="rpt-warn rpt-warn-note">
-            {w.title && <strong>{w.title}. </strong>}
-            {w.message}
-          </div>
-        ))}
-
-        <div className="rpt-detail" role="group" aria-label="Report detail">
-          <span className="rpt-detail-label">Report detail</span>
-          <span className="rpt-seg">
-            {[
-              [SCHEDULE_DETAIL.tournaments, "Tournaments only"],
-              [SCHEDULE_DETAIL.games, "Include game schedule"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={`rpt-seg-btn${detail === key ? " on" : ""}`}
-                aria-pressed={detail === key}
-                onClick={() => choose(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </span>
-        </div>
-
-        <div className="rpt-actions">
-          <button type="button" className="rpt-btn rpt-btn-primary" onClick={() => window.print()}>
-            Print / Save as PDF
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       <article className="rpt-page">
         <header className="rpt-head">

@@ -65,7 +65,7 @@ export async function generateMetadata() {
  * request is redirected to /login before reaching this handler. RLS scopes the
  * underlying reads to the caller's organization.
  */
-export default async function SeasonBudgetReportPage() {
+export default async function SeasonBudgetReportPage({ searchParams }) {
   const { season, features } = await getContext();
 
   if (!season) {
@@ -97,5 +97,8 @@ export default async function SeasonBudgetReportPage() {
   // the product later; the budget report itself is not premium-gated.
   void features;
 
-  return <SeasonBudgetReport report={report} />;
+  // Back target only (?from=finance). Nothing else reads it.
+  const from = searchParams?.from === "finance" ? "finance" : null;
+
+  return <SeasonBudgetReport report={report} from={from} />;
 }

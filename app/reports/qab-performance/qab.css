@@ -28,6 +28,9 @@
 }
 .qab-table th:last-child, .qab-table td:last-child { padding-right: 0; }
 .qab-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A number column's heading sits over its numbers (the rule above loses to
+   .qab-table th's left alignment without this). */
+.qab-table th.qab-num { text-align: right; }
 .qab-strong { font-weight: 700; }
 .qab-c-date { white-space: nowrap; color: #475569; }
 .qab-c-res { white-space: nowrap; }

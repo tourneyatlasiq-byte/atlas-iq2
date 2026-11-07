@@ -452,7 +452,7 @@ export function FinanceClient({
           {/* Contextual entry point. The report is a separate document with
               its own layout — this navigates to it rather than printing this
               page. No Reports area exists yet, by design. */}
-          <Link className="btn btn-secondary" href="/reports/season-budget">
+          <Link className="btn btn-secondary" href="/reports/season-budget?from=finance">
             Parent budget report
           </Link>
           <PageHelp />

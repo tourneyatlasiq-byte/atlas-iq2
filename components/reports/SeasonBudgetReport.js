@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ReportToolbar, ParentNoteEditor } from "./ReportToolbar";
 import { money } from "../../lib/finance-rules";
 
 /**
@@ -42,8 +43,13 @@ function fmtDate(iso) {
   });
 }
 
-export function SeasonBudgetReport({ report }) {
-  const [note, setNote] = useState("");
+export function SeasonBudgetReport({ report, from = null, initialNote = "" }) {
+  // Back returns to where the coach came from: Finance when launched from its
+  // button (?from=finance), Reports otherwise. Never browser-history guesses.
+  const backHref = from === "finance" ? "/finance" : "/reports";
+  const backLabel = from === "finance" ? "Finance" : "Reports";
+  // Session only: never saved. initialNote exists for previews and tests.
+  const [note, setNote] = useState(initialNote);
 
   const blocking = report.warnings.filter((w) => w.blocking);
   const notices = report.warnings.filter((w) => !w.blocking);
@@ -64,7 +70,7 @@ export function SeasonBudgetReport({ report }) {
             </div>
           ))}
           <p style={{ marginTop: 18 }}>
-            <Link href="/finance">← Back to Finance</Link>
+            <Link href={backHref}>← Back to {backLabel}</Link>
           </p>
         </div>
       </div>
@@ -77,55 +83,25 @@ export function SeasonBudgetReport({ report }) {
   return (
     <div className="rpt-shell">
       {/* Screen only. Never printed. */}
-      <div className="rpt-bar rpt-no-print">
-        <div className="rpt-bar-head">
-          <div>
-            <p className="rpt-bar-title">Parent budget report</p>
-            <p className="rpt-bar-sub">
-              Preview below. Print or save as PDF to share with families.
-            </p>
-          </div>
-          <Link href="/finance" className="rpt-btn rpt-btn-secondary" style={{ textDecoration: "none" }}>
-            ← Finance
-          </Link>
-        </div>
-
-        {/* Coach-facing only. These never render inside the document. */}
-        {notices.map((w, i) => (
-          <div key={i} className="rpt-warn rpt-warn-note">
-            {w.title && <strong>{w.title}. </strong>}
-            {w.message}
-          </div>
-        ))}
-
-        <div className="rpt-note-field">
-          <label htmlFor="rpt-note">Note to parents (optional)</label>
-          <textarea
-            id="rpt-note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What dues cover, how to pay, and any costs families should expect outside team dues — travel, hotels, meals."
-          />
-          <p className="rpt-note-hint">
-            Appears at the end of the report. Not saved — if you create this report again, you&rsquo;ll
-            need to retype it.
-          </p>
-        </div>
-
-        <div className="rpt-actions">
-          <button type="button" className="rpt-btn rpt-btn-primary" onClick={() => window.print()}>
-            Print / Save as PDF
-          </button>
-        </div>
-      </div>
+      <ReportToolbar
+        name="Planned Season Budget"
+        backHref={backHref}
+        backLabel={backLabel}
+        notes={notices.map((w) => ({ title: w.title, message: w.message, action: Boolean(w.action) }))}
+      >
+        <ParentNoteEditor note={note} setNote={setNote} />
+      </ReportToolbar>
 
       {/* The document. */}
       <article className="rpt-page">
         <header className="rpt-head">
           <div className="rpt-head-row">
+            {/* Team first, organization second — the same on every report. */}
             <div className="rpt-head-identity">
-              <p className="rpt-org">{organization.name}</p>
-              {team.name && <p className="rpt-team">{team.name}</p>}
+              <p className="rpt-org">{team.name ?? organization.name}</p>
+              {team.name && organization.name && team.name !== organization.name && (
+                <p className="rpt-team">{organization.name}</p>
+              )}
             </div>
 
             {/* Only when the organization has actually uploaded one. No
