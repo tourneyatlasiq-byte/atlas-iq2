@@ -2,6 +2,7 @@ import "./report.css";
 import Link from "next/link";
 import { getContext } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
+import { seasonBudgetDetail } from "../../../lib/queries/reports/season-budget-detail";
 import { seasonBudgetReport } from "../../../lib/queries/reports/season-budget";
 import { SeasonBudgetReport } from "../../../components/reports/SeasonBudgetReport";
 
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
  * a title needs two names, and the report payload is an allowlist built for
  * the document body.
  */
-export async function generateMetadata() {
+export async function generateMetadata({ searchParams } = {}) {
   const fallback = { title: "Planned Season Budget" };
 
   try {
@@ -41,7 +42,8 @@ export async function generateMetadata() {
     // Characters a filesystem would strip or mangle.
     const safe = (v) => String(v ?? "").replace(/[\\/:*?"<>|]/g, "").trim();
 
-    const parts = [safe(subject), "Planned Season Budget", safe(data.name)].filter(Boolean);
+    const docName = searchParams?.detail === "detailed" ? "Season Budget Detail" : "Planned Season Budget";
+    const parts = [safe(subject), docName, safe(data.name)].filter(Boolean);
     return { title: parts.join(" - ") };
   } catch {
     // A title must never break the page.
@@ -100,5 +102,10 @@ export default async function SeasonBudgetReportPage({ searchParams }) {
   // Back target only (?from=finance). Nothing else reads it.
   const from = searchParams?.from === "finance" ? "finance" : null;
 
-  return <SeasonBudgetReport report={report} from={from} />;
+  // Detailed is built from the same season's records by the same Finance code;
+  // the toggle switches what prints, live. ?detail=detailed opens it.
+  const detail = report.blocked ? null : await seasonBudgetDetail(season.id);
+  const initialDetail = searchParams?.detail === "detailed" ? "detailed" : "summary";
+
+  return <SeasonBudgetReport report={report} detail={detail} initialDetail={initialDetail} from={from} />;
 }

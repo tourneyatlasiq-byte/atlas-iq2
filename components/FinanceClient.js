@@ -453,7 +453,7 @@ export function FinanceClient({
               its own layout — this navigates to it rather than printing this
               page. No Reports area exists yet, by design. */}
           <Link className="btn btn-secondary" href="/reports/season-budget?from=finance">
-            Parent budget report
+            Season budget report
           </Link>
           <PageHelp />
         </div>
@@ -1420,6 +1420,16 @@ function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsInc
   const [customCat, setCustomCat] = useState("");
   const isNew = !row;
 
+  // Parent report: Show total only. An existing line shows its stored value.
+  // A NEW line in the standard Coaches category starts ticked, until the coach
+  // changes the box themselves; after saving, the stored flag is the rule.
+  const [totalOnly, setTotalOnly] = useState(Boolean(row?.report_total_only));
+  const [totalOnlyTouched, setTotalOnlyTouched] = useState(false);
+  function chooseCategory(value) {
+    setCatChoice(value);
+    if (isNew && !totalOnlyTouched) setTotalOnly(value === "Coaches");
+  }
+
   // An existing line already tells us which mode it was saved in.
   const [method, setMethod] = useState(row?.quantity != null ? "quantity" : "total");
   const [qty, setQty] = useState(row?.quantity ?? "");
@@ -1460,7 +1470,7 @@ function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsInc
                 name={catChoice === CATEGORY_OTHER ? undefined : "category"}
                 required
                 value={catChoice}
-                onChange={(e) => setCatChoice(e.target.value)}
+                onChange={(e) => chooseCategory(e.target.value)}
               >
                 <option value="" disabled>Choose a category…</option>
                 {categoryOptions(row?.category).map((c) => (
@@ -1549,6 +1559,22 @@ function BudgetForm({ row, pending, onSubmit, onCancel, seedName = "", seedIsInc
               <textarea id="b-notes" name="notes" rows={2}
                         placeholder="e.g. 15 players + 1 extra jersey"
                         defaultValue={row?.notes ?? ""} />
+            </div>
+            <div className="field">
+              <label className="txn-assign-check" htmlFor="b-total-only">
+                <input
+                  id="b-total-only"
+                  type="checkbox"
+                  name="report_total_only"
+                  checked={totalOnly}
+                  onChange={(e) => { setTotalOnly(e.target.checked); setTotalOnlyTouched(true); }}
+                />
+                Parent report: Show total only
+              </label>
+              <p className="field-note">
+                Transactions on this budget line won&rsquo;t be itemized on Detailed parent reports. The
+                total will still be included.
+              </p>
             </div>
           </div>
           <div className="modal-foot">

@@ -263,6 +263,65 @@
 .rpt-blocked-title { font-weight: 800; color: #0b2341; margin-bottom: 3px !important; }
 .rpt-blocked-item p:last-child { margin-bottom: 0; }
 
+/* ---------- Season Budget Detail ---------- */
+
+.bd-figures {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+  margin: 0 0 10px;
+}
+.bd-figures div { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; background: #fcfdfe; }
+.bd-figures dt {
+  margin: 0 0 4px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: #64748b;
+}
+.bd-figures dd { margin: 0; font-size: 18px; font-weight: 800; color: #0b2341; font-variant-numeric: tabular-nums; }
+.bd-season-note { margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: #334155; }
+.bd-over { color: #9a3412; font-weight: 700; }
+
+.bd-cat { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 16px; font-size: 12.5px; }
+.bd-cat-head th { text-align: left; padding: 8px 0 6px; border-bottom: 2px solid #0b2341; }
+.bd-cat-name { font-size: 14px; font-weight: 800; color: #0b2341; }
+.bd-cat-figs {
+  display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 3px;
+  font-size: 12px; font-weight: 600; color: #475569; font-variant-numeric: tabular-nums;
+}
+.bd-cols th {
+  padding: 5px 0 4px; border-bottom: 1px solid #dbe3ec; text-align: left;
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #64748b;
+}
+.bd-cols th.rpt-num { text-align: right; }
+.bd-row td { padding: 5px 0; border-bottom: 1px solid #eef2f7; vertical-align: top; color: #0b2341; }
+/* Fixed table layout takes column widths from the <col>s: the category
+   heading row spans all four columns, so it cannot set them. */
+.bd-col-date { width: 1.3in; }
+.bd-col-amt { width: 1.05in; }
+.bd-col-status { width: 0.95in; }
+.bd-c-date { width: 1.25in; padding-right: 10px !important; white-space: nowrap; }
+.bd-c-item { overflow-wrap: anywhere; padding-right: 10px !important; }
+.bd-c-amt { width: 1.05in; font-variant-numeric: tabular-nums; }
+.bd-c-status { width: 0.9in; padding-left: 12px !important; color: #475569; }
+.bd-tag { color: #64748b; font-weight: 500; }
+.bd-row-player td, .bd-row-other td { color: #334155; font-style: italic; }
+.bd-none { color: #64748b; font-style: italic; }
+.bd-total td { font-weight: 800; border-bottom: none; }
+.bd-empty { margin: 0; color: #475569; }
+
+@media (max-width: 560px) {
+  .bd-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bd-col-date { width: 5.4em; }
+  .bd-col-amt { width: 5.6em; }
+  .bd-col-status { width: 4.8em; }
+  .bd-c-date { width: 5.2em; white-space: normal; }
+  .bd-c-status { width: 4.6em; padding-left: 6px !important; }
+}
+
+/* The Detailed privacy notice: visible whenever Detailed is selected. Plain,
+   not alarming, and never collapsed. */
+.rpt-privacy {
+  margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #eef5ff;
+  border: 1px solid #cfe0f7; font-size: 13px; line-height: 1.5; color: #1e3a5f;
+}
+
 /* ---------- Print ---------- */
 
 /* PAGE MARGINS LIVE IN THE DOCUMENT, NOT IN @page (2026-11).
@@ -325,4 +384,20 @@
   .rpt-alloc-bar, .rpt-alloc-seg, .rpt-swatch {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+}
+
+/* Season Budget Detail pagination. Each category is a table so its heading and
+   column labels repeat if it continues onto a new page; rows never split; a
+   short category (six rows or fewer) never splits at all. */
+@media print {
+  .bd-cat thead { display: table-header-group; }
+  .bd-row { break-inside: avoid; }
+  .bd-cat-short { break-inside: avoid; }
+  /* Detailed's long sections flow across pages (the shared rule keeps every
+     Summary section whole); each section heading stays with its first table. */
+  .bd-page .rpt-section.bd-flow { break-inside: auto; }
+  .bd-page .bd-flow > .rpt-h { break-after: avoid; }
+  .bd-figures div { padding: 7px 10px; }
+  .bd-figures dd { font-size: 16px; }
+  .bd-cat { margin-bottom: 10px; }
 }

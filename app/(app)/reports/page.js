@@ -36,7 +36,7 @@ export default async function ReportsPage() {
         {
           name: "Planned Season Budget",
           description:
-            "Parent-facing summary of the season budget, where the money goes, and player dues.",
+            "The season budget, where the money goes and player dues — as a Summary, or Detailed with spending by category.",
           href: "/reports/season-budget",
           audience: "For parents",
         },
