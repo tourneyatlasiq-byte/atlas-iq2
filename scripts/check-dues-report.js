@@ -272,6 +272,14 @@ const northgate = { charged: [...ids(10).map((id) => [id, 2400]), ["r1", 2000]],
       /Budget amounts reflect the team’s current season plan and may change as the season develops\./.test(doc), true);
     const css = fs.readFileSync(path.join(ROOT, "app", "reports", "season-budget", "report.css"), "utf8");
     assertEq("cards size to their own content (no stretched blank space)", /\.rpt-cards \{[^}]*align-items:\s*start/.test(css), true);
+    // Print margins must not depend on the browser dialog's Margins setting
+    // (Chrome's None/Minimum replace @page margins). The page carries them.
+    const print = css.slice(css.indexOf("@media print"));
+    assertEq("@page asks for no margin of its own (Letter, portrait)", /@page\s*\{\s*size:\s*letter portrait;\s*margin:\s*0;\s*\}/.test(css), true);
+    assertEq("in print the document carries 0.5in top/bottom and 0.55in side margins",
+      /\.rpt-page\s*\{[^}]*padding:\s*0\.5in 0\.55in;/.test(print), true);
+    assertEq("...repeated on every printed page", /\.rpt-page\s*\{[^}]*box-decoration-break:\s*clone/.test(print), true);
+    assertEq("no print rule scales the report", /zoom|transform:\s*scale/.test(print), false);
   }
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);

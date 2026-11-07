@@ -206,13 +206,30 @@
 
 /* ---------- Print ---------- */
 
-@page { size: letter portrait; margin: 14mm; }
+/* PAGE MARGINS LIVE IN THE DOCUMENT, NOT IN @page (2026-11).
+
+   The margins used to be @page { margin: 14mm } with the document's padding
+   removed for print. Chrome's print dialog has its own Margins setting, and
+   only "Default" honours @page; "None" and "Minimum" replace it — and Chrome
+   remembers the last choice. With "None" every report printed edge to edge:
+   header, divider, allocation bar, table, cards and footer all touching the
+   paper's sides. The render harness printed with Default and never saw it.
+
+   So the page itself carries a 0.5in top/bottom and 0.55in side margin as
+   padding, repeated on every printed page (box-decoration-break: clone), and
+   @page asks for no margin of its own. Default and None now print the same; a
+   Minimum or Custom setting can only add space, never remove it. The content
+   column is unchanged at 7.4in, so a report that fitted one page still does.
+   Nothing is scaled and no type changes. All three reports share this. */
+@page { size: letter portrait; margin: 0; }
 
 @media print {
-  .rpt-shell { background: #fff; padding: 0; }
+  .rpt-shell { background: #fff; padding: 0; min-height: 0; }
   .rpt-no-print { display: none !important; }
   .rpt-page {
-    max-width: none; margin: 0; border: none; border-radius: 0; padding: 0;
+    max-width: none; margin: 0; border: none; border-radius: 0;
+    padding: 0.5in 0.55in;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
   }
 
   /* PRINT DENSITY.

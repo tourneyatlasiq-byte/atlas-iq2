@@ -175,44 +175,48 @@ export function TournamentScheduleReport({ report }) {
           </ol>
         )}
 
-        {/* Schedule status legend (2026-11: moved here from the top, so the
-            schedule starts right after the header). Only when something is
-            tentative or waitlisted, and each explanation only for a label
-            that actually appears. Every row carries its own label as well, so
-            a single printed page is never ambiguous. Kept in one piece and
-            with the footer when it paginates. */}
-        {(hasTentative || hasWaitlisted) && (
-          <section className="sch-legend" aria-label="Schedule status">
-            <p className="sch-legend-label">Schedule status</p>
-            <div className="sch-legend-items">
-              <span className="sch-legend-item">
-                <span className="sch-status sch-status-committed">Committed</span>
-                <span className="sch-legend-text">The team plans to attend.</span>
-              </span>
-              {hasTentative && (
+        {/* Legend and footer travel together: one block that never splits
+            across pages, so the closing lines are never stranded. */}
+        <div className="sch-end">
+          {/* Schedule status legend (2026-11: moved here from the top, so the
+              schedule starts right after the header). Only when something is
+              tentative or waitlisted, and each explanation only for a label
+              that actually appears. Every row carries its own label as well, so
+              a single printed page is never ambiguous. Kept in one piece and
+              with the footer when it paginates. */}
+          {(hasTentative || hasWaitlisted) && (
+            <section className="sch-legend" aria-label="Schedule status">
+              <p className="sch-legend-label">Schedule status</p>
+              <div className="sch-legend-items">
                 <span className="sch-legend-item">
-                  <span className="sch-status sch-status-considering">Considering</span>
-                  <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
+                  <span className="sch-status sch-status-committed">Committed</span>
+                  <span className="sch-legend-text">The team plans to attend.</span>
                 </span>
-              )}
-              {hasWaitlisted && (
-                <span className="sch-legend-item">
-                  <span className="sch-status sch-status-waitlisted">Committed &bull; Waitlisted</span>
-                  <span className="sch-legend-text">The team is committed to attending if a spot becomes available.</span>
-                </span>
-              )}
-            </div>
-          </section>
-        )}
-
-        <footer className="rpt-foot">
-          {gamesPending && (
-            <span className="sch-foot-line">
-              Game times and opponents will be added as schedules become available.
-            </span>
+                {hasTentative && (
+                  <span className="sch-legend-item">
+                    <span className="sch-status sch-status-considering">Considering</span>
+                    <span className="sch-legend-text">Tentative and subject to change. The team hasn&rsquo;t decided yet.</span>
+                  </span>
+                )}
+                {hasWaitlisted && (
+                  <span className="sch-legend-item">
+                    <span className="sch-status sch-status-waitlisted">Committed &bull; Waitlisted</span>
+                    <span className="sch-legend-text">The team is committed to attending if a spot becomes available.</span>
+                  </span>
+                )}
+              </div>
+            </section>
           )}
-          <span className="sch-foot-line">Tournament dates and game times can change.</span>
-        </footer>
+
+          <footer className="rpt-foot">
+            {gamesPending && (
+              <span className="sch-foot-line">
+                Game times and opponents will be added as schedules become available.
+              </span>
+            )}
+            <span className="sch-foot-line">Tournament dates and game times can change.</span>
+          </footer>
+        </div>
       </article>
     </div>
   );

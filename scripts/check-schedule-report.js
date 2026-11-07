@@ -142,6 +142,8 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
       count(html, /<p class="sch-status sch-status-waitlisted">Committed • Waitlisted<\/p>/g), 1);
     {
       const legendAt = html.indexOf('class="sch-legend"');
+      assertEq("legend and footer sit inside the closing block",
+        /<div class="sch-end"><section class="sch-legend"[\s\S]*<footer class="rpt-foot">[\s\S]*<\/footer><\/div>/.test(html), true);
       assertEq("the legend sits after the schedule and immediately before the footer, labelled Schedule status",
         [legendAt > html.indexOf("</ol>"), html.indexOf("<footer", legendAt) > legendAt,
           /<section class="sch-legend"[^>]*><p class="sch-legend-label">Schedule status<\/p>/.test(html),
@@ -200,6 +202,7 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
       /background:/.test(rule(".sch-status-waitlisted")), /print-color-adjust:\s*exact/.test(rule(".sch-status"))], [true, true, true, true]);
     assertEq("no red in the status treatments", /#(c0392b|d32f2f|e53935|b91c1c|dc2626|ef4444)|\bred\b/i.test(
       rule(".sch-status") + rule(".sch-status-considering") + rule(".sch-status-waitlisted")), false);
+    assertEq("legend and footer form one unbreakable closing block", /\.sch-end\s*\{\s*break-inside:\s*avoid;\s*\}/.test(css), true);
     assertEq("the legend is kept in one piece and with the footer", [/break-inside:\s*avoid/.test(rule(".sch-legend")), /break-after:\s*avoid/.test(rule(".sch-legend"))], [true, true]);
     assertEq("rows and names are not tinted", [/background/.test(rule(".sch-item")), /background/.test(rule(".sch-name"))], [false, false]);
   }

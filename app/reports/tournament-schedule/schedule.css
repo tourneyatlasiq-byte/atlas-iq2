@@ -70,6 +70,8 @@
 .sch-legend-items { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px; }
 .sch-legend-item { display: inline-flex; align-items: center; gap: 8px; }
 .sch-legend .sch-status { margin: 0; white-space: nowrap; }
+/* Legend + footer: one unbreakable closing block. */
+.sch-end { break-inside: avoid; }
 /* The legend's own top rule replaces the footer's, so two lines don't stack. */
 .sch-legend + .rpt-foot { margin-top: 10px; border-top: none; padding-top: 0; }
 
