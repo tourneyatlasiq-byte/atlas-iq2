@@ -136,10 +136,13 @@ export function UploadForm({ targets, isAdmin, seasonName, lockTo = null, onClos
       .upload(created.filePath, file, { contentType: file.type, upsert: false });
 
     if (error) {
+      // The storage error stays in the browser console for support; the coach
+      // sees plain words, never the storage service's own message.
+      console.error("[documents] storage upload failed", { message: error.message });
       await discardDocumentRecord(created.documentId);
       setBusy(false);
       setProgress(null);
-      return setFileError(`Upload failed: ${error.message}`);
+      return setFileError("The file couldn't be uploaded. Please try again.");
     }
 
     await confirmDocumentUpload();

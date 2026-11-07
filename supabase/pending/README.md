@@ -24,6 +24,12 @@ Applying a migration is not the same as shipping a feature.
 
 ## Previously applied from here
 
+- `files_07_team_insurance_category` — the documents category "Insurance"
+  became "Team Insurance" (the product renamed it in August; the constraint
+  never followed, so every Team Insurance upload failed). Production bug fix,
+  applied 2026-11-07 as `20261107131446_files_07_team_insurance_category`
+  straight after review and a local test; it touched only the constraint.
+
 - `fin_txn_status_to_pay_paid.sql` — transaction statuses `Planned | Ordered |
   Received | Paid` became `To Pay | Paid`, with the new constraint and a `Paid`
   default. Applied 2026-11-06 as `20261106224426_fin_txn_status_to_pay_paid`,
