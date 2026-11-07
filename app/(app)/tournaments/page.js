@@ -12,7 +12,7 @@ import { listSeasonRoster } from "../../../lib/queries/roster";
 import { listContacts } from "../../../lib/queries/contacts";
 import { arrivalNotesByFacility } from "../../../lib/queries/facilities";
 import { listBudgetItems, listTransactions } from "../../../lib/queries/finance";
-import { budgetLineFinance } from "../../../lib/finance-rules";
+import { tournamentBudgetLines } from "../../../lib/finance-rules";
 import { TournamentClient } from "../../../components/TournamentClient";
 
 import { createClient } from "../../../lib/supabase/server";
@@ -49,21 +49,7 @@ export default async function TournamentsPage({ searchParams }) {
     listTransactions(season.id),
   ]);
 
-  const budgetLines = budgetItems
-    .filter((b) => !b.is_income)
-    .map((b) => {
-      const fin = budgetLineFinance(b, budgetTxns, tournaments);
-      return {
-        id: b.id,
-        name: b.name,
-        category: b.category,
-        planned: fin.planned,
-        committed: fin.committed,
-        paid: fin.paid,
-        available: fin.available,
-        percentCommitted: fin.percentCommitted,
-      };
-    });
+  const budgetLines = tournamentBudgetLines(budgetItems, budgetTxns, tournaments);
 
   const [participantMap, seasonRoster, candidates, playerDocs] = await Promise.all([
     participantsBySeason(season.id),
