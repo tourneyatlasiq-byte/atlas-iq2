@@ -122,17 +122,25 @@ function UnassignedCommitments({ tournaments, budgetItems, canWrite, pending, on
 
   return (
     <div className="fin-unassigned">
-      <p className="fin-unassigned-lead">
-        <strong>{summaryMoney(total)}</strong> of committed tournament cost is not assigned to a
-        budget category, so it is <em>not</em> included in any category&rsquo;s available budget.
-      </p>
+      {total > 0 ? (
+        <p className="fin-unassigned-lead">
+          <strong>{summaryMoney(total)}</strong> of committed tournament cost is not assigned to a
+          budget category, so it is <em>not</em> included in any category&rsquo;s available budget.
+        </p>
+      ) : (
+        <p className="fin-unassigned-lead">
+          {tournaments.length === 1 ? "This committed tournament has" : "These committed tournaments have"} no
+          budget category. Their cost is already recorded on budget lines, so Available is
+          unaffected &mdash; choose a category to keep the budget organized.
+        </p>
+      )}
 
       <ul className="fin-unassigned-list">
         {tournaments.map((t) => (
           <li key={t.id} className="fin-unassigned-row">
             <span className="fin-unassigned-name">
               {t.name}
-              <span className="budget-sub">{money(t.amount)} committed &middot; no budget category</span>
+              <span className="budget-sub">{unassignedDetail(t)}</span>
             </span>
 
             {canWrite && (
@@ -169,6 +177,18 @@ function UnassignedCommitments({ tournaments, budgetItems, canWrite, pending, on
       </ul>
     </div>
   );
+}
+
+/**
+ * One line under an unassigned tournament (ST-011). Money already recorded on
+ * a budget line is said to be there, so the coach can see why the amount
+ * outstanding here is smaller than the tournament's cost — or zero.
+ */
+function unassignedDetail(t) {
+  const recorded = Number(t.recordedElsewhere ?? 0);
+  if (recorded <= 0) return `${money(t.amount)} committed · no budget category`;
+  if (t.amount <= 0) return `Fully recorded on budget lines (${money(recorded)}) · no budget category`;
+  return `${money(t.amount)} still to budget · ${money(recorded)} already on budget lines · no budget category`;
 }
 
 /**
@@ -593,12 +613,18 @@ export function FinanceClient({
           </div>
 
           <p className="fin-attention-summary">
-            {unassignedTournaments.length > 0 && (
+            {unassignedTournaments.length > 0 && (unassignedTotal > 0 ? (
               <>
                 <strong>{summaryMoney(unassignedTotal)}</strong> in tournament commitments needs a
                 budget category.
               </>
-            )}
+            ) : (
+              <>
+                {unassignedTournaments.length} committed{" "}
+                {unassignedTournaments.length === 1 ? "tournament needs" : "tournaments need"} a budget
+                category.
+              </>
+            ))}
             {unassignedTournaments.length > 0 && otherActions.length > 0 && " "}
             {otherActions.map((a) => financeActionText(a, dues)).join(" · ")}
           </p>

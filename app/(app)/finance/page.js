@@ -112,7 +112,7 @@ export default async function FinancePage({ searchParams }) {
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
       committedTournaments={committed}
-      unassignedTournaments={unassignedTournamentCommitments(seasonTournaments ?? [])}
+      unassignedTournaments={unassignedTournamentCommitments(seasonTournaments ?? [], transactions)}
       budgetItems={budgetItems}
       tournaments={picks.tournaments}
       players={picks.players}
