@@ -120,11 +120,37 @@
 }
 .sch-opp { min-width: 0; }
 
+.sch-gtype { color: #64748b; font-weight: 500; }
+
+/* Include game schedule: the same blocks as a table, so the column labels
+   repeat on every printed page (Chrome repeats a table's thead). Games are
+   indented under their tournament behind a thin rule — one tournament, its
+   games beneath it, never games that read as more tournaments. */
+.sch-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.sch-table thead th {
+  text-align: left; padding: 0 0 6px; border-bottom: 1px solid #dbe3ec;
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #64748b;
+}
+.sch-table thead th:first-child { width: calc(1.25in + 16px); }
+.sch-table td { vertical-align: top; padding: 12px 0 12px; border-bottom: 1px solid #eef2f7; }
+.sch-table tbody tr:last-child td { border-bottom: none; }
+/* The row keeps .sch-item for its status styling, not its block layout: it is
+   a table row, and may continue onto the next page between game days. */
+.sch-table tr.sch-item { display: table-row; padding: 0; margin: 0; border-bottom: none; break-inside: auto; }
+.sch-cell-when { padding-right: 16px !important; }
+.sch-row .sch-games { margin: 8px 0 0; padding-left: 12px; border-left: 2px solid #dbe3ec; }
+.sch-row .sch-games-more { margin-top: 0; padding-top: 5px; }
+
 .sch-empty { margin: 0; font-size: 14px; line-height: 1.6; color: #475569; }
 
 /* Phone: the date column would squeeze the name, so it returns above it. */
 @media (max-width: 560px) {
   .sch-item { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .sch-table, .sch-table tbody, .sch-table tr.sch-item, .sch-table td { display: block; width: auto; }
+  .sch-table thead { display: none; }
+  .sch-table td { border-bottom: none; padding: 0; }
+  .sch-table tr.sch-item { padding: 12px 0; border-bottom: 1px solid #eef2f7; }
+  .sch-cell-when { padding-right: 0 !important; margin-bottom: 4px; }
 }
 
 @media print {
@@ -137,6 +163,12 @@
   .rpt-head { margin-bottom: 14px; }
   .rpt-doc-title { margin-top: 10px; }
   .sch-games { margin-top: 5px; }
+  .sch-table thead { display: table-header-group; }
+  .sch-table td { padding: 7px 0; }
+  /* A tournament's heading never ends a page without its first game day:
+     the two form one unbreakable block. Later days never split. */
+  .sch-row .sch-keep { break-inside: avoid; }
+  .sch-row .sch-day { break-inside: avoid; }
   .sch-day-games li { padding: 0; }
   .sch-legend { margin-top: 12px; }
   .sch-legend + .rpt-foot { margin-top: 8px; }

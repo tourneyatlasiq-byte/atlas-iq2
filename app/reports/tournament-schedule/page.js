@@ -47,7 +47,7 @@ export async function generateMetadata() {
  * to the query explicitly; the payload it returns is an allowlist, so no cost,
  * note, contact or result can be printed by accident.
  */
-export default async function TournamentSchedulePage() {
+export default async function TournamentSchedulePage({ searchParams }) {
   const { season } = await getContext();
 
   if (!season) {
@@ -75,5 +75,9 @@ export default async function TournamentSchedulePage() {
     );
   }
 
-  return <TournamentScheduleReport report={report} />;
+  // Report detail is a display choice for this page only (?detail=games).
+  // Both versions use the same report; nothing is saved.
+  const initialDetail = searchParams?.detail === "games" ? "games" : "tournaments";
+
+  return <TournamentScheduleReport report={report} initialDetail={initialDetail} />;
 }

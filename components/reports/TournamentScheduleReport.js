@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   formatDateRange, formatDayLabel, formatClock, groupGamesByDate, locationParts,
@@ -28,7 +29,86 @@ function fmtGenerated(iso) {
   });
 }
 
-export function TournamentScheduleReport({ report }) {
+const isTentative = (t) => t.status === "Considering";
+const isWaitlisted = (t) => !isTentative(t) && Boolean(t.waitlisted);
+const itemClass = (t) => (isTentative(t) ? "sch-item sch-item-tentative" : "sch-item");
+
+/** Dates lead, with the status beneath them in the column's spare space. */
+function TournamentWhen({ t }) {
+  const tentative = isTentative(t);
+  const waitlisted = isWaitlisted(t);
+  return (
+    <div className="sch-when">
+      <p className="sch-date">{formatDateRange(t.startDate, t.endDate)}</p>
+      <p className={`sch-status ${tentative ? "sch-status-considering" : waitlisted ? "sch-status-waitlisted" : "sch-status-committed"}`}>
+        {tentative ? "Considering" : waitlisted ? <>Committed &bull; Waitlisted</> : "Committed"}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Name, place and — only when the coach chose "Include game schedule" and the
+ * tournament has games entered — its games, grouped by day. A tournament with
+ * no games looks the same in both versions: no empty section.
+ */
+function TournamentBody({ t, showGames }) {
+  const days = showGames ? groupGamesByDate(t.games) : [];
+  const renderDay = (d) => (
+    <div key={d.date} className="sch-day">
+      <p className="sch-day-label">{formatDayLabel(d.date)}</p>
+      <ul className="sch-day-games">
+        {d.games.map((g) => {
+          const time = formatClock(g.startTime);
+          return (
+            <li key={g.id}>
+              {time && <span className="sch-time">{time}</span>}
+              <span className="sch-opp">
+                {g.opponent ? `vs ${g.opponent}` : "Opponent to be announced"}
+                {g.gameType && <span className="sch-gtype"> · {g.gameType}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+  // Print pagination: the heading and the first game day form one unbreakable
+  // block (.sch-keep); later days may start a new page, but never split.
+  return (
+    <div className="sch-body">
+      <div className="sch-keep">
+      <div className="sch-heading">
+        <h2 className="sch-name">{t.name}</h2>
+        {locationParts(t.place).length > 0 && (
+          <p className="sch-place">
+            {locationParts(t.place).map((part, i) => (
+              <span key={part.key}>
+                {i > 0 && <span className="sch-dot"> · </span>}
+                <span
+                  className={
+                    part.kind === "name" ? "sch-place-name" : part.kind === "address" ? "sch-address" : undefined
+                  }
+                >
+                  {part.text}
+                </span>
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+
+      {days.length > 0 && <div className="sch-games sch-games-first">{renderDay(days[0])}</div>}
+      </div>
+      {days.length > 1 && <div className="sch-games sch-games-more">{days.slice(1).map(renderDay)}</div>}
+    </div>
+  );
+}
+
+/** The two report detail levels. Display only: both use the same records. */
+export const SCHEDULE_DETAIL = { tournaments: "tournaments", games: "games" };
+
+export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETAIL.tournaments }) {
   const { organization, team, season, tournaments, warnings } = report;
   const generated = fmtGenerated(report.generatedAt);
   const hasTentative = tournaments.some((t) => t.status === "Considering");
@@ -41,9 +121,29 @@ export function TournamentScheduleReport({ report }) {
    * place. Season Tempo knows only that nothing has been entered, not whether
    * the tournament has released a schedule.
    */
-  const gamesPending = tournaments.some(
+  const [detail, setDetail] = useState(
+    initialDetail === SCHEDULE_DETAIL.games ? SCHEDULE_DETAIL.games : SCHEDULE_DETAIL.tournaments
+  );
+  const showGames = detail === SCHEDULE_DETAIL.games;
+  // In Tournaments only no game is printed, so "game times will be added" would
+  // be noise; the note applies only when games are shown.
+  const gamesPending = showGames && tournaments.some(
     (t) => t.status === "Committed" && !t.waitlisted && (t.games ?? []).length === 0
   );
+
+  /**
+   * The choice lives only in this page's address (?detail=games), so a refresh
+   * keeps it. Nothing is saved to the team, the user or any record.
+   */
+  function choose(next) {
+    setDetail(next);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (next === SCHEDULE_DETAIL.games) url.searchParams.set("detail", "games");
+      else url.searchParams.delete("detail");
+      window.history.replaceState(null, "", url);
+    }
+  }
 
   return (
     <div className="rpt-shell">
@@ -67,6 +167,26 @@ export function TournamentScheduleReport({ report }) {
             {w.message}
           </div>
         ))}
+
+        <div className="rpt-detail" role="group" aria-label="Report detail">
+          <span className="rpt-detail-label">Report detail</span>
+          <span className="rpt-seg">
+            {[
+              [SCHEDULE_DETAIL.tournaments, "Tournaments only"],
+              [SCHEDULE_DETAIL.games, "Include game schedule"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={`rpt-seg-btn${detail === key ? " on" : ""}`}
+                aria-pressed={detail === key}
+                onClick={() => choose(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        </div>
 
         <div className="rpt-actions">
           <button type="button" className="rpt-btn rpt-btn-primary" onClick={() => window.print()}>
@@ -99,80 +219,39 @@ export function TournamentScheduleReport({ report }) {
           <p className="sch-empty">
             No tournaments are on the schedule for this season yet.
           </p>
-        ) : (
+        ) : !showGames ? (
+          /* Tournaments only (the default): one block per tournament, never
+             split across pages. No game is printed. */
           <ol className="sch-list">
-            {tournaments.map((t) => {
-              const range = formatDateRange(t.startDate, t.endDate);
-              const days = groupGamesByDate(t.games);
-              const tentative = t.status === "Considering";
-              const waitlisted = !tentative && Boolean(t.waitlisted);
-
-              return (
-                <li key={t.id} className={tentative ? "sch-item sch-item-tentative" : "sch-item"}>
-                  {/* Dates lead. They are the season-planning information a
-                      family acts on, and the only field present on every
-                      tournament in the product. The status sits beneath the
-                      date, in the column's spare space, so no row grows. */}
-                  <div className="sch-when">
-                    <p className="sch-date">{range}</p>
-                    <p className={`sch-status ${tentative ? "sch-status-considering" : waitlisted ? "sch-status-waitlisted" : "sch-status-committed"}`}>
-                      {tentative ? "Considering" : waitlisted ? <>Committed &bull; Waitlisted</> : "Committed"}
-                    </p>
-                  </div>
-
-                  <div className="sch-body">
-                  <h2 className="sch-name">{t.name}</h2>
-
-                  {locationParts(t.place).length > 0 && (
-                    <p className="sch-place">
-                      {locationParts(t.place).map((part, i) => (
-                        <span key={part.key}>
-                          {i > 0 && <span className="sch-dot"> · </span>}
-                          <span
-                            className={
-                              part.kind === "name"
-                                ? "sch-place-name"
-                                : part.kind === "address"
-                                  ? "sch-address"
-                                  : undefined
-                            }
-                          >
-                            {part.text}
-                          </span>
-                        </span>
-                      ))}
-                    </p>
-                  )}
-
-                  {/* Nothing under a tournament with no games entered: the
-                      document says it once, in the footer (2026-11). */}
-                  {days.length === 0 ? null : (
-                    <div className="sch-games">
-                      {days.map((d) => (
-                        <div key={d.date} className="sch-day">
-                          <p className="sch-day-label">{formatDayLabel(d.date)}</p>
-                          <ul className="sch-day-games">
-                            {d.games.map((g) => {
-                              const time = formatClock(g.startTime);
-                              return (
-                                <li key={g.id}>
-                                  {time && <span className="sch-time">{time}</span>}
-                                  <span className="sch-opp">
-                                    {g.opponent ? `vs ${g.opponent}` : "Opponent to be announced"}
-                                  </span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  </div>
-                </li>
-              );
-            })}
+            {tournaments.map((t) => (
+              <li key={t.id} className={itemClass(t)}>
+                <TournamentWhen t={t} />
+                <TournamentBody t={t} showGames={false} />
+              </li>
+            ))}
           </ol>
+        ) : (
+          /* Include game schedule: the same tournaments, in a table so the slim
+             column-label row repeats at the top of every printed page. Games
+             sit indented beneath their own tournament, never as rows of their
+             own. A tournament may continue onto the next page only between
+             game days; its heading always travels with its first day. */
+          <table className="sch-table">
+            <thead>
+              <tr className="sch-colhead">
+                <th scope="col">Dates</th>
+                <th scope="col">Tournament &amp; Games</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tournaments.map((t) => (
+                <tr key={t.id} className={`${itemClass(t)} sch-row`}>
+                  <td className="sch-cell-when"><TournamentWhen t={t} /></td>
+                  <td className="sch-cell-body"><TournamentBody t={t} showGames /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
 
         {/* Legend and footer travel together: one block that never splits

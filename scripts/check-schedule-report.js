@@ -131,7 +131,7 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
   const { TournamentScheduleReport } = require(path.join(ROOT, "components", "reports", "TournamentScheduleReport.js"));
-  const render = (r) => renderToStaticMarkup(React.createElement(TournamentScheduleReport, { report: r }));
+  const render = (r, detail) => renderToStaticMarkup(React.createElement(TournamentScheduleReport, { report: r, initialDetail: detail }));
   const count = (html, re) => (html.match(re) ?? []).length;
 
   {
@@ -158,9 +158,10 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
     assertEq("the legend appears once, explaining Considering and Waitlisted",
       [count(html, /class="sch-legend"/g), /Tentative and subject to change/.test(html), /The team is committed to attending if a spot becomes available\./.test(html)], [1, true, true]);
     assertEq("no per-tournament game-times line anywhere", /will be added when available/.test(html), false);
+    const htmlGames = render(report, "games");
     assertEq("one general note in the footer while an attending tournament has no games",
-      [count(html, /Game times and opponents will be added as schedules become available\./g),
-        /<footer class="rpt-foot">[\s\S]*Game times and opponents will be added as schedules become available\.[\s\S]*<\/footer>/.test(html)], [1, true]);
+      [count(htmlGames, /Game times and opponents will be added as schedules become available\./g),
+        /<footer class="rpt-foot">[\s\S]*Game times and opponents will be added as schedules become available\.[\s\S]*<\/footer>/.test(htmlGames)], [1, true]);
     assertEq("header reads Updated <date>", [/Updated [A-Z][a-z]+ \d{1,2}, \d{4}/.test(html), /Prepared/.test(html)], [true, false]);
     assertEq("title and footer are unchanged", [/2026-27 Tournament Schedule<\/h1>/.test(html), /Tournament dates and game times can change\./.test(html)], [true, true]);
   }
@@ -209,7 +210,7 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
 
   {
     const withGames = (t) => ({ ...t, games: [{ id: `g-${t.id}`, date: t.startDate, startTime: "09:00:00", opponent: "Bayou Blaze 14U" }] });
-    const note = (ts) => /will be added as schedules become available/.test(render({ ...report, tournaments: ts }));
+    const note = (ts, detail = "games") => /will be added as schedules become available/.test(render({ ...report, tournaments: ts }, detail));
     const attending = report.tournaments.filter((t) => t.status === "Committed" && !t.waitlisted);
     const others = report.tournaments.filter((t) => !(t.status === "Committed" && !t.waitlisted));
     assertEq("note hidden when every attending tournament has games, even if Considering/waitlisted ones have none",
@@ -218,6 +219,72 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
     assertEq("note shown when one attending tournament has no games",
       note([...attending.slice(1).map(withGames), { ...attending[0], games: [] }]), true);
     assertEq("note hidden on an empty schedule", note([]), false);
+    assertEq("Tournaments only: the game-availability note never appears, even with no games entered",
+      note([...attending.map((t) => ({ ...t, games: [] }))], "tournaments"), false);
+  }
+
+  /* ---------------- E. report detail: Tournaments only | Include game schedule ---------------- */
+
+  console.log("E. report detail choice");
+  {
+    const g = (id, date, time, opp, type) => ({ id, date, startTime: time, opponent: opp, gameType: type });
+    const withGames = report.tournaments.map((t) =>
+      t.id === "c-next" ? { ...t, games: [g("g1", t.startDate, "09:00:00", "Bayou Blaze 14U", "Pool"), g("g2", t.startDate, "11:30:00", "Ridge Runners 14U", "Pool"), g("g3", t.endDate, "10:00:00", null, "Bracket")] }
+      : t.id === "c-reg" ? { ...t, games: [g("g4", t.startDate, "08:00:00", "Coastal Cyclones 14U", "Championship")] }
+      : { ...t, games: [] });
+    const r = { ...report, tournaments: withGames };
+    const only = render(r), def = render(r, undefined), games = render(r, "games");
+    const rows = (html) => (html.match(/class="sch-item[^"]*"/g) ?? []).length;
+    const gameRows = (html) => (html.match(/<li><span class="sch-time">/g) ?? []).length + (html.match(/<li><span class="sch-opp">/g) ?? []).length;
+    assertEq("default is Tournaments only", def, only);
+    assertEq("Tournaments only: no game is printed at all", [gameRows(only), /vs Bayou Blaze|sch-games|sch-day/.test(only)], [0, false]);
+    assertEq("Include game schedule: every entered game is printed (4)", gameRows(games), 4);
+    assertEq("...with date, time, opponent and game type", [/<p class="sch-day-label">(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]* [A-Z][a-z]+ \d+</i.test(games), /9:00 AM/.test(games), /vs Bayou Blaze 14U/.test(games), /· Pool/.test(games), /· Championship/.test(games)], [true, true, true, true, true]);
+    assertEq("...an unknown opponent reads 'Opponent to be announced'", /Opponent to be announced<span class="sch-gtype"> · Bracket/.test(games), true);
+    assertEq("...results, scores and notes are never printed", /runs|score|result|notes/i.test(games.slice(games.indexOf("<article"))), false);
+    assertEq("several games under one tournament, grouped by day under it", (games.match(/class="sch-day"/g) ?? []).length, 3);
+    assertEq("several tournaments with games", (games.match(/sch-games-first/g) ?? []).length, 2);
+    assertEq("a tournament without games gets no game section", rows(games) - (games.match(/sch-games-first/g) ?? []).length, withGames.length - 2);
+    assertEq("game detail never changes which tournaments are included, or their order",
+      [rows(only), rows(games), [...only.matchAll(/<h2 class="sch-name">([^<]+)/g)].map((m) => m[1]).join("|")],
+      [withGames.length, withGames.length, [...games.matchAll(/<h2 class="sch-name">([^<]+)/g)].map((m) => m[1]).join("|")]);
+    assertEq("status labels are identical in both versions",
+      [...only.matchAll(/class="sch-status (sch-status-[a-z]+)"/g)].map((m) => m[1]).join(),
+      [...games.matchAll(/class="sch-status (sch-status-[a-z]+)"/g)].map((m) => m[1]).join());
+    assertEq("Include game schedule: a slim column-label row that repeats on printed pages",
+      [/<thead><tr class="sch-colhead"><th scope="col">Dates<\/th><th scope="col">Tournament &amp; Games<\/th><\/tr><\/thead>/.test(games), /<thead/.test(only)], [true, false]);
+    assertEq("games sit inside their tournament's cell, never as rows of their own",
+      (games.match(/<tr class="sch-item/g) ?? []).length, withGames.length);
+    assertEq("a tournament's heading and its first game day form one block",
+      /<div class="sch-keep"><div class="sch-heading">[\s\S]*?<div class="sch-games sch-games-first">/.test(games), true);
+    assertEq("the title and Updated date are the same in both", [/Tournament Schedule<\/h1>/.test(only), /Updated /.test(only), /Tournament Schedule<\/h1>/.test(games), /Updated /.test(games)], [true, true, true, true]);
+    assertEq("the toolbar offers exactly the two choices, Tournaments only pressed by default",
+      [...only.matchAll(/aria-pressed="(true|false)"[^>]*>([^<]+)</g)].map((m) => `${m[2]}:${m[1]}`), ["Tournaments only:true", "Include game schedule:false"]);
+    assertEq("...and Include game schedule pressed when chosen",
+      [...games.matchAll(/aria-pressed="(true|false)"[^>]*>([^<]+)</g)].map((m) => `${m[2]}:${m[1]}`), ["Tournaments only:false", "Include game schedule:true"]);
+    assertEq("the choice is screen-only (inside the no-print toolbar)", /<div class="rpt-bar rpt-no-print">[\s\S]*rpt-detail[\s\S]*<article/.test(only), true);
+    const css = fs.readFileSync(path.join(ROOT, "app", "reports", "tournament-schedule", "schedule.css"), "utf8");
+    const print = css.slice(css.lastIndexOf("@media print"));
+    assertEq("print: the column labels repeat, the heading + first day stay together, days never split",
+      [/\.sch-table thead \{ display: table-header-group; \}/.test(print), /\.sch-row \.sch-keep \{ break-inside: avoid; \}/.test(print), /\.sch-row \.sch-day \{ break-inside: avoid; \}/.test(print)], [true, true, true]);
+    assertEq("pagination rules are scoped to the game table (no global break rules)",
+      /^\.sch-(keep|heading|day) \{ break-/m.test(css), false);
+  }
+  {
+    const page = fs.readFileSync(path.join(ROOT, "app", "reports", "tournament-schedule", "page.js"), "utf8");
+    const comp = fs.readFileSync(path.join(ROOT, "components", "reports", "TournamentScheduleReport.js"), "utf8");
+    assertEq("?detail=games opens the expanded version; anything else is Tournaments only",
+      /searchParams\?\.detail === "games" \? "games" : "tournaments"/.test(page), true);
+    assertEq("the choice only updates this page's address — nothing is saved",
+      [/window\.history\.replaceState/.test(comp), /fetch\(|localStorage|sessionStorage|use server|supabase/.test(comp)], [true, false]);
+  }
+  {
+    const { tournamentScheduleReport } = require(path.join(ROOT, "lib", "queries", "reports", "tournament-schedule.js"));
+    db = fakeDb({ seasons: [season], tournaments, games: games.map((x) => ({ ...x, game_type: "Pool", result: "W", runs_for: 5, notes: "private" })) });
+    const rep2 = await tournamentScheduleReport(S);
+    const allGames = rep2.tournaments.flatMap((t) => t.games);
+    assertEq("the payload carries game type, never result, score or notes",
+      [allGames.every((x) => x.gameType === "Pool"), JSON.stringify(rep2).includes("private"), /"result"|"runs_for"|"notes"/.test(JSON.stringify(rep2))], [true, false, false]);
   }
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);

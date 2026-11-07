@@ -356,6 +356,17 @@ explains it ("The team is committed to attending if a spot becomes available")
 only when a waitlisted tournament is shown, and a waitlisted tournament never
 triggers the game-times note. The decision and registration fields are unchanged.
 
+**Report detail: Tournaments only (default) | Include game schedule (2026-11).**
+One toggle in the screen-only toolbar; the preview shows exactly what prints.
+Tournaments only, the parent default, prints no games and no game-availability
+note. Include game schedule adds each tournament's entered games beneath it
+(day, time, opponent, game type; never results, scores or notes), with a slim
+"Dates | Tournament & Games" row repeated on every printed page; a tournament's
+heading stays with its first game day and days never split. Same records and
+status rules in both; the choice lives only in the page address
+(?detail=games) and is never saved. This changed the previous behaviour, which
+always printed games.
+
 **Legend at the end, light tints on the labels (2026-11).** The schedule starts
 right after the header; a "Schedule status" legend sits immediately above the
 footer, kept in one piece and with the footer. Labels carry restrained tints —

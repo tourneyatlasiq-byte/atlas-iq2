@@ -55,6 +55,19 @@
 .rpt-btn-secondary { background: #fff; color: #0b2341; border-color: #e2e8f0; }
 .rpt-btn:disabled { opacity: .55; cursor: not-allowed; }
 
+/* Report detail choice (screen only): one two-way toggle above Print.
+   Shared by reports that offer a lighter and a fuller version. */
+.rpt-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 12px; }
+.rpt-detail-label { font-size: 13px; font-weight: 700; color: #334155; }
+.rpt-seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+.rpt-seg-btn {
+  appearance: none; border: 0; margin: 0; padding: 8px 14px; min-height: 40px;
+  background: #fff; color: #334155; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.rpt-seg-btn + .rpt-seg-btn { border-left: 1px solid #cbd5e1; }
+.rpt-seg-btn.on { background: #0b2341; color: #fff; }
+.rpt-seg-btn:focus-visible { outline: 2px solid #2f80ed; outline-offset: -2px; }
+
 /* ---------- The document ---------- */
 
 .rpt-page {
