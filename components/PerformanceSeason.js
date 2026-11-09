@@ -293,13 +293,19 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
           </div>
 
           <div className="season-card">
-            <p className="season-label">Reasons cited</p>
-            {/* One plate appearance can cite several reasons and still be one
-                quality at-bat, so these two totals are always stated apart. */}
+            <p className="season-label">QAB reasons</p>
+            {/* One primary reason per quality at-bat (2026-11), so these counts
+                total the QAB count. A plate appearance saved before that rule
+                with two reasons is called out rather than hidden. */}
             <p className="season-sub">
-              {reasonsCited} {reasonsCited === 1 ? "reason" : "reasons"} cited across {team.qab}{" "}
-              {team.qab === 1 ? "quality at-bat" : "quality at-bats"}
+              {team.qab} {team.qab === 1 ? "quality at-bat" : "quality at-bats"} by primary reason
             </p>
+            {reasonsCited > team.qab && (
+              <p className="season-sub">
+                Reason counts total {reasonsCited}: a plate appearance saved before the one-reason
+                rule still has more than one reason. Choose its primary reason in the game tracker.
+              </p>
+            )}
 
             <ul className="season-rlist">
               {shown.map((r) => (
@@ -574,9 +580,8 @@ function PlayerDetail({ player }) {
         ) : (
           <>
             <p className="pex-title">How QABs were earned</p>
-            {/* Occurrences, not quality at-bats. One plate appearance can cite
-                several reasons and is still one QAB, so these are never
-                totalled and called a QAB figure. */}
+            {/* One primary reason per quality at-bat, so these counts are
+                quality at-bats by reason. */}
             <ul className="pd-reasons">
               {player.reasons.map((r) => (
                 <li key={r.key}>

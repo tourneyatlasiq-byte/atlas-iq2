@@ -1,7 +1,7 @@
 "use client";
 
 import { ReportToolbar } from "./ReportToolbar";
-import { formatQabPct } from "../../lib/qab-rules";
+import { formatQabPct, legacyReasonNote } from "../../lib/qab-rules";
 import { formatClock } from "../../lib/schedule-rules";
 
 /**
@@ -41,7 +41,11 @@ export function QabTournamentReport({ report, scopeControl = null }) {
   return (
     <div className="rpt-shell">
       {/* Screen only. Never printed. */}
-      <ReportToolbar name="QAB Performance" controls={scopeControl} notes={notes ?? []} />
+      <ReportToolbar
+        name="QAB Performance"
+        controls={scopeControl}
+        notes={[...(notes ?? []), ...legacyReasonNote(reasonsCited, summary.qab)]}
+      />
 
       <article className="rpt-page qab-tournament">
         <header className="rpt-head">
@@ -132,8 +136,8 @@ export function QabTournamentReport({ report, scopeControl = null }) {
               <section className="rpt-section">
                 <p className="rpt-h">What created quality at-bats</p>
                 <p className="qab-note">
-                  {reasonsCited} reasons cited across {summary.qab} quality at-bats. One at-bat can
-                  cite more than one reason.
+                  Each quality at-bat is counted once, under the one primary reason the coach
+                  recorded. Shares are of {summary.qab} quality at-bats.
                 </p>
                 <ul className="qab-reasons">
                   {reasons.map((r) => (

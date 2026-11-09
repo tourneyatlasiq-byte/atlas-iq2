@@ -429,8 +429,10 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const nameOf = (playerId) =>
     reviewOrder.find((s) => s.player_id === playerId)?.full_name ?? "Unknown player";
 
-  const toggle = (key) =>
-    setSelected((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+  // One primary reason (2026-11). Choosing a reason replaces any earlier
+  // choice; it never adds a second. Recording stays two steps: choose, then
+  // Record QAB. "No QAB" still records with no reason in one tap.
+  const choose = (key) => setSelected([key]);
 
   if (order.length === 0) {
     return (
@@ -587,24 +589,23 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 
       {mode === "live" && !completedAt && !pickBatter && (
       <section className="trk-card">
-        <h2 className="trk-card-h">What made this a Quality At-Bat?</h2>
-        <p className="trk-card-s">Select all that apply.</p>
+        <h2 className="trk-card-h" id="trk-reason-h">What made this a Quality At-Bat?</h2>
+        <p className="trk-card-s">Choose the one primary reason.</p>
 
-        <div className="trk-reasons">
+        <div className="trk-reasons" role="radiogroup" aria-labelledby="trk-reason-h">
           {QAB_REASONS.map((r) => {
-            const on = selected.includes(r.key);
+            const on = selected[0] === r.key;
             return (
               <button
                 key={r.key}
                 type="button"
+                role="radio"
                 className={`trk-reason${on ? " on" : ""}`}
-                aria-pressed={on}
-                onClick={() => toggle(r.key)}
+                aria-checked={on}
+                onClick={() => choose(r.key)}
                 disabled={!canWrite}
               >
-                <span className="trk-reason-check" aria-hidden="true">
-                  {on ? "✓" : ""}
-                </span>
+                <span className="trk-reason-check trk-reason-radio" aria-hidden="true" />
                 <span className="trk-reason-label">{r.label}</span>
               </button>
             );
@@ -973,42 +974,68 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   );
 }
 
+/** The correction panel's explicit "not a QAB" choice. */
+const NO_QAB = "__no_qab__";
+
 /**
  * Correction is an inline panel, not a modal. A tracker who opens it by mistake
  * must be able to get out with one tap and without losing the live screen.
  */
 function InlineCorrection({ row, name, onCancel, onApply }) {
-  const [reasons, setReasons] = useState(row.qab_reasons ?? []);
-  const toggle = (key) =>
-    setReasons((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+  // One primary reason (2026-11). The choice is a reason key, NO_QAB, or —
+  // only for a plate appearance saved with two reasons before the one-reason
+  // rule — null, meaning "not chosen yet": nothing is pre-selected, because
+  // pre-selecting either reason would silently drop the other.
+  const saved = row.qab_reasons ?? [];
+  const legacy = saved.length > 1;
+  const [choice, setChoice] = useState(legacy ? null : saved[0] ?? NO_QAB);
+  const reasons = choice === NO_QAB || choice === null ? [] : [choice];
 
   return (
     <div className="trk-card trk-correct">
-      <h2 className="trk-card-h">
+      <h2 className="trk-card-h" id={`trk-correct-h-${row.id}`}>
         Correct {name} · PA {row.pa_number}
       </h2>
-      <p className="trk-prompt-s">Select all that apply. Several reasons still count as one QAB.</p>
-      <div className="trk-reasons">
+      <p className="trk-prompt-s">
+        {legacy
+          ? "This plate appearance was saved with more than one reason. Choose the one primary reason."
+          : "Choose the one primary reason, or No QAB."}
+      </p>
+      <div className="trk-reasons" role="radiogroup" aria-labelledby={`trk-correct-h-${row.id}`}>
         {QAB_REASONS.map((r) => {
-          const on = reasons.includes(r.key);
+          const on = choice === r.key;
           return (
             <button
               key={r.key}
               type="button"
+              role="radio"
               className={`trk-reason${on ? " on" : ""}`}
-              aria-pressed={on}
-              onClick={() => toggle(r.key)}
+              aria-checked={on}
+              onClick={() => setChoice(r.key)}
             >
-              <span className="trk-reason-check" aria-hidden="true">
-                {on ? "✓" : ""}
-              </span>
+              <span className="trk-reason-check trk-reason-radio" aria-hidden="true" />
               <span className="trk-reason-label">{r.label}</span>
             </button>
           );
         })}
+        <button
+          type="button"
+          role="radio"
+          className={`trk-reason trk-reason-none${choice === NO_QAB ? " on" : ""}`}
+          aria-checked={choice === NO_QAB}
+          onClick={() => setChoice(NO_QAB)}
+        >
+          <span className="trk-reason-check trk-reason-radio" aria-hidden="true" />
+          <span className="trk-reason-label">No QAB</span>
+        </button>
       </div>
       <div className="trk-commit">
-        <button type="button" className="trk-save" onClick={() => onApply(reasons)}>
+        <button
+          type="button"
+          className="trk-save"
+          onClick={() => onApply(reasons)}
+          disabled={choice === null}
+        >
           Save correction
         </button>
         <button type="button" className="trk-noqab" onClick={onCancel}>
@@ -1016,7 +1043,7 @@ function InlineCorrection({ row, name, onCancel, onApply }) {
         </button>
       </div>
       <p className="trk-hint">
-        Clearing every reason records this as an explicit non-QAB. It stays a plate appearance.
+        No QAB keeps this as a plate appearance that was not a quality at-bat.
       </p>
     </div>
   );

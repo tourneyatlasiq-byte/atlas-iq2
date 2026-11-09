@@ -258,8 +258,8 @@ const strip = (r) => { const { generatedAt, ...rest } = r; return rest; };
     [/const showResult = games\.some\(\(g\) => Boolean\(g\.result\)\);/.test(comp), /\{showResult && <th className="qab-c-res">Result<\/th>\}/.test(comp)], [true, true]);
   assertEq("dash means did not bat", [/const cell = \(c\) => \(c \? `\$\{c\.qab\}\/\$\{c\.pa\}` : "–"\);/.test(comp), /A dash means the player did not bat\./.test(comp)], [true, true]);
   assertEq("QAB games column and footer definition", [/QAB games<\/th>/.test(comp), /QAB games counts the games/.test(comp)], [true, true]);
-  assertEq("Season component gains only the toolbar control",
-    /<ReportToolbar name="QAB Performance" controls=\{scopeControl\} \/>/.test(seasonComp), true);
+  assertEq("Season component gains only the toolbar control (and, since 2026-11, its reason note)",
+    /<ReportToolbar name="QAB Performance" controls=\{scopeControl\} notes=\{legacyReasonNote\(reasonsCited, summary\.qab\)\} \/>/.test(seasonComp), true);
   assertEq("page reads scope from the address and keeps Season as the default",
     [/searchParams\?\.scope === "tournament"/.test(page), /qabPerformanceReport\(season\.id\)/.test(page)], [true, true]);
   const phone = css.slice(css.indexOf("Tournament scope (RPT-04)"), css.indexOf("Phone-width reasons"));

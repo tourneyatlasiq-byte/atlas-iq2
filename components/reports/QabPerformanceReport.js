@@ -1,7 +1,7 @@
 "use client";
 
 import { ReportToolbar } from "./ReportToolbar";
-import { formatQabPct } from "../../lib/qab-rules";
+import { formatQabPct, legacyReasonNote } from "../../lib/qab-rules";
 
 /**
  * Coach-facing Team/Season QAB Performance report.
@@ -53,7 +53,7 @@ export function QabPerformanceReport({ report, scopeControl = null }) {
     <div className="rpt-shell">
       {/* Screen only. Never printed. The Season | Tournament scope control
           (RPT-04) sits here; the Season document below is unchanged. */}
-      <ReportToolbar name="QAB Performance" controls={scopeControl} />
+      <ReportToolbar name="QAB Performance" controls={scopeControl} notes={legacyReasonNote(reasonsCited, summary.qab)} />
 
       <article className="rpt-page">
         <header className="rpt-head">
@@ -138,8 +138,8 @@ export function QabPerformanceReport({ report, scopeControl = null }) {
               <section className="rpt-section">
                 <p className="rpt-h">What created quality at-bats</p>
                 <p className="qab-note">
-                  {reasonsCited} reasons cited across {summary.qab} quality at-bats. One at-bat can
-                  cite more than one reason.
+                  Each quality at-bat is counted once, under the one primary reason the coach
+                  recorded. Shares are of {summary.qab} quality at-bats.
                 </p>
                 <ul className="qab-reasons">
                   {reasons.map((r) => (

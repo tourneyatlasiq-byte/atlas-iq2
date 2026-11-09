@@ -6180,3 +6180,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* Settings: Your account (Sign out). */
 .settings-account .signout-form { margin-top: 8px; }
+
+/* One primary QAB reason (2026-11): the reason tiles are a radio group, so
+   the indicator is a round radio mark rather than a checkbox tick. */
+.trk-reason-radio { border-radius: 50%; }
+.trk-reason.on .trk-reason-radio { background: #fff; border-color: #fff; box-shadow: inset 0 0 0 5px var(--blue); }
+.trk-reason-none { color: var(--slate); }

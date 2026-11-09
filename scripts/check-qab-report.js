@@ -177,7 +177,9 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
   assertEq("payload has no top-level record or outcome grouping",
     ["record", "wins", "losses", "ties"].some((k) => k in r), false);
 
-  /* 9. Reasons reconcile, and share is of reasons cited — not of QABs. */
+  /* 9. Reasons (2026-11: one primary reason per QAB). This fixture mirrors
+        production Northgate before cleanup: 58 reason counts for 57 QABs,
+        because one legacy plate appearance still has two reasons. */
   assertEq("reason counts total reasonsCited",
     r.reasons.reduce((n, x) => n + x.count, 0), r.reasonsCited);
   assertEq("reasonsCited matches the derivation", r.reasonsCited, 58);
@@ -185,8 +187,8 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
     r.reasons.some((x) => x.count === 0), false);
   assertEq("reasons are ordered by count", r.reasons.map((x) => x.count),
     [15, 11, 7, 6, 5, 5, 5, 4]);
-  assertEq("share is of reasons cited (15/58), not of QABs",
-    r.reasons[0].percent, 25.9);
+  assertEq("share is of QABs (15/57), not of reasons cited",
+    r.reasons[0].percent, 26.3);
 
   /* 10. Allowlist. */
   assertEq("top-level keys are exactly the allowlist",
