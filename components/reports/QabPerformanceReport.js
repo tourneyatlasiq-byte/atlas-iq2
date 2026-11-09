@@ -1,6 +1,7 @@
 "use client";
 
 import { ReportToolbar } from "./ReportToolbar";
+import { formatQabPct } from "../../lib/qab-rules";
 
 /**
  * Coach-facing Team/Season QAB Performance report.
@@ -31,7 +32,8 @@ function fmtGenerated(iso) {
   });
 }
 
-const pct = (v) => (v == null ? "—" : `${v}%`);
+// One decimal everywhere: QAB% and reason share alike ("50.0%", not "50%").
+const pct = formatQabPct;
 
 const RESULT_WORD = { W: "Win", L: "Loss", T: "Tie" };
 
@@ -39,6 +41,9 @@ export function QabPerformanceReport({ report }) {
   const { organization, team, season, summary, games, reasons, reasonsCited, players } = report;
   const generated = fmtGenerated(report.generatedAt);
   const tracked = summary.pa > 0;
+  // Result is context beside a game. When no game in scope has one, the column
+  // carries nothing, so it is left out and Opponent takes the width.
+  const showResult = games.some((g) => Boolean(g.result));
 
   // Bars are scaled to the largest reason, so the shape is readable even when
   // no single reason dominates.
@@ -84,7 +89,9 @@ export function QabPerformanceReport({ report }) {
                 <ul className="qab-facts">
                   <li><strong>{summary.qab}</strong> QAB / <strong>{summary.pa}</strong> PA</li>
                   <li><strong>{summary.games}</strong> {summary.games === 1 ? "game" : "games"} tracked</li>
-                  <li><strong>{summary.players}</strong> {summary.players === 1 ? "player" : "players"} tracked</li>
+                  {/* No players-tracked line: the Player QAB summary below already
+                      lists every tracked player. summary.players stays in the
+                      payload, which must reconcile to Performance. */}
                 </ul>
               </div>
             </section>
@@ -96,7 +103,7 @@ export function QabPerformanceReport({ report }) {
                   <tr>
                     <th className="qab-c-date">Date</th>
                     <th>Opponent</th>
-                    <th className="qab-c-res">Result</th>
+                    {showResult && <th className="qab-c-res">Result</th>}
                     <th className="qab-num">QAB / PA</th>
                     <th className="qab-num">QAB%</th>
                   </tr>
@@ -107,16 +114,18 @@ export function QabPerformanceReport({ report }) {
                       <td className="qab-c-date">{shortDate(g.date) ?? "—"}</td>
                       <td>{g.opponent ?? "—"}</td>
                       {/* Context only. A game without a recorded result simply
-                          shows nothing. */}
-                      <td className="qab-c-res">
-                        {g.result ? (
-                          <span className={`qab-res qab-res-${g.result.toLowerCase()}`}>
-                            {RESULT_WORD[g.result] ?? g.result}
-                          </span>
-                        ) : (
-                          ""
-                        )}
-                      </td>
+                          shows nothing; with no results in scope, no column. */}
+                      {showResult && (
+                        <td className="qab-c-res">
+                          {g.result ? (
+                            <span className={`qab-res qab-res-${g.result.toLowerCase()}`}>
+                              {RESULT_WORD[g.result] ?? g.result}
+                            </span>
+                          ) : (
+                            ""
+                          )}
+                        </td>
+                      )}
                       <td className="qab-num">{g.qab} / {g.pa}</td>
                       <td className="qab-num qab-strong">{pct(g.qabPct)}</td>
                     </tr>

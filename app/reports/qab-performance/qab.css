@@ -77,6 +77,21 @@
 
 .qab-none { margin: 0; font-size: 14px; line-height: 1.6; color: #475569; }
 
+/* Phone-width reasons (2026-11). Beside a long label the bar shrank to a
+   sliver; here each reason takes two lines — label, count and share on the
+   first, a full-width bar beneath — so magnitude stays readable. Screen only:
+   desktop and print keep the single-row layout above unchanged. */
+@media screen and (max-width: 560px) {
+  .qab-reasons li {
+    grid-template-columns: minmax(0, 1fr) auto 3.6em;
+    row-gap: 5px; padding: 6px 0;
+  }
+  .qab-reason-label { grid-column: 1; grid-row: 1; }
+  .qab-reason-count { grid-column: 2; grid-row: 1; }
+  .qab-reason-pct   { grid-column: 3; grid-row: 1; }
+  .qab-reason-bar   { grid-column: 1 / -1; grid-row: 2; height: 8px; }
+}
+
 /* --- Print ---------------------------------------------------------------- */
 
 @media print {
@@ -89,4 +104,17 @@
   .qab-reasons li { break-inside: avoid; }
   .rpt-h { break-after: avoid; }
   .qab-hero { font-size: 38px; }
+
+  /* PRINT DENSITY (2026-11).
+     A five-game, ten-player tournament filled page one to within the height
+     of the closing footer, so page two printed that single sentence alone.
+     Space is reclaimed from row padding only, as the Season Budget did: no
+     type size changes and nothing is scaled. Each table row and reason row
+     gives up 2px, which returns about 44px: enough for that report, footer
+     and team logo to share page one. A longer season still paginates
+     normally, rows never split and headings still travel with their tables. */
+  .qab-table th { padding-bottom: 5px; }
+  .qab-table td { padding-top: 4px; padding-bottom: 4px; }
+  .qab-reasons li { padding: 2px 0; }
+  .qab-note { margin-bottom: 8px; }
 }

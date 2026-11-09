@@ -268,6 +268,62 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
     /"Situation success"/.test(rules), false);
 }
 
+/* ---- Report presentation polish (2026-11) ------------------------------ */
+
+{
+  const fsx = require("fs");
+  const qab = await import(pathToFileURL(path.resolve("lib/qab-rules.js")).href);
+  const comp = fsx.readFileSync("components/reports/QabPerformanceReport.js", "utf8");
+  const css = fsx.readFileSync("app/reports/qab-performance/qab.css", "utf8");
+
+  // Precision: one decimal, always.
+  assertEq("50 prints as 50.0%", qab.formatQabPct(50), "50.0%");
+  assertEq("10 prints as 10.0%", qab.formatQabPct(10), "10.0%");
+  assertEq("45.5 is unchanged", qab.formatQabPct(45.5), "45.5%");
+  assertEq("0 is a real 0.0%, not a dash", qab.formatQabPct(0), "0.0%");
+  assertEq("100 prints as 100.0%", qab.formatQabPct(100), "100.0%");
+  assertEq("null (no PA) is a dash, never 0.0%", qab.formatQabPct(null), "\u2014");
+  assertEq("the report formats through the shared rule",
+    /const pct = formatQabPct;/.test(comp), true);
+  assertEq("...and no bespoke `${v}%` formatter remains",
+    /`\$\{v\}%`/.test(comp), false);
+
+  // Result column: present only when a game in scope has a result.
+  assertEq("Result visibility is derived from the games in scope",
+    /const showResult = games\.some\(\(g\) => Boolean\(g\.result\)\);/.test(comp), true);
+  assertEq("the Result header is conditional",
+    /\{showResult && <th className="qab-c-res">Result<\/th>\}/.test(comp), true);
+  assertEq("the Result cell is conditional",
+    /\{showResult && \(\s*<td className="qab-c-res">/.test(comp), true);
+  assertEq("result is still never aggregated",
+    /wins|losses|winPct/.test(comp.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")), false);
+
+  // Print density: space from padding only, no type changes.
+  const print = css.slice(css.indexOf("@media print"));
+  assertEq("print reclaims table row padding",
+    /\.qab-table td \{ padding-top: 4px; padding-bottom: 4px; \}/.test(print), true);
+  assertEq("print reclaims reason row padding", /\.qab-reasons li \{ padding: 2px 0; \}/.test(print), true);
+  assertEq("print changes no font size beyond the existing hero rule",
+    (print.match(/font-size/g) || []).length, 1);
+
+  // Hero: no players-tracked line; the payload still carries the figure.
+  assertEq("the hero no longer prints a players-tracked line",
+    /players"\} tracked|player tracked|players tracked<\/li>/.test(comp), false);
+  assertEq("...while QAB / PA and games tracked remain",
+    [/QAB \/ <strong>\{summary\.pa\}<\/strong> PA/.test(comp), /games"\} tracked/.test(comp)], [true, true]);
+
+  // Phone reasons: two-line rows on screen at phone width only.
+  const phone = css.slice(css.indexOf("@media screen and (max-width: 560px)"), css.indexOf("@media print"));
+  assertEq("phone reason layout is screen-only and sits before the print rules",
+    css.indexOf("@media screen and (max-width: 560px)") > 0 && css.indexOf("@media screen and (max-width: 560px)") < css.indexOf("@media print"), true);
+  assertEq("on phones the bar spans the full row beneath the label",
+    /\.qab-reason-bar\s+\{ grid-column: 1 \/ -1; grid-row: 2;/.test(phone), true);
+  assertEq("the desktop reason grid is unchanged",
+    /grid-template-columns: minmax\(0, 9\.5em\) minmax\(0, 1fr\) 2\.4em 3\.4em;/.test(css.slice(0, css.indexOf("@media screen"))), true);
+  assertEq("print does not restyle reason bars",
+    /qab-reason-bar/.test(print), false);
+}
+
 console.log(`\n${ran} assertions, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 })();
