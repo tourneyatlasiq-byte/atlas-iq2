@@ -7,8 +7,9 @@ after it has been applied through the MCP tool and named with the version
 Supabase actually recorded — the process established in B0 that keeps the
 repository and production history aligned.
 
-**Nothing is currently pending.** This directory holds no SQL awaiting
-application.
+**Pending:** `qab_one_reason.sql` — adds `pa_one_reason CHECK
+(cardinality(qab_reasons) <= 1)` to `plate_appearances` (one primary QAB
+reason per plate appearance). Reviewed, not applied.
 
 ## Standing rule: Import Players stays disabled
 
