@@ -12,11 +12,6 @@ export function AcceptInvite({ inviteId }) {
     <>
       {error && <div className="alert alert-error">{error}</div>}
 
-      <p className="welcome-sub">
-        Accepting adds you to the team that invited you. Your role is set by whoever sent the
-        invitation.
-      </p>
-
       <button
         className="btn btn-primary btn-block"
         disabled={pending}
@@ -29,11 +24,6 @@ export function AcceptInvite({ inviteId }) {
       >
         {pending ? "Joining…" : "Accept invitation"}
       </button>
-
-      <p className="field-note welcome-foot">
-        Signed in with a different email? Sign out and sign back in with the address the
-        invitation was sent to.
-      </p>
     </>
   );
 }

@@ -230,6 +230,67 @@ function invitesDb(rows) {
   ok("an unsafe next does not switch framing", login("next=%2F%2Finvite%2Fxyz").includes("Welcome back"), true);
   ok("the link only ever carries a validated next", /safeNext\(searchParams\.get\("next"\), null\)/.test(read("app/login/page.js")), true);
 
+  section("H. /invite explains every state; /welcome shows invitations first");
+  const InvitePage = require(R("app/invite/[id]/page.js")).default;
+  async function invite(view, { org = { name: "Braves" }, rpcError = null } = {}) {
+    state.ctx = { user: { email: "me@example.com" }, organization: org };
+    state.rpc.invitation_for_viewer = async () => ({ data: rpcError ? null : view, error: rpcError });
+    state.redirectedTo = null;
+    try {
+      return renderToStaticMarkup(await InvitePage({ params: Promise.resolve({ id: "abc" }) }));
+    } catch (e) {
+      if (e.digest === "NEXT_REDIRECT") return ""; // a silent redirect: the assertions below fail
+      throw e;
+    }
+  }
+  const base = { organization_name: "Armor Elite", team_name: "Armor Elite Mower", role: "manager", inviter_first_name: null };
+  let html = await invite({ ...base, status: "other_org", viewer_organization_name: "Braves" });
+  ok("an account in another org is told why, not redirected", [state.redirectedTo, html.includes("already belongs to <strong>Braves</strong>")], [null, true]);
+  ok("...is asked not to create a second account", html.includes("don&#x27;t create a second account"), true);
+  ok("...and is not offered an Accept that would fail", html.includes("Accept invitation"), false);
+  html = await invite({ ...base, status: "ready", inviter_first_name: "Casey" });
+  ok("ready: who, what team, what role", html.includes("Casey invited you to join <strong>Armor Elite Mower</strong>"), true);
+  ok("ready: Accept is offered", html.includes("Accept invitation"), true);
+  ok("ready: sign-out is available and returns here", html.includes('name="next" value="/invite/abc"'), true);
+  html = await invite({ ...base, status: "ready" });
+  ok("no inviter name: no name is invented", html.includes("You&#x27;ve been invited to join"), true);
+  html = await invite({ ...base, status: "wrong_account", invited_email_masked: "j•••@example.com" });
+  ok("wrong account: masked invited address and the signed-in one", [html.includes("j•••@example.com"), html.includes("me@example.com")], [true, true]);
+  ok("wrong account: Sign out and continue, returning to this invitation",
+    [html.includes("Sign out and continue"), html.includes('name="next" value="/invite/abc"'), html.includes("Accept invitation")], [true, true, false]);
+  html = await invite({ ...base, status: "expired" });
+  ok("expired: says so and how to fix it", [html.includes("has expired"), html.includes("renew it")], [true, true]);
+  html = await invite(null, { rpcError: { code: "22P02" } });
+  ok("a malformed link is 'not found', not an error page", html.includes("couldn&#x27;t find that invitation"), true);
+  html = await invite({ status: "used" }, { org: null });
+  ok("used, no organization: no dashboard button", [html.includes("already been used"), html.includes("/dashboard")], [true, false]);
+
+  const Welcome = require(R("app/welcome/page.js")).default;
+  async function welcome(rows, { rpcError = null, org = null } = {}) {
+    state.ctx = { user: { email: "me@example.com" }, organization: org };
+    state.rpc.my_pending_invitations = async () => ({ data: rpcError ? null : rows, error: rpcError });
+    state.redirectedTo = null;
+    try { return renderToStaticMarkup(await Welcome()); } catch (e) { if (e.digest === "NEXT_REDIRECT") return null; throw e; }
+  }
+  html = await welcome([{ invite_id: "inv-1", organization_name: "Armor Elite", team_name: "Armor Elite Mower", role: "manager", inviter_first_name: null, expires_at: "2026-11-21T00:00:00Z" }]);
+  ok("a pending invitation is listed with a link to it", html.includes('href="/invite/inv-1"'), true);
+  ok("...above own-team setup", html.indexOf('href="/invite/inv-1"') < html.indexOf("Or set up your own team") && html.indexOf("Or set up your own team") < html.indexOf("<form"), true);
+  ok("welcome has sign out", html.includes('action="/logout"'), true);
+  html = await welcome([]);
+  ok("no invitations: the ordinary setup page", [html.includes("invite-list"), html.includes("Set up your team and start running your season.")], [false, true]);
+  html = await welcome(null, { rpcError: { code: "42883" } });
+  ok("a lookup failure still lets someone set up", html.includes("<form"), true);
+  ok("an account with an organization still goes to the dashboard", [await welcome([], { org: { name: "X" } }), state.redirectedTo], [null, "/dashboard"]);
+
+  const migration = read("supabase/migrations/20261109231218_auth_01_invitation_views.sql");
+  ok("auth_01: anon cannot execute either view",
+    /revoke all on function public\.invitation_for_viewer\(uuid\) from public, anon;/.test(migration) &&
+    /revoke all on function public\.my_pending_invitations\(\) from public, anon;/.test(migration), true);
+  ok("auth_01: the inviter-name helper is not callable directly",
+    /revoke all on function public\.inviter_display_name\(uuid\) from public, anon, authenticated;/.test(migration), true);
+  ok("auth_01: every function pins search_path", (migration.match(/set search_path = public/g) ?? []).length, 3);
+  ok("auth_01: read-only (no insert/update/delete)", /\b(insert into|update \w+ set|delete from)\b/i.test(migration.replace(/--.*$/gm, "")), false);
+
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

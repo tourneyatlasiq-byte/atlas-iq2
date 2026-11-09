@@ -6233,3 +6233,28 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .trk-review-q-why { font-size: 12.5px; color: var(--slate); margin: 0 0 8px; line-height: 1.45; }
 .trk-review-q-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .trk-review-q-actions .btn { min-height: 44px; }
+
+/* ---- Invitations and first-run, outside the app shell (2026-11) ---------- */
+.welcome-account {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+  gap: 4px 10px; margin-top: 18px; font-size: 12.5px; color: var(--slate);
+  overflow-wrap: anywhere;
+}
+.welcome-account .signout-form { display: inline-flex; margin: 0; }
+.welcome-account .btn { min-height: 44px; }
+.invite-card { margin-bottom: 8px; }
+.invite-summary { margin: 0 0 14px; font-size: 14.5px; line-height: 1.55; }
+.invite-expiry { margin: -6px 0 16px; }
+.invite-card .btn-block + .btn-block,
+.invite-card .field-note + .btn-block { margin-top: 12px; }
+.invite-list { list-style: none; margin: 0; padding: 0; }
+.invite-list li {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 10px 14px; padding: 12px 0; border-top: 1px solid var(--border);
+}
+.invite-list li:first-child { border-top: none; padding-top: 0; }
+.invite-list li:last-child { padding-bottom: 0; }
+.invite-list-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 180px; }
+.invite-list-text .field-note { margin: 0; }
+.welcome-or { text-align: center; font-size: 15px; margin: 26px 0 4px; }
+.welcome-or + .welcome-value { margin: 0 0 16px; }
