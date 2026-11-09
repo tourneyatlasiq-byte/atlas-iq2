@@ -6186,3 +6186,35 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .trk-reason-radio { border-radius: 50%; }
 .trk-reason.on .trk-reason-radio { background: #fff; border-color: #fff; box-shadow: inset 0 0 0 5px var(--blue); }
 .trk-reason-none { color: var(--slate); }
+
+/* End-of-game final score (2026-11). */
+.trk-finish-ask { font-size: 14px; font-weight: 600; color: var(--navy); margin: 8px 0 8px; }
+.trk-finish-hint { font-size: 12.5px; color: #8a5a00; margin: 8px 0 0; }
+/* Breathing room between the score fields (or hint) and the actions. */
+.trk-finish-score + .trk-finish-actions,
+.trk-finish-hint + .trk-finish-actions { margin-top: 14px; }
+.trk-finish-noscore { min-height: 46px; }
+.trk-done-score { font-size: 15px; color: var(--navy); margin: -2px 0 10px; font-variant-numeric: tabular-nums; }
+.trk-done-score strong { font-weight: 800; }
+.trk-done-noscore { font-size: 13px; color: var(--slate); margin: -2px 0 10px; }
+
+/* Performance: games that need their final score. */
+/* An attention item, not an error: the same neutral card as the season
+   cards, with a thin accent rule so it is findable without dominating. */
+.fsf { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: var(--radius-card); padding: 12px 14px; margin: 0 0 16px; }
+.fsf-h { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 2px; }
+.fsf-sub { font-size: 13px; color: var(--slate); margin: 0 0 10px; }
+.fsf-list { list-style: none; margin: 0; padding: 0; }
+.fsf-item + .fsf-item { border-top: 1px solid var(--border); }
+.fsf-item { padding: 8px 0; }
+.fsf-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fsf-id { display: flex; flex-direction: column; min-width: 0; }
+.fsf-opp { font-weight: 700; color: var(--navy); font-size: 14px; overflow-wrap: anywhere; }
+.fsf-meta { font-size: 12.5px; color: var(--slate); }
+.fsf-add { flex: 0 0 auto; min-height: 44px; font-size: 14px; }
+.fsf-form { margin-top: 8px; }
+.fsf-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fsf-hint { font-size: 12.5px; color: var(--slate); margin: 6px 0 0; }
+.fsf-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.fsf-actions .btn { min-height: 44px; }
+.fsf-saved { font-size: 13px; color: #1b5e34; margin: 8px 0 0; }

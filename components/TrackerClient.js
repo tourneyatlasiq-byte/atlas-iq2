@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { QAB_REASONS, reasonLabel, tallyPlateAppearances } from "../lib/qab-rules";
+import { scoreEntry, formatFinalScore } from "../lib/game-rules";
 import {
   recordPlateAppearance,
   voidPlateAppearance,
@@ -80,6 +81,13 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const [oppScore, setOppScore] = useState(game.runs_against ?? "");
   const [finishError, setFinishError] = useState(null);
   const [scoreNote, setScoreNote] = useState(null);
+  // The game's final score as stored, shown on the completed state. Seeded
+  // from the game; updated from the server's answer when a finish saves one.
+  const [finalScore, setFinalScore] = useState({
+    runsFor: game.runs_for ?? null,
+    runsAgainst: game.runs_against ?? null,
+    result: game.result ?? null,
+  });
 
   /**
    * A game dated in the future cannot legally hold a score:
@@ -87,6 +95,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
    * so the fields are hidden rather than offered and then rejected.
    */
   const scoreAllowed = !game.game_date || game.game_date <= new Date().toISOString().slice(0, 10);
+  // What the coach has typed in the finish panel: blank | partial | invalid | complete.
+  const entry = scoreEntry(ourScore, oppScore);
   const busy = useRef(false);
 
   // Local so a substitution updates the order on the field without a page
@@ -222,20 +232,29 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     setFinishing("confirm");
   };
 
-  const confirmFinish = async () => {
+  /**
+   * Finish. withScore=false is the coach's explicit "Finish without a score":
+   * nothing is sent for the score, so an existing score is left as it is.
+   */
+  const confirmFinish = async (withScore) => {
     if (busy.current) return;
     busy.current = true;
     try {
-      const result = await finishGameTracking(game.id, {
-        runsFor: ourScore,
-        runsAgainst: oppScore,
-      });
+      const result = await finishGameTracking(
+        game.id,
+        withScore ? { runsFor: ourScore, runsAgainst: oppScore } : null
+      );
 
       if (result.ok) {
         // Tracking is finished even when the score was refused, so the screen
         // always leaves the confirmation. A score that could not be stored is
         // reported afterwards rather than trapping the coach on this panel.
         setCompletedAt(result.completedAt);
+        // Only a score the server actually saved replaces what is shown;
+        // finishing without one never clears a score the game already had.
+        if (result.runsFor != null && result.runsAgainst != null) {
+          setFinalScore({ runsFor: result.runsFor, runsAgainst: result.runsAgainst, result: result.result ?? null });
+        }
         setFinishing(null);
         setFinishError(null);
         setScoreNote(result.scoreNote ?? null);
@@ -526,6 +545,17 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             <strong>{totals.pa}</strong> PA
             {totals.qabPct != null && <span className="trk-done-pct">{totals.qabPct}%</span>}
           </p>
+          {formatFinalScore(finalScore.runsFor, finalScore.runsAgainst, finalScore.result) ? (
+            <p className="trk-done-score">
+              Final score <strong>{formatFinalScore(finalScore.runsFor, finalScore.runsAgainst, finalScore.result)}</strong>
+            </p>
+          ) : finalScore.result ? null : (
+            scoreAllowed && (
+              <p className="trk-done-noscore">
+                No final score yet. Add it from Performance when the game is over.
+              </p>
+            )
+          )}
           <p className="trk-done-note">
             Recorded at-bats can still be reviewed and corrected. Recording a new one needs
             tracking reopened.
@@ -740,61 +770,90 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
               </p>
               {finishError && <div className="notice notice-error">{finishError}</div>}
 
-              {/* Optional. Win, loss or tie is derived by the database from
-                  these two numbers — there is no separate result field to keep
-                  in step, and leaving them blank finishes tracking anyway. */}
+              {/* The final score is asked for, not required. Win, loss or tie
+                  is derived by the database from the two numbers. Finishing
+                  without a score is an explicit choice, not the default. */}
               {!scoreAllowed && (
                 <p className="trk-finish-note">
                   This game is scheduled for a later date, so a score can&rsquo;t be recorded yet.
-                  Finishing tracking still works — add the score from the game once it&rsquo;s
+                  Finishing tracking still works — add the score from Performance once it&rsquo;s
                   played.
                 </p>
               )}
 
               {scoreAllowed && (
-              <div className="trk-finish-score">
-                <div className="field">
-                  <label htmlFor="fin-us">Our score</label>
-                  <input
-                    id="fin-us"
-                    type="number"
-                    min="0"
-                    step="1"
-                    inputMode="numeric"
-                    placeholder="—"
-                    value={ourScore}
-                    onChange={(e) => { setOurScore(e.target.value); setFinishError(null); }}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="fin-them">Opponent score</label>
-                  <input
-                    id="fin-them"
-                    type="number"
-                    min="0"
-                    step="1"
-                    inputMode="numeric"
-                    placeholder="—"
-                    value={oppScore}
-                    onChange={(e) => { setOppScore(e.target.value); setFinishError(null); }}
-                  />
-                </div>
-              </div>
+                <>
+                  <p className="trk-finish-ask" id="fin-ask">
+                    If the game is over, enter the final score.
+                  </p>
+                  <div className="trk-finish-score" role="group" aria-labelledby="fin-ask">
+                    <div className="field">
+                      <label htmlFor="fin-us">Our score</label>
+                      <input
+                        id="fin-us"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="—"
+                        value={ourScore}
+                        onChange={(e) => { setOurScore(e.target.value); setFinishError(null); }}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="fin-them">Opponent score</label>
+                      <input
+                        id="fin-them"
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="—"
+                        value={oppScore}
+                        onChange={(e) => { setOppScore(e.target.value); setFinishError(null); }}
+                      />
+                    </div>
+                  </div>
+                  {entry.state === "partial" && (
+                    <p className="trk-finish-hint" role="status">Enter both scores, or clear both.</p>
+                  )}
+                  {entry.state === "invalid" && (
+                    <p className="trk-finish-hint" role="status">Scores are whole numbers of runs.</p>
+                  )}
+                </>
               )}
-              <p className="trk-finish-note">
-                {scoreAllowed
-                  ? "Score is optional — you can add it later from the game. "
-                  : ""}
-                You can still review and correct these at-bats afterward.
-              </p>
+
               <div className="trk-finish-actions">
-                <button type="button" className="btn btn-primary" onClick={confirmFinish}>
-                  Finish tracking
-                </button>
+                {!scoreAllowed ? (
+                  <button type="button" className="btn btn-primary" onClick={() => confirmFinish(false)}>
+                    Finish tracking
+                  </button>
+                ) : entry.state === "blank" ? (
+                  /* Both blank: finishing without a score is the explicit,
+                     labelled choice — one tap, no second warning. */
+                  <button type="button" className="btn trk-finish-noscore" onClick={() => confirmFinish(false)}>
+                    Finish without a score
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => confirmFinish(true)}
+                    disabled={entry.state !== "complete"}
+                  >
+                    Save score and finish
+                  </button>
+                )}
                 <button type="button" className="btn" onClick={() => setFinishing(null)}>
                   Keep tracking
                 </button>
               </div>
+              <p className="trk-finish-note">
+                {scoreAllowed && entry.state === "blank"
+                  ? "You can add the score later from Performance. "
+                  : ""}
+                You can still review and correct these at-bats afterward.
+              </p>
             </div>
           ) : finishing === "blocked" ? (
             <div className="trk-finish-blocked">

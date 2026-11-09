@@ -3,6 +3,10 @@ import { getContext } from "../../../lib/context";
 import { getPerformanceOverview, getSeasonPerformance } from "../../../lib/queries/performance";
 import { HelpMenu } from "../../../components/HelpMenu";
 import { PerformanceSeason } from "../../../components/PerformanceSeason";
+import { FinalScoreFollowUp } from "../../../components/FinalScoreFollowUp";
+import { canWrite } from "../../../lib/context";
+import { needsFinalScore } from "../../../lib/game-rules";
+import { formatDayLabel } from "../../../lib/schedule-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +43,7 @@ function fmtRange(start, end) {
 }
 
 export default async function PerformancePage() {
-  const { features, season: currentSeason } = await getContext();
+  const { features, season: currentSeason, profile } = await getContext();
 
   if (!features?.qab) return <PerformancePremium />;
 
@@ -62,6 +66,17 @@ export default async function PerformancePage() {
   const { tournament, games } = await getPerformanceOverview(currentSeason.id);
   const season = await getSeasonPerformance(currentSeason.id);
 
+  // Tracked games finished without a final score (2026-11). Read from the
+  // same derived games the season view shows, so nothing is queried twice.
+  const missingScores = (season.games ?? [])
+    .filter((g) => needsFinalScore(g))
+    .map((g) => ({
+      gameId: g.gameId,
+      opponent: g.opponent,
+      tournament: g.tournament,
+      dateLabel: formatDayLabel(g.gameDate),
+    }));
+
   return (
     <div className="page">
       <div className="page-head">
@@ -73,6 +88,8 @@ export default async function PerformancePage() {
         </div>
         <HelpMenu />
       </div>
+
+      <FinalScoreFollowUp games={missingScores} canWrite={canWrite(profile)} />
 
       {!tournament ? (
         <div className="card">
