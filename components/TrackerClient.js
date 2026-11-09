@@ -9,7 +9,16 @@ import {
   voidPlateAppearance,
   correctPlateAppearance,
 } from "../lib/actions/plate-appearances";
-import { enqueue, flushQueue, queueStatus, newPaId } from "../lib/offline-queue";
+import {
+  enqueue,
+  flushQueue,
+  queueStatus,
+  newPaId,
+  reviewGroups,
+  discardEntries,
+  adoptForRetry,
+} from "../lib/offline-queue";
+import { savedInSlot } from "../lib/queue-recovery";
 import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 import { substitutePlayer } from "../lib/actions/lineup";
 import { resumePosition } from "../lib/tracker-cursor";
@@ -41,7 +50,7 @@ function ordinal(n) {
   return `${n}${suffix}`;
 }
 
-export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite }) {
+export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite, userId = null }) {
   const [rows, setRows] = useState(initialRows ?? []);
   /**
    * Where the order resumes.
@@ -76,6 +85,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const [completedAt, setCompletedAt] = useState(game.qab_completed_at ?? null);
   const [finishing, setFinishing] = useState(null); // null | "checking" | "confirm" | "blocked"
   const [finishBlock, setFinishBlock] = useState(null);
+  // Queued writes the database will never accept, awaiting the coach (ST-022).
+  const [review, setReview] = useState([]);
   // Optional final score, entered in the finish confirmation.
   const [ourScore, setOurScore] = useState(game.runs_for ?? "");
   const [oppScore, setOppScore] = useState(game.runs_against ?? "");
@@ -177,23 +188,41 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     return { ok: false, error: "Unknown queued operation." };
   }, []);
 
+  // Saved rows as the server last reported them — never the optimistic ones —
+  // so a queued write is only ever compared with what is really stored.
+  const savedRows = useMemo(() => rows.filter((r) => !r.pending), [rows]);
+
   const refreshStatus = useCallback(async () => {
-    const s = await queueStatus(game.id);
-    if (s.waiting === 0) return setSync(SYNCED);
+    const s = await queueStatus(game.id, userId);
+    setReview(await reviewGroups(game.id, userId));
+    if (s.review > 0) {
+      return setSync({
+        tone: "bad",
+        text: `${s.review} at-${s.review === 1 ? "bat needs" : "bats need"} your review`,
+      });
+    }
+    if (s.waiting === 0 && s.other === 0) return setSync(SYNCED);
+    if (s.waiting === 0) {
+      return setSync({
+        tone: "wait",
+        text: `${s.other} at-${s.other === 1 ? "bat" : "bats"} from another account on this device`,
+      });
+    }
     if (s.failed > 0) {
       return setSync({
         tone: "bad",
         text: `Sync failed — ${s.waiting} waiting`,
         detail: s.firstError,
+        retry: true,
       });
     }
     setSync({ tone: "wait", text: `${s.waiting} waiting to sync` });
-  }, [game.id]);
+  }, [game.id, userId]);
 
-  const sync_ = useCallback(async () => {
-    await flushQueue(send, { gameId: game.id });
+  const sync_ = useCallback(async (force = false) => {
+    await flushQueue(send, { gameId: game.id, userId, savedRows, force: force === true });
     await refreshStatus();
-  }, [send, game.id, refreshStatus]);
+  }, [send, game.id, userId, savedRows, refreshStatus]);
 
   useEffect(() => {
     refreshStatus();
@@ -221,11 +250,14 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     if (!canWrite || busy.current) return;
     setFinishing("checking");
     setFinishBlock(null);
-    await flushQueue(send, { gameId: game.id });
-    const s = await queueStatus(game.id);
+    await flushQueue(send, { gameId: game.id, userId, savedRows, force: true });
+    const s = await queueStatus(game.id, userId);
     await refreshStatus();
-    if (s.waiting > 0) {
-      setFinishBlock(s.waiting);
+    // Nothing finishes while QAB data is unsynced or unresolved — but the
+    // coach is told which, because "waiting to sync" is the wrong advice for
+    // a write that needs a decision.
+    if (s.review > 0 || s.waiting > 0 || s.other > 0) {
+      setFinishBlock(s);
       setFinishing("blocked");
       return;
     }
@@ -351,7 +383,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       setSelected([]);
       advance();
 
-      await enqueue({ op: "record", gameId: game.id, payload });
+      await enqueue({ userId, op: "record", gameId: game.id, payload });
       await refreshStatus();
       sync_();
     } finally {
@@ -370,7 +402,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       if (idx >= 0) setCursor(idx);
       setSelected([]);
 
-      await enqueue({ op: "void", gameId: game.id, payload: { id: lastLive.id } });
+      await enqueue({ userId, op: "void", gameId: game.id, payload: { id: lastLive.id } });
       await refreshStatus();
       sync_();
     } finally {
@@ -387,7 +419,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       );
       setConfirmVoid(null);
       setCorrecting(null);
-      await enqueue({ op: "void", gameId: game.id, payload: { id: row.id } });
+      await enqueue({ userId, op: "void", gameId: game.id, payload: { id: row.id } });
       await refreshStatus();
       sync_();
     } finally {
@@ -398,7 +430,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const applyCorrection = async (row, reasons) => {
     setRows((r) => (r.map((x) => (x.id === row.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x))));
     setCorrecting(null);
-    await enqueue({ op: "correct", gameId: game.id, payload: { id: row.id, reasons } });
+    await enqueue({ userId, op: "correct", gameId: game.id, payload: { id: row.id, reasons } });
     await refreshStatus();
     sync_();
   };
@@ -426,6 +458,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         },
       ]);
       await enqueue({
+        userId,
         op: "record",
         gameId: game.id,
         payload: {
@@ -471,12 +504,49 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     <div className="trk">
       <div className={`trk-sync trk-sync-${sync.tone}`}>
         <span>{sync.text}</span>
-        {sync.tone === "bad" && (
-          <button type="button" onClick={sync_}>
+        {/* Retry only helps a write that can still go through; an at-bat
+            awaiting review needs the decision below instead. */}
+        {sync.retry && (
+          <button type="button" onClick={() => sync_(true)}>
             Retry
           </button>
         )}
       </div>
+
+      {review.length > 0 && (
+        <QueueReview
+          groups={review}
+          rows={rows}
+          nameOf={nameOf}
+          canWrite={canWrite}
+          onKeepSaved={async (g) => {
+            await discardEntries(g.group.map((e) => e.seq), "kept_saved");
+            await refreshStatus();
+          }}
+          onUseUnsynced={async (g, saved) => {
+            const reasons = g.head.payload?.reasons ?? [];
+            // A correction of the plate appearance that is already saved —
+            // never a second plate appearance in the same slot.
+            await enqueue({
+              userId,
+              op: "correct",
+              gameId: game.id,
+              payload: { id: saved.id, reasons, expectedUpdatedAt: saved.updatedAt ?? null },
+            });
+            await discardEntries(g.group.map((e) => e.seq), "used_unsynced");
+            setRows((r) => r.map((x) => (x.id === saved.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x)));
+            await sync_(true);
+          }}
+          onRetry={async (g) => {
+            await adoptForRetry(g.group.map((e) => e.seq), userId);
+            await sync_(true);
+          }}
+          onDiscard={async (g) => {
+            await discardEntries(g.group.map((e) => e.seq), "discarded");
+            await refreshStatus();
+          }}
+        />
+      )}
 
       <header className="trk-head">
         <span className="trk-game">
@@ -858,9 +928,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           ) : finishing === "blocked" ? (
             <div className="trk-finish-blocked">
               <p>
-                {finishBlock
-                  ? `${finishBlock} at-${finishBlock === 1 ? "bat is" : "bats are"} still waiting to sync. They'll save when you're back online — finish tracking after that.`
-                  : "Couldn't finish tracking just now. Check your connection and try again."}
+                {finishBlockText(finishBlock)}
               </p>
               <button type="button" className="btn" onClick={startFinish}>
                 Try again
@@ -1030,6 +1098,125 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 
 
     </div>
+  );
+}
+
+/** Finish-gate message for what is still outstanding (ST-022). */
+function finishBlockText(s) {
+  if (!s) return "Couldn't finish tracking just now. Check your connection and try again.";
+  if (s.review > 0) {
+    return `${s.review} at-${s.review === 1 ? "bat needs" : "bats need"} your review before tracking can finish. Choose what to keep above.`;
+  }
+  if (s.other > 0) {
+    return `${s.other} at-${s.other === 1 ? "bat was" : "bats were"} recorded on this device by another account and ${s.other === 1 ? "hasn't" : "haven't"} synced. Sign in as that account to sync ${s.other === 1 ? "it" : "them"}, then finish tracking.`;
+  }
+  return `${s.waiting} at-${s.waiting === 1 ? "bat is" : "bats are"} still waiting to sync. They'll save when you're back online — finish tracking after that.`;
+}
+
+const reasonText = (reasons) => (reasons?.length ? reasons.map(reasonLabel).join(" • ") : "Not a QAB");
+
+const REVIEW_MESSAGE = {
+  game_complete: "Tracking for this game was finished before this was saved. Resume tracking, then try again.",
+  past_season: "This season is read-only, so this can't be saved.",
+  not_allowed: "Your account can't save this.",
+  not_found: "The at-bat this changes no longer exists.",
+  stale: "The saved at-bat changed after this was entered.",
+  invalid: "This entry can't be saved as it is.",
+};
+
+/**
+ * Needs review (ST-022): queued QAB writes the database will never accept,
+ * one card each, with the decision the coach has to make. Nothing here is
+ * removed without a tap, and anything removed goes to the local discarded log.
+ */
+function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynced, onRetry, onDiscard }) {
+  const [busy, setBusy] = useState(false);
+  const act = (fn) => async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await fn(); } finally { setBusy(false); }
+  };
+  const savedRows = rows.filter((r) => !r.pending);
+
+  return (
+    <section className="trk-review-q" aria-labelledby="trk-review-q-h">
+      <h2 className="trk-review-q-h" id="trk-review-q-h">
+        {groups.length === 1 ? "1 at-bat needs your review" : `${groups.length} at-bats need your review`}
+      </h2>
+      <ul className="trk-review-q-list">
+        {groups.map((g) => {
+          const { head } = g;
+          const p = head.payload ?? {};
+          const target = head.op === "record" ? null : rows.find((r) => r.id === p.id);
+          const playerId = head.op === "record" ? p.playerId : target?.player_id;
+          const paNumber = head.op === "record" ? p.paNumber : target?.pa_number;
+          const heading = `${nameOf(playerId)} · PA ${paNumber ?? "?"}`;
+
+          const fromServer = head.conflict
+            ? { id: head.conflict.id, reasons: head.conflict.reasons, updatedAt: head.conflict.updatedAt }
+            : null;
+          const local = savedInSlot(head, savedRows);
+          const saved = fromServer ?? (local ? { id: local.id, reasons: local.qab_reasons ?? [], updatedAt: local.updated_at } : null);
+          const conflict = head.op === "record" && saved;
+          const unsynced =
+            head.op === "void" ? "Remove this at-bat" : reasonText(p.reasons);
+          const canUse = conflict && g.group.length === 1;
+
+          return (
+            <li key={head.seq} className="trk-review-q-item">
+              <p className="trk-review-q-name">{heading}</p>
+              {conflict ? (
+                <dl className="trk-review-q-cmp">
+                  <div><dt>Saved</dt><dd>{reasonText(saved.reasons)}</dd></div>
+                  <div><dt>Unsynced</dt><dd>{unsynced}</dd></div>
+                </dl>
+              ) : (
+                <>
+                  <dl className="trk-review-q-cmp">
+                    <div><dt>Unsynced</dt><dd>{head.op === "correct" ? `Change to ${unsynced}` : unsynced}</dd></div>
+                  </dl>
+                  <p className="trk-review-q-why">
+                    {head.code === "unconfirmed"
+                      ? "Entered on this device before an update and not saved yet."
+                      : REVIEW_MESSAGE[head.code] ?? head.lastError ?? "This couldn't be saved."}
+                  </p>
+                </>
+              )}
+              {g.group.length > 1 && (
+                <p className="trk-review-q-why">
+                  {g.group.length - 1} later {g.group.length === 2 ? "change depends" : "changes depend"} on this one and will be handled with it.
+                </p>
+              )}
+              {canWrite && (
+                <div className="trk-review-q-actions">
+                  {conflict ? (
+                    <>
+                      <button type="button" className="btn btn-primary" disabled={busy} onClick={act(() => onKeepSaved(g))}>
+                        Keep saved
+                      </button>
+                      {canUse && (
+                        <button type="button" className="btn" disabled={busy} onClick={act(() => onUseUnsynced(g, saved))}>
+                          Use {unsynced}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="btn btn-primary" disabled={busy} onClick={act(() => onRetry(g))}>
+                        {head.code === "unconfirmed" ? "Save" : "Try again"}
+                      </button>
+                      <button type="button" className="btn" disabled={busy} onClick={act(() => onDiscard(g))}>
+                        Discard
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

@@ -49,6 +49,9 @@ export default async function TrackPage({ params }) {
         substitutes={ctx.substitutes}
         initialRows={seeded}
         canWrite={canWrite(profile)}
+        // The signed-in user (ST-022): queued writes are tagged with it and
+        // only ever replayed for the same user.
+        userId={profile?.id ?? null}
       />
     </div>
   );

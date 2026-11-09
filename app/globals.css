@@ -6218,3 +6218,18 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .fsf-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .fsf-actions .btn { min-height: 44px; }
 .fsf-saved { font-size: 13px; color: #1b5e34; margin: 8px 0 0; }
+
+/* QAB tracker: queued at-bats awaiting the coach's decision (ST-022). */
+.trk-review-q { border: 1.5px solid rgba(244,180,0,.6); background: #fffaf0; border-radius: var(--radius-card); padding: 12px 14px; margin: 0 0 14px; }
+.trk-review-q-h { font-size: 15px; font-weight: 800; color: var(--navy); margin: 0 0 6px; }
+.trk-review-q-list { list-style: none; margin: 0; padding: 0; }
+.trk-review-q-item { padding: 10px 0; }
+.trk-review-q-item + .trk-review-q-item { border-top: 1px solid rgba(244,180,0,.4); }
+.trk-review-q-name { font-size: 15px; font-weight: 700; color: var(--navy); margin: 0 0 6px; }
+.trk-review-q-cmp { display: grid; gap: 4px; margin: 0 0 8px; }
+.trk-review-q-cmp div { display: flex; gap: 8px; font-size: 14px; }
+.trk-review-q-cmp dt { flex: 0 0 5.5em; color: var(--slate); font-weight: 600; }
+.trk-review-q-cmp dd { margin: 0; color: var(--navy); font-weight: 700; }
+.trk-review-q-why { font-size: 12.5px; color: var(--slate); margin: 0 0 8px; line-height: 1.45; }
+.trk-review-q-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.trk-review-q-actions .btn { min-height: 44px; }

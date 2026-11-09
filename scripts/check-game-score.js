@@ -125,8 +125,10 @@ const withExt = (src) => src.replace(/(from\s+["'])(\.{1,2}\/[^"']+?)(["'])/g, (
     [/Enter both scores, or clear both\./.test(trk), /Scores are whole numbers of runs\./.test(trk)], [true, true]);
   assertEq("future-dated game: no score fields, plain Finish tracking", /!scoreAllowed \? \([\s\S]{0,140}confirmFinish\(false\)[\s\S]{0,30}Finish tracking/.test(trk), true);
   assertEq("Keep tracking is still offered", /onClick=\{\(\) => setFinishing\(null\)\}>\s*Keep tracking/.test(trk), true);
-  assertEq("the queue gate before finishing is unchanged",
-    [/await flushQueue\(send, \{ gameId: game\.id \}\);/.test(trk), /setFinishing\("blocked"\)/.test(trk)], [true, true]);
+  // ST-022 extends the gate (ownership, review); it still flushes first and
+  // still refuses to finish while anything is outstanding.
+  assertEq("the queue gate before finishing is kept",
+    [/await flushQueue\(send, \{ gameId: game\.id, userId, savedRows, force: true \}\);/.test(trk), /setFinishing\("blocked"\)/.test(trk)], [true, true]);
   assertEq("completed state shows the saved final score with W/L/T",
     /Final score <strong>\{formatFinalScore\(finalScore\.runsFor, finalScore\.runsAgainst, finalScore\.result\)\}<\/strong>/.test(trk), true);
   assertEq("finishing without a score never clears an existing one",

@@ -44,6 +44,7 @@ function writeTree(files) {
 
   writeTree({
     "lib/qab-rules.js": read("lib/qab-rules.js"),
+    "lib/queue-recovery.js": read("lib/queue-recovery.js"),
     "lib/schedule-rules.js": read("lib/schedule-rules.js"),
     "lib/queries/performance.js": withExt(read("lib/queries/performance.js")),
     "lib/queries/reports/qab-performance.js": withExt(read("lib/queries/reports/qab-performance.js")),
