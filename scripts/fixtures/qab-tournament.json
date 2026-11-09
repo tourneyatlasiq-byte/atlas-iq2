@@ -1,0 +1,1191 @@
+{
+ "games": [
+  {
+   "id": "g1",
+   "tournament_id": "tA",
+   "season_id": "s1",
+   "game_date": "2026-11-07",
+   "start_time": "14:00:00",
+   "opponent_name": "Opponent 1",
+   "game_type": "Pool",
+   "result": null,
+   "runs_for": null,
+   "runs_against": null,
+   "qab_completed_at": "2026-11-07T20:14:28.635+00:00"
+  },
+  {
+   "id": "g2",
+   "tournament_id": "tA",
+   "season_id": "s1",
+   "game_date": "2026-11-07",
+   "start_time": "18:30:00",
+   "opponent_name": "Opponent 2",
+   "game_type": "Pool",
+   "result": null,
+   "runs_for": null,
+   "runs_against": null,
+   "qab_completed_at": "2026-11-08T00:57:09.952+00:00"
+  },
+  {
+   "id": "g3",
+   "tournament_id": "tA",
+   "season_id": "s1",
+   "game_date": "2026-11-07",
+   "start_time": "20:00:00",
+   "opponent_name": "Opponent 3",
+   "game_type": "Pool",
+   "result": null,
+   "runs_for": null,
+   "runs_against": null,
+   "qab_completed_at": "2026-11-08T04:00:21.381+00:00"
+  },
+  {
+   "id": "g4",
+   "tournament_id": "tA",
+   "season_id": "s1",
+   "game_date": "2026-11-08",
+   "start_time": "14:00:00",
+   "opponent_name": "Opponent 4",
+   "game_type": "Pool",
+   "result": null,
+   "runs_for": null,
+   "runs_against": null,
+   "qab_completed_at": "2026-11-08T20:23:44.293+00:00"
+  },
+  {
+   "id": "g5",
+   "tournament_id": "tA",
+   "season_id": "s1",
+   "game_date": "2026-11-08",
+   "start_time": "15:30:00",
+   "opponent_name": "Opponent 5",
+   "game_type": "Pool",
+   "result": null,
+   "runs_for": null,
+   "runs_against": null,
+   "qab_completed_at": "2026-11-09T00:22:25.146+00:00"
+  }
+ ],
+ "plateAppearances": [
+  {
+   "id": "pa1",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hbp"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa2",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "situation_success"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa3",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa4",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa5",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa6",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa7",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p03",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa8",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p03",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hbp"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa9",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p03",
+   "batting_order": 3,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa10",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa11",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa12",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa13",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p05",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa14",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p05",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa15",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p05",
+   "batting_order": 5,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa16",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p02",
+   "batting_order": 6,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa17",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p02",
+   "batting_order": 6,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa18",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p02",
+   "batting_order": 6,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa19",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p01",
+   "batting_order": 7,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa20",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p01",
+   "batting_order": 7,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa21",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p01",
+   "batting_order": 7,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa22",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p08",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa23",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p08",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa24",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p08",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa25",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p07",
+   "batting_order": 9,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa26",
+   "season_id": "s1",
+   "game_id": "g1",
+   "player_id": "p07",
+   "batting_order": 9,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa27",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p07",
+   "batting_order": 1,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa28",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p07",
+   "batting_order": 1,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa29",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p09",
+   "batting_order": 2,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa30",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p09",
+   "batting_order": 2,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa31",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p06",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa32",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p06",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa33",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p04",
+   "batting_order": 4,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa34",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p04",
+   "batting_order": 4,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa35",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p03",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa36",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p03",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa37",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p10",
+   "batting_order": 6,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa38",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p10",
+   "batting_order": 6,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa39",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p05",
+   "batting_order": 7,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa40",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p02",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa41",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p01",
+   "batting_order": 9,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa42",
+   "season_id": "s1",
+   "game_id": "g2",
+   "player_id": "p08",
+   "batting_order": 10,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa43",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p05",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa44",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p05",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa45",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p05",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa46",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p02",
+   "batting_order": 2,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa47",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p02",
+   "batting_order": 2,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa48",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p02",
+   "batting_order": 2,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa49",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa50",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa51",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa52",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p08",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa53",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p08",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa54",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p07",
+   "batting_order": 5,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa55",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p07",
+   "batting_order": 5,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa56",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p09",
+   "batting_order": 6,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa57",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p09",
+   "batting_order": 6,
+   "qab_reasons": [
+    "situation_success"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa58",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p06",
+   "batting_order": 7,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa59",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p06",
+   "batting_order": 7,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa60",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p04",
+   "batting_order": 8,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa61",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p04",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa62",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p03",
+   "batting_order": 9,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa63",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p03",
+   "batting_order": 9,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa64",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p10",
+   "batting_order": 10,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa65",
+   "season_id": "s1",
+   "game_id": "g3",
+   "player_id": "p10",
+   "batting_order": 10,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa66",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa67",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa68",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa69",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa70",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa71",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa72",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa73",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa74",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa75",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p09",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa76",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p09",
+   "batting_order": 5,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa77",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p07",
+   "batting_order": 6,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa78",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p07",
+   "batting_order": 6,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa79",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p05",
+   "batting_order": 7,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa80",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p05",
+   "batting_order": 7,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa81",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p03",
+   "batting_order": 8,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa82",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p03",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa83",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p02",
+   "batting_order": 9,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa84",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p02",
+   "batting_order": 9,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa85",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p08",
+   "batting_order": 10,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa86",
+   "season_id": "s1",
+   "game_id": "g4",
+   "player_id": "p08",
+   "batting_order": 10,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa87",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa88",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa89",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p06",
+   "batting_order": 1,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa90",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa91",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa92",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p04",
+   "batting_order": 2,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa93",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa94",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p01",
+   "batting_order": 3,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa95",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa96",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p10",
+   "batting_order": 4,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa97",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p09",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa98",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p09",
+   "batting_order": 5,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa99",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p07",
+   "batting_order": 6,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa100",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p07",
+   "batting_order": 6,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa101",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p05",
+   "batting_order": 7,
+   "qab_reasons": [
+    "hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa102",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p05",
+   "batting_order": 7,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa103",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p03",
+   "batting_order": 8,
+   "qab_reasons": [
+    "hard_hit"
+   ],
+   "voided_at": null
+  },
+  {
+   "id": "pa104",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p03",
+   "batting_order": 8,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa105",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p02",
+   "batting_order": 9,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa106",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p02",
+   "batting_order": 9,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa107",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p08",
+   "batting_order": 10,
+   "qab_reasons": [],
+   "voided_at": null
+  },
+  {
+   "id": "pa108",
+   "season_id": "s1",
+   "game_id": "g5",
+   "player_id": "p08",
+   "batting_order": 10,
+   "qab_reasons": [
+    "walk"
+   ],
+   "voided_at": null
+  }
+ ],
+ "players": [
+  {
+   "id": "p01",
+   "full_name": "Player 01"
+  },
+  {
+   "id": "p02",
+   "full_name": "Player 02"
+  },
+  {
+   "id": "p03",
+   "full_name": "Player 03"
+  },
+  {
+   "id": "p04",
+   "full_name": "Player 04"
+  },
+  {
+   "id": "p05",
+   "full_name": "Player 05"
+  },
+  {
+   "id": "p06",
+   "full_name": "Player 06"
+  },
+  {
+   "id": "p07",
+   "full_name": "Player 07"
+  },
+  {
+   "id": "p08",
+   "full_name": "Player 08"
+  },
+  {
+   "id": "p09",
+   "full_name": "Player 09"
+  },
+  {
+   "id": "p10",
+   "full_name": "Player 10"
+  }
+ ]
+}

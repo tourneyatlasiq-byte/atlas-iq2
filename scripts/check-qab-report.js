@@ -83,6 +83,8 @@ function northgate() {
   };
 }
 
+let loadCount = 0;
+
 /** Loads the payload module with getSeasonPerformance and the client stubbed. */
 async function loadWith(seasonData) {
   const src = fs
@@ -105,7 +107,10 @@ const createClient = () => ({
 });
 const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
 `;
-  const out = "/tmp/qab_payload_" + Date.now() + ".mjs";
+  // Unique per load: two loads in the same millisecond used to share one file
+  // name, and Node's import cache then served the FIRST payload module to the
+  // second load — an intermittent false failure.
+  const out = "/tmp/qab_payload_" + Date.now() + "_" + (++loadCount) + ".mjs";
   fs.writeFileSync(out, stub + src);
   return import(pathToFileURL(out).href);
 }

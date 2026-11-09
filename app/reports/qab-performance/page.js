@@ -5,15 +5,29 @@ import { getContext } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
 import { qabPerformanceReport } from "../../../lib/queries/reports/qab-performance";
 import { QabPerformanceReport } from "../../../components/reports/QabPerformanceReport";
+import { listTrackedTournaments, qabTournamentReport } from "../../../lib/queries/reports/qab-tournament";
+import { QabTournamentReport } from "../../../components/reports/QabTournamentReport";
+import { QabScopeControl } from "../../../components/reports/QabScopeControl";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Report scope from the address (RPT-04). Season is the plain address;
+ * ?scope=tournament&tournament=<id> is one tournament. Anything else is Season.
+ */
+function requestedScope(searchParams) {
+  const isTournament = searchParams?.scope === "tournament";
+  const id = typeof searchParams?.tournament === "string" ? searchParams.tournament : null;
+  return { isTournament, tournamentId: isTournament ? id : null };
+}
 
 /**
  * The document title IS the PDF filename.
  *
  *   Northgate 16U Gold - QAB Performance - 2026-27.pdf
+ *   Armor Elite Mower - QAB Performance - TC Veterans Tribute.pdf
  */
-export async function generateMetadata() {
+export async function generateMetadata({ searchParams } = {}) {
   const fallback = { title: "QAB Performance" };
 
   try {
@@ -32,7 +46,26 @@ export async function generateMetadata() {
 
     const subject = data.team?.name ?? data.team?.organization?.name ?? null;
     const safe = (v) => String(v ?? "").replace(/[\\/:*?"<>|]/g, "").trim();
-    const parts = [safe(subject), "QAB Performance", safe(data.name)].filter(Boolean);
+
+    // Tournament scope names the tournament instead of the season. The same
+    // season check as the report itself: a foreign id names nothing.
+    let scopeName = data.name;
+    const { isTournament, tournamentId } = requestedScope(searchParams);
+    if (isTournament) {
+      const tracked = tournamentId ? null : (await listTrackedTournaments(season.id))[0];
+      const id = tournamentId ?? tracked?.id ?? null;
+      if (id) {
+        const { data: t } = await supabase
+          .from("tournaments")
+          .select("name")
+          .eq("id", id)
+          .eq("season_id", season.id)
+          .maybeSingle();
+        if (t?.name) scopeName = t.name;
+      }
+    }
+
+    const parts = [safe(subject), "QAB Performance", safe(scopeName)].filter(Boolean);
     return { title: parts.join(" - ") };
   } catch {
     return fallback;
@@ -53,7 +86,7 @@ export async function generateMetadata() {
  *    were removed the underlying query would read zero rows for a Basic
  *    organization. The UI check exists to say so honestly, not to enforce it.
  */
-export default async function QabPerformancePage() {
+export default async function QabPerformancePage({ searchParams } = {}) {
   const { season, features } = await getContext();
 
   if (!features?.qab) {
@@ -82,6 +115,41 @@ export default async function QabPerformancePage() {
     );
   }
 
+  // Offered in the screen-only scope control. With none tracked, Season shows
+  // no control at all.
+  const tournaments = await listTrackedTournaments(season.id);
+  const { isTournament, tournamentId: requestedId } = requestedScope(searchParams);
+
+  if (isTournament) {
+    const tournamentId = requestedId ?? tournaments[0]?.id ?? null;
+    const report = tournamentId ? await qabTournamentReport(season.id, tournamentId) : null;
+
+    if (!report) {
+      return (
+        <div className="rpt-shell">
+          <div className="rpt-blocked">
+            <h2>Tournament not found</h2>
+            <p>That tournament isn&rsquo;t part of this season&rsquo;s QAB tracking.</p>
+            <p><Link href="/reports/qab-performance">← Season QAB Performance</Link></p>
+          </div>
+        </div>
+      );
+    }
+
+    // A linked tournament reached by address keeps its place in the selector
+    // even before it has tracked at-bats.
+    const options = tournaments.some((t) => t.id === tournamentId)
+      ? tournaments
+      : [{ id: tournamentId, name: report.tournament.name, dates: report.tournament.dates }, ...tournaments];
+
+    return (
+      <QabTournamentReport
+        report={report}
+        scopeControl={<QabScopeControl tournaments={options} selectedId={tournamentId} />}
+      />
+    );
+  }
+
   const report = await qabPerformanceReport(season.id);
 
   if (!report) {
@@ -95,5 +163,10 @@ export default async function QabPerformancePage() {
     );
   }
 
-  return <QabPerformanceReport report={report} />;
+  return (
+    <QabPerformanceReport
+      report={report}
+      scopeControl={<QabScopeControl tournaments={tournaments} selectedId={null} />}
+    />
+  );
 }

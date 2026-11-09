@@ -77,6 +77,73 @@
 
 .qab-none { margin: 0; font-size: 14px; line-height: 1.6; color: #475569; }
 
+/* ---------- Tournament scope (RPT-04) ----------
+   Classes below are used only by the Tournament report and its toolbar
+   control; the Season document uses none of them. */
+
+/* Screen-only scope control in the toolbar. */
+.qab-scope { flex-direction: column; align-items: flex-start; gap: 10px; }
+.qab-scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.qab-scope-select {
+  min-height: 40px; max-width: 100%; padding: 8px 10px;
+  border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+  color: #0b2341; font: inherit; font-size: 13.5px; font-weight: 600;
+}
+.qab-scope-select:focus-visible { outline: 2px solid #2f80ed; outline-offset: 1px; }
+.qab-scope[aria-busy="true"] { opacity: 0.6; }
+
+/* QAB% by game: G-number column, time beside the day. */
+.qab-table th.qab-c-gn, .qab-table td.qab-c-gn { width: 2.6em; color: #64748b; }
+.qab-gn-inline { display: none; }
+.qab-time { color: #64748b; }
+
+/* Player tournament totals. */
+.qab-table th.qab-c-qg, .qab-table td.qab-c-qg { width: 6.5em; }
+
+/* Game by game: the matrix on desktop and in print. */
+.qab-gbg-matrix .qab-table th:first-child,
+.qab-gbg-matrix .qab-table td:first-child { min-width: 9em; }
+.qab-gbg-matrix .qab-table td.qab-num,
+.qab-gbg-matrix .qab-table th.qab-num { width: 3.6em; }
+.qab-gbg-matrix td.qab-gbg-q { font-weight: 700; }
+.qab-gbg-matrix td.qab-gbg-none { color: #94a3b8; }
+
+/* Phone cards: hidden except on a phone screen (below). */
+.qab-gbg-cards { display: none; list-style: none; margin: 0; padding: 0; }
+
+@media screen and (max-width: 560px) {
+  .qab-table th.qab-c-gn, .qab-table td.qab-c-gn { display: none; }
+  .qab-gn-inline {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: #64748b;
+  }
+  .qab-t-games .qab-c-date { white-space: nowrap; }
+  .qab-time { display: block; }
+  .qab-time-sep { display: none; }
+  .qab-table th.qab-c-qg, .qab-table td.qab-c-qg { width: auto; }
+
+  /* Matrix out, cards in. Tiles wrap to the next line on narrow phones
+     instead of clipping; nothing scrolls sideways. */
+  .qab-gbg-matrix { display: none; }
+  .qab-gbg-cards { display: block; }
+  .qab-gbg-card { padding: 8px 0 9px; border-bottom: 1px solid #f1f5f9; }
+  .qab-gbg-card:first-child { border-top: 1px solid #e2e8f0; }
+  .qab-gbg-head { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 6px; font-size: 13px; color: #0b2341; }
+  .qab-gbg-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .qab-gbg-total { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .qab-gbg-tiles {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 4px;
+  }
+  .qab-gbg-tiles li {
+    display: flex; flex-direction: column; align-items: center; padding: 4px 0;
+    background: #f8fafc; border-radius: 6px; font-variant-numeric: tabular-nums;
+  }
+  .qab-gbg-g { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #64748b; }
+  .qab-gbg-v { font-size: 13px; color: #0b2341; }
+  .qab-gbg-tiles li.qab-gbg-q .qab-gbg-v { font-weight: 700; }
+  .qab-gbg-tiles li.qab-gbg-none .qab-gbg-v { color: #94a3b8; }
+}
+
 /* Phone-width reasons (2026-11). Beside a long label the bar shrank to a
    sliver; here each reason takes two lines — label, count and share on the
    first, a full-width bar beneath — so magnitude stays readable. Screen only:

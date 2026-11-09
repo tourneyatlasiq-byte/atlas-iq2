@@ -37,7 +37,7 @@ const pct = formatQabPct;
 
 const RESULT_WORD = { W: "Win", L: "Loss", T: "Tie" };
 
-export function QabPerformanceReport({ report }) {
+export function QabPerformanceReport({ report, scopeControl = null }) {
   const { organization, team, season, summary, games, reasons, reasonsCited, players } = report;
   const generated = fmtGenerated(report.generatedAt);
   const tracked = summary.pa > 0;
@@ -51,9 +51,9 @@ export function QabPerformanceReport({ report }) {
 
   return (
     <div className="rpt-shell">
-      {/* Screen only. Never printed. */}
-      {/* Screen only. Never printed. */}
-      <ReportToolbar name="QAB Performance" />
+      {/* Screen only. Never printed. The Season | Tournament scope control
+          (RPT-04) sits here; the Season document below is unchanged. */}
+      <ReportToolbar name="QAB Performance" controls={scopeControl} />
 
       <article className="rpt-page">
         <header className="rpt-head">
