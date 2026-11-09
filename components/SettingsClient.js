@@ -6,6 +6,7 @@ import { PageHelp } from "./PageHelp";
 import { useMutation } from "./useMutation";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { PRIVACY_EMAIL } from "../lib/legal";
+import { isInviteExpired, inviteLink } from "../lib/invite-rules";
 import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
@@ -13,6 +14,7 @@ import {
   renameTeam,
   renameSeason,
   createInvite,
+  renewInvite,
   cancelInvite,
 } from "../lib/actions/settings";
 
@@ -235,18 +237,36 @@ export function SettingsClient({
               </li>
             ))}
 
-            {pendingInvites.map((i) => (
+            {pendingInvites.map((i) => {
+              const expired = isInviteExpired(i);
+              return (
               <li key={i.id} className="person-pending">
                 <span className="person-name">
                   {i.email}
-                  <span className="muted"> · invited {fmtDate(i.created_at)}</span>
+                  <span className="muted">
+                    {" "}· {expired ? "expired" : "expires"} {fmtDate(i.expires_at)}
+                  </span>
                 </span>
                 <span className="person-team">
                   {i.team?.name ?? <span className="muted">No team yet</span>}
                 </span>
-                <span className="pill pill-waitlisted">
-                  {ROLE_LABELS[i.role] ?? i.role} · invited
+                <span className={`pill ${expired ? "pill-unregistered" : "pill-waitlisted"}`}>
+                  {ROLE_LABELS[i.role] ?? i.role} · {expired ? "expired" : "invited"}
                 </span>
+                {isAdmin && !expired && <CopyInviteLink inviteId={i.id} />}
+                {isAdmin && expired && (
+                  <button
+                    className="btn btn-secondary"
+                    disabled={pending}
+                    onClick={() => {
+                      const fd = new FormData();
+                      fd.set("id", i.id);
+                      run(renewInvite, fd);
+                    }}
+                  >
+                    Renew
+                  </button>
+                )}
                 {isAdmin && (
                   <button
                     className="btn btn-danger-ghost"
@@ -273,7 +293,8 @@ export function SettingsClient({
                   />
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
 
           {!isAdmin && (
@@ -386,12 +407,33 @@ function NameForm({ title, note, value, pending, onSubmit, onCancel }) {
  * Owner and admin are absent from the role list on purpose — an invitation can
  * never confer administrative rights, and the database enforces that too.
  */
+/**
+ * Copy an unused invitation's link from the People list, so the link is never
+ * lost once the "Invitation ready" dialog has been closed.
+ */
+function CopyInviteLink({ inviteId }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn btn-secondary"
+      onClick={() => {
+        navigator.clipboard?.writeText(inviteLink(window.location.origin, inviteId));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+    >
+      {copied ? "Copied" : "Copy link"}
+    </button>
+  );
+}
+
 function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
   const [copied, setCopied] = useState(false);
 
   const link =
     invite && typeof window !== "undefined"
-      ? `${window.location.origin}/invite/${invite.inviteId}`
+      ? inviteLink(window.location.origin, invite.inviteId)
       : null;
 
   if (invite && link) {
@@ -399,7 +441,7 @@ function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
       <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-head">
-            <h2>Invitation ready</h2>
+            <h2>{invite.renewed ? "Invitation renewed" : "Invitation ready"}</h2>
             <div className="page-sub">Send this link to the person you're inviting.</div>
           </div>
           <div className="modal-body">

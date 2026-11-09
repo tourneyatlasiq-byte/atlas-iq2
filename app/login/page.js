@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 import { LogoLockup } from "../../components/SeasonTempoLogo";
 import { SUPPORT_EMAIL } from "../../lib/legal";
+import { safeNext, isInvitePath, signInErrorMessage } from "../../lib/auth-redirect";
 
 /**
  * One magic-link flow, three framings.
@@ -49,12 +50,15 @@ const COPY = {
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next");
+  // Only a same-site path is ever carried through the link (see auth-redirect).
+  const next = safeNext(searchParams.get("next"), null);
   const isNew = searchParams.get("new") === "1";
+  // Set by /auth/callback when a link failed. A reason key, never raw text.
+  const linkError = signInErrorMessage(searchParams.get("error"));
 
   // An invited person is almost never a returning user, so "Welcome back"
   // would be wrong. `next` and `new` are separate parameters and can coexist.
-  const mode = next?.startsWith("/invite/") ? "invite" : isNew ? "new" : "returning";
+  const mode = isInvitePath(next) ? "invite" : isNew ? "new" : "returning";
   const copy = COPY[mode];
 
   const [email, setEmail] = useState("");
@@ -125,7 +129,11 @@ function LoginForm() {
             </div>
           ) : (
             <form onSubmit={sendLink}>
-              {error && <div className="alert alert-error">{error}</div>}
+              {error ? (
+                <div className="alert alert-error">{error}</div>
+              ) : (
+                linkError && <div className="alert alert-error" role="alert">{linkError}</div>
+              )}
 
               <div className="field">
                 <label htmlFor="email">Email</label>
