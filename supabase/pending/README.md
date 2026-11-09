@@ -7,9 +7,8 @@ after it has been applied through the MCP tool and named with the version
 Supabase actually recorded — the process established in B0 that keeps the
 repository and production history aligned.
 
-**Pending:** `qab_one_reason.sql` — adds `pa_one_reason CHECK
-(cardinality(qab_reasons) <= 1)` to `plate_appearances` (one primary QAB
-reason per plate appearance). Reviewed, not applied.
+**Nothing is currently pending.** This directory holds no SQL awaiting
+application.
 
 ## Standing rule: Import Players stays disabled
 
@@ -24,6 +23,15 @@ roster is the button staying switched off. Without persisted run identity
 Applying a migration is not the same as shipping a feature.
 
 ## Previously applied from here
+
+- `qab_one_reason` — one primary QAB reason per plate appearance:
+  `pa_one_reason CHECK (cardinality(qab_reasons) <= 1)` on
+  `plate_appearances`. Applied 2026-11-09 as `20261109220629_qab_one_reason`,
+  after the application rule was deployed (630bbbb) and the single legacy
+  two-reason row was reduced to its primary reason by a guarded update. The
+  constraint validated against all 211 rows; zero multi-reason rows remain.
+  The file is byte-identical to what ran, so its header still reads
+  "PENDING. Not applied."
 
 - `files_07_team_insurance_category` — the documents category "Insurance"
   became "Team Insurance" (the product renamed it in August; the constraint
