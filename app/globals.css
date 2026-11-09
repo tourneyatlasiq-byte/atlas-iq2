@@ -4154,6 +4154,12 @@ td.committed { color: var(--status-wait); font-weight: 600; }
     border-radius: 50%; background: var(--blue); margin-left: 8px; vertical-align: middle;
   }
   .sheet-row-help { justify-content: flex-start; }
+  /* Sign out in the More sheet: a form button that looks like the rows. */
+  .sheet-list .signout-form { margin: 0; }
+  .sheet-row-signout {
+    width: 100%; appearance: none; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: 16px; text-align: left;
+  }
 
   .sheet-secondary {
     display: flex; gap: 20px; justify-content: center;
@@ -6171,3 +6177,6 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 @media (max-width: 720px) {
   .blocker-open { min-height: 44px; }
 }
+
+/* Settings: Your account (Sign out). */
+.settings-account .signout-form { margin-top: 8px; }

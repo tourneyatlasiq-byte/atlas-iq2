@@ -1,5 +1,6 @@
 "use client";
 
+import { SignOutButton } from "./SignOutButton";
 import { useState, useTransition, useEffect } from "react";
 import { PageHelp } from "./PageHelp";
 import { useMutation } from "./useMutation";
@@ -278,6 +279,15 @@ export function SettingsClient({
           {!isAdmin && (
             <p className="field-note">Only an owner or admin can invite people or change roles.</p>
           )}
+        </div>
+
+        {/* A second, always-reachable way to end the session (2026-11). */}
+        <div className="card settings-card settings-account">
+          <div className="settings-card-head">
+            <span className="section-eyebrow">Your account</span>
+          </div>
+          <p className="field-note">Sign out of Season Tempo on this device.</p>
+          <SignOutButton className="btn btn-secondary" />
         </div>
       </div>
 

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
 import { HelpMenu } from "./HelpMenu";
+import { SignOutButton } from "./SignOutButton";
 import { SUPPORT_EMAIL } from "../lib/legal";
 import { TeamIdentity, initialsOf } from "./TeamMark";
 import {
@@ -199,6 +200,17 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
                 <span className="sheet-row-label">Help</span>
                 <HelpMenu />
               </div>
+
+              {/* Phones hide the sidebar footer, so Sign out lives here too
+                  (2026-11): a user must always be able to end their session. */}
+              <SignOutButton className="sheet-row sheet-row-signout">
+                <span className="sheet-row-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l-5-5 5-5" /><path d="M5 12h11" />
+                  </svg>
+                </span>
+                <span className="sheet-row-label">Sign out</span>
+              </SignOutButton>
             </nav>
 
             <div className="sheet-secondary">
