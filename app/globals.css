@@ -6258,3 +6258,8 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .invite-list-text .field-note { margin: 0; }
 .welcome-or { text-align: center; font-size: 15px; margin: 26px 0 4px; }
 .welcome-or + .welcome-value { margin: 0 0 16px; }
+
+/* Sign-in code (2026-11). 16px keeps iOS from zooming the field on focus. */
+.login-code { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.login-code input { font-size: 16px; letter-spacing: 0.18em; }
+.login-code .btn { min-height: 44px; }

@@ -291,6 +291,25 @@ function invitesDb(rows) {
   ok("auth_01: every function pins search_path", (migration.match(/set search_path = public/g) ?? []).length, 3);
   ok("auth_01: read-only (no insert/update/delete)", /\b(insert into|update \w+ set|delete from)\b/i.test(migration.replace(/--.*$/gm, "")), false);
 
+  section("I. Sign-in code (length set by Supabase; production sends 8 digits)");
+  const { normalizeOtp, OTP_ERROR } = require(R("lib/auth-redirect.js"));
+  ok("an 8-digit code (production's length) is accepted as typed or pasted",
+    [normalizeOtp("12345678"), normalizeOtp("1234 5678"), normalizeOtp("1234-5678"), normalizeOtp(" 12345678\n")],
+    ["12345678", "12345678", "12345678", "12345678"]);
+  ok("6 and 10 digits are accepted too, so a length change can't break sign-in", [normalizeOtp("123456"), normalizeOtp("1234567890")], ["123456", "1234567890"]);
+  ok("a typed code is accepted with spaces or dashes", [normalizeOtp("123456"), normalizeOtp(" 123 456 "), normalizeOtp("123-456")], ["123456", "123456", "123456"]);
+  ok("letters, short or long codes are rejected", [normalizeOtp("12345"), normalizeOtp("12a456"), normalizeOtp("12345678901"), normalizeOtp(null)], [null, null, null, null]);
+  const loginSrc = read("app/login/page.js");
+  ok("the code is verified as an email OTP for the same address", /verifyOtp\(\{ email, token, type: "email" \}\)/.test(loginSrc), true);
+  ok("the phone can offer the code from the email", /autoComplete="one-time-code"/.test(loginSrc), true);
+  ok("provider text is never shown for a bad code", [/setCodeError\(OTP_ERROR\)/.test(loginSrc), /setCodeError\(error/.test(loginSrc)], [true, false]);
+  ok("after a code, only the validated next is followed", /window\.location\.assign\(next \?\? "\/dashboard"\)/.test(loginSrc), true);
+  ok("the bad-code message is ours", OTP_ERROR.startsWith("That code didn't work."), true);
+  const signInText = [loginSrc, read("lib/auth-redirect.js")].join("\n").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  ok("no user-facing text assumes a code length", /\b(6|six|8|eight)-digit\b/i.test(signInText), false);
+  ok("the code box shows no example digits", /placeholder="\d+"/.test(loginSrc), false);
+  ok("the code box allows a full 10-digit code with spaces", /maxLength=\{12\}/.test(loginSrc), true);
+
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

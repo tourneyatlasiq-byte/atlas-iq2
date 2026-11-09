@@ -6,7 +6,13 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 import { LogoLockup } from "../../components/SeasonTempoLogo";
 import { SUPPORT_EMAIL } from "../../lib/legal";
-import { safeNext, isInvitePath, signInErrorMessage } from "../../lib/auth-redirect";
+import {
+  safeNext,
+  isInvitePath,
+  signInErrorMessage,
+  normalizeOtp,
+  OTP_ERROR,
+} from "../../lib/auth-redirect";
 
 /**
  * One magic-link flow, three framings.
@@ -64,6 +70,37 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
+  const [code, setCode] = useState("");
+  const [codeStatus, setCodeStatus] = useState("idle");
+  const [codeError, setCodeError] = useState(null);
+
+  /**
+   * The sign-in code in the same email (2026-11). Unlike the link, a code is
+   * not tied to the browser that asked for it, so it works when the email is
+   * opened on another device or in a mail app's own browser. Requires the
+   * Supabase email templates to include {{ .Token }}.
+   */
+  async function verifyCode(e) {
+    e.preventDefault();
+    const token = normalizeOtp(code);
+    if (!token) {
+      setCodeError("Enter the code from the email.");
+      return;
+    }
+    setCodeStatus("verifying");
+    setCodeError(null);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+
+    if (error) {
+      setCodeError(OTP_ERROR);
+      setCodeStatus("idle");
+      return;
+    }
+    // A full navigation, so the server sees the new session cookie.
+    window.location.assign(next ?? "/dashboard");
+  }
 
   async function sendLink(e) {
     e.preventDefault();
@@ -109,10 +146,43 @@ function LoginForm() {
                   concluding the product is broken. */}
               <h2 className="login-sent-title">Check your email</h2>
               <p className="login-sent-body">
-                We sent your Season Tempo sign-in link to <strong>{email}</strong>. It usually
+                We sent a sign-in link and a code to <strong>{email}</strong>. It usually
                 arrives within a minute. If you don&rsquo;t see it, check your spam or junk
                 folder.
               </p>
+
+              <form className="login-code" onSubmit={verifyCode} noValidate>
+                {codeError && (
+                  <div className="alert alert-error" role="alert">
+                    {codeError}
+                  </div>
+                )}
+                <div className="field">
+                  <label htmlFor="code">Enter the code instead</label>
+                  <input
+                    id="code"
+                    name="code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]*"
+                    maxLength={12}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                  <p className="field-note">
+                    Handy if you&rsquo;re reading the email on another device.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: "100%" }}
+                  disabled={codeStatus === "verifying"}
+                >
+                  {codeStatus === "verifying" ? "Signing in…" : "Sign in with code"}
+                </button>
+              </form>
 
               <div className="login-sent-actions">
                 <button
@@ -122,7 +192,14 @@ function LoginForm() {
                 >
                   Resend link
                 </button>
-                <button className="btn btn-ghost" onClick={() => setStatus("idle")}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setStatus("idle");
+                    setCode("");
+                    setCodeError(null);
+                  }}
+                >
                   Use a different email
                 </button>
               </div>
