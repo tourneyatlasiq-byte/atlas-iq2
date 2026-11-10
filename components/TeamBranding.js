@@ -39,14 +39,20 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
 
   return (
     <div className="org-identity">
-      <div className="branding-row">
-        <TeamMark name={organization?.name} logoUrl={shown} size={64} tone="navy" />
-
-        <div className="branding-detail">
+      {/* Compact identity (2026-11): the Organization card is one third wide,
+          the same size as Team and Season, so the logo sits beside the name
+          and the logo controls run underneath. Same controls as before. */}
+      <div className="org-identity-top">
+        <TeamMark name={organization?.name} logoUrl={shown} size={48} tone="navy" />
+        <div className="org-identity-text">
           <p className="branding-name">{organization?.name}</p>
           <p className="settings-meta">
             {peopleCount} {peopleCount === 1 ? "person" : "people"}
           </p>
+        </div>
+      </div>
+
+        <div className="branding-detail">
           {preview && <p className="field-note">Preview — not saved yet.</p>}
 
           {isOwner ? (
@@ -63,7 +69,7 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
               <div className="branding-actions">
                 {!file && (
                   <button
-                    className={organization?.logo_url ? "btn btn-secondary" : "btn btn-primary"}
+                    className="btn btn-secondary"
                     disabled={pending}
                     onClick={() => inputRef.current?.click()}
                   >
@@ -132,7 +138,6 @@ export function OrganizationIdentity({ organization, isOwner, peopleCount = 0 })
             <p className="field-note">Only an owner can change the organization logo.</p>
           )}
         </div>
-      </div>
     </div>
   );
 }

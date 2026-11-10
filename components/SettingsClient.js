@@ -165,8 +165,12 @@ export function SettingsClient({
       </div>
 
       <div className="settings-grid">
+        {/* Settings order (2026-11, reviewed with Chris): Organization | Team |
+            Season, then People & Access, then Your Account | Danger Zone. The
+            markup is in that order, so phones read it top to bottom and Delete
+            organization is always last. */}
         {/* Organization */}
-        <div className="card settings-card settings-card-wide">
+        <div className="card settings-card">
           <div className="settings-card-head">
             <span className="section-eyebrow">Organization</span>
             {isAdmin && (
@@ -253,19 +257,6 @@ export function SettingsClient({
           )}
         </div>
 
-      {isOwner && (
-        <div className="card settings-card settings-danger-card">
-          <div className="settings-card-head">
-            <span className="section-eyebrow settings-danger-title">Danger zone</span>
-          </div>
-          <p className="settings-danger-name">Delete organization</p>
-          <p className="settings-meta">
-            Permanently delete this organization and its information. Email{" "}
-            <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
-            account.
-          </p>
-        </div>
-      )}
 
         {/* People & Access */}
         <div className="card settings-card settings-card-wide">
@@ -407,18 +398,28 @@ export function SettingsClient({
         </div>
 
         {/* A second, always-reachable way to end the session (2026-11). */}
-        <div className="card settings-card settings-account">
+        <div className="card settings-card settings-card-half settings-account">
           <div className="settings-card-head">
             <span className="section-eyebrow">Your account</span>
           </div>
           <p className="field-note">Sign out of Season Tempo on this device.</p>
           <SignOutButton className="btn btn-secondary" />
         </div>
+
+        {isOwner && (
+          <div className="card settings-card settings-card-half settings-danger-card">
+            <div className="settings-card-head">
+              <span className="section-eyebrow settings-danger-title">Danger zone</span>
+            </div>
+            <p className="settings-danger-name">Delete organization</p>
+            <p className="settings-meta">
+              Permanently delete this organization and its information. Email{" "}
+              <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
+              account.
+            </p>
+          </div>
+        )}
       </div>
-
-
-
-
 
       {editing === "organization" && (
         <NameForm

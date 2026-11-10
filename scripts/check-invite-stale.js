@@ -258,8 +258,23 @@ Module._extensions[".css"] = () => {};
   ok("action order: primary (Resend/Retry or Renew) first, then Copy link, then Revoke",
     at("Retry") < at("<CopyInviteLink") && at("Renew") < at("<CopyInviteLink") && at("<CopyInviteLink") < at("Revoke\n"), true);
   ok("phone actions: left aligned, one height, compact Revoke", /\.person-row \.person-actions \.btn \{ min-height: 40px; \}/.test(css) && /\.person-row \.person-actions \.btn-danger-ghost \{ padding: 9px 12px; font-size: 13\.5px; \}/.test(css), true);
-  ok("the setup row is three equal columns with only the grid gap between cards",
-    /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/.test(css) && /\.settings-page \.settings-grid > \.card \+ \.card \{ margin-top: 0; \}/.test(css), true);
+  // Hierarchy reviewed with Chris (2026-11): Organization | Team | Season,
+  // People & Access full width, Your Account | Danger Zone; Danger Zone last on phones.
+  const order = ["Organization</span>", "Team</span>", "Season</span>", "People &amp; Access</span>", "Your account</span>", "Danger zone</span>"]
+    .map((label) => sc.indexOf(label));
+  ok("cards appear in reading order, Danger Zone last", order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1])), true);
+  ok("desktop: six-column grid — thirds for row 1, full width for People & Access, halves for row 3",
+    /\.settings-page \.settings-grid \{ grid-template-columns: repeat\(6, minmax\(0, 1fr\)\); \}/.test(css) &&
+    /\.settings-page \.settings-grid > \.card \{ grid-column: span 2; \}/.test(css) &&
+    /\.settings-page \.settings-grid > \.settings-card-wide \{ grid-column: 1 \/ -1; \}/.test(css) &&
+    /\.settings-page \.settings-grid > \.settings-card-half \{ grid-column: span 3; \}/.test(css), true);
+  ok("Your Account and Danger Zone are the two halves; People & Access is the only full-width card",
+    [/settings-card-half settings-account/.test(sc), /settings-card-half settings-danger-card/.test(sc), (sc.match(/settings-card-wide/g) ?? []).length], [true, true, 1]);
+  ok("phones and tablets stack one card per row", /@media \(max-width: 900px\) \{\s*\.settings-page \.settings-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(css), true);
+  ok("only the grid gap separates cards", /\.settings-page \.settings-grid > \.card \+ \.card \{ margin-top: 0; \}/.test(css), true);
+  const tb = read("components/TeamBranding.js");
+  ok("Organization keeps logo, name, people count and logo controls in a compact layout",
+    [/className="org-identity-top"/.test(tb), /size=\{48\}/.test(tb), /peopleCount/.test(tb), /uploadTeamLogo/.test(tb), /removeTeamLogo/.test(tb)], [true, true, true, true, true]);
   ok("hidden file inputs stay 1px (the logo input made Settings scroll sideways)", /input\[type="file"\]\.visually-hidden \{ width: 1px; padding: 0; border: 0; \}/.test(css), true);
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);

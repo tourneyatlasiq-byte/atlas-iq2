@@ -6402,3 +6402,35 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
   .gm-list > li.gm-item { grid-template-columns: minmax(0, 1fr); }
   .gm-list > li.gm-item > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
 }
+
+/* ===== Settings hierarchy (2026-11, reviewed with Chris) =====================
+   Desktop: Organization | Team | Season, then People & Access full width, then
+   Your Account | Danger Zone as two equal halves. A six-column grid gives
+   thirds and halves on the same edges. The markup is in reading order, so
+   phones show Danger Zone last. Layout only. */
+.settings-page .settings-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.settings-page .settings-grid > .card { grid-column: span 2; }
+.settings-page .settings-grid > .settings-card-wide { grid-column: 1 / -1; }
+.settings-page .settings-grid > .settings-card-half { grid-column: span 3; }
+
+/* Organization at one third: logo beside the name, controls underneath. */
+.org-identity { flex-direction: column; gap: 12px; }
+.org-identity-top { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.org-identity-top .team-mark { border: 1px solid var(--border); flex-shrink: 0; }
+.org-identity-text { min-width: 0; }
+.org-identity-text .branding-name { overflow-wrap: anywhere; }
+.org-identity .branding-detail { width: 100%; }
+.org-identity .branding-actions { margin: 0 0 6px; }
+
+@media (max-width: 900px) {
+  .settings-page .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .settings-page .settings-grid > .card,
+  .settings-page .settings-grid > .settings-card-half { grid-column: 1 / -1; }
+}
+
+/* Very narrow phones (≤360px): Resend + Copy link + Revoke stay on one line. */
+@media (max-width: 360px) {
+  .person-row .person-actions { gap: 6px; }
+  .person-row .person-actions .btn { padding-left: 12px; padding-right: 12px; }
+  .person-row .person-actions .btn-danger-ghost { padding-left: 8px; padding-right: 8px; }
+}
