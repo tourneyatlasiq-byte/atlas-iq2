@@ -28,8 +28,12 @@ export default async function SettingsPage({ searchParams }) {
         .order("role"),
       supabase
         .from("invites")
-        .select("id, email, role, created_at, accepted_at, expires_at, team_id, team:teams(id, name)")
+        .select(
+          "id, email, role, created_at, accepted_at, expires_at, team_id, delivery_status, last_sent_at, send_count, team:teams(id, name)"
+        )
         .eq("organization_id", organization.id)
+        // Withdrawn invitations stay as records but are not shown (inv_01).
+        .is("revoked_at", null)
         .order("created_at", { ascending: false }),
       supabase
         .from("teams")

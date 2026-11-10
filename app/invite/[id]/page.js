@@ -138,6 +138,21 @@ export default async function InvitePage({ params }) {
       );
       break;
 
+    case "revoked":
+      title = "This invitation was withdrawn";
+      body = (
+        <>
+          <p className="invite-summary">
+            {org ? <><strong>{org}</strong> withdrew this invitation, so the link no longer works.</> : "This invitation was withdrawn, so the link no longer works."}
+          </p>
+          <p className="field-note">
+            If you still need access, ask the person who invited you for a new invitation.
+          </p>
+          {dashboard}
+        </>
+      );
+      break;
+
     case "used":
       title = "This invitation has already been used";
       body = (

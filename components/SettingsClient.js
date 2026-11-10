@@ -6,7 +6,7 @@ import { PageHelp } from "./PageHelp";
 import { useMutation } from "./useMutation";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { PRIVACY_EMAIL } from "../lib/legal";
-import { isInviteExpired, inviteLink } from "../lib/invite-rules";
+import { isInviteExpired, inviteLink, inviteRowStatus, INVITE_STATUS_TEXT, SENT_MEANS } from "../lib/invite-rules";
 import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
@@ -15,7 +15,7 @@ import {
   renameSeason,
   createInvite,
   renewInvite,
-  cancelInvite,
+  revokeInvite,
 } from "../lib/actions/settings";
 
 /**
@@ -239,12 +239,21 @@ export function SettingsClient({
 
             {pendingInvites.map((i) => {
               const expired = isInviteExpired(i);
+              const status = inviteRowStatus(i);
               return (
               <li key={i.id} className="person-pending">
                 <span className="person-name">
                   {i.email}
-                  <span className="muted">
-                    {" "}· {expired ? "expired" : "expires"} {fmtDate(i.expires_at)}
+                  <span
+                    className="muted invite-status"
+                    data-status={status}
+                    title={status === "sent" ? SENT_MEANS : undefined}
+                  >
+                    {" "}· {INVITE_STATUS_TEXT[status]}
+                    {status === "sent" && i.last_sent_at ? ` ${fmtDate(i.last_sent_at)}` : ""}
+                    {status === "expired"
+                      ? ` ${fmtDate(i.expires_at)}`
+                      : ` · expires ${fmtDate(i.expires_at)}`}
                   </span>
                 </span>
                 <span className="person-team">
@@ -273,14 +282,14 @@ export function SettingsClient({
                     disabled={pending}
                     onClick={() => confirm.ask(`invite:${i.id}`)}
                   >
-                    Cancel
+                    Revoke
                   </button>
                 )}
                 {isAdmin && confirm.isAsking(`invite:${i.id}`) && (
                   <ConfirmAction
-                    message={`Cancel the invitation to ${i.email}? They will no longer be able to use it.`}
-                    confirmLabel="Cancel invitation"
-                    pendingLabel="Cancelling…"
+                    message={`Revoke the invitation to ${i.email}? The link stops working immediately. You can invite them again later.`}
+                    confirmLabel="Revoke invitation"
+                    pendingLabel="Revoking…"
                     cancelLabel="Keep invitation"
                     pending={pending}
                     error={error}
@@ -288,7 +297,7 @@ export function SettingsClient({
                     onConfirm={() => {
                       const fd = new FormData();
                       fd.set("id", i.id);
-                      run(cancelInvite, fd);
+                      run(revokeInvite, fd);
                     }}
                   />
                 )}
