@@ -6360,3 +6360,45 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    Settings was ~1900px wide and made the page scroll sideways (found in the
    2D cleanup). This restores the intended 1px box for hidden file inputs only. */
 input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
+
+/* Season games: a Review & Edit link per tracked game (2026-11).
+   The row button and the link share the row; the header gains an equal empty
+   column, so every existing figure keeps its alignment. */
+.season-games { --gm-action-w: 132px; }
+.gm-list > li.gm-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--gm-action-w);
+  column-gap: 12px; align-items: center;
+}
+.gm-list > li.gm-item > .lc,
+.gm-list > li.gm-item > .pex { grid-column: 1 / -1; }
+.season-games .gm-head.gm-head-link {
+  grid-template-columns: 16px minmax(0, 1fr) 140px 92px 64px 132px var(--gm-action-w);
+}
+.gm-edit { justify-self: end; white-space: nowrap; min-height: 44px; display: inline-flex; align-items: center; }
+
+@media (max-width: 720px) {
+  .gm-list > li.gm-item { grid-template-columns: minmax(0, 1fr); }
+  /* The link's text starts on the same line as the opponent name above it. */
+  .gm-list > li.gm-item > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
+}
+
+/* Season Games list beside the sidebar (721–860px): the six-column table does
+   not fit next to the sidebar there and the page scrolled sideways (found
+   2026-11). Use the same card layout phones use. Layout only. */
+@media (min-width: 721px) and (max-width: 860px) {
+  .gm-head { display: none; }
+  .gm-row {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-areas: "caret id pct" ". outcome outcome" ". figs status";
+    row-gap: 6px; padding: 12px 8px;
+  }
+  .gm-caret { grid-area: caret; align-self: start; margin-top: 3px; }
+  .gm-id { grid-area: id; }
+  .gm-pct { grid-area: pct; align-self: start; }
+  .gm-outcome { grid-area: outcome; }
+  .gm-figs { grid-area: figs; flex-direction: row; align-items: baseline; gap: 5px; }
+  .gm-figs em { font-size: 10.5px; }
+  .gm-status { grid-area: status; justify-self: end; }
+  .gm-list > li.gm-item { grid-template-columns: minmax(0, 1fr); }
+  .gm-list > li.gm-item > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
+}

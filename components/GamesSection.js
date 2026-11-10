@@ -53,7 +53,9 @@ function QabAction({ tournament, game }) {
 
   if (game.qabCompleted) {
     href = `${base}/track`;
-    label = "View QABs";
+    // Opens the same tracker where recorded at-bats are edited (2026-11):
+    // "View" read as read-only, which hid the corrections that already exist.
+    label = "Review & Edit QABs";
   } else if (pas > 0) {
     href = `${base}/track`;
     label = "Continue QABs";

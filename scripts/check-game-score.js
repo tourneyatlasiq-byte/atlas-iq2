@@ -133,8 +133,9 @@ const withExt = (src) => src.replace(/(from\s+["'])(\.{1,2}\/[^"']+?)(["'])/g, (
     /Final score <strong>\{formatFinalScore\(finalScore\.runsFor, finalScore\.runsAgainst, finalScore\.result\)\}<\/strong>/.test(trk), true);
   assertEq("finishing without a score never clears an existing one",
     /if \(result\.runsFor != null && result\.runsAgainst != null\) \{\s*setFinalScore/.test(trk), true);
-  assertEq("Corrections and Resume tracking remain on the completed state",
-    [/onClick=\{\(\) => setMode\("review"\)\}>\s*Corrections/.test(trk), /onClick=\{resume\}/.test(trk)], [true, true]);
+  // 2026-11: the button was renamed "Corrections" -> "Edit at-bats" (same action).
+  assertEq("Edit at-bats and Resume tracking remain on the completed state",
+    [/onClick=\{\(\) => setMode\("review"\)\}>\s*Edit at-bats/.test(trk), /onClick=\{resume\}/.test(trk)], [true, true]);
 
   /* 5. Performance follow-up. */
   const page = read("app/(app)/performance/page.js");

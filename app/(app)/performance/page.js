@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getContext } from "../../../lib/context";
+import { seasonGameLinkLabel } from "../../../lib/performance-links";
 import { getPerformanceOverview, getSeasonPerformance } from "../../../lib/queries/performance";
 import { HelpMenu } from "../../../components/HelpMenu";
 import { PerformanceSeason } from "../../../components/PerformanceSeason";
@@ -43,7 +44,11 @@ function fmtRange(start, end) {
 }
 
 export default async function PerformancePage() {
-  const { features, season: currentSeason, profile } = await getContext();
+  const { features, season: currentSeason, profile, seasonPhase } = await getContext();
+  // A finished season takes no new records, and only an owner or admin may
+  // correct existing ones (enforce_season_write_policy). Everyone else sees
+  // View, not Edit, so the link never promises an edit the database refuses.
+  const gameLinkLabel = seasonGameLinkLabel(seasonPhase, profile);
 
   if (!features?.qab) return <PerformancePremium />;
 
@@ -135,11 +140,11 @@ export default async function PerformancePage() {
             )}
           </section>
 
-          <PerformanceSeason {...season} />
+          <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} />
         </>
       )}
 
-      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} />}
+      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} />}
     </div>
   );
 }

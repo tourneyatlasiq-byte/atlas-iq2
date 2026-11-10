@@ -153,7 +153,13 @@ const strip = (r) => { const { generatedAt, ...rest } = r; return rest; };
   if (base) {
     const oldPerf = await base.perf.getSeasonPerformance("s1");
     const newPerf = await cur.perf.getSeasonPerformance("s1");
-    assertEq("Season derivation is identical to the accepted code", newPerf, oldPerf);
+    // 2026-11 (QAB discoverability): each game row gained tournamentId, used only
+    // to link a game to its tracker. It is set aside here so this guard keeps
+    // proving every calculated figure, percentage and order is unchanged.
+    const withoutLinkField = (perf) => ({ ...perf, games: (perf.games ?? []).map(({ tournamentId, ...g }) => g) });
+    assertEq("Season derivation is identical to the accepted code", withoutLinkField(newPerf), oldPerf);
+    assertEq("Every season game carries its tournament for the Review & Edit link",
+      (newPerf.games ?? []).every((g) => typeof g.tournamentId === "string" && g.tournamentId.length > 0), true);
     assertEq("Season report payload is identical to the accepted code",
       strip(await cur.season.qabPerformanceReport("s1")), strip(await base.season.qabPerformanceReport("s1")));
   }

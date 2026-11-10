@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useMemo, useState } from "react";
 
 /**
@@ -82,7 +84,7 @@ function LineupContribution({ game }) {
   );
 }
 
-export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record }) {
+export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record, gameLinkLabel = null }) {
   const [view, setView] = useState("team");
   const [allReasons, setAllReasons] = useState(false);
   const [openGame, setOpenGame] = useState(null);
@@ -222,19 +224,20 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
               <p className="season-none">No games tracked yet.</p>
             ) : (
               <>
-                <div className="gm-head" aria-hidden="true">
+                <div className={`gm-head${gameLinkLabel ? " gm-head-link" : ""}`} aria-hidden="true">
                   <span />
                   <span>Opponent</span>
                   <span>Result</span>
                   <span>QAB / PA</span>
                   <span>QAB%</span>
                   <span>Status</span>
+                  {gameLinkLabel && <span />}
                 </div>
                 <ul className="gm-list">
                 {games.map((g) => {
                   const open = openGame === g.gameId;
                   return (
-                    <li key={g.gameId} className={open ? "open" : ""}>
+                    <li key={g.gameId} className={`${open ? "open" : ""}${gameLinkLabel ? " gm-item" : ""}`.trim() || undefined}>
                       <button
                         type="button"
                         className="gm-row"
@@ -282,6 +285,21 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                           {g.completed ? "Complete" : "Tracking in progress"}
                         </span>
                       </button>
+
+                      {/* Every tracked game in the season links to its tracker
+                          (2026-11), so last weekend's game can still be reviewed
+                          and corrected after the next tournament is added. */}
+                      {gameLinkLabel &&
+                        (g.tournamentId ? (
+                          <Link
+                            className="btn btn-ghost gm-edit"
+                            href={`/tournaments/${g.tournamentId}/games/${g.gameId}/track`}
+                          >
+                            {gameLinkLabel}
+                          </Link>
+                        ) : (
+                          <span />
+                        ))}
 
                       {open && <LineupContribution game={g} />}
                     </li>

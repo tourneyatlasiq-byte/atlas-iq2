@@ -582,7 +582,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             className={mode === "review" ? "on" : ""}
             onClick={() => setMode("review")}
           >
-            Corrections
+            Edit at-bats
           </button>
         </div>
 
@@ -627,15 +627,15 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             )
           )}
           <p className="trk-done-note">
-            Recorded at-bats can still be reviewed and corrected. Recording a new one needs
-            tracking reopened.
+            You can edit or remove recorded at-bats anytime. To add a missed at-bat, resume
+            tracking first.
           </p>
           <div className="trk-done-actions">
             <a className="btn btn-primary" href={`/performance`}>
               Back to Performance
             </a>
             <button type="button" className="btn" onClick={() => setMode("review")}>
-              Corrections
+              Edit at-bats
             </button>
             <button type="button" className="btn" onClick={resume} disabled={!canWrite}>
               Resume tracking
