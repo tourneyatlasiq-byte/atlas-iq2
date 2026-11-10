@@ -6,7 +6,7 @@ import { PageHelp } from "./PageHelp";
 import { useMutation } from "./useMutation";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { PRIVACY_EMAIL } from "../lib/legal";
-import { isInviteExpired, inviteLink, inviteRowStatus, INVITE_STATUS_TEXT, SENT_MEANS } from "../lib/invite-rules";
+import { isInviteExpired, inviteLink, inviteRowStatus, INVITE_STATUS_TEXT, SENT_MEANS, deliveryFailureText } from "../lib/invite-rules";
 import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
@@ -16,6 +16,7 @@ import {
   createInvite,
   renewInvite,
   revokeInvite,
+  resendInvite,
 } from "../lib/actions/settings";
 
 /**
@@ -57,7 +58,7 @@ function fmtDate(d) {
 
 export function SettingsClient({
   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
-  counts, isAdmin, isOwner = false, currentUserId, autoOpen = null,
+  counts, isAdmin, isOwner = false, currentUserId, autoOpen = null, emailEnabled = false,
 }) {
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen);
@@ -65,6 +66,9 @@ export function SettingsClient({
   const confirm = useConfirm();
   const { run: runMutation, pending } = useMutation();
   const [newInvite, setNewInvite] = useState(null);
+  // Feedback for a Resend/Retry, shown on the row it came from rather than at
+  // the top of the page, where it could be off screen.
+  const [rowNote, setRowNote] = useState(null);
   const [newSeason, setNewSeason] = useState(null);
 
   useEffect(() => {
@@ -262,8 +266,35 @@ export function SettingsClient({
                 <span className={`pill ${expired ? "pill-unregistered" : "pill-waitlisted"}`}>
                   {ROLE_LABELS[i.role] ?? i.role} · {expired ? "expired" : "invited"}
                 </span>
+                {isAdmin && emailEnabled && (status === "sent" || status === "failed" || (expired && i.delivery_status !== "manual")) && (
+                  <button
+                    className={`btn ${status === "failed" ? "btn-primary" : "btn-secondary"}`}
+                    disabled={pending}
+                    onClick={() => {
+                      const fd = new FormData();
+                      fd.set("id", i.id);
+                      setRowNote(null);
+                      setError(null);
+                      runMutation(resendInvite, fd, {
+                        onSuccess: (res) =>
+                          setRowNote({
+                            id: i.id,
+                            tone: res.delivery === "sent" ? "ok" : "error",
+                            text: res.delivery === "sent" ? `Invitation emailed again to ${i.email}.` : deliveryFailureText(res.code),
+                          }),
+                        // Refusals (rate limits, already sending) belong on the row too.
+                        onError: (message) => setRowNote({ id: i.id, tone: "error", text: message }),
+                      });
+                    }}
+                  >
+                    {status === "failed" ? "Retry" : "Resend"}
+                  </button>
+                )}
+                {isAdmin && status === "sending" && (
+                  <button className="btn btn-secondary" disabled>Sending…</button>
+                )}
                 {isAdmin && !expired && <CopyInviteLink inviteId={i.id} />}
-                {isAdmin && expired && (
+                {isAdmin && expired && i.delivery_status === "manual" && (
                   <button
                     className="btn btn-secondary"
                     disabled={pending}
@@ -300,6 +331,11 @@ export function SettingsClient({
                       run(revokeInvite, fd);
                     }}
                   />
+                )}
+                {rowNote?.id === i.id && (
+                  <p className={`invite-row-note${rowNote.tone === "error" ? " invite-row-note-error" : ""}`} role="status">
+                    {rowNote.text}
+                  </p>
                 )}
               </li>
               );
@@ -375,7 +411,21 @@ export function SettingsClient({
           teams={teams}
           pending={pending}
           invite={newInvite}
-          onSubmit={(fd) => run(createInvite, fd, (res) => setNewInvite(res))}
+          emailEnabled={emailEnabled}
+          onSubmit={(fd) => {
+            const email = String(fd.get("email") ?? "").trim().toLowerCase();
+            run(createInvite, fd, (res) => setNewInvite({ ...res, email }));
+          }}
+          onRetry={(inviteId) => {
+            const fd = new FormData();
+            fd.set("id", inviteId);
+            setError(null);
+            runMutation(resendInvite, fd, {
+              onSuccess: (res) => setNewInvite((prev) => ({ ...prev, ...res })),
+              // Shown inside the dialog, not behind it.
+              onError: (message) => setNewInvite((prev) => ({ ...prev, delivery: "refused", message })),
+            });
+          }}
           onCancel={() => { setEditing(null); setNewInvite(null); }}
         />
       )}
@@ -437,13 +487,60 @@ function CopyInviteLink({ inviteId }) {
   );
 }
 
-function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
+function InviteForm({ teams, pending, invite, onSubmit, onCancel, onRetry, emailEnabled = false }) {
   const [copied, setCopied] = useState(false);
 
   const link =
     invite && typeof window !== "undefined"
       ? inviteLink(window.location.origin, invite.inviteId)
       : null;
+
+  // Phase 2B: the invitation was created and an email was attempted.
+  if (invite && link && invite.emailed) {
+    const sent = invite.delivery === "sent";
+    const expires = invite.expiresAt ? fmtDate(invite.expiresAt) : null;
+    return (
+      <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-head">
+            <h2>{sent ? "Invitation sent" : "Invitation created — email not sent"}</h2>
+            <div className="page-sub">
+              {sent
+                ? <>We emailed an invitation to <strong>{invite.email}</strong>{expires ? <>. It expires {expires}</> : null}.</>
+                : <>The invitation to <strong>{invite.email}</strong> exists and its link works.</>}
+            </div>
+          </div>
+          <div className="modal-body">
+            {sent ? (
+              <p className="field-note invite-sent-note">{SENT_MEANS}</p>
+            ) : (
+              <div className="alert alert-error" role="alert">
+                {invite.delivery === "failed" ? deliveryFailureText(invite.code) : invite.message}
+              </div>
+            )}
+            {!sent && invite.delivery === "failed" && (
+              <button className="btn btn-primary btn-block" disabled={pending} onClick={() => onRetry(invite.inviteId)}>
+                {pending ? "Sending…" : "Retry"}
+              </button>
+            )}
+            <button
+              className={`btn ${sent ? "btn-secondary" : "btn-secondary"} btn-block invite-copy-fallback`}
+              onClick={() => {
+                navigator.clipboard?.writeText(link);
+                setCopied(true);
+              }}
+            >
+              {copied ? "Copied" : "Copy invite link"}
+            </button>
+          </div>
+          <div className="modal-foot">
+            <span />
+            <button className="btn btn-secondary" onClick={onCancel}>Done</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (invite && link) {
     return (
@@ -488,7 +585,9 @@ function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
         <form action={onSubmit}>
           <div className="modal-head">
             <h2>Invite someone</h2>
-            <div className="page-sub">You'll get a link to send them.</div>
+            <div className="page-sub">
+              {emailEnabled ? "We'll email them an invitation." : "You'll get a link to send them."}
+            </div>
           </div>
 
           <div className="modal-body">
@@ -526,7 +625,9 @@ function InviteForm({ teams, pending, invite, onSubmit, onCancel }) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={pending}>
-              {pending ? "Creating…" : "Create invitation"}
+              {emailEnabled
+                ? pending ? "Sending…" : "Send invitation"
+                : pending ? "Creating…" : "Create invitation"}
             </button>
           </div>
         </form>

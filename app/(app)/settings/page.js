@@ -1,6 +1,7 @@
 import { getContext, isOrgAdmin } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
 import { SettingsClient } from "../../../components/SettingsClient";
+import { inviteEmailsEnabled } from "../../../lib/email/config";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,7 @@ export default async function SettingsPage({ searchParams }) {
       isOwner={profile?.role === "owner"}
       currentUserId={user.id}
       autoOpen={openPanel}
+      emailEnabled={inviteEmailsEnabled()}
     />
   );
 }

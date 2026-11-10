@@ -63,7 +63,15 @@ export default function PrivacyPage() {
         <h3>Your account</h3>
         <p>
           Your email address, the name you enter, your role, and the organization you belong
-          to. Sign-in is by emailed link, so no password is stored.
+          to. Sign-in is by emailed link or code, so no password is stored.
+        </p>
+
+        <h3>If you are invited</h3>
+        <p>
+          When an owner invites you, we store your email address, the role and team they chose,
+          and information about when the invitation was sent so the invitation can work and be
+          resent. The invitation stops working after 14 days unless it is renewed, and the owner
+          can withdraw it at any time.
         </p>
 
         <h3>Information you enter about your organization</h3>

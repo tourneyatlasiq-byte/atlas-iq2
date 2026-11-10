@@ -202,10 +202,10 @@ function invitesDb(rows) {
   ok("'Sent' rows carry the honest explanation", /title=\{status === "sent" \? SENT_MEANS : undefined\}/.test(sc), true);
   ok("Revoke replaces Cancel and calls revokeInvite", [/>\s*Revoke\s*</.test(sc), /run\(revokeInvite, fd\)/.test(sc), /cancelInvite/.test(sc)], [true, true, false]);
   ok("Settings hides withdrawn invitations", /\.is\("revoked_at", null\)/.test(read("app/(app)/settings/page.js")), true);
-  const appCode = ["app", "lib", "components"].flatMap(function walk(d) {
+  void ["app", "lib", "components"].flatMap(function walk(d) {
     return fs.readdirSync(R(d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);
   }).map(read).join("\n");
-  ok("2A sends nothing: no app code calls the send functions or Resend", /invite_send_begin|invite_send_finish|api\.resend\.com|RESEND_API_KEY/.test(appCode), false);
+  // Phase 2B added sending; where it may live is asserted in check-invite-email.js.
   const mig = fs.readFileSync(R("supabase/migrations/20261110000952_inv_01_invitation_delivery.sql"));
   ok("inv_01 file is byte-identical to what production applied", require("crypto").createHash("md5").update(mig).digest("hex"), "b77ae770e4c4da935ca197455883084f");
 
