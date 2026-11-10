@@ -4,9 +4,9 @@ import { SignOutButton } from "./SignOutButton";
 import { useState, useTransition, useEffect } from "react";
 import { PageHelp } from "./PageHelp";
 import { useMutation } from "./useMutation";
-import { ConfirmAction, useConfirm } from "./ConfirmAction";
+import { ConfirmAction, ConfirmDialog, useConfirm } from "./ConfirmAction";
 import { PRIVACY_EMAIL } from "../lib/legal";
-import { isInviteExpired, inviteLink, inviteRowStatus, INVITE_STATUS_TEXT, SENT_MEANS, deliveryFailureText } from "../lib/invite-rules";
+import { isInviteExpired, inviteLink, inviteRowStatus, INVITE_STATUS_TEXT, SENT_MEANS, deliveryFailureText, withRenderedContext, STALE_CONTEXT_MESSAGE } from "../lib/invite-rules";
 import { OrganizationIdentity } from "./TeamBranding";
 import { startNextSeason, makeSeasonCurrent, viewSeason } from "../lib/actions/seasons";
 import {
@@ -69,6 +69,18 @@ export function SettingsClient({
   // Feedback for a Resend/Retry, shown on the row it came from rather than at
   // the top of the page, where it could be off screen.
   const [rowNote, setRowNote] = useState(null);
+  // Phase 2D: set when the server says this page was drawn for a different
+  // account than the one signed in now. Nothing else on the page can be
+  // trusted until it is reloaded.
+  const [stale, setStale] = useState(false);
+  // Withdrawn invitations leave the list at once, before the refresh lands.
+  const [hiddenInvites, setHiddenInvites] = useState(() => new Set());
+  // Every invitation action carries the account and organization this page
+  // was drawn for; the server refuses if either has changed.
+  const ctxFd = (fd) => withRenderedContext(fd, currentUserId, organization?.id);
+  // The revoke question is a dialog, not an inline panel, so the list keeps
+  // its geometry. Its own error shows inside the dialog.
+  const [revokeError, setRevokeError] = useState(null);
   const [newSeason, setNewSeason] = useState(null);
 
   useEffect(() => {
@@ -93,15 +105,56 @@ export function SettingsClient({
     setError(null);
     runMutation(action, fd, {
       onSuccess: (result) => { confirm.cancel(); onDone?.(result); },
-      onError: (message) => setError(message),
+      onError: (message, result) => {
+        if (result?.stale) {
+          setStale(true);
+          confirm.cancel();
+          setEditing(null);
+          setNewInvite(null);
+          return;
+        }
+        setError(message);
+      },
     });
   }
 
-  const pendingInvites = invites.filter((i) => !i.accepted_at);
+  const pendingInvites = invites.filter((i) => !i.accepted_at && !i.revoked_at && !hiddenInvites.has(i.id));
+  const revoking = pendingInvites.find((i) => confirm.asking === `invite:${i.id}`) ?? null;
+
+  function revokeNow(invite) {
+    const fd = ctxFd(new FormData());
+    fd.set("id", invite.id);
+    setRevokeError(null);
+    runMutation(revokeInvite, fd, {
+      onSuccess: () => {
+        setHiddenInvites((prev) => new Set(prev).add(invite.id));
+        confirm.cancel();
+      },
+      onError: (message, result) => {
+        if (result?.stale) {
+          // Nothing on this page can be trusted: close the dialog and show
+          // the page-level reload message instead.
+          setStale(true);
+          confirm.cancel();
+          return;
+        }
+        setRevokeError(message);
+      },
+    });
+  }
 
   return (
-    <>
-      {error && <div className="alert alert-error">{error}</div>}
+    <div className="settings-page">
+      {stale ? (
+        <div className="alert alert-error settings-stale" role="alert">
+          <span>{STALE_CONTEXT_MESSAGE}</span>
+          <button type="button" className="btn btn-secondary" onClick={() => window.location.reload()}>
+            Reload page
+          </button>
+        </div>
+      ) : (
+        error && <div className="alert alert-error">{error}</div>
+      )}
 
       <div className="page-head">
         <div>
@@ -201,43 +254,57 @@ export function SettingsClient({
         </div>
 
       {isOwner && (
-        <section className="settings-danger-zone">
-          <p className="settings-danger-title">Danger zone</p>
-          <div className="card settings-danger-card">
-            <p className="settings-danger-name">Delete organization</p>
-            <p className="settings-meta">
-              Permanently delete this organization and its information. Email{" "}
-              <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
-              account.
-            </p>
+        <div className="card settings-card settings-danger-card">
+          <div className="settings-card-head">
+            <span className="section-eyebrow settings-danger-title">Danger zone</span>
           </div>
-        </section>
+          <p className="settings-danger-name">Delete organization</p>
+          <p className="settings-meta">
+            Permanently delete this organization and its information. Email{" "}
+            <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> from the address on your
+            account.
+          </p>
+        </div>
       )}
 
         {/* People & Access */}
         <div className="card settings-card settings-card-wide">
           <div className="settings-card-head">
             <span className="section-eyebrow">People &amp; Access</span>
-            {isAdmin && (
+            {isAdmin && !stale && (
               <button className="btn btn-primary" onClick={() => setEditing("invite")}>
                 Invite someone
               </button>
             )}
           </div>
 
+          {/* One column structure for every row (Phase 2D cleanup):
+              Person | Access | Role | Actions. Invitation details sit under
+              the address, so a row never shifts columns because it says more. */}
+          <div className="people-head" aria-hidden="true">
+            <span className="section-eyebrow">Person</span>
+            <span className="section-eyebrow">Access</span>
+            <span className="section-eyebrow">Role</span>
+            <span className="section-eyebrow people-head-actions">Actions</span>
+          </div>
           <ul className="people-list">
             {people.map((p) => (
-              <li key={p.id}>
-                <span className="person-name">
-                  {p.full_name ?? "Unnamed"}
-                  {p.id === currentUserId && <span className="muted"> (you)</span>}
+              <li key={p.id} className="person-row">
+                <span className="person-cell">
+                  <span className="person-primary">
+                    {p.full_name ?? "Unnamed"}
+                    {p.id === currentUserId && <span className="muted"> (you)</span>}
+                  </span>
                 </span>
                 <span className="person-team">
                   {p.teamNames.length > 0 ? p.teamNames.join(", ") : <span className="muted">All teams</span>}
                 </span>
-                <span className={`pill ${p.role === "owner" || p.role === "admin" ? "pill-paid" : "pill-registered"}`}>
-                  {ROLE_LABELS[p.role] ?? p.role}
+                <span className="person-role">
+                  <span className={`pill ${p.role === "owner" || p.role === "admin" ? "pill-paid" : "pill-registered"}`}>
+                    {ROLE_LABELS[p.role] ?? p.role}
+                  </span>
                 </span>
+                <span className="person-actions" />
               </li>
             ))}
 
@@ -245,15 +312,15 @@ export function SettingsClient({
               const expired = isInviteExpired(i);
               const status = inviteRowStatus(i);
               return (
-              <li key={i.id} className="person-pending">
-                <span className="person-name">
-                  {i.email}
+              <li key={i.id} className="person-row person-pending">
+                <span className="person-cell">
+                  <span className="person-primary" title={i.email}>{i.email}</span>
                   <span
-                    className="muted invite-status"
+                    className="person-secondary invite-status"
                     data-status={status}
                     title={status === "sent" ? SENT_MEANS : undefined}
                   >
-                    {" "}· {INVITE_STATUS_TEXT[status]}
+                    {INVITE_STATUS_TEXT[status]}
                     {status === "sent" && i.last_sent_at ? ` ${fmtDate(i.last_sent_at)}` : ""}
                     {status === "expired"
                       ? ` ${fmtDate(i.expires_at)}`
@@ -263,75 +330,67 @@ export function SettingsClient({
                 <span className="person-team">
                   {i.team?.name ?? <span className="muted">No team yet</span>}
                 </span>
-                <span className={`pill ${expired ? "pill-unregistered" : "pill-waitlisted"}`}>
-                  {ROLE_LABELS[i.role] ?? i.role} · {expired ? "expired" : "invited"}
+                <span className="person-role">
+                  <span className={`pill ${expired ? "pill-unregistered" : "pill-waitlisted"}`}>
+                    {ROLE_LABELS[i.role] ?? i.role} · {expired ? "expired" : "invited"}
+                  </span>
                 </span>
-                {isAdmin && emailEnabled && (status === "sent" || status === "failed" || (expired && i.delivery_status !== "manual")) && (
-                  <button
-                    className={`btn ${status === "failed" ? "btn-primary" : "btn-secondary"}`}
-                    disabled={pending}
-                    onClick={() => {
-                      const fd = new FormData();
-                      fd.set("id", i.id);
-                      setRowNote(null);
-                      setError(null);
-                      runMutation(resendInvite, fd, {
-                        onSuccess: (res) =>
-                          setRowNote({
-                            id: i.id,
-                            tone: res.delivery === "sent" ? "ok" : "error",
-                            text: res.delivery === "sent" ? `Invitation emailed again to ${i.email}.` : deliveryFailureText(res.code),
-                          }),
-                        // Refusals (rate limits, already sending) belong on the row too.
-                        onError: (message) => setRowNote({ id: i.id, tone: "error", text: message }),
-                      });
-                    }}
-                  >
-                    {status === "failed" ? "Retry" : "Resend"}
-                  </button>
-                )}
-                {isAdmin && status === "sending" && (
-                  <button className="btn btn-secondary" disabled>Sending…</button>
-                )}
-                {isAdmin && !expired && <CopyInviteLink inviteId={i.id} />}
-                {isAdmin && expired && i.delivery_status === "manual" && (
-                  <button
-                    className="btn btn-secondary"
-                    disabled={pending}
-                    onClick={() => {
-                      const fd = new FormData();
-                      fd.set("id", i.id);
-                      run(renewInvite, fd);
-                    }}
-                  >
-                    Renew
-                  </button>
-                )}
-                {isAdmin && (
-                  <button
-                    className="btn btn-danger-ghost"
-                    disabled={pending}
-                    onClick={() => confirm.ask(`invite:${i.id}`)}
-                  >
-                    Revoke
-                  </button>
-                )}
-                {isAdmin && confirm.isAsking(`invite:${i.id}`) && (
-                  <ConfirmAction
-                    message={`Revoke the invitation to ${i.email}? The link stops working immediately. You can invite them again later.`}
-                    confirmLabel="Revoke invitation"
-                    pendingLabel="Revoking…"
-                    cancelLabel="Keep invitation"
-                    pending={pending}
-                    error={error}
-                    onCancel={() => confirm.cancel()}
-                    onConfirm={() => {
-                      const fd = new FormData();
-                      fd.set("id", i.id);
-                      run(revokeInvite, fd);
-                    }}
-                  />
-                )}
+                <span className="person-actions">
+                  {isAdmin && !stale && emailEnabled && (status === "sent" || status === "failed" || (expired && i.delivery_status !== "manual")) && (
+                    <button
+                      className={`btn ${status === "failed" ? "btn-primary" : "btn-secondary"}`}
+                      disabled={pending}
+                      onClick={() => {
+                        const fd = ctxFd(new FormData());
+                        fd.set("id", i.id);
+                        setRowNote(null);
+                        setError(null);
+                        runMutation(resendInvite, fd, {
+                          onSuccess: (res) =>
+                            setRowNote({
+                              id: i.id,
+                              tone: res.delivery === "sent" ? "ok" : "error",
+                              text: res.delivery === "sent" ? `Invitation emailed again to ${i.email}.` : deliveryFailureText(res.code),
+                            }),
+                          // Refusals (rate limits, already sending) belong on the row too.
+                          onError: (message, result) =>
+                            result?.stale ? setStale(true) : setRowNote({ id: i.id, tone: "error", text: message }),
+                        });
+                      }}
+                    >
+                      {status === "failed" ? "Retry" : "Resend"}
+                    </button>
+                  )}
+                  {isAdmin && !stale && expired && i.delivery_status === "manual" && (
+                    <button
+                      className="btn btn-secondary"
+                      disabled={pending}
+                      onClick={() => {
+                        const fd = ctxFd(new FormData());
+                        fd.set("id", i.id);
+                        run(renewInvite, fd);
+                      }}
+                    >
+                      Renew
+                    </button>
+                  )}
+                  {isAdmin && status === "sending" && (
+                    <button className="btn btn-secondary" disabled>Sending…</button>
+                  )}
+                  {isAdmin && !stale && !expired && <CopyInviteLink inviteId={i.id} />}
+                  {isAdmin && !stale && (
+                    <button
+                      className="btn btn-danger-ghost"
+                      disabled={pending}
+                      onClick={() => {
+                        setRevokeError(null);
+                        confirm.ask(`invite:${i.id}`);
+                      }}
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </span>
                 {rowNote?.id === i.id && (
                   <p className={`invite-row-note${rowNote.tone === "error" ? " invite-row-note-error" : ""}`} role="status">
                     {rowNote.text}
@@ -414,22 +473,48 @@ export function SettingsClient({
           emailEnabled={emailEnabled}
           onSubmit={(fd) => {
             const email = String(fd.get("email") ?? "").trim().toLowerCase();
-            run(createInvite, fd, (res) => setNewInvite({ ...res, email }));
+            run(createInvite, ctxFd(fd), (res) => setNewInvite({ ...res, email }));
           }}
           onRetry={(inviteId) => {
-            const fd = new FormData();
+            const fd = ctxFd(new FormData());
             fd.set("id", inviteId);
             setError(null);
             runMutation(resendInvite, fd, {
               onSuccess: (res) => setNewInvite((prev) => ({ ...prev, ...res })),
               // Shown inside the dialog, not behind it.
-              onError: (message) => setNewInvite((prev) => ({ ...prev, delivery: "refused", message })),
+              onError: (message, result) => {
+                if (result?.stale) {
+                  setStale(true);
+                  setEditing(null);
+                  setNewInvite(null);
+                  return;
+                }
+                setNewInvite((prev) => ({ ...prev, delivery: "refused", message }));
+              },
             });
           }}
           onCancel={() => { setEditing(null); setNewInvite(null); }}
         />
       )}
-    </>
+
+      {isAdmin && revoking && (
+        <ConfirmDialog
+          title="Revoke invitation?"
+          message={
+            <>
+              The invitation to <strong>{revoking.email}</strong> stops working immediately. You can
+              invite them again later.
+            </>
+          }
+          confirmLabel="Revoke invitation"
+          pendingLabel="Revoking…"
+          pending={pending}
+          error={revokeError}
+          onCancel={() => { setRevokeError(null); confirm.cancel(); }}
+          onConfirm={() => revokeNow(revoking)}
+        />
+      )}
+    </div>
   );
 }
 

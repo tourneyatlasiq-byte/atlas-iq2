@@ -101,8 +101,10 @@ ok("Finance: the transaction drawer carries its own error",
   /drawerError = null/.test(read(HIGH_RISK.Finance)));
 ok("Finance: the payment drawer carries its own error",
   /confirmingEntry = null/.test(read(HIGH_RISK.Finance)));
+// Phase 2D added a stale-page branch first (account switched → reload
+// banner); every other error still lands in the page-level setError.
 ok("Settings acts on the page, so a page-level error is correct there",
-  /onError: \(message\) => setError\(message\)/.test(read(HIGH_RISK.Settings)));
+  /onError: \(message(?:, result)?\) =>[\s\S]{0,300}?setError\(message\)/.test(read(HIGH_RISK.Settings)));
 
 /* ---- Success synchronises --------------------------------------------- */
 section("Success is visible");

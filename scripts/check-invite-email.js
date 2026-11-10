@@ -195,7 +195,15 @@ Module._extensions[".css"] = () => {};
   section("D. sending from Settings");
   const settings = require(R("lib/actions/settings.js"));
   const owner = { profile: { id: "owner-1", role: "owner" }, organization: { id: "org-1" } };
-  function form(obj) { const fd = new FormData(); for (const [k, v] of Object.entries(obj)) fd.set(k, v); return fd; }
+  // Forms carry the account/organization the page was drawn for (Phase 2D);
+  // these suites act as the signed-in account, so they match by default.
+  function form(obj) {
+    const fd = new FormData();
+    fd.set("rendered_account", state.ctx?.profile?.id ?? "");
+    fd.set("rendered_org", state.ctx?.organization?.id ?? "");
+    for (const [k, v] of Object.entries(obj)) fd.set(k, v);
+    return fd;
+  }
   const live = "2026-12-01T00:00:00Z", gone = "2026-11-01T00:00:00Z";
   let rpcLog, fetchLog, tables;
   function setup({ env = {}, rows = [], begin, fetchResp = okResp, finishError = null } = {}) {

@@ -144,7 +144,15 @@ function invitesDb(rows) {
 
   const settings = require(R("lib/actions/settings.js"));
   const owner = { profile: { id: "owner-1", role: "owner" }, organization: { id: "org-1" } };
-  function form(obj) { const fd = new FormData(); for (const [k, v] of Object.entries(obj)) fd.set(k, v); return fd; }
+  // Forms carry the account/organization the page was drawn for (Phase 2D);
+  // these suites act as the signed-in account, so they match by default.
+  function form(obj) {
+    const fd = new FormData();
+    fd.set("rendered_account", state.ctx?.profile?.id ?? "");
+    fd.set("rendered_org", state.ctx?.organization?.id ?? "");
+    for (const [k, v] of Object.entries(obj)) fd.set(k, v);
+    return fd;
+  }
   const row = (o) => ({ organization_id: "org-1", role: "coach", accepted_at: null, revoked_at: null, expires_at: live, delivery_status: "manual", ...o });
 
   section("B. revoke is a state, never a delete");
@@ -162,7 +170,9 @@ function invitesDb(rows) {
   ok("an accepted invitation cannot be revoked", [res.ok, state.db.rows.find((r) => r.id === "inv-acc").revoked_at], [false, null]);
   const before = state.db.rows.find((r) => r.id === "inv-rev").revoked_at;
   res = await settings.revokeInvite(form({ id: "inv-rev" }));
-  ok("revoking twice keeps the original time", [res.ok, state.db.rows.find((r) => r.id === "inv-rev").revoked_at], [false, before]);
+  // Phase 2D: already withdrawn is reported truthfully as done, and the
+  // original revoke time is never overwritten.
+  ok("revoking twice: reported as already withdrawn, original time kept", [res.ok, res.alreadyWithdrawn, state.db.rows.find((r) => r.id === "inv-rev").revoked_at], [true, true, before]);
   state.ctx = { profile: { id: "coach-1", role: "coach" }, organization: { id: "org-1" } };
   state.db = invitesDb([row({ id: "inv-1", email: "a@example.com" })]);
   res = await settings.revokeInvite(form({ id: "inv-1" }));
@@ -200,7 +210,7 @@ function invitesDb(rows) {
   const sc = read("components/SettingsClient.js");
   ok("rows use the shared status rule", /inviteRowStatus\(i\)/.test(sc), true);
   ok("'Sent' rows carry the honest explanation", /title=\{status === "sent" \? SENT_MEANS : undefined\}/.test(sc), true);
-  ok("Revoke replaces Cancel and calls revokeInvite", [/>\s*Revoke\s*</.test(sc), /run\(revokeInvite, fd\)/.test(sc), /cancelInvite/.test(sc)], [true, true, false]);
+  ok("Revoke replaces Cancel and calls revokeInvite", [/>\s*Revoke\s*</.test(sc), /runMutation\(revokeInvite, fd,/.test(sc), /cancelInvite/.test(sc)], [true, true, false]);
   ok("Settings hides withdrawn invitations", /\.is\("revoked_at", null\)/.test(read("app/(app)/settings/page.js")), true);
   void ["app", "lib", "components"].flatMap(function walk(d) {
     return fs.readdirSync(R(d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);

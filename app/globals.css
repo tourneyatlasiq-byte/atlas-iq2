@@ -6270,3 +6270,93 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .invite-row-note-error { color: var(--danger); }
 .invite-sent-note { margin: 0 0 14px; }
 .invite-copy-fallback { margin-top: 10px; }
+
+/* Stale page after an account switch (Phase 2D) */
+.settings-stale { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.settings-stale .btn { min-height: 44px; }
+
+/* ===== Settings alignment (Phase 2D cleanup) =================================
+   One width for the whole page — header, cards and lists share the same left
+   and right edges. Layout and spacing only: no new colours, borders or type. */
+.settings-page {
+  width: 100%; max-width: 1180px;
+  /* One column template for the People & Access headings and every row. */
+  --people-cols: minmax(0, 1fr) 170px 150px 250px;
+  --people-gap: 16px;
+}
+.settings-page .settings-grid {
+  max-width: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+/* Every card head is the same height, with or without an Edit button, so the
+   first line of content starts at the same height in every card. */
+.settings-page .settings-card-head { min-height: 30px; }
+/* The grid's gap is the only spacing between cards, so gaps are the same
+   vertically and horizontally (the generic .card + .card margin doubled it). */
+.settings-page .settings-grid > .card + .card { margin-top: 0; }
+.settings-page .settings-card-head .settings-danger-title { margin: 0; }
+
+/* People & Access: Person | Access | Role | Actions, the same on every row. */
+.people-list li.person-row {
+  display: grid;
+  grid-template-columns: var(--people-cols);
+  align-items: center;
+  column-gap: var(--people-gap);
+  min-height: 44px;
+}
+/* Column headings: the existing small uppercase eyebrow, on the same grid. */
+.people-head {
+  display: grid;
+  grid-template-columns: var(--people-cols);
+  column-gap: var(--people-gap);
+  padding: 2px 0 8px;
+}
+.people-head .people-head-actions { text-align: right; }
+/* The line under the headings is the same divider the rows already use. */
+.people-head + .people-list li:first-child { border-top: 1px solid #eef2f7; }
+.person-cell { display: flex; flex-direction: column; min-width: 0; }
+.person-primary {
+  font-size: 13.5px; font-weight: 600; color: var(--navy);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.person-pending .person-primary { font-weight: 500; }
+.person-secondary { font-size: 12px; color: var(--slate); margin-top: 2px; }
+.person-row .person-team { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-role { min-width: 0; }
+.person-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.person-actions .btn { white-space: nowrap; }
+.person-row .invite-row-note { grid-column: 1 / -1; margin: 0; }
+
+/* Narrower desktops: the same structure, slimmer fixed columns. */
+@media (max-width: 1180px) {
+  .settings-page { --people-cols: minmax(0, 1fr) 132px 128px 250px; --people-gap: 12px; }
+}
+
+/* Tablets and phones: setup cards stack; each person reads top to bottom. */
+@media (max-width: 900px) {
+  .settings-page .settings-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 980px) {
+  .people-list li.person-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px; column-gap: 12px; padding: 12px 0;
+  }
+  .person-row .person-cell { grid-column: 1 / -1; }
+  .person-row .person-primary { white-space: normal; overflow-wrap: anywhere; }
+  .person-row .person-role { justify-self: end; }
+  .people-head { display: none; }
+  .people-head + .people-list li:first-child { border-top: none; }
+  /* One action flow on every invitation: primary first, Copy link, then
+     Revoke — left aligned, same height and spacing, compact (not full width). */
+  .person-row .person-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+  .person-row .person-actions .btn { min-height: 40px; }
+  .person-row .person-actions .btn-danger-ghost { padding: 9px 12px; font-size: 13.5px; }
+  .person-row .person-actions:empty { display: none; }
+}
+
+/* A hidden file input must stay hidden. `input[type="file"]` above sets
+   width: 100% and padding, and outranks .visually-hidden, so the logo input on
+   Settings was ~1900px wide and made the page scroll sideways (found in the
+   2D cleanup). This restores the intended 1px box for hidden file inputs only. */
+input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
