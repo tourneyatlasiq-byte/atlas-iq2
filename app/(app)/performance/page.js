@@ -4,6 +4,7 @@ import { seasonGameLinkLabel } from "../../../lib/performance-links";
 import { getPerformanceOverview, getSeasonPerformance } from "../../../lib/queries/performance";
 import { HelpMenu } from "../../../components/HelpMenu";
 import { PerformanceSeason } from "../../../components/PerformanceSeason";
+import { PerformanceTournamentPicker } from "../../../components/PerformanceTournamentPicker";
 import { FinalScoreFollowUp } from "../../../components/FinalScoreFollowUp";
 import { canWrite } from "../../../lib/context";
 import { needsFinalScore } from "../../../lib/game-rules";
@@ -25,6 +26,8 @@ export const dynamic = "force-dynamic";
  * and the coach picks the one they are at.
  */
 
+const TIMING_LABEL = { now: "Happening now", upcoming: "Next up", past: "Played" };
+
 function fmtDate(d) {
   if (!d) return null;
   const [y, m, day] = d.split("-");
@@ -43,7 +46,7 @@ function fmtRange(start, end) {
     : `${from} to ${months[Number(me) - 1]} ${Number(de)}`;
 }
 
-export default async function PerformancePage() {
+export default async function PerformancePage({ searchParams } = {}) {
   const { features, season: currentSeason, profile, seasonPhase } = await getContext();
   // A finished season takes no new records, and only an owner or admin may
   // correct existing ones (enforce_season_write_policy). Everyone else sees
@@ -68,7 +71,10 @@ export default async function PerformancePage() {
   // Scope is resolved here, at the page boundary, and passed down explicitly.
   // The query layer never reads cookies or session state, which is what lets
   // the same functions serve a report for a season the user is not viewing.
-  const { tournament, games } = await getPerformanceOverview(currentSeason.id);
+  // ?tournament=… chooses the tournament; without it a default applies that never
+  // lets an upcoming tournament with no games hide one still waiting for QABs.
+  const requested = typeof searchParams?.tournament === "string" ? searchParams.tournament : null;
+  const { tournament, games, options, timing } = await getPerformanceOverview(currentSeason.id, requested);
   const season = await getSeasonPerformance(currentSeason.id);
 
   // Tracked games finished without a final score (2026-11). Read from the
@@ -111,8 +117,10 @@ export default async function PerformancePage() {
         </div>
       ) : (
         <>
+          <PerformanceTournamentPicker options={options} selectedId={tournament.id} />
+
           <section className="perf-next">
-            <p className="perf-eyebrow">Next up</p>
+            <p className="perf-eyebrow">{TIMING_LABEL[timing] ?? "Tournament"}</p>
             <h2 className="perf-name">{tournament.name}</h2>
             <p className="perf-meta">
               {fmtRange(tournament.start_date, tournament.end_date)}
@@ -126,10 +134,15 @@ export default async function PerformancePage() {
 
             {games.length === 0 ? (
               <p className="perf-none">
-                This tournament has no games yet. Add them from the tournament to start
-                tracking.
+                No games yet. Games are added in Tournaments — once they're there, they appear
+                here for QAB tracking.{" "}
+                <Link href={`/tournaments?open=${tournament.id}`}>Add games in Tournaments →</Link>
               </p>
             ) : (
+              <>
+              {games.some((g) => !g.completed && g.plateAppearances === 0) && (
+                <QabGuide firstTime={season.team.pa === 0} />
+              )}
               <ul className="perf-list">
                 {games.map((g) => (
                   <li key={g.id}>
@@ -137,6 +150,7 @@ export default async function PerformancePage() {
                   </li>
                 ))}
               </ul>
+              </>
             )}
           </section>
 
@@ -146,6 +160,25 @@ export default async function PerformancePage() {
 
       {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} />}
     </div>
+  );
+}
+
+/**
+ * Lightweight, contextual QAB guidance (2026-11) — shown only while the selected
+ * tournament has games whose tracking hasn't started. Open by default for a team
+ * with no QABs recorded this season (a first-time coach); a single collapsed line
+ * otherwise, so it never clutters the page for an experienced coach. Not a help
+ * system: see "Help & Getting Started" in ATLAS-DECISIONS.md.
+ */
+function QabGuide({ firstTime }) {
+  return (
+    <details className="perf-guide" open={firstTime}>
+      <summary>How QAB tracking works</summary>
+      <p className="perf-guide-note">
+        Choose a game and set the batting order to begin. Track plate appearances live during the
+        game or enter them later.
+      </p>
+    </details>
   );
 }
 

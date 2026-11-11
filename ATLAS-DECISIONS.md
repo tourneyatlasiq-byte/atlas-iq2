@@ -423,3 +423,21 @@ Recorded so the reasoning is not relitigated.
   each is linked to a facility.
 - **`getContext` falls back to `teams[0]`** only when a season cannot resolve a
   team. Multi-team is otherwise handled by deriving team from season.
+
+## Guidance and help
+
+### Contextual QAB guidance on Performance (2026-11)
+
+Performance explains QAB tracking in place, only where it helps: while the selected
+tournament has games that haven't started tracking, a short "How QAB tracking works" note
+(choose a game and set the batting order to begin; track live or enter later). It is
+open by default only for a team with no QABs recorded this season and a single collapsed line
+otherwise. A tournament with no games says that games are added in Tournaments, with a link.
+Deliberately lightweight — not a help system.
+
+### Help & Getting Started — future milestone (logged 2026-11, not built)
+
+A proper help layer for the major Season Tempo workflows: getting started (organization, team,
+season, roster), tournaments and games, finance (budget, dues, transactions), QAB tracking and
+reports, files, and invitations. Contextual help in each area, consistent in voice and design,
+designed as its own milestone rather than added screen by screen.

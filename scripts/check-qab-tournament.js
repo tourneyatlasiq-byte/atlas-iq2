@@ -123,6 +123,11 @@ function filesAt(rev) {
   const read = (p) => rev ? execSync(`git show ${rev}:${p}`, { encoding: "utf8" }) : fs.readFileSync(p, "utf8");
   const list = ["lib/qab-rules.js", "lib/schedule-rules.js", "lib/queries/performance.js", "lib/queries/reports/qab-performance.js"];
   if (!rev) list.push("lib/queries/reports/qab-tournament.js");
+  // Performance's tournament selection (2026-11) — imported by queries/performance
+  // from that version on; older revisions under comparison don't have it.
+  const sel = "lib/performance-tournament.js";
+  const has = (p) => { try { execSync(`git cat-file -e ${rev}:${p}`, { stdio: "ignore" }); return true; } catch { return false; } };
+  if (rev ? has(sel) : fs.existsSync(sel)) list.push(sel);
   return Object.fromEntries(list.map((p) => [p, read(p)]));
 }
 

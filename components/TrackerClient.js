@@ -631,7 +631,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             tracking first.
           </p>
           <div className="trk-done-actions">
-            <a className="btn btn-primary" href={`/performance`}>
+            {/* Returns to the same tournament on Performance (2026-11). */}
+            <a className="btn btn-primary" href={`/performance?tournament=${encodeURIComponent(game.tournament_id)}`}>
               Back to Performance
             </a>
             <button type="button" className="btn" onClick={() => setMode("review")}>

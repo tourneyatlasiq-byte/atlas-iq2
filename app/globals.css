@@ -6434,3 +6434,26 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
   .person-row .person-actions .btn { padding-left: 12px; padding-right: 12px; }
   .person-row .person-actions .btn-danger-ghost { padding-left: 8px; padding-right: 8px; }
 }
+
+/* Performance tournament selector (2026-11): compact, one line, native picker. */
+.perf-picker { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; min-width: 0; }
+.perf-picker-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); flex: none; }
+.perf-picker-select {
+  flex: 1 1 auto; min-width: 0; max-width: 420px; min-height: 44px;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--navy);
+  padding: 8px 34px 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-control);
+  background-color: var(--surface); text-overflow: ellipsis;
+}
+@media (max-width: 720px) {
+  .perf-picker { flex-direction: column; align-items: stretch; gap: 6px; }
+  .perf-picker-select { max-width: none; width: 100%; }
+}
+
+/* Contextual QAB guidance (2026-11): secondary, one line when collapsed. */
+.perf-guide { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--border); background: transparent; font-size: 13px; color: var(--slate); }
+.perf-guide > summary { cursor: pointer; font-weight: 600; color: var(--navy); min-height: 28px; display: flex; align-items: center; list-style: none; }
+.perf-guide > summary::-webkit-details-marker { display: none; }
+.perf-guide > summary::before { content: "ⓘ"; margin-right: 6px; color: var(--slate); font-weight: 400; }
+.perf-guide-note { margin: 4px 0 2px; line-height: 1.45; }
+.perf-none a { color: var(--blue-dark); font-weight: 600; white-space: nowrap; }
+.perf-none a:hover, .perf-none a:focus-visible { text-decoration: underline; }
