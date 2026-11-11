@@ -287,6 +287,18 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
       [allGames.every((x) => x.gameType === "Pool"), JSON.stringify(rep2).includes("private"), /"result"|"runs_for"|"notes"/.test(JSON.stringify(rep2))], [true, false, false]);
   }
 
+  console.log("F. game types on the schedule (Showcase, 2026-11)");
+  {
+    const g = (id, date, time, opp, type) => ({ id, date, startTime: time, opponent: opp, gameType: type });
+    const types = ["Pool", "Bracket", "Championship", "Showcase", "Friendly", "Scrimmage"];
+    const withTypes = report.tournaments.map((t) =>
+      t.id === "c-next" ? { ...t, games: types.map((ty, i) => g(`gt${i}`, t.startDate, `0${8 + i}:00:00`, `Opponent ${ty}`, ty)) } : { ...t, games: [] });
+    const html = render({ ...report, tournaments: withTypes }, "games");
+    assertEq("every game type, including Showcase, prints beside its game", types.map((ty) => html.includes(`<span class="sch-gtype"> · ${ty}</span>`)), types.map(() => true));
+    const noType = render({ ...report, tournaments: report.tournaments.map((t) => t.id === "c-next" ? { ...t, games: [g("gn", t.startDate, "09:00:00", "Opp", null)] } : { ...t, games: [] }) }, "games");
+    assertEq("a game with no type prints no type label", /sch-gtype/.test(noType), false);
+  }
+
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
