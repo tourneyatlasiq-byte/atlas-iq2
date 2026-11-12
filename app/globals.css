@@ -6457,3 +6457,32 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
 .perf-guide-note { margin: 4px 0 2px; line-height: 1.45; }
 .perf-none a { color: var(--blue-dark); font-weight: 600; white-space: nowrap; }
 .perf-none a:hover, .perf-none a:focus-visible { text-decoration: underline; }
+
+/* ===== QAB plate appearance notes (2026-11) =====
+   Secondary to the reason: a quiet text action until opened, small type, and
+   no colour that competes with the reason buttons or Record QAB. */
+.trk-note-add {
+  display: inline-flex; align-items: center; min-height: 44px; margin: 2px 0 6px; padding: 0 2px;
+  background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--slate); cursor: pointer;
+}
+.trk-note-add:hover, .trk-note-add:focus-visible { color: var(--navy); text-decoration: underline; }
+.trk-note-add:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+.trk-note { margin: 4px 0 12px; }
+.trk-note-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+.trk-note-label span { font-weight: 400; color: var(--slate); }
+.trk-note-input {
+  width: 100%; min-height: 64px; resize: vertical; font: inherit; font-size: 16px; line-height: 1.4;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface);
+}
+.trk-note-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15); }
+.trk-note-count { margin: 4px 0 0; font-size: 12px; color: var(--slate); text-align: right; }
+.trk-note-count.over { color: #b42318; font-weight: 600; text-align: left; }
+.trk-pa-note {
+  margin: -4px 0 8px 0; padding-left: 10px; border-left: 2px solid var(--border);
+  font-size: 13px; line-height: 1.45; color: var(--slate); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.trk-hist-note {
+  display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.4; color: var(--slate);
+  font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
+}

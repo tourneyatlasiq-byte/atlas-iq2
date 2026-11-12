@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { QAB_REASONS, reasonLabel, tallyPlateAppearances } from "../lib/qab-rules";
+import {
+  QAB_REASONS, reasonLabel, tallyPlateAppearances,
+  MAX_NOTE_LENGTH, NOTE_TOO_LONG_ERROR, normalizeNote, noteLength, sameNote,
+} from "../lib/qab-rules";
 import { scoreEntry, formatFinalScore } from "../lib/game-rules";
 import {
   recordPlateAppearance,
@@ -72,6 +75,10 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   // Exception path only. Never a silent fall back to position 1.
   const [pickBatter, setPickBatter] = useState(initialResume.ambiguous);
   const [selected, setSelected] = useState([]);
+  // Optional plate appearance note (2026-11): context only, never counted.
+  const [note, setNote] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false);
+  const noteTooLong = noteLength(note.trim()) > MAX_NOTE_LENGTH;
   const [sync, setSync] = useState(SYNCED);
   // Presentation only. Switching modes never creates, edits, voids or
   // renumbers a plate appearance — it changes what is rendered and whether
@@ -349,7 +356,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const advance = () => setCursor((c) => (order.length ? (c + 1) % order.length : 0));
 
   const commit = async (reasons) => {
-    if (!batter || !canWrite || busy.current) return;
+    if (!batter || !canWrite || busy.current || noteTooLong) return;
     busy.current = true;
     try {
       const id = newPaId();
@@ -364,6 +371,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         paNumber,
         battingOrder: batter.batting_order ?? null,
         reasons,
+        notes: normalizeNote(note),
       };
 
       setRows((r) => [
@@ -375,12 +383,15 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           batting_order: batter.batting_order ?? null,
           qab_reasons: reasons,
           is_qab: reasons.length > 0,
+          notes: payload.notes,
           voided_at: null,
           localSeq: Date.now(),
           pending: true,
         },
       ]);
       setSelected([]);
+      setNote("");
+      setNoteOpen(false);
       advance();
 
       await enqueue({ userId, op: "record", gameId: game.id, payload });
@@ -427,10 +438,19 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     }
   };
 
-  const applyCorrection = async (row, reasons) => {
-    setRows((r) => (r.map((x) => (x.id === row.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x))));
+  const applyCorrection = async (row, reasons, nextNote) => {
+    // The note is sent only when it changed, so a reason correction can never
+    // touch it — and a note edit never needs the reason to change.
+    const noteChanged = nextNote !== undefined && !sameNote(row.notes, nextNote);
+    const notes = noteChanged ? normalizeNote(nextNote) : undefined;
+    setRows((r) => (r.map((x) => (x.id === row.id
+      ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0, ...(noteChanged ? { notes } : {}) }
+      : x))));
     setCorrecting(null);
-    await enqueue({ userId, op: "correct", gameId: game.id, payload: { id: row.id, reasons } });
+    await enqueue({
+      userId, op: "correct", gameId: game.id,
+      payload: noteChanged ? { id: row.id, reasons, notes } : { id: row.id, reasons },
+    });
     await refreshStatus();
     sync_();
   };
@@ -525,16 +545,18 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           }}
           onUseUnsynced={async (g, saved) => {
             const reasons = g.head.payload?.reasons ?? [];
-            // A correction of the plate appearance that is already saved —
-            // never a second plate appearance in the same slot.
+            // The unsynced entry as a whole — reason and note — replaces what
+            // is saved. A correction of the plate appearance that is already
+            // saved — never a second plate appearance in the same slot.
+            const notes = normalizeNote(g.head.payload?.notes);
             await enqueue({
               userId,
               op: "correct",
               gameId: game.id,
-              payload: { id: saved.id, reasons, expectedUpdatedAt: saved.updatedAt ?? null },
+              payload: { id: saved.id, reasons, notes, expectedUpdatedAt: saved.updatedAt ?? null },
             });
             await discardEntries(g.group.map((e) => e.seq), "used_unsynced");
-            setRows((r) => r.map((x) => (x.id === saved.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x)));
+            setRows((r) => r.map((x) => (x.id === saved.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0, notes } : x)));
             await sync_(true);
           }}
           onRetry={async (g) => {
@@ -713,12 +735,21 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           })}
         </div>
 
+        <NoteField
+          id="trk-note-live"
+          value={note}
+          open={noteOpen}
+          onOpen={() => setNoteOpen(true)}
+          onChange={setNote}
+          disabled={!canWrite}
+        />
+
         <div className="trk-commit">
           <button
             type="button"
             className="trk-save"
             onClick={() => commit(selected)}
-            disabled={!canWrite || selected.length === 0}
+            disabled={!canWrite || selected.length === 0 || noteTooLong}
           >
             Record QAB
           </button>
@@ -726,7 +757,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             type="button"
             className="trk-noqab"
             onClick={() => commit([])}
-            disabled={!canWrite}
+            disabled={!canWrite || noteTooLong}
           >
             No QAB
           </button>
@@ -1007,6 +1038,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                           </span>
                         </div>
 
+                        {r.notes && <p className="trk-pa-note">{r.notes}</p>}
+
                         {confirmVoid?.id === r.id && (
                           <div className="trk-confirm">
                             <p>
@@ -1034,7 +1067,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                             row={r}
                             name={slot.full_name}
                             onCancel={() => setCorrecting(null)}
-                            onApply={(reasons) => applyCorrection(r, reasons)}
+                            onApply={(reasons, nextNote) => applyCorrection(r, reasons, nextNote)}
                           />
                         )}
                       </li>
@@ -1089,6 +1122,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                         {r.qab_reasons.map(reasonLabel).join(" • ")}
                       </span>
                     )}
+                    {r.notes && <span className="trk-hist-note">{r.notes}</span>}
                   </button>
                 </li>
               ))}
@@ -1130,6 +1164,8 @@ const REVIEW_MESSAGE = {
  * one card each, with the decision the coach has to make. Nothing here is
  * removed without a tap, and anything removed goes to the local discarded log.
  */
+const sameReasonsText = (a, b) => reasonText(a) === reasonText(b);
+
 function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynced, onRetry, onDiscard }) {
   const [busy, setBusy] = useState(false);
   const act = (fn) => async () => {
@@ -1154,10 +1190,13 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
           const heading = `${nameOf(playerId)} · PA ${paNumber ?? "?"}`;
 
           const fromServer = head.conflict
-            ? { id: head.conflict.id, reasons: head.conflict.reasons, updatedAt: head.conflict.updatedAt }
+            ? { id: head.conflict.id, reasons: head.conflict.reasons, notes: head.conflict.notes ?? null, updatedAt: head.conflict.updatedAt }
             : null;
           const local = savedInSlot(head, savedRows);
-          const saved = fromServer ?? (local ? { id: local.id, reasons: local.qab_reasons ?? [], updatedAt: local.updated_at } : null);
+          const saved = fromServer ?? (local ? { id: local.id, reasons: local.qab_reasons ?? [], notes: local.notes ?? null, updatedAt: local.updated_at } : null);
+          // Notes that differ are shown side by side; neither is ever dropped
+          // without the coach choosing.
+          const notesDiffer = Boolean(saved) && head.op === "record" && !sameNote(saved.notes, p.notes);
           const conflict = head.op === "record" && saved;
           const unsynced =
             head.op === "void" ? "Remove this at-bat" : reasonText(p.reasons);
@@ -1170,6 +1209,12 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
                 <dl className="trk-review-q-cmp">
                   <div><dt>Saved</dt><dd>{reasonText(saved.reasons)}</dd></div>
                   <div><dt>Unsynced</dt><dd>{unsynced}</dd></div>
+                  {notesDiffer && (
+                    <>
+                      <div><dt>Saved note</dt><dd>{normalizeNote(saved.notes) ?? "No note"}</dd></div>
+                      <div><dt>Unsynced note</dt><dd>{normalizeNote(p.notes) ?? "No note"}</dd></div>
+                    </>
+                  )}
                 </dl>
               ) : (
                 <>
@@ -1197,7 +1242,7 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
                       </button>
                       {canUse && (
                         <button type="button" className="btn" disabled={busy} onClick={act(() => onUseUnsynced(g, saved))}>
-                          Use {unsynced}
+                          {notesDiffer && sameReasonsText(saved.reasons, p.reasons) ? "Use unsynced note" : <>Use {unsynced}</>}
                         </button>
                       )}
                     </>
@@ -1221,6 +1266,43 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
   );
 }
 
+/**
+ * Optional plate appearance note (2026-11). A quiet "+ Add note" until
+ * opened, so it stays secondary to the reason. Context only: nothing that
+ * counts QABs, results or records reads it.
+ */
+function NoteField({ id, value, open, onOpen, onChange, disabled = false }) {
+  if (!open) {
+    return (
+      <button type="button" className="trk-note-add" onClick={onOpen} disabled={disabled}>
+        + Add note
+      </button>
+    );
+  }
+  const used = noteLength(value.trim());
+  const over = used > MAX_NOTE_LENGTH;
+  return (
+    <div className="trk-note">
+      <label htmlFor={id} className="trk-note-label">
+        Note <span>(optional)</span>
+      </label>
+      <textarea
+        id={id}
+        className="trk-note-input"
+        rows={2}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        aria-describedby={`${id}-count`}
+        aria-invalid={over || undefined}
+      />
+      <p id={`${id}-count`} className={`trk-note-count${over ? " over" : ""}`} aria-live="polite">
+        {over ? NOTE_TOO_LONG_ERROR : `${used}/${MAX_NOTE_LENGTH}`}
+      </p>
+    </div>
+  );
+}
+
 /** The correction panel's explicit "not a QAB" choice. */
 const NO_QAB = "__no_qab__";
 
@@ -1237,6 +1319,9 @@ function InlineCorrection({ row, name, onCancel, onApply }) {
   const legacy = saved.length > 1;
   const [choice, setChoice] = useState(legacy ? null : saved[0] ?? NO_QAB);
   const reasons = choice === NO_QAB || choice === null ? [] : [choice];
+  const [note, setNote] = useState(row.notes ?? "");
+  const [noteOpen, setNoteOpen] = useState(Boolean(row.notes));
+  const noteTooLong = noteLength(note.trim()) > MAX_NOTE_LENGTH;
 
   return (
     <div className="trk-card trk-correct">
@@ -1276,12 +1361,19 @@ function InlineCorrection({ row, name, onCancel, onApply }) {
           <span className="trk-reason-label">No QAB</span>
         </button>
       </div>
+      <NoteField
+        id={`trk-note-${row.id}`}
+        value={note}
+        open={noteOpen}
+        onOpen={() => setNoteOpen(true)}
+        onChange={setNote}
+      />
       <div className="trk-commit">
         <button
           type="button"
           className="trk-save"
-          onClick={() => onApply(reasons)}
-          disabled={choice === null}
+          onClick={() => onApply(reasons, note)}
+          disabled={choice === null || noteTooLong}
         >
           Save correction
         </button>

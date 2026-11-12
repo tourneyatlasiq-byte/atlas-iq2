@@ -1,0 +1,908 @@
+From ee389206ec3b3509cd466450c628373d8b2e3a25 Mon Sep 17 00:00:00 2001
+From: Claude <claude@example.com>
+Date: Thu, 12 Nov 2026 11:46:40 +0000
+Subject: [PATCH] QAB plate appearance notes
+
+---
+ QAB-PA-NOTES-INSTRUCTIONS.md                  |  50 ++++
+ app/globals.css                               |  29 +++
+ components/TrackerClient.js                   | 126 ++++++++--
+ lib/actions/plate-appearances.js              |  39 ++-
+ lib/qab-rules.js                              |  35 +++
+ lib/queue-recovery.js                         |  14 +-
+ package.json                                  |   2 +-
+ scripts/check-qab-notes.js                    | 226 ++++++++++++++++++
+ scripts/check-qab-single-reason.js            |   4 +-
+ scripts/check-queue-recovery.js               |   4 +-
+ .../20261112115235_qab_06_pa_notes_length.sql |  22 ++
+ 11 files changed, 519 insertions(+), 32 deletions(-)
+ create mode 100644 QAB-PA-NOTES-INSTRUCTIONS.md
+ create mode 100644 scripts/check-qab-notes.js
+ create mode 100644 supabase/migrations/20261112115235_qab_06_pa_notes_length.sql
+
+diff --git a/QAB-PA-NOTES-INSTRUCTIONS.md b/QAB-PA-NOTES-INSTRUCTIONS.md
+new file mode 100644
+index 0000000..314a1bc
+--- /dev/null
++++ b/QAB-PA-NOTES-INSTRUCTIONS.md
+@@ -0,0 +1,50 @@
++# QAB plate appearance notes
++
++Built on `main` at `9c5bd36` ("showcase"). Separate from Help & Getting Started V1 and from auth 3C;
++it shares no files with the Help package except `app/globals.css` and `package.json`, where both
++only append (see "If Help ships first").
++
++## What it does
++
++An optional free-form note on one plate appearance, using the existing `plate_appearances.notes`
++column. "+ Add note" while recording and in Review & Edit; saved notes show as a small grey line.
++Trimmed, blank stored as null, 280 characters maximum. A duplicate submission from a second phone
++whose note differs is a conflict for the coach, never silently dropped. Notes never affect QAB,
++QAB%, QAB status, W-L-T, game results, reports or any calculation, and appear only where Performance
++data is shown (the tracker). Not in any report or parent-facing output.
++
++## Apply (code)
++
++1. Copy the ZIP's contents into the root of your `atlas-iq2` clone, allowing overwrite.
++2. GitHub Desktop should show exactly **12 changed files**: 8 modified, 4 new.
++
++Modified: `app/globals.css`, `components/TrackerClient.js`, `lib/actions/plate-appearances.js`,
++`lib/qab-rules.js`, `lib/queue-recovery.js`, `package.json`, `scripts/check-qab-single-reason.js`,
++`scripts/check-queue-recovery.js`.
++
++New: `scripts/check-qab-notes.js`,
++`supabase/migrations/20261112115235_qab_06_pa_notes_length.sql`, `QAB-PA-NOTES-INSTRUCTIONS.md`,
++`0001-QAB-plate-appearance-notes.patch` (optional, for reference).
++
++If the count differs, stop and tell Claude before committing.
++
++## Apply (database), only with explicit approval
++
++The migration adds one check constraint and changes no rows (production had 0 notes on
++2026-11-12). Code and constraint are safe in either order: the application already refuses notes
++over 280 characters. Claude applies it via the Supabase migration tool once Autumn approves, then
++re-verifies migration parity (repo and production must both list `20261112115235`).
++
++## If Help ships first
++
++Both packages append a block to the end of `app/globals.css` and add one script to the
++`npm run check` line in `package.json`. Claude will rebase this package onto the deployed Help
++commit and re-package rather than have those two files copied over each other.
++
++## Check in production after deploy (a QAB-enabled organization)
++
++1. Track a plate appearance: "+ Add note" opens a field with a counter; record with a note.
++2. Edit at-bats: the note shows under that plate appearance; Edit shows it filled in; change it and save.
++3. Change only the reason on a plate appearance that has a note: the note is unchanged.
++4. QAB% and the QAB report are unchanged by adding or editing notes; the report shows no notes.
++5. A 281-character note can't be recorded.
+diff --git a/app/globals.css b/app/globals.css
+index e967af3..da6d66d 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -6457,3 +6457,32 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
+ .perf-guide-note { margin: 4px 0 2px; line-height: 1.45; }
+ .perf-none a { color: var(--blue-dark); font-weight: 600; white-space: nowrap; }
+ .perf-none a:hover, .perf-none a:focus-visible { text-decoration: underline; }
++
++/* ===== QAB plate appearance notes (2026-11) =====
++   Secondary to the reason: a quiet text action until opened, small type, and
++   no colour that competes with the reason buttons or Record QAB. */
++.trk-note-add {
++  display: inline-flex; align-items: center; min-height: 44px; margin: 2px 0 6px; padding: 0 2px;
++  background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600;
++  color: var(--slate); cursor: pointer;
++}
++.trk-note-add:hover, .trk-note-add:focus-visible { color: var(--navy); text-decoration: underline; }
++.trk-note-add:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
++.trk-note { margin: 4px 0 12px; }
++.trk-note-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
++.trk-note-label span { font-weight: 400; color: var(--slate); }
++.trk-note-input {
++  width: 100%; min-height: 64px; resize: vertical; font: inherit; font-size: 16px; line-height: 1.4;
++  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface);
++}
++.trk-note-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15); }
++.trk-note-count { margin: 4px 0 0; font-size: 12px; color: var(--slate); text-align: right; }
++.trk-note-count.over { color: #b42318; font-weight: 600; text-align: left; }
++.trk-pa-note {
++  margin: -4px 0 8px 0; padding-left: 10px; border-left: 2px solid var(--border);
++  font-size: 13px; line-height: 1.45; color: var(--slate); white-space: pre-wrap; overflow-wrap: anywhere;
++}
++.trk-hist-note {
++  display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.4; color: var(--slate);
++  font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
++}
+diff --git a/components/TrackerClient.js b/components/TrackerClient.js
+index b5e131a..75f4539 100644
+--- a/components/TrackerClient.js
++++ b/components/TrackerClient.js
+@@ -2,7 +2,10 @@
+ 
+ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+ import Link from "next/link";
+-import { QAB_REASONS, reasonLabel, tallyPlateAppearances } from "../lib/qab-rules";
++import {
++  QAB_REASONS, reasonLabel, tallyPlateAppearances,
++  MAX_NOTE_LENGTH, NOTE_TOO_LONG_ERROR, normalizeNote, noteLength, sameNote,
++} from "../lib/qab-rules";
+ import { scoreEntry, formatFinalScore } from "../lib/game-rules";
+ import {
+   recordPlateAppearance,
+@@ -72,6 +75,10 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+   // Exception path only. Never a silent fall back to position 1.
+   const [pickBatter, setPickBatter] = useState(initialResume.ambiguous);
+   const [selected, setSelected] = useState([]);
++  // Optional plate appearance note (2026-11): context only, never counted.
++  const [note, setNote] = useState("");
++  const [noteOpen, setNoteOpen] = useState(false);
++  const noteTooLong = noteLength(note.trim()) > MAX_NOTE_LENGTH;
+   const [sync, setSync] = useState(SYNCED);
+   // Presentation only. Switching modes never creates, edits, voids or
+   // renumbers a plate appearance — it changes what is rendered and whether
+@@ -349,7 +356,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+   const advance = () => setCursor((c) => (order.length ? (c + 1) % order.length : 0));
+ 
+   const commit = async (reasons) => {
+-    if (!batter || !canWrite || busy.current) return;
++    if (!batter || !canWrite || busy.current || noteTooLong) return;
+     busy.current = true;
+     try {
+       const id = newPaId();
+@@ -364,6 +371,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+         paNumber,
+         battingOrder: batter.batting_order ?? null,
+         reasons,
++        notes: normalizeNote(note),
+       };
+ 
+       setRows((r) => [
+@@ -375,12 +383,15 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+           batting_order: batter.batting_order ?? null,
+           qab_reasons: reasons,
+           is_qab: reasons.length > 0,
++          notes: payload.notes,
+           voided_at: null,
+           localSeq: Date.now(),
+           pending: true,
+         },
+       ]);
+       setSelected([]);
++      setNote("");
++      setNoteOpen(false);
+       advance();
+ 
+       await enqueue({ userId, op: "record", gameId: game.id, payload });
+@@ -427,10 +438,19 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+     }
+   };
+ 
+-  const applyCorrection = async (row, reasons) => {
+-    setRows((r) => (r.map((x) => (x.id === row.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x))));
++  const applyCorrection = async (row, reasons, nextNote) => {
++    // The note is sent only when it changed, so a reason correction can never
++    // touch it — and a note edit never needs the reason to change.
++    const noteChanged = nextNote !== undefined && !sameNote(row.notes, nextNote);
++    const notes = noteChanged ? normalizeNote(nextNote) : undefined;
++    setRows((r) => (r.map((x) => (x.id === row.id
++      ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0, ...(noteChanged ? { notes } : {}) }
++      : x))));
+     setCorrecting(null);
+-    await enqueue({ userId, op: "correct", gameId: game.id, payload: { id: row.id, reasons } });
++    await enqueue({
++      userId, op: "correct", gameId: game.id,
++      payload: noteChanged ? { id: row.id, reasons, notes } : { id: row.id, reasons },
++    });
+     await refreshStatus();
+     sync_();
+   };
+@@ -525,16 +545,18 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+           }}
+           onUseUnsynced={async (g, saved) => {
+             const reasons = g.head.payload?.reasons ?? [];
+-            // A correction of the plate appearance that is already saved —
+-            // never a second plate appearance in the same slot.
++            // The unsynced entry as a whole — reason and note — replaces what
++            // is saved. A correction of the plate appearance that is already
++            // saved — never a second plate appearance in the same slot.
++            const notes = normalizeNote(g.head.payload?.notes);
+             await enqueue({
+               userId,
+               op: "correct",
+               gameId: game.id,
+-              payload: { id: saved.id, reasons, expectedUpdatedAt: saved.updatedAt ?? null },
++              payload: { id: saved.id, reasons, notes, expectedUpdatedAt: saved.updatedAt ?? null },
+             });
+             await discardEntries(g.group.map((e) => e.seq), "used_unsynced");
+-            setRows((r) => r.map((x) => (x.id === saved.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0 } : x)));
++            setRows((r) => r.map((x) => (x.id === saved.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0, notes } : x)));
+             await sync_(true);
+           }}
+           onRetry={async (g) => {
+@@ -713,12 +735,21 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+           })}
+         </div>
+ 
++        <NoteField
++          id="trk-note-live"
++          value={note}
++          open={noteOpen}
++          onOpen={() => setNoteOpen(true)}
++          onChange={setNote}
++          disabled={!canWrite}
++        />
++
+         <div className="trk-commit">
+           <button
+             type="button"
+             className="trk-save"
+             onClick={() => commit(selected)}
+-            disabled={!canWrite || selected.length === 0}
++            disabled={!canWrite || selected.length === 0 || noteTooLong}
+           >
+             Record QAB
+           </button>
+@@ -726,7 +757,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+             type="button"
+             className="trk-noqab"
+             onClick={() => commit([])}
+-            disabled={!canWrite}
++            disabled={!canWrite || noteTooLong}
+           >
+             No QAB
+           </button>
+@@ -1007,6 +1038,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+                           </span>
+                         </div>
+ 
++                        {r.notes && <p className="trk-pa-note">{r.notes}</p>}
++
+                         {confirmVoid?.id === r.id && (
+                           <div className="trk-confirm">
+                             <p>
+@@ -1034,7 +1067,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+                             row={r}
+                             name={slot.full_name}
+                             onCancel={() => setCorrecting(null)}
+-                            onApply={(reasons) => applyCorrection(r, reasons)}
++                            onApply={(reasons, nextNote) => applyCorrection(r, reasons, nextNote)}
+                           />
+                         )}
+                       </li>
+@@ -1089,6 +1122,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+                         {r.qab_reasons.map(reasonLabel).join(" • ")}
+                       </span>
+                     )}
++                    {r.notes && <span className="trk-hist-note">{r.notes}</span>}
+                   </button>
+                 </li>
+               ))}
+@@ -1130,6 +1164,8 @@ const REVIEW_MESSAGE = {
+  * one card each, with the decision the coach has to make. Nothing here is
+  * removed without a tap, and anything removed goes to the local discarded log.
+  */
++const sameReasonsText = (a, b) => reasonText(a) === reasonText(b);
++
+ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynced, onRetry, onDiscard }) {
+   const [busy, setBusy] = useState(false);
+   const act = (fn) => async () => {
+@@ -1154,10 +1190,13 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
+           const heading = `${nameOf(playerId)} · PA ${paNumber ?? "?"}`;
+ 
+           const fromServer = head.conflict
+-            ? { id: head.conflict.id, reasons: head.conflict.reasons, updatedAt: head.conflict.updatedAt }
++            ? { id: head.conflict.id, reasons: head.conflict.reasons, notes: head.conflict.notes ?? null, updatedAt: head.conflict.updatedAt }
+             : null;
+           const local = savedInSlot(head, savedRows);
+-          const saved = fromServer ?? (local ? { id: local.id, reasons: local.qab_reasons ?? [], updatedAt: local.updated_at } : null);
++          const saved = fromServer ?? (local ? { id: local.id, reasons: local.qab_reasons ?? [], notes: local.notes ?? null, updatedAt: local.updated_at } : null);
++          // Notes that differ are shown side by side; neither is ever dropped
++          // without the coach choosing.
++          const notesDiffer = Boolean(saved) && head.op === "record" && !sameNote(saved.notes, p.notes);
+           const conflict = head.op === "record" && saved;
+           const unsynced =
+             head.op === "void" ? "Remove this at-bat" : reasonText(p.reasons);
+@@ -1170,6 +1209,12 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
+                 <dl className="trk-review-q-cmp">
+                   <div><dt>Saved</dt><dd>{reasonText(saved.reasons)}</dd></div>
+                   <div><dt>Unsynced</dt><dd>{unsynced}</dd></div>
++                  {notesDiffer && (
++                    <>
++                      <div><dt>Saved note</dt><dd>{normalizeNote(saved.notes) ?? "No note"}</dd></div>
++                      <div><dt>Unsynced note</dt><dd>{normalizeNote(p.notes) ?? "No note"}</dd></div>
++                    </>
++                  )}
+                 </dl>
+               ) : (
+                 <>
+@@ -1197,7 +1242,7 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
+                       </button>
+                       {canUse && (
+                         <button type="button" className="btn" disabled={busy} onClick={act(() => onUseUnsynced(g, saved))}>
+-                          Use {unsynced}
++                          {notesDiffer && sameReasonsText(saved.reasons, p.reasons) ? "Use unsynced note" : <>Use {unsynced}</>}
+                         </button>
+                       )}
+                     </>
+@@ -1221,6 +1266,43 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
+   );
+ }
+ 
++/**
++ * Optional plate appearance note (2026-11). A quiet "+ Add note" until
++ * opened, so it stays secondary to the reason. Context only: nothing that
++ * counts QABs, results or records reads it.
++ */
++function NoteField({ id, value, open, onOpen, onChange, disabled = false }) {
++  if (!open) {
++    return (
++      <button type="button" className="trk-note-add" onClick={onOpen} disabled={disabled}>
++        + Add note
++      </button>
++    );
++  }
++  const used = noteLength(value.trim());
++  const over = used > MAX_NOTE_LENGTH;
++  return (
++    <div className="trk-note">
++      <label htmlFor={id} className="trk-note-label">
++        Note <span>(optional)</span>
++      </label>
++      <textarea
++        id={id}
++        className="trk-note-input"
++        rows={2}
++        value={value}
++        onChange={(e) => onChange(e.target.value)}
++        disabled={disabled}
++        aria-describedby={`${id}-count`}
++        aria-invalid={over || undefined}
++      />
++      <p id={`${id}-count`} className={`trk-note-count${over ? " over" : ""}`} aria-live="polite">
++        {over ? NOTE_TOO_LONG_ERROR : `${used}/${MAX_NOTE_LENGTH}`}
++      </p>
++    </div>
++  );
++}
++
+ /** The correction panel's explicit "not a QAB" choice. */
+ const NO_QAB = "__no_qab__";
+ 
+@@ -1237,6 +1319,9 @@ function InlineCorrection({ row, name, onCancel, onApply }) {
+   const legacy = saved.length > 1;
+   const [choice, setChoice] = useState(legacy ? null : saved[0] ?? NO_QAB);
+   const reasons = choice === NO_QAB || choice === null ? [] : [choice];
++  const [note, setNote] = useState(row.notes ?? "");
++  const [noteOpen, setNoteOpen] = useState(Boolean(row.notes));
++  const noteTooLong = noteLength(note.trim()) > MAX_NOTE_LENGTH;
+ 
+   return (
+     <div className="trk-card trk-correct">
+@@ -1276,12 +1361,19 @@ function InlineCorrection({ row, name, onCancel, onApply }) {
+           <span className="trk-reason-label">No QAB</span>
+         </button>
+       </div>
++      <NoteField
++        id={`trk-note-${row.id}`}
++        value={note}
++        open={noteOpen}
++        onOpen={() => setNoteOpen(true)}
++        onChange={setNote}
++      />
+       <div className="trk-commit">
+         <button
+           type="button"
+           className="trk-save"
+-          onClick={() => onApply(reasons)}
+-          disabled={choice === null}
++          onClick={() => onApply(reasons, note)}
++          disabled={choice === null || noteTooLong}
+         >
+           Save correction
+         </button>
+diff --git a/lib/actions/plate-appearances.js b/lib/actions/plate-appearances.js
+index 99c2fff..34e9344 100644
+--- a/lib/actions/plate-appearances.js
++++ b/lib/actions/plate-appearances.js
+@@ -3,7 +3,7 @@
+ import { revalidatePath } from "next/cache";
+ import { createClient } from "../supabase/server";
+ import { requireSeasonContext, canWrite } from "../context";
+-import { validateReasons, ONE_REASON_ERROR } from "../qab-rules";
++import { validateReasons, ONE_REASON_ERROR, validateNote, sameNote, NOTE_TOO_LONG_ERROR } from "../qab-rules";
+ import { classifyDbError, classifyThrown } from "../queue-recovery";
+ 
+ /**
+@@ -29,6 +29,8 @@ import { classifyDbError, classifyThrown } from "../queue-recovery";
+  *     pa_number) even from a second device
+  *   - enforce_pa_integrity validates org, season and person_type
+  *   - RLS carries the QAB feature gate and season scoping
++ *   - plate_appearances_notes_length caps a note at 280 characters; notes are
++ *     trimmed (blank stored as null) and over-long ones refused here first
+  */
+ 
+ async function guard() {
+@@ -51,6 +53,9 @@ function friendly(error) {
+   if (error.code === "23514" && error.message?.includes("pa_one_reason")) {
+     return ONE_REASON_ERROR;
+   }
++  if (error.code === "23514" && error.message?.includes("plate_appearances_notes_length")) {
++    return NOTE_TOO_LONG_ERROR;
++  }
+   if (error.code === "23514") {
+     return error.message.replace(/^.*?ERROR:\s*/i, "");
+   }
+@@ -133,6 +138,9 @@ export async function recordPlateAppearance({
+     // One primary reason, refused (never trimmed) before anything is written.
+     const checked = validateReasons(reasons);
+     if (!checked.ok) return failInvalid(checked.error);
++    // Optional context, refused (never truncated) before anything is written.
++    const note = validateNote(notes);
++    if (!note.ok) return failInvalid(note.error);
+ 
+     const scope = await gameScope(supabase, gameId);
+ 
+@@ -153,7 +161,7 @@ export async function recordPlateAppearance({
+           batting_order: slot,
+           inning,
+           qab_reasons: checked.reasons,
+-          notes,
++          notes: note.note,
+           // recorded_by is deliberately omitted. enforce_pa_attribution()
+           // assigns it from auth.uid() and ignores anything sent, so an entry
+           // can never be attributed to someone else.
+@@ -165,20 +173,28 @@ export async function recordPlateAppearance({
+     if (error) {
+       // The batter's slot is already held by a DIFFERENT saved plate
+       // appearance (two screens recorded the same at-bat). Read what is saved:
+-      //   - identical reason and batting position: the same at-bat is already
+-      //     saved, so this write is delivered in substance — nothing to write
++      //   - identical reason, batting position AND note: the same at-bat is
++      //     already saved, so this write is delivered in substance — nothing
++      //     to write
+       //   - otherwise: a real conflict, returned with the saved entry so the
+-      //     coach can choose. Never a second plate appearance.
++      //     coach can choose. Never a second plate appearance. A note that
++      //     differs (including one side having none) is a conflict, so
++      //     neither note is ever silently discarded.
+       if (error.code === "23505") {
+         const { data: held } = await supabase
+           .from("plate_appearances")
+-          .select("id, qab_reasons, batting_order, updated_at")
++          .select("id, qab_reasons, batting_order, notes, updated_at")
+           .eq("game_id", gameId)
+           .eq("player_id", playerId)
+           .eq("pa_number", paNumber)
+           .is("voided_at", null)
+           .maybeSingle();
+-        if (held && held.id !== id && sameReasons(held.qab_reasons, checked.reasons) && (held.batting_order ?? null) === slot) {
++        if (
++          held && held.id !== id &&
++          sameReasons(held.qab_reasons, checked.reasons) &&
++          (held.batting_order ?? null) === slot &&
++          sameNote(held.notes, note.note)
++        ) {
+           return { ok: true, duplicate: true, equivalent: true, id: held.id, notice: null };
+         }
+         if (held) {
+@@ -187,6 +203,7 @@ export async function recordPlateAppearance({
+               id: held.id,
+               reasons: held.qab_reasons ?? [],
+               battingOrder: held.batting_order ?? null,
++              notes: held.notes ?? null,
+               updatedAt: held.updated_at,
+             },
+           });
+@@ -245,7 +262,13 @@ export async function correctPlateAppearance({
+       fields.qab_reasons = checked.reasons;
+     }
+     if (inning !== undefined) fields.inning = inning;
+-    if (notes !== undefined) fields.notes = notes;
++    // Sent only when the note changes, so a reason-only correction can never
++    // erase a note.
++    if (notes !== undefined) {
++      const note = validateNote(notes);
++      if (!note.ok) return failInvalid(note.error);
++      fields.notes = note.note;
++    }
+     if (Object.keys(fields).length === 0) return { ok: true, notice: null };
+ 
+     let q = supabase.from("plate_appearances").update(fields).eq("id", id);
+diff --git a/lib/qab-rules.js b/lib/qab-rules.js
+index 2e6fd37..c9b54ce 100644
+--- a/lib/qab-rules.js
++++ b/lib/qab-rules.js
+@@ -277,3 +277,38 @@ export function recentForm(history, count = 2) {
+     qabPct: pa > 0 ? Math.round((qab / pa) * 1000) / 10 : null,
+   };
+ }
++
++/* ---------- Plate appearance notes (2026-11) ---------- */
++
++/**
++ * An optional free-form note on one plate appearance: context the QAB reason
++ * doesn't capture. Context only — no count, percentage, QAB status, game
++ * result or record reads it (tallyPlateAppearances and the qab_* views never
++ * look at notes).
++ *
++ * Counted in characters the way Postgres's char_length() counts them (code
++ * points, so an emoji is one), matching plate_appearances_notes_length.
++ */
++export const MAX_NOTE_LENGTH = 280;
++export const NOTE_TOO_LONG_ERROR = `Keep the note to ${MAX_NOTE_LENGTH} characters or fewer.`;
++
++export const noteLength = (value) => [...String(value ?? "")].length;
++
++/** Trimmed; blank becomes null. */
++export function normalizeNote(value) {
++  if (value == null) return null;
++  const trimmed = String(value).trim();
++  return trimmed.length > 0 ? trimmed : null;
++}
++
++/** { ok, note } or { ok: false, error } — refused, never truncated. */
++export function validateNote(value) {
++  const note = normalizeNote(value);
++  if (note !== null && noteLength(note) > MAX_NOTE_LENGTH) {
++    return { ok: false, error: NOTE_TOO_LONG_ERROR };
++  }
++  return { ok: true, note };
++}
++
++/** Two notes are the same once trimmed; no note and a blank note are equal. */
++export const sameNote = (a, b) => normalizeNote(a) === normalizeNote(b);
+diff --git a/lib/queue-recovery.js b/lib/queue-recovery.js
+index a807a2c..ee8a42e 100644
+--- a/lib/queue-recovery.js
++++ b/lib/queue-recovery.js
+@@ -126,6 +126,13 @@ export function ownership(entry, userId) {
+ 
+ /* ---------- Provably safe automatic resolution ---------- */
+ 
++/**
++ * Same rule as sameNote() in lib/qab-rules.js (trimmed; blank equals none).
++ * Kept local so this module stays import-free; check-qab-notes asserts the
++ * two agree.
++ */
++export const sameNote = (a, b) => (a == null ? "" : String(a).trim()) === (b == null ? "" : String(b).trim());
++
+ const sameReasons = (a, b) =>
+   JSON.stringify([...new Set(a ?? [])].sort()) === JSON.stringify([...new Set(b ?? [])].sort());
+ 
+@@ -148,7 +155,7 @@ export function savedInSlot(entry, savedRows = []) {
+  *                  the same plate appearance (and anything between them on it
+  *                  also never sent). The pair nets to nothing.
+  *   alreadySaved — a record whose slot already holds a saved plate appearance
+- *                  with the same reason and batting position, with nothing
++ *                  with the same reason, batting position and note, with nothing
+  *                  queued after it that refers to it.
+  *
+  * Ownership does not matter for either: nothing is sent.
+@@ -177,7 +184,10 @@ export function safeResolutions(entries, savedRows = []) {
+       saved &&
+       group.length === 1 &&
+       sameReasons(saved.qab_reasons, e.payload?.reasons) &&
+-      (saved.batting_order ?? null) === (e.payload?.battingOrder ?? null)
++      (saved.batting_order ?? null) === (e.payload?.battingOrder ?? null) &&
++      // A different note (or a note on only one side) is a conflict for the
++      // coach to decide, never resolved by dropping a note (2026-11).
++      sameNote(saved.notes, e.payload?.notes)
+     ) {
+       out.push({ seqs: [e.seq], reason: "already_saved" });
+       taken.add(e.seq);
+diff --git a/package.json b/package.json
+index 22fd331..e82fbf5 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "build": "node scripts/check-pending-columns.js && next build",
+     "start": "next start",
+     "lint": "next lint",
+-    "check": "node scripts/check-syntax.js && node scripts/check-pending-columns.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-report.js && node scripts/check-documents.js && node scripts/check-dues-edit.js && node scripts/check-txn-status.js && node scripts/check-tournament-commitments.js && node scripts/check-tournament-budget.js && node scripts/check-dues-filter.js && node scripts/check-uniform-sizes.js && node scripts/check-schedule.js && node scripts/check-schedule-report.js && node scripts/check-report-screens.js && node scripts/check-signout.js && node scripts/check-auth-access.js && node scripts/check-invite-lifecycle.js && node scripts/check-invite-email.js && node scripts/check-invite-stale.js && node scripts/check-qab-discover.js && node scripts/check-game-types.js && node scripts/check-performance-tournament.js && node scripts/check-qab-report.js && node scripts/check-qab-tournament.js && node scripts/check-qab-single-reason.js && node scripts/check-game-score.js && node scripts/check-queue-recovery.js && node scripts/check-queue-recovery.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-player-zip.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
++    "check": "node scripts/check-syntax.js && node scripts/check-pending-columns.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-report.js && node scripts/check-documents.js && node scripts/check-dues-edit.js && node scripts/check-txn-status.js && node scripts/check-tournament-commitments.js && node scripts/check-tournament-budget.js && node scripts/check-dues-filter.js && node scripts/check-uniform-sizes.js && node scripts/check-schedule.js && node scripts/check-schedule-report.js && node scripts/check-report-screens.js && node scripts/check-signout.js && node scripts/check-auth-access.js && node scripts/check-invite-lifecycle.js && node scripts/check-invite-email.js && node scripts/check-invite-stale.js && node scripts/check-qab-discover.js && node scripts/check-game-types.js && node scripts/check-performance-tournament.js && node scripts/check-qab-report.js && node scripts/check-qab-tournament.js && node scripts/check-qab-single-reason.js && node scripts/check-game-score.js && node scripts/check-queue-recovery.js && node scripts/check-qab-notes.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-player-zip.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
+   },
+   "dependencies": {
+     "next": "14.2.5",
+diff --git a/scripts/check-qab-notes.js b/scripts/check-qab-notes.js
+new file mode 100644
+index 0000000..e0ed21f
+--- /dev/null
++++ b/scripts/check-qab-notes.js
+@@ -0,0 +1,226 @@
++/**
++ * QAB plate appearance notes (2026-11).
++ *
++ * Runs the real note rules (lib/qab-rules.js), the real queue recovery rules
++ * (lib/queue-recovery.js) and the real server actions
++ * (lib/actions/plate-appearances.js) against a recording database stub, then
++ * proves notes cannot reach any QAB calculation, view, report or game result.
++ *
++ *   A. Rules: trim, blank -> null, 280 accepted, 281 refused, code points
++ *   B. Record: note saved; refused before any write; DB constraint message
++ *   C. Duplicate devices: differing notes are a conflict, never discarded
++ *   D. Correct: reason-only never touches a note; note-only never needs one
++ *   E. Offline queue: auto-resolution requires the same note
++ *   F. Calculations: notes change no QAB, QAB%, QAB status, W-L-T or result
++ *   G. Migration and scope (Performance only, no reports, no stats)
++ *   H. Tracker wiring
++ *
++ * Run:  node scripts/check-qab-notes.js
++ */
++const { pathToFileURL } = require("url");
++const path = require("path");
++const fs = require("fs");
++const os = require("os");
++
++let ran = 0, failures = 0;
++function assertEq(label, actual, expected) {
++  ran += 1;
++  const ok = JSON.stringify(actual) === JSON.stringify(expected);
++  if (!ok) { failures += 1; console.log(`  FAIL  ${label}\n        expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); }
++  else console.log(`  ok    ${label}`);
++}
++const ROOT = path.join(__dirname, "..");
++const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
++const withExt = (src) => src.replace(/(from\s+["'])(\.{1,2}\/[^"']+?)(["'])/g, (m, a, spec, b) => a + (spec.endsWith(".js") ? spec : spec + ".js") + b);
++
++(async () => {
++  console.log("\nQAB plate appearance notes\n");
++  const root = fs.mkdtempSync(path.join(os.tmpdir(), "qab-notes-"));
++  const files = {
++    "lib/queue-recovery.js": read("lib/queue-recovery.js"),
++    "lib/qab-rules.js": read("lib/qab-rules.js"),
++    "lib/game-rules.js": withExt(read("lib/game-rules.js")),
++    "lib/actions/plate-appearances.js": withExt(read("lib/actions/plate-appearances.js")).replace('"use server";', ""),
++    "lib/supabase/server.js": "export const createClient = () => globalThis.__client();\n",
++    "lib/context.js": "export const requireSeasonContext = async () => ({ profile: { id: 'u1', role: 'coach' } });\nexport const canWrite = () => true;\n",
++    "node_modules/next/cache.js": "export const revalidatePath = () => {};\n",
++    "node_modules/next/package.json": '{"name":"next","type":"module","exports":{"./cache":"./cache.js"}}',
++    "package.json": '{"type":"module"}',
++  };
++  for (const [rel, src] of Object.entries(files)) {
++    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
++    fs.writeFileSync(path.join(root, rel), src);
++  }
++  const imp = (p) => import(pathToFileURL(path.join(root, p)).href);
++  const Q = await imp("lib/qab-rules.js");
++  const R = await imp("lib/queue-recovery.js");
++
++  /* ---------------- A. Rules ---------------- */
++  console.log("A. Rules");
++  assertEq("trimmed", Q.normalizeNote("  Fouled off four with two strikes  "), "Fouled off four with two strikes");
++  assertEq("blank and whitespace become null", [Q.normalizeNote(""), Q.normalizeNote("   \n\t "), Q.normalizeNote(null), Q.normalizeNote(undefined)], [null, null, null, null]);
++  assertEq("280 characters accepted", Q.validateNote("x".repeat(280)), { ok: true, note: "x".repeat(280) });
++  assertEq("281 characters refused, not truncated", Q.validateNote("x".repeat(281)), { ok: false, error: Q.NOTE_TOO_LONG_ERROR });
++  assertEq("length is counted after trimming", Q.validateNote(`   ${"x".repeat(280)}   `).ok, true);
++  assertEq("an emoji counts as one character, like Postgres char_length", [Q.noteLength("⚾"), Q.validateNote("⚾".repeat(280)).ok, Q.validateNote("⚾".repeat(281)).ok], [1, true, false]);
++  assertEq("limit is 280", Q.MAX_NOTE_LENGTH, 280);
++  const pairs = [[null, null], [null, ""], ["", "  "], ["a", "a"], ["a", " a "], ["a", "b"], [null, "a"], ["a", null], [undefined, "x"]];
++  assertEq("queue-recovery's sameNote agrees with qab-rules' sameNote", pairs.map(([a, b]) => R.sameNote(a, b)), pairs.map(([a, b]) => Q.sameNote(a, b)));
++
++  /* ---------------- stub database ---------------- */
++  let held = null;
++  let upsertResult = null;
++  const calls = [];
++  globalThis.__client = () => ({
++    from(table) {
++      const api = {
++        select() { return api; }, eq() { return api; }, is() { return api; },
++        maybeSingle: async () => (table === "games" ? { data: { id: "g", organization_id: "o", season_id: "s" }, error: null } : { data: held, error: null }),
++        upsert(row) { calls.push(["upsert", row]); return { select: async () => upsertResult() }; },
++        update(row) {
++          calls.push(["update", row]);
++          const u = { eq() { return u; }, select: async () => ({ data: [{ id: "x", qab_reasons: [], is_qab: false, updated_at: "t" }], error: null }) };
++          return u;
++        },
++      };
++      return api;
++    },
++  });
++  const A = await imp("lib/actions/plate-appearances.js");
++  const base = { id: "abc30891-2831-4342-a810-0ea2ccac9738", gameId: "g", playerId: "p1", paNumber: 2, battingOrder: 6 };
++  const ok = () => ({ data: [{ id: base.id }], error: null });
++  const dup = () => ({ data: null, error: { code: "23505", message: 'duplicate key value violates unique constraint "plate_appearances_natural_key"' } });
++  const upserts = () => calls.filter((c) => c[0] === "upsert");
++  const updates = () => calls.filter((c) => c[0] === "update");
++
++  /* ---------------- B. Record ---------------- */
++  console.log("B. Record");
++  upsertResult = ok; calls.length = 0;
++  let r = await A.recordPlateAppearance({ ...base, reasons: ["walk"], notes: "  Worked a 9-pitch walk  " });
++  assertEq("note saved trimmed alongside the reason", [r.ok, upserts()[0][1].notes, upserts()[0][1].qab_reasons], [true, "Worked a 9-pitch walk", ["walk"]]);
++  calls.length = 0;
++  r = await A.recordPlateAppearance({ ...base, reasons: [], notes: "   " });
++  assertEq("whitespace-only note stored as null", [r.ok, upserts()[0][1].notes], [true, null]);
++  calls.length = 0;
++  r = await A.recordPlateAppearance({ ...base, reasons: ["hit"] });
++  assertEq("no note sent: stored as null", upserts()[0][1].notes, null);
++  calls.length = 0;
++  r = await A.recordPlateAppearance({ ...base, reasons: ["hit"], notes: "x".repeat(281) });
++  assertEq("281 characters: refused as permanent 'invalid' with nothing written", [r.ok, r.code, r.retryable, r.error, upserts().length], [false, "invalid", false, Q.NOTE_TOO_LONG_ERROR, 0]);
++  calls.length = 0;
++  r = await A.recordPlateAppearance({ ...base, reasons: ["hit"], notes: "x".repeat(280) });
++  assertEq("280 characters accepted", r.ok, true);
++  upsertResult = () => ({ data: null, error: { code: "23514", message: 'new row for relation "plate_appearances" violates check constraint "plate_appearances_notes_length"' } });
++  r = await A.recordPlateAppearance({ ...base, reasons: ["hit"], notes: "short" });
++  assertEq("database constraint refusal reads as the same coach message, permanent", [r.ok, r.error, r.code, r.retryable], [false, Q.NOTE_TOO_LONG_ERROR, "invalid", false]);
++
++  /* ---------------- C. Duplicate devices ---------------- */
++  console.log("C. Duplicate devices");
++  upsertResult = dup;
++  const savedAt = "2026-11-12T13:05:10Z";
++  held = { id: "7350d196-789d-4bf8-8a07-22431655e28f", qab_reasons: ["walk"], batting_order: 6, notes: "Worked a 9-pitch walk", updated_at: savedAt };
++  calls.length = 0;
++  r = await A.recordPlateAppearance({ ...base, reasons: ["walk"], notes: " Worked a 9-pitch walk " });
++  assertEq("same reason, position and note: delivered, nothing else written", [r.ok, r.equivalent, updates().length], [true, true, 0]);
++  r = await A.recordPlateAppearance({ ...base, reasons: ["walk"], notes: "Different context" });
++  assertEq("same reason and position, different note: a conflict with both notes kept", [r.ok, r.code, r.conflict?.notes], [false, "slot_taken", "Worked a 9-pitch walk"]);
++  r = await A.recordPlateAppearance({ ...base, reasons: ["walk"] });
++  assertEq("saved has a note, incoming has none: a conflict (the saved note is not silently overwritten or ignored)", [r.ok, r.code], [false, "slot_taken"]);
++  held = { ...held, notes: null };
++  r = await A.recordPlateAppearance({ ...base, reasons: ["walk"], notes: "Late note" });
++  assertEq("saved has no note, incoming has one: a conflict (the incoming note is not silently dropped)", [r.ok, r.code, r.conflict?.notes], [false, "slot_taken", null]);
++  r = await A.recordPlateAppearance({ ...base, reasons: ["walk"], notes: "   " });
++  assertEq("blank and none are the same note: still a delivered duplicate", [r.ok, r.equivalent], [true, true]);
++  assertEq("no conflict path ever writes a second plate appearance or an update", updates().length, 0);
++
++  /* ---------------- D. Correct ---------------- */
++  console.log("D. Correct");
++  calls.length = 0;
++  r = await A.correctPlateAppearance({ id: held.id, reasons: ["hit"] });
++  assertEq("reason-only correction never touches the note", [r.ok, updates()[0][1]], [true, { qab_reasons: ["hit"] }]);
++  calls.length = 0;
++  r = await A.correctPlateAppearance({ id: held.id, notes: "  Hit the cutoff man  " });
++  assertEq("note-only edit changes only the note, trimmed", [r.ok, updates()[0][1]], [true, { notes: "Hit the cutoff man" }]);
++  calls.length = 0;
++  r = await A.correctPlateAppearance({ id: held.id, notes: "  " });
++  assertEq("clearing a note stores null", updates()[0][1], { notes: null });
++  calls.length = 0;
++  r = await A.correctPlateAppearance({ id: held.id, reasons: ["walk"], notes: "x".repeat(281) });
++  assertEq("over-long note on a correction: refused, nothing written (reason not changed either)", [r.ok, r.code, updates().length], [false, "invalid", 0]);
++
++  /* ---------------- E. Offline queue ---------------- */
++  console.log("E. Offline queue");
++  const rec = (notes) => ({ seq: 1, op: "record", gameId: "g", userId: "u1", attempts: 0, lastError: null, state: "pending",
++    payload: { id: "a", gameId: "g", playerId: "p1", paNumber: 2, battingOrder: 1, reasons: ["hit"], ...(notes === undefined ? {} : { notes }) } });
++  const saved = (notes) => [{ id: "s", player_id: "p1", pa_number: 2, batting_order: 1, qab_reasons: ["hit"], notes, voided_at: null }];
++  assertEq("identical at-bat and note already saved: resolved with nothing sent", R.safeResolutions([rec("Bunted for a hit")], saved("Bunted for a hit")).map((x) => x.reason), ["already_saved"]);
++  assertEq("identical at-bat, no notes either side: still resolved", R.safeResolutions([rec(undefined)], saved(null)).map((x) => x.reason), ["already_saved"]);
++  assertEq("different note: left for the coach to review, never auto-resolved", R.safeResolutions([rec("A")], saved("B")), []);
++  assertEq("note only on the queued write: left for review", R.safeResolutions([rec("A")], saved(null)), []);
++  assertEq("note only on the saved row: left for review", R.safeResolutions([rec(undefined)], saved("B")), []);
++
++  /* ---------------- F. Calculations ---------------- */
++  console.log("F. Notes cannot change any calculation");
++  const rows = [
++    { id: 1, qab_reasons: ["hit"], voided_at: null },
++    { id: 2, qab_reasons: [], voided_at: null },
++    { id: 3, qab_reasons: ["walk"], voided_at: null },
++    { id: 4, qab_reasons: [], voided_at: null },
++    { id: 5, qab_reasons: ["hard_hit"], voided_at: "2026-11-12T00:00:00Z" },
++  ];
++  const noted = rows.map((x, i) => ({ ...x, notes: ["Counts as a QAB!", "QAB", "x".repeat(280), "is_qab true", null][i] }));
++  assertEq("PA, QAB and QAB% identical with and without notes", Q.tallyPlateAppearances(noted), Q.tallyPlateAppearances(rows));
++  assertEq("QAB status of each plate appearance identical (a note saying 'QAB' changes nothing)",
++    noted.map((x) => Q.isQualityAtBat(x.qab_reasons)), rows.map((x) => Q.isQualityAtBat(x.qab_reasons)));
++  assertEq("expected totals: 4 PA, 2 QAB, 50%", Q.tallyPlateAppearances(noted), { pa: 4, qab: 2, qabPct: 50 });
++  const tallySrc = read("lib/qab-rules.js").split("/* ---------- Plate appearance notes")[0];
++  assertEq("no QAB calculation in qab-rules reads notes", /notes/.test(tallySrc.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), false);
++  assertEq("game results and W-L-T (game-rules) never read plate appearances or notes", /plate_appearances|notes/.test(read("lib/game-rules.js")), false);
++  // "notes" alone also names the reports' own screen-only notices, so look for
++  // the plate appearance column: a select of it, or a row's .notes.
++  const readsPaNotes = (src) => /select\([^)]*\bnotes\b/.test(src) || /\b(pa|row|r|p|x|rec|record|plate)\.notes\b/.test(src);
++  for (const f of ["lib/queries/performance.js", "lib/queries/reports/qab-performance.js", "lib/queries/reports/qab-tournament.js"]) {
++    assertEq(`${f} does not read plate appearance notes`, readsPaNotes(read(f)), false);
++  }
++  const views = fs.readdirSync(path.join(ROOT, "supabase/migrations")).filter((f) => f.endsWith(".sql"))
++    .flatMap((f) => (read(`supabase/migrations/${f}`).match(/create (or replace )?view[\s\S]*?;/gi) ?? []));
++  assertEq("every database view exists and none reads notes", [views.length > 0, views.filter((v) => /\bnotes\b/.test(v)).length], [true, 0]);
++  const touching = fs.readdirSync(path.join(ROOT, "supabase/migrations")).filter((f) => {
++    const sql = read(`supabase/migrations/${f}`);
++    return /plate_appearances/.test(sql) && /\bnotes\b/.test(sql);
++  });
++  assertEq("only the original table and the length constraint touch plate_appearances.notes in SQL",
++    touching, ["20260813211355_qab_01_lineups_and_plate_appearances.sql", "20261112115235_qab_06_pa_notes_length.sql"]);
++
++  /* ---------------- G. Migration and scope ---------------- */
++  console.log("G. Migration and scope");
++  const mig = read("supabase/migrations/20261112115235_qab_06_pa_notes_length.sql");
++  assertEq("migration adds exactly the approved constraint",
++    /add constraint plate_appearances_notes_length\s+check \(notes is null or char_length\(notes\) <= 280\);/.test(mig), true);
++  assertEq("migration is metadata-only (no update, delete or new column)", /\b(update|delete from|add column|drop)\b/i.test(mig.replace(/--.*$/gm, "")), false);
++  for (const f of fs.readdirSync(path.join(ROOT, "components/reports"))) {
++    assertEq(`report component ${f} shows no plate appearance notes`, readsPaNotes(read(`components/reports/${f}`)), false);
++  }
++  assertEq("notes are only read where Performance data is read (the tracker query)", /qab_reasons, is_qab, notes/.test(read("lib/queries/plate-appearances.js")), true);
++  assertEq("no structured scorekeeping fields were added", /\b(rbi|errors?_count|hits?_count|at_bats|slugging)\b/i.test(mig + read("components/TrackerClient.js")), false);
++
++  /* ---------------- H. Tracker ---------------- */
++  console.log("H. Tracker");
++  const trk = read("components/TrackerClient.js");
++  assertEq("a quiet '+ Add note' opens an optional field", [/\+ Add note/.test(trk), /Note <span>\(optional\)<\/span>/.test(trk), /<textarea/.test(trk)], [true, true, true]);
++  assertEq("note field sits between the reason buttons and Record QAB", trk.indexOf('id="trk-note-live"') > trk.indexOf('aria-labelledby="trk-reason-h"') && trk.indexOf('id="trk-note-live"') < trk.indexOf("Record QAB\n          </button>"), true);
++  assertEq("Record QAB and No QAB are held while the note is too long", /selected\.length === 0 \|\| noteTooLong/.test(trk) && /disabled=\{!canWrite \|\| noteTooLong\}/.test(trk), true);
++  assertEq("recording sends the note, trimmed", /notes: normalizeNote\(note\),/.test(trk), true);
++  assertEq("the note resets after recording", /setNote\(""\);\s*setNoteOpen\(false\);\s*advance\(\);/.test(trk), true);
++  assertEq("Review & Edit has the same field, prefilled", /useState\(row\.notes \?\? ""\)/.test(trk) && /id=\{`trk-note-\$\{row\.id\}`\}/.test(trk), true);
++  assertEq("a correction sends the note only when it changed", /payload: noteChanged \? \{ id: row\.id, reasons, notes \} : \{ id: row\.id, reasons \}/.test(trk), true);
++  assertEq("saved notes show as a small secondary line", /className="trk-pa-note">\{r\.notes\}/.test(trk) && /className="trk-hist-note">\{r\.notes\}/.test(trk), true);
++  assertEq("conflict card shows both notes when they differ", /<dt>Saved note<\/dt>/.test(trk) && /<dt>Unsynced note<\/dt>/.test(trk), true);
++  assertEq("'Use unsynced' carries the unsynced note", /payload: \{ id: saved\.id, reasons, notes, expectedUpdatedAt/.test(trk), true);
++  assertEq("notes are rendered as text (no HTML injection path)", /dangerouslySetInnerHTML/.test(trk), false);
++  assertEq("note input is 16px on phones (no iOS zoom)", /\.trk-note-input \{[^}]*font-size: 16px/.test(read("app/globals.css")), true);
++
++  fs.rmSync(root, { recursive: true, force: true });
++  console.log(`\n${ran - failures} passed, ${failures} failed`);
++  process.exit(failures ? 1 : 0);
++})().catch((e) => { console.error(e); process.exit(1); });
+diff --git a/scripts/check-qab-single-reason.js b/scripts/check-qab-single-reason.js
+index 6f39b37..548cbad 100644
+--- a/scripts/check-qab-single-reason.js
++++ b/scripts/check-qab-single-reason.js
+@@ -118,11 +118,11 @@ function writeTree(files) {
+   assertEq("both pickers are radio groups with radio items",
+     [(trk.match(/role="radiogroup"/g) || []).length >= 2, /role="radio"[\s\S]{0,120}aria-checked=\{on\}/.test(trk)], [true, true]);
+   assertEq("live: still two steps — Record QAB needs a chosen reason; No QAB records none",
+-    [/onClick=\{\(\) => commit\(selected\)\}\s*disabled=\{!canWrite \|\| selected\.length === 0\}/.test(trk), /onClick=\{\(\) => commit\(\[\]\)\}/.test(trk)], [true, true]);
++    [/onClick=\{\(\) => commit\(selected\)\}\s*disabled=\{!canWrite \|\| selected\.length === 0( \|\| noteTooLong)?\}/.test(trk), /onClick=\{\(\) => commit\(\[\]\)\}/.test(trk)], [true, true]);
+   assertEq("correction: one choice (a reason or No QAB), replaced on tap",
+     [/const \[choice, setChoice\] = useState\(/.test(trk), /onClick=\{\(\) => setChoice\(r\.key\)\}/.test(trk), /onClick=\{\(\) => setChoice\(NO_QAB\)\}/.test(trk)], [true, true, true]);
+   assertEq("correction: a legacy two-reason row starts unchosen and cannot be saved until chosen",
+-    [/const legacy = saved\.length > 1;/.test(trk), /useState\(legacy \? null :/.test(trk), /disabled=\{choice === null\}/.test(trk)], [true, true, true]);
++    [/const legacy = saved\.length > 1;/.test(trk), /useState\(legacy \? null :/.test(trk), /disabled=\{choice === null( \|\| noteTooLong)?\}/.test(trk)], [true, true, true]);
+   assertEq("tracker copy: no 'Select all that apply' and no 'Several reasons'",
+     /Select all that apply|Several reasons/.test(trk), false);
+ 
+diff --git a/scripts/check-queue-recovery.js b/scripts/check-queue-recovery.js
+index ad3e5de..6c7393a 100644
+--- a/scripts/check-queue-recovery.js
++++ b/scripts/check-queue-recovery.js
+@@ -252,7 +252,7 @@ function makeIndexedDB() {
+   held = { id: "7350d196-789d-4bf8-8a07-22431655e28f", qab_reasons: ["hard_hit"], batting_order: 6, updated_at: "2026-08-28T13:05:10Z" };
+   let r = await A.recordPlateAppearance({ ...base, reasons: ["hit"] });
+   assertEq("slot conflict: permanent, with the saved entry for the coach", [r.ok, r.code, r.retryable, r.conflict],
+-    [false, "slot_taken", false, { id: held.id, reasons: ["hard_hit"], battingOrder: 6, updatedAt: "2026-08-28T13:05:10Z" }]);
++    [false, "slot_taken", false, { id: held.id, reasons: ["hard_hit"], battingOrder: 6, notes: null, updatedAt: "2026-08-28T13:05:10Z" }]);
+   r = await A.recordPlateAppearance({ ...base, reasons: ["hard_hit"] });
+   assertEq("same at-bat already saved (identical reason and position): delivered, nothing else written",
+     [r.ok, r.equivalent, calls.filter((c) => c[0] === "update").length], [true, true, 0]);
+@@ -270,7 +270,7 @@ function makeIndexedDB() {
+   assertEq("conflict card: name · PA, Saved and Unsynced, Keep saved | Use <reason>",
+     [/\$\{nameOf\(playerId\)\} · PA/.test(trk), /<dt>Saved<\/dt>/.test(trk), /<dt>Unsynced<\/dt>/.test(trk), /Keep saved/.test(trk), /Use \{unsynced\}/.test(trk)], [true, true, true, true, true]);
+   assertEq("'Use' corrects the SAVED plate appearance (never a second record)",
+-    /op: "correct",[\s\S]{0,80}payload: \{ id: saved\.id, reasons, expectedUpdatedAt: saved\.updatedAt \?\? null \}/.test(trk), true);
++    /op: "correct",[\s\S]{0,80}payload: \{ id: saved\.id, reasons, notes, expectedUpdatedAt: saved\.updatedAt \?\? null \}/.test(trk), true);
+   assertEq("Finish says the at-bat needs review, not that the connection is the problem",
+     [/at-\$\{s\.review === 1 \? "bat needs" : "bats need"\} your review before tracking can finish/.test(trk), /if \(s\.review > 0 \|\| s\.waiting > 0 \|\| s\.other > 0\)/.test(trk)], [true, true]);
+   assertEq("Retry is offered only for writes that can still go through, not for review",
+diff --git a/supabase/migrations/20261112115235_qab_06_pa_notes_length.sql b/supabase/migrations/20261112115235_qab_06_pa_notes_length.sql
+new file mode 100644
+index 0000000..7d6b3ad
+--- /dev/null
++++ b/supabase/migrations/20261112115235_qab_06_pa_notes_length.sql
+@@ -0,0 +1,22 @@
++-- QAB plate appearance notes (2026-11).
++--
++-- plate_appearances.notes has existed since qab_01 and is now used for an
++-- optional coach note on one plate appearance: context the QAB reason doesn't
++-- capture. The application trims notes, stores blank as null and refuses more
++-- than 280 characters before writing. This constraint is the backstop for any
++-- write that does not go through the application.
++--
++-- char_length counts characters (code points), as the application does.
++-- Metadata-only: production had 0 notes when this was written (2026-11-12),
++-- so validation scans the table and changes no row.
++--
++-- Notes are context only. No count, percentage, QAB status, game result or
++-- record reads this column; the qab_* views and the application tallies use
++-- qab_reasons / is_qab and voided_at only.
++
++alter table public.plate_appearances
++  add constraint plate_appearances_notes_length
++  check (notes is null or char_length(notes) <= 280);
++
++comment on column public.plate_appearances.notes is
++  'Optional coach note on this plate appearance (max 280 characters). Context only: never used in any QAB, result or record calculation, and not included in parent-facing outputs.';
+-- 
+2.43.0
+

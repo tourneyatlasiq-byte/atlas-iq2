@@ -252,7 +252,7 @@ function makeIndexedDB() {
   held = { id: "7350d196-789d-4bf8-8a07-22431655e28f", qab_reasons: ["hard_hit"], batting_order: 6, updated_at: "2026-08-28T13:05:10Z" };
   let r = await A.recordPlateAppearance({ ...base, reasons: ["hit"] });
   assertEq("slot conflict: permanent, with the saved entry for the coach", [r.ok, r.code, r.retryable, r.conflict],
-    [false, "slot_taken", false, { id: held.id, reasons: ["hard_hit"], battingOrder: 6, updatedAt: "2026-08-28T13:05:10Z" }]);
+    [false, "slot_taken", false, { id: held.id, reasons: ["hard_hit"], battingOrder: 6, notes: null, updatedAt: "2026-08-28T13:05:10Z" }]);
   r = await A.recordPlateAppearance({ ...base, reasons: ["hard_hit"] });
   assertEq("same at-bat already saved (identical reason and position): delivered, nothing else written",
     [r.ok, r.equivalent, calls.filter((c) => c[0] === "update").length], [true, true, 0]);
@@ -270,7 +270,7 @@ function makeIndexedDB() {
   assertEq("conflict card: name · PA, Saved and Unsynced, Keep saved | Use <reason>",
     [/\$\{nameOf\(playerId\)\} · PA/.test(trk), /<dt>Saved<\/dt>/.test(trk), /<dt>Unsynced<\/dt>/.test(trk), /Keep saved/.test(trk), /Use \{unsynced\}/.test(trk)], [true, true, true, true, true]);
   assertEq("'Use' corrects the SAVED plate appearance (never a second record)",
-    /op: "correct",[\s\S]{0,80}payload: \{ id: saved\.id, reasons, expectedUpdatedAt: saved\.updatedAt \?\? null \}/.test(trk), true);
+    /op: "correct",[\s\S]{0,80}payload: \{ id: saved\.id, reasons, notes, expectedUpdatedAt: saved\.updatedAt \?\? null \}/.test(trk), true);
   assertEq("Finish says the at-bat needs review, not that the connection is the problem",
     [/at-\$\{s\.review === 1 \? "bat needs" : "bats need"\} your review before tracking can finish/.test(trk), /if \(s\.review > 0 \|\| s\.waiting > 0 \|\| s\.other > 0\)/.test(trk)], [true, true]);
   assertEq("Retry is offered only for writes that can still go through, not for review",

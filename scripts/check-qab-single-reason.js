@@ -118,11 +118,11 @@ function writeTree(files) {
   assertEq("both pickers are radio groups with radio items",
     [(trk.match(/role="radiogroup"/g) || []).length >= 2, /role="radio"[\s\S]{0,120}aria-checked=\{on\}/.test(trk)], [true, true]);
   assertEq("live: still two steps — Record QAB needs a chosen reason; No QAB records none",
-    [/onClick=\{\(\) => commit\(selected\)\}\s*disabled=\{!canWrite \|\| selected\.length === 0\}/.test(trk), /onClick=\{\(\) => commit\(\[\]\)\}/.test(trk)], [true, true]);
+    [/onClick=\{\(\) => commit\(selected\)\}\s*disabled=\{!canWrite \|\| selected\.length === 0( \|\| noteTooLong)?\}/.test(trk), /onClick=\{\(\) => commit\(\[\]\)\}/.test(trk)], [true, true]);
   assertEq("correction: one choice (a reason or No QAB), replaced on tap",
     [/const \[choice, setChoice\] = useState\(/.test(trk), /onClick=\{\(\) => setChoice\(r\.key\)\}/.test(trk), /onClick=\{\(\) => setChoice\(NO_QAB\)\}/.test(trk)], [true, true, true]);
   assertEq("correction: a legacy two-reason row starts unchosen and cannot be saved until chosen",
-    [/const legacy = saved\.length > 1;/.test(trk), /useState\(legacy \? null :/.test(trk), /disabled=\{choice === null\}/.test(trk)], [true, true, true]);
+    [/const legacy = saved\.length > 1;/.test(trk), /useState\(legacy \? null :/.test(trk), /disabled=\{choice === null( \|\| noteTooLong)?\}/.test(trk)], [true, true, true]);
   assertEq("tracker copy: no 'Select all that apply' and no 'Several reasons'",
     /Select all that apply|Several reasons/.test(trk), false);
 
