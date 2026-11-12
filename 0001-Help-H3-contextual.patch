@@ -1,0 +1,744 @@
+From 3b713f57be32f3f461633d9f7e195f3d20fc0a33 Mon Sep 17 00:00:00 2001
+From: Claude <claude@example.com>
+Date: Thu, 12 Nov 2026 14:08:47 +0000
+Subject: [PATCH] Help H3: contextual assistance for QAB, Finance, People &
+ Access
+
+---
+ HELP-H3-INSTRUCTIONS.md      |  30 ++++++++
+ app/(app)/layout.js          |  16 +++--
+ app/globals.css              |  58 ++++++++++++++++
+ claude/help-h3-contextual.md |  18 +++++
+ components/ContextHelp.js    | 129 +++++++++++++++++++++++++++++++++++
+ components/FinanceClient.js  |  23 ++++++-
+ components/HelpContext.js    |  12 +++-
+ components/LineupClient.js   |  13 ++++
+ components/SettingsClient.js |   8 +++
+ components/TrackerClient.js  |  31 +++++++++
+ lib/help-answers.js          |  47 +++++++++++++
+ lib/help-search.js           |   2 +-
+ lib/onboarding.js            |   1 -
+ scripts/check-help.js        |  74 +++++++++++++++++++-
+ 14 files changed, 449 insertions(+), 13 deletions(-)
+ create mode 100644 HELP-H3-INSTRUCTIONS.md
+ create mode 100644 claude/help-h3-contextual.md
+ create mode 100644 components/ContextHelp.js
+
+diff --git a/HELP-H3-INSTRUCTIONS.md b/HELP-H3-INSTRUCTIONS.md
+new file mode 100644
+index 0000000..3d88bfe
+--- /dev/null
++++ b/HELP-H3-INSTRUCTIONS.md
+@@ -0,0 +1,30 @@
++# Help H3: contextual assistance (QAB, Finance, People & Access)
++
++Built on production `main` at `edd266d` ("help", Help & Getting Started V1). No database, schema,
++migration, RLS, server action or authorization change. Auth Phase 3C untouched.
++
++## Apply
++
++1. Copy the ZIP's contents into the root of your `atlas-iq2` clone, allowing overwrite.
++2. GitHub Desktop should show exactly **15 changed files**: 11 modified, 4 new.
++
++Modified: `app/(app)/layout.js` (Help context also carries the person's access),
++`app/globals.css` (H3 styles appended), `components/FinanceClient.js`, `components/HelpContext.js`,
++`components/LineupClient.js`, `components/SettingsClient.js`, `components/TrackerClient.js`
++(two Help entry points only), `lib/help-answers.js`, `lib/help-search.js`, `lib/onboarding.js`
++(removes the unused "Player Dues" term tip text), `scripts/check-help.js`.
++
++New: `components/ContextHelp.js`, `HELP-H3-INSTRUCTIONS.md`, `0001-Help-H3-contextual.patch`
++(optional, for reference), and `claude/help-h3-contextual.md` (what each entry point reuses).
++
++If the count differs, stop and tell Claude before committing.
++
++## Check in production after deploy (a QAB organization)
++
++1. Set Batting Order: "How this works" opens in place with three questions.
++2. Live tracking: "Need help?" under the QAB tally opens in place; "Can I enter this after the game?"
++   says to return to this game later; nothing navigates away.
++3. Edit at-bats: "Need help?" under "Recorded plate appearances".
++4. Finance: "How this works" under the tabs shows the five pieces; on Player Dues it shows three
++   questions and the old "Player dues ?" tip is gone.
++5. Settings › People & Access: "How this works" explains roster vs. login.
+diff --git a/app/(app)/layout.js b/app/(app)/layout.js
+index c668f43..036e8de 100644
+--- a/app/(app)/layout.js
++++ b/app/(app)/layout.js
+@@ -1,5 +1,5 @@
+ import { redirect } from "next/navigation";
+-import { getContext } from "../../lib/context";
++import { getContext, isOrgAdmin, canWrite } from "../../lib/context";
+ import { NavSidebar } from "../../components/NavSidebar";
+ import { HelpContextProvider } from "../../components/HelpContext";
+ import { AppFooter } from "../../components/AppFooter";
+@@ -9,7 +9,7 @@ import { SeasonBanner } from "../../components/SeasonBanner";
+ export const dynamic = "force-dynamic";
+ 
+ export default async function AppLayout({ children }) {
+-  const { user, organization, team, season, seasons, seasonPhase, currentSeason, features } =
++  const { user, profile, organization, team, season, seasons, seasonPhase, currentSeason, features } =
+     await getContext();
+ 
+   // No organization yet means a brand-new signup, not a misconfigured account.
+@@ -35,8 +35,16 @@ export default async function AppLayout({ children }) {
+             seasonName={season?.name}
+             currentSeasonName={currentSeason?.name}
+           />
+-          {/* Lets the Help popover know whether QAB is on (2026-11). */}
+-          <HelpContextProvider qab={features?.qab}>{children}</HelpContextProvider>
++          {/* Lets Help (popover and contextual answers) know whether QAB is on and
++              what this person may do (2026-11). Presentation only. */}
++          <HelpContextProvider
++            qab={features?.qab}
++            isAdmin={isOrgAdmin(profile)}
++            canWrite={canWrite(profile)}
++            phase={seasonPhase}
++          >
++            {children}
++          </HelpContextProvider>
+ 
+           <AppFooter />
+         </main>
+diff --git a/app/globals.css b/app/globals.css
+index 5bc8c60..54b98a7 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -6769,3 +6769,61 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
+   .hc-progress-actions .btn { width: 100%; justify-content: center; }
+   .hc-home .hc-guides { grid-template-columns: minmax(0, 1fr); }
+ }
++
++/* ===== Contextual Help (H3, 2026-11) =====
++   One quiet control per screen; opens in place below itself. No floating
++   popover, so it behaves the same at 390px as on desktop. */
++.ch { margin: 8px 0 0; }
++.ch-end { display: flex; flex-direction: column; align-items: flex-end; }
++.ch-end .ch-panel { align-self: stretch; }
++.ch-trigger {
++  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 2px;
++  background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600;
++  color: var(--blue-dark); cursor: pointer;
++}
++.ch-trigger:hover span:last-child, .ch-trigger:focus-visible span:last-child { text-decoration: underline; }
++.ch-icon {
++  flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor;
++  display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; line-height: 1;
++}
++
++.ch-panel {
++  margin-top: 6px; padding: 12px 14px; text-align: left;
++  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
++  box-shadow: 0 6px 18px rgba(11, 35, 65, 0.06);
++}
++.ch-title { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--navy); }
++.ch-pieces { margin: 0 0 6px; }
++.ch-pieces > div { display: grid; grid-template-columns: 130px 1fr; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); }
++.ch-pieces > div:first-child { border-top: 0; padding-top: 0; }
++.ch-pieces dt { font-size: 13px; font-weight: 700; color: var(--navy); }
++.ch-pieces dd { margin: 0; font-size: 13px; line-height: 1.45; color: var(--slate); }
++.ch-questions { list-style: none; margin: 0; padding: 0; }
++.ch-questions li + li { border-top: 1px solid var(--border); }
++.ch-q {
++  width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
++  padding: 8px 0; background: none; border: 0; font: inherit; font-size: 14px; font-weight: 600;
++  color: var(--navy); text-align: left; cursor: pointer;
++}
++.ch-q:hover span:first-child, .ch-q:focus-visible span:first-child { color: var(--blue-dark); }
++.ch-q-mark { flex-shrink: 0; width: 18px; text-align: center; color: var(--slate); font-size: 16px; }
++.ch-a { padding: 0 0 12px; }
++.ch-a p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #334155; }
++.ch-action { display: inline-flex; align-items: center; min-height: 36px; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--blue-dark); text-decoration: none; }
++.ch-action:hover { text-decoration: underline; }
++.ch-reason { margin-top: 6px !important; font-size: 12.5px !important; color: var(--slate) !important; }
++.ch-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
++.ch-more { display: inline-flex; align-items: center; min-height: 36px; font-size: 13px; font-weight: 600; color: var(--blue-dark); text-decoration: none; }
++.ch-more:hover { text-decoration: underline; }
++.ch-close { margin-left: auto; min-height: 36px; padding: 0 2px; background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--slate); cursor: pointer; }
++.ch-close:hover { color: var(--navy); }
++.tabs + .ch { margin: -10px 0 10px; }
++.trk-head + .ch { margin: -8px 0 6px; }
++.trk-head + .ch.open { margin-bottom: 12px; }
++.settings-card-head + .ch { margin: -4px 0 10px; }
++
++@media (max-width: 720px) {
++  .ch-pieces > div { grid-template-columns: minmax(0, 1fr); gap: 1px; }
++  .ch-trigger { min-height: 44px; }
++  .ch-more, .ch-close, .ch-action { min-height: 44px; }
++}
+diff --git a/claude/help-h3-contextual.md b/claude/help-h3-contextual.md
+new file mode 100644
+index 0000000..f64015d
+--- /dev/null
++++ b/claude/help-h3-contextual.md
+@@ -0,0 +1,18 @@
++# Help H3: contextual assistance (approved 2026-11)
++
++One quiet entry point per screen ("How this works" / "Need help?"), opening in place below itself.
++Content is the H1/H2 Help answers, never a second knowledge base: a screen may reword the question,
++and an answer may carry a short presentation variant (`in` on the canonical answer) so it never says
++to open the screen the person is already using. Permission- and QAB-aware via HelpContext.
++
++| Screen | Entry | Answers reused | Learn more |
++|---|---|---|---|
++| Set Batting Order | How this works | qab-lineup, tournament-roster, qab-track (variant: lineup) | QAB guide › batting order |
++| Live tracking | Need help? | qab-what-counts (new), qab-after-game, qab-note, qab-fix (variant: tracker-live) | none |
++| Edit at-bats | Need help? | qab-fix, qab-reason-change (new), qab-note (variant: tracker-review) | none |
++| Finance (Budget, Transactions, Money In) | How this works | Money guide "How the pieces fit" | Manage team money |
++| Player Dues | How this works | dues-how, dues-payment (variant: dues), dues-exempt | Money guide › dues |
++| Settings › People & Access | How this works | Access guide "On the roster vs. Season Tempo access", coach-login (variant: people) | Invite coaches and managers |
++
++Removed: the "Player dues ?" term tip on the Finance summary (its extra fact is printed on that panel).
++Performance itself is unchanged.
+diff --git a/components/ContextHelp.js b/components/ContextHelp.js
+new file mode 100644
+index 0000000..82aa121
+--- /dev/null
++++ b/components/ContextHelp.js
+@@ -0,0 +1,129 @@
++"use client";
++
++import { useId, useState } from "react";
++import Link from "next/link";
++import { usePathname, useSearchParams } from "next/navigation";
++import { actionState, helpHref, findGuide } from "../lib/help";
++import { findAnswer } from "../lib/help-answers";
++import { useHelpContext } from "./HelpContext";
++
++/**
++ * Contextual Help (H3, 2026-11): help at the moment of confusion.
++ *
++ * One small "How this works" / "Need help?" control per screen or section.
++ * It opens IN PLACE — an inline panel directly below, never a navigation and
++ * never a floating popover — so a coach in the middle of tracking a game
++ * stays where they are. Content is the existing Help content:
++ *
++ *   questions  [{ id, ask? }] — Help answers (lib/help-answers.js). `ask`
++ *              rephrases the question for this screen; the answer is reused
++ *              word for word, never rewritten here.
++ *   pieces     a guide slug whose "how the pieces fit" block to show.
++ *   learnMore  "slug#anchor", only where the full guide adds something.
++ *   context    which presentation variant to use (answer.in[context]) when
++ *              the answer is shown on the screen it talks about; falls back
++ *              to the canonical answer.
++ *   actions    whether answer buttons may show. Off on tracking screens so
++ *              nothing pulls the coach away; a button for the screen you are
++ *              already on is never shown.
++ *
++ * Permission- and QAB-aware through HelpContext (provided by the app
++ * layout): QAB answers are dropped where QAB is off, and an action the
++ * person can't complete says why instead.
++ */
++export function ContextHelp({ label = "How this works", questions = [], pieces = null, learnMore = null, actions = true, align = "start", title = null, initialOpen = false, context = null }) {
++  const access = useHelpContext();
++  const [open, setOpen] = useState(initialOpen);
++  const [openQ, setOpenQ] = useState(0);
++  const panelId = useId();
++  const pathname = usePathname() ?? "";
++  const qs = useSearchParams()?.toString() ?? "";
++  const here = `${pathname}${qs ? `?${qs}` : ""}`;
++
++  const items = questions
++    .map((q) => ({ ...q, answer: findAnswer(q.id) }))
++    .filter((q) => q.answer && (access.qab || q.answer.action?.requires !== "qab"));
++  const block = pieces ? findGuide(pieces)?.pieces : null;
++  if (items.length === 0 && !block) return null;
++
++  const [lmSlug, lmAnchor] = String(learnMore ?? "").split("#");
++  const lmGuide = lmSlug ? findGuide(lmSlug) : null;
++
++  return (
++    <div className={`ch ch-${align}${open ? " open" : ""}`}>
++      <button
++        type="button"
++        className="ch-trigger"
++        aria-expanded={open}
++        aria-controls={panelId}
++        onClick={() => setOpen(!open)}
++      >
++        <span className="ch-icon" aria-hidden="true">?</span>
++        <span>{label}</span>
++      </button>
++
++      {open && (
++        <div className="ch-panel" id={panelId} role="region" aria-label={title ?? label}>
++          {title && <p className="ch-title">{title}</p>}
++
++          {block && (
++            <dl className="ch-pieces">
++              {block.items.map((p) => (
++                <div key={p.term}>
++                  <dt>{p.term}</dt>
++                  <dd>{p.text}</dd>
++                </div>
++              ))}
++            </dl>
++          )}
++
++          {items.length > 0 && (
++            <ul className="ch-questions">
++              {items.map((q, i) => {
++                const a = q.answer;
++                const isOpen = openQ === i;
++                const actionPath = a.action ? a.action.href.split(/[?#]/)[0] : null;
++                const state = actions && a.action && actionPath !== pathname ? actionState(a.action, access) : null;
++                return (
++                  <li key={q.id} className={isOpen ? "on" : undefined}>
++                    <button
++                      type="button"
++                      className="ch-q"
++                      aria-expanded={isOpen}
++                      onClick={() => setOpenQ(isOpen ? -1 : i)}
++                    >
++                      <span>{q.ask ?? a.title}</span>
++                      <span className="ch-q-mark" aria-hidden="true">{isOpen ? "−" : "+"}</span>
++                    </button>
++                    {isOpen && (
++                      <div className="ch-a">
++                        <p>{(context && a.in?.[context]) || a.answer}</p>
++                        {state?.ok && (
++                          <Link href={a.action.href} className="ch-action">
++                            {a.action.label} →
++                          </Link>
++                        )}
++                        {state && !state.ok && state.reason && <p className="ch-reason">{state.reason}</p>}
++                      </div>
++                    )}
++                  </li>
++                );
++              })}
++            </ul>
++          )}
++
++          <div className="ch-foot">
++            {lmGuide && (
++              <Link href={helpHref(`/help/${lmSlug}${lmAnchor ? `#${lmAnchor}` : ""}`, here)} className="ch-more">
++                Learn more in {lmGuide.title} →
++              </Link>
++            )}
++            <button type="button" className="ch-close" onClick={() => setOpen(false)}>
++              Close
++            </button>
++          </div>
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/components/FinanceClient.js b/components/FinanceClient.js
+index 24231c4..c42b334 100644
+--- a/components/FinanceClient.js
++++ b/components/FinanceClient.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import Link from "next/link";
++import { ContextHelp } from "./ContextHelp";
+ import { DrawerShell } from "./DrawerShell";
+ 
+ import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
+@@ -21,7 +22,6 @@ import {
+   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
+ } from "../lib/finance-rules";
+ import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+-import { HelpTip } from "./HelpTip";
+ import {
+   saveBudgetItem,
+   deleteBudgetItem,
+@@ -518,7 +518,11 @@ export function FinanceClient({
+ 
+           <section className="fin-dues-panel">
+             <p className="fin-panel-label">
+-              Player dues <HelpTip term="Player Dues" />
++              {/* The "Player Dues ?" term tip was removed (H3, 2026-11): the
++                  Player Dues tab's "How this works" is the one Help entry
++                  here, and the tip's one extra fact (totals include players
++                  who have left) is stated on this panel below. */}
++              Player dues
+             </p>
+             <p className="fin-dues-hero">
+               {duesCollectedPercent(dues) ?? 0}%
+@@ -694,6 +698,21 @@ export function FinanceClient({
+         ))}
+       </div>
+ 
++      {/* H3: one "How this works" for Finance, matched to the tab (2026-11).
++          Player Dues gets its three questions; every other tab gets the
++          existing "How the pieces fit" explanation. */}
++      {tab === "payments" ? (
++        <ContextHelp
++          key="dues"
++          align="end"
++          context="dues"
++          questions={[{ id: "dues-how" }, { id: "dues-payment" }, { id: "dues-exempt" }]}
++          learnMore="money#dues"
++        />
++      ) : (
++        <ContextHelp key="pieces" align="end" title="How Finance fits together" pieces="money" learnMore="money" />
++      )}
++
+       {tab === "budget" && (
+         <BudgetTab
+           budget={budget}
+diff --git a/components/HelpContext.js b/components/HelpContext.js
+index 22aabd3..0570a1a 100644
+--- a/components/HelpContext.js
++++ b/components/HelpContext.js
+@@ -13,10 +13,16 @@ import { createContext, useContext } from "react";
+  * Without a provider, QAB is treated as off, so Help never knowingly offers
+  * QAB questions it can't stand behind.
+  */
+-const HelpContext = createContext({ qab: false });
++const HelpContext = createContext({ qab: false, isAdmin: false, canWrite: false, phase: null });
+ 
+-export function HelpContextProvider({ qab = false, children }) {
+-  return <HelpContext.Provider value={{ qab: Boolean(qab) }}>{children}</HelpContext.Provider>;
++/**
++ * Also carries the person's access (H3), the same shape Help's actionState
++ * uses on /help, so contextual answers never offer a button the person
++ * can't complete. Unknown access fails closed.
++ */
++export function HelpContextProvider({ qab = false, isAdmin = false, canWrite = false, phase = null, children }) {
++  const value = { qab: Boolean(qab), isAdmin: Boolean(isAdmin), canWrite: Boolean(canWrite), phase: phase ?? null };
++  return <HelpContext.Provider value={value}>{children}</HelpContext.Provider>;
+ }
+ 
+ export const useHelpContext = () => useContext(HelpContext);
+diff --git a/components/LineupClient.js b/components/LineupClient.js
+index 02c0c75..767f9d3 100644
+--- a/components/LineupClient.js
++++ b/components/LineupClient.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState } from "react";
++import { ContextHelp } from "./ContextHelp";
+ import { useActionFeedback } from "../lib/useActionFeedback";
+ import { saveLineup, copyLineupFrom } from "../lib/actions/lineup";
+ 
+@@ -150,6 +151,18 @@ export function LineupClient({
+           {game.start_time && ` · ${fmtTime(game.start_time)}`}
+           {game.game_type && ` · ${game.game_type}`}
+         </p>
++        {/* H3: help in place, reusing Help answers (2026-11). */}
++        <ContextHelp
++          label="How this works"
++          context="lineup"
++          questions={[
++            { id: "qab-lineup", ask: "How does the batting order work?" },
++            { id: "tournament-roster", ask: "Where do these players come from?" },
++            { id: "qab-track", ask: "What happens after I save it?" },
++          ]}
++          actions={false}
++          learnMore="qab#batting-order"
++        />
+       </header>
+ 
+       {error && <div className="notice notice-error">{error}</div>}
+diff --git a/components/SettingsClient.js b/components/SettingsClient.js
+index 234a832..e8feca0 100644
+--- a/components/SettingsClient.js
++++ b/components/SettingsClient.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { SignOutButton } from "./SignOutButton";
++import { ContextHelp } from "./ContextHelp";
+ import { useState, useTransition, useEffect } from "react";
+ import { PageHelp } from "./PageHelp";
+ import { useMutation } from "./useMutation";
+@@ -276,6 +277,13 @@ export function SettingsClient({
+               </button>
+             )}
+           </div>
++          {/* H3: roster vs. login, answered in place (2026-11). */}
++          <ContextHelp
++            title="On the roster vs. Season Tempo access"
++            pieces="access"
++            questions={[{ id: "coach-login", ask: "Why can't a coach sign in?" }]}
++            learnMore="access#invite"
++          />
+ 
+           {/* One column structure for every row (Phase 2D cleanup):
+               Person | Access | Role | Actions. Invitation details sit under
+diff --git a/components/TrackerClient.js b/components/TrackerClient.js
+index 75f4539..b064dd8 100644
+--- a/components/TrackerClient.js
++++ b/components/TrackerClient.js
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
++import { ContextHelp } from "./ContextHelp";
+ import Link from "next/link";
+ import {
+   QAB_REASONS, reasonLabel, tallyPlateAppearances,
+@@ -582,6 +583,25 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+         </span>
+       </header>
+ 
++      {/* H3: a small "Need help?" that opens help IN PLACE while tracking, so
++          the coach never leaves the game. No buttons that navigate away, and
++          answers worded for someone already in the tracker. (2026-11) */}
++      {mode === "live" && (
++        <ContextHelp
++          label="Need help?"
++          align="end"
++          title="Tracking help"
++          context="tracker-live"
++          questions={[
++            { id: "qab-what-counts" },
++            { id: "qab-after-game", ask: "Can I enter this after the game?" },
++            { id: "qab-note", ask: "Can I add a note?" },
++            { id: "qab-fix", ask: "What if I chose the wrong batter?" },
++          ]}
++          actions={false}
++        />
++      )}
++
+       {/* Two views and one action. Finish sits here so game management is in
+           one place, but it is deliberately NOT a third tab: it is outside the
+           tablist, styled as an action, and it ends the game rather than
+@@ -975,6 +995,17 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
+           <h2 className="trk-history-h">
+             Recorded plate appearances <span>({live.length})</span>
+           </h2>
++          {/* H3: Review & Edit questions, answered in place (2026-11). */}
++          <ContextHelp
++            label="Need help?"
++            context="tracker-review"
++            questions={[
++              { id: "qab-fix", ask: "How do I fix the wrong batter?" },
++              { id: "qab-reason-change", ask: "Can I change a QAB reason?" },
++              { id: "qab-note", ask: "Can I edit a note?" },
++            ]}
++            actions={false}
++          />
+           <p className="trk-card-s">
+             Nothing is added automatically here. Use “+ Add plate appearance” for a batter.
+           </p>
+diff --git a/lib/help-answers.js b/lib/help-answers.js
+index 81436f6..5576d8f 100644
+--- a/lib/help-answers.js
++++ b/lib/help-answers.js
+@@ -14,6 +14,11 @@
+  *             through actionState (lib/help.js), exactly like guide actions
+  *   guide     "slug#step" — the deeper layer
+  *   keywords  everyday words and phrases a coach types. Search only.
++ *   in        optional presentation variants, by screen, for contextual Help
++ *             (H3): the same answer worded for someone already on that
++ *             screen, so it never says "open" the screen they're using. The
++ *             canonical `answer` stays authoritative everywhere else; a
++ *             variant may only restate it, never add a different rule.
+  *
+  * Pure data (only the support address is imported) so the server page, the Help popover, guide-page
+  * search and the check scripts all read the same answers. A future
+@@ -31,6 +36,9 @@ export const HELP_ANSWERS = [
+     action: { href: "/performance", label: "Open Performance", requires: "qab" },
+     guide: "qab#batting-order",
+     keywords: "track tracking record qab qabs quality at bat at-bat start live score keep stats plate appearance",
++    in: {
++      "lineup": "Once it's saved, start tracking: record each plate appearance in this order, choosing the one reason that made it a QAB, or No QAB.",
++    },
+   },
+   {
+     id: "qab-after-game",
+@@ -39,6 +47,9 @@ export const HELP_ANSWERS = [
+     action: { href: "/performance", label: "Open Performance", requires: "qab" },
+     guide: "qab#track",
+     keywords: "after later afterwards post game scorebook missed forgot didn't track not live enter catch up past game yesterday",
++    in: {
++      "tracker-live": "Yes. If you don't track QABs live, you can return to this game later and enter each plate appearance from your scorebook.",
++    },
+   },
+   {
+     id: "qab-fix",
+@@ -47,6 +58,29 @@ export const HELP_ANSWERS = [
+     action: { href: "/performance", label: "Open Performance", requires: "qab" },
+     guide: "qab#correct",
+     keywords: "wrong batter hitter fix correct correction mistake edit change undo remove completed finished game wrong reason oops",
++    in: {
++      "tracker-live": "Switch to Edit at-bats, choose Remove on the plate appearance under the wrong batter, then use + Add plate appearance under the right batter and record it again.",
++      "tracker-review": "Find the plate appearance under the wrong batter and choose Remove. Then use + Add plate appearance under the right batter and record it again.",
++    },
++  },
++  {
++    id: "qab-what-counts",
++    title: "What counts as a QAB?",
++    answer: "A plate appearance is a QAB when one of eight reasons applies: hit, walk, HBP, hard hit ball, 8+ pitches, situational success, sac bunt or sac fly. Choose the one that best represents it; otherwise tap No QAB.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#record",
++    keywords: "what counts qab quality at bat definition reason reasons count qualifies rule criteria",
++  },
++  {
++    id: "qab-reason-change",
++    title: "Change a QAB reason",
++    answer: "In Review & Edit, choose Edit on the plate appearance, pick the right reason or No QAB, then Save correction. A note on it stays as it was.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#correct",
++    keywords: "change reason edit reason wrong reason switch qab no qab correction",
++    in: {
++      "tracker-review": "Choose Edit on the plate appearance, pick the right reason or No QAB, then Save correction. A note on it stays as it was.",
++    },
+   },
+   {
+     id: "qab-note",
+@@ -55,6 +89,10 @@ export const HELP_ANSWERS = [
+     action: { href: "/performance", label: "Open Performance", requires: "qab" },
+     guide: "qab#record",
+     keywords: "note notes add note comment comments context memo remark at bat plate appearance qab detail write",
++    in: {
++      "tracker-live": "Yes. Before you record, tap + Add note under the reasons. You can view or edit it later in Edit at-bats. Notes are context only; they don't change QAB counts or percentages.",
++      "tracker-review": "Yes. Choose Edit on the plate appearance to change or clear its note, then Save correction. Notes don't change QAB counts or percentages.",
++    },
+   },
+   {
+     id: "qab-lineup",
+@@ -63,6 +101,9 @@ export const HELP_ANSWERS = [
+     action: { href: "/performance", label: "Open Performance", requires: "qab" },
+     guide: "qab#batting-order",
+     keywords: "lineup line up batting order order card copy lineup who bats",
++    in: {
++      "lineup": "Put your batters in order here and save. Copy lineup from… reuses another game's order. Players come from the tournament roster.",
++    },
+   },
+   {
+     id: "qab-report",
+@@ -98,6 +139,9 @@ export const HELP_ANSWERS = [
+     action: { href: "/finance?tab=player-payments", label: "Open Player Dues" },
+     guide: "money#payment",
+     keywords: "pay paid payment payments venmo zelle cash check received parent family installment partial deposit",
++    in: {
++      "dues": "Open the player in the list below, then Record payment. Each payment is kept separately, so partial payments add up.",
++    },
+   },
+   {
+     id: "dues-exempt",
+@@ -222,6 +266,9 @@ export const HELP_ANSWERS = [
+     action: { href: "/settings?invite=1", label: "Invite someone", requires: "admin" },
+     guide: "access#invite",
+     keywords: "login log in sign in signin access account password invite invitation coach assistant manager staff email can't cannot get in",
++    in: {
++      "people": "Being on the roster doesn't give anyone a login. An organization owner invites them here with Invite someone, choosing their role and team. They must sign in with the exact email that was invited.",
++    },
+   },
+   {
+     id: "player-left",
+diff --git a/lib/help-search.js b/lib/help-search.js
+index 5694aa0..50df5ae 100644
+--- a/lib/help-search.js
++++ b/lib/help-search.js
+@@ -23,7 +23,7 @@ import { HELP_GUIDES } from "./help-guides";
+ const STOP = new Set(`a an the i me my we our us you your to of for in on at by with and or is are am be
+   been it its this that these those there here how what where when why which who whom do does did done
+   can could should would will please help want need way get got go going some any just about into
+-  from up out if so than then too very im ive id`.split(/\s+/).filter(Boolean));
++  from up out if so than then too very im ive id as`.split(/\s+/).filter(Boolean));
+ 
+ const NEGATION = new Set(["not", "no", "dont", "doesnt", "didnt", "cant", "cannot", "isnt", "wont", "arent", "never", "without", "wasnt", "hasnt", "havent", "hadnt", "werent", "shouldnt"]);
+ 
+diff --git a/lib/onboarding.js b/lib/onboarding.js
+index a753798..37619f8 100644
+--- a/lib/onboarding.js
++++ b/lib/onboarding.js
+@@ -131,7 +131,6 @@ export const TERMS = {
+   "Registration and payment":
+     "Separate on purpose. \"Are we going?\" is your decision; this is where the paperwork stands. It's normal to be committed before you've registered.",
+   "Money In": "Money received: player dues, fundraising and sponsors. Kept separate from spending.",
+-  "Player Dues": "What each family owes for the season, and what they've paid so far. Season totals count every dues record, including players who have since left the roster.",
+   Saved: "Places you have played at, written notes on, or linked to a tournament. Everything else is under All.",
+   "Needs Action": "Things worth doing now. When it's empty, you're up to date.",
+ };
+diff --git a/scripts/check-help.js b/scripts/check-help.js
+index e387a40..f6b69b1 100644
+--- a/scripts/check-help.js
++++ b/scripts/check-help.js
+@@ -387,8 +387,8 @@ ok("searching 'turn on qab' or 'learn about performance' still finds it", [searc
+ ok("the Performance explainer answer is only offered without QAB", qfp("/performance").some((a) => a.id === "performance-premium"), false);
+ ok("popover reads QAB availability from the layout's feature flags, not a new query",
+   /useHelpContext\(\)/.test(menu) && /questionsForPath\(pathname \?\? "", \{ qab \}\)/.test(menu)
+-  && /<HelpContextProvider qab=\{features\?\.qab\}>\{children\}<\/HelpContextProvider>/.test(read("app/(app)/layout.js")));
+-ok("Help context defaults to QAB off", /createContext\(\{ qab: false \}\)/.test(read("components/HelpContext.js")));
++  && /<HelpContextProvider\s+qab=\{features\?\.qab\}\s+isAdmin=\{isOrgAdmin\(profile\)\}\s+canWrite=\{canWrite\(profile\)\}\s+phase=\{seasonPhase\}\s*>/.test(read("app/(app)/layout.js")));
++ok("Help context defaults to QAB off and no access (fails closed)", /createContext\(\{ qab: false, isAdmin: false, canWrite: false, phase: null \}\)/.test(read("components/HelpContext.js")));
+ for (const q of ["add note", "note on at bat", "note on QAB", "comment on plate appearance", "add notes to qabs"]) {
+   ok(`"${q}" -> qab-note`, searchHelp(q)?.[0]?.id, "qab-note");
+ }
+@@ -403,5 +403,75 @@ ok("npm run check runs check-queue-recovery, check-qab-notes and check-help exac
+ { const css = read("app/globals.css"); ok("globals.css braces balance (merge guard)", (css.match(/\{/g) ?? []).length, (css.match(/\}/g) ?? []).length); }
+ ok("QAB Notes styles still close before the Help block", /overflow-wrap: anywhere;\n\}\n\n\/\* ===== Help & Getting Started/.test(read("app/globals.css")));
+ 
++/* ------------------------------------------------------------------------ */
++section("M. H3 contextual Help (QAB, Finance, People & Access)");
++const hc = require(R("components/HelpContext.js"));
++const ctxh = require(R("components/ContextHelp.js"));
++const inCtx = (value, el) => html(React.createElement(hc.HelpContextProvider, value, el));
++const OWNER_CTX = { qab: true, isAdmin: true, canWrite: true, phase: "current" };
++const COACH_CTX = { qab: true, isAdmin: false, canWrite: true, phase: "current" };
++const ch = (props) => React.createElement(ctxh.ContextHelp, { initialOpen: true, ...props });
++const srcOf = (f) => read(f);
++const usesOf = (f) => (srcOf(f).match(/<ContextHelp\b/g) ?? []).length;
++ok("one entry point on Set Batting Order", usesOf("components/LineupClient.js"), 1);
++ok("Finance: one entry point per tab (Player Dues or the rest)", /tab === "payments" \? \(\s*<ContextHelp/.test(srcOf("components/FinanceClient.js")) && usesOf("components/FinanceClient.js") === 2);
++ok("People & Access: one entry point", usesOf("components/SettingsClient.js"), 1);
++const trk = srcOf("components/TrackerClient.js");
++ok("tracker: one entry in live mode, one in Review & Edit (never both on screen)",
++  usesOf("components/TrackerClient.js") === 2 && /\{mode === "live" && \(\s*<ContextHelp/.test(trk) && /Recorded plate appearances <span>[\s\S]{0,80}<\/h2>\s*\{\/\*[^*]*\*\/\}\s*<ContextHelp/.test(trk));
++const allUses = ["components/LineupClient.js", "components/TrackerClient.js", "components/FinanceClient.js", "components/SettingsClient.js"]
++  .flatMap((f) => [...srcOf(f).matchAll(/\{ id: "([a-z-]+)"/g)].map((m) => m[1]));
++ok("every contextual question reuses an existing Help answer", allUses.filter((id) => !findAnswerById(id)), []);
++ok("tracking help never shows navigating buttons or Learn more", (() => {
++  const live = trk.slice(trk.indexOf('title="Tracking help"'), trk.indexOf("/>", trk.indexOf('title="Tracking help"')));
++  const rev = trk.slice(trk.indexOf('label="Need help?"'), trk.indexOf("/>", trk.indexOf('label="Need help?"')));
++  return /actions=\{false\}/.test(live) && !/learnMore/.test(live) && /actions=\{false\}/.test(rev) && !/learnMore/.test(rev);
++})());
++ok("tracking help is a text 'Need help?' control, not a bare '?'", /label="Need help\?"\s+align="end"\s+title="Tracking help"/.test(trk) && !/title="Tracking help"[\s\S]{0,40}compact/.test(trk));
++const liveHelp = inCtx(OWNER_CTX, ch({ label: "Need help?", questions: [{ id: "qab-what-counts" }, { id: "qab-after-game", ask: "Can I enter this after the game?" }, { id: "qab-note", ask: "Can I add a note?" }, { id: "qab-fix", ask: "What if I chose the wrong batter?" }], actions: false }));
++ok("tracking help opens in place: a region, no links out", /role="region"/.test(liveHelp) && !/<a /.test(liveHelp));
++ok("tracking help asks the four tracking questions", ["What counts as a QAB?", "Can I enter this after the game?", "Can I add a note?", "What if I chose the wrong batter?"].every((q) => liveHelp.includes(q)));
++ok("reworded questions reuse the answer word for word", liveHelp.includes(findAnswerById("qab-what-counts").answer.replace(/'/g, "&#x27;")));
++ok("no QAB: tracking help renders nothing", inCtx({ ...OWNER_CTX, qab: false }, ch({ questions: [{ id: "qab-fix" }], actions: false })), "");
++const fin = inCtx(COACH_CTX, ch({ title: "How Finance fits together", pieces: "money", learnMore: "money" }));
++ok("Finance: the five pieces from the money guide, plus Learn more", ["Budget", "Transactions", "Money In", "Player Dues", "Payments"].every((t) => fin.includes(`<dt>${t}</dt>`)) && /Learn more in Manage team money/.test(fin));
++ok("Finance Learn more keeps from", /href="\/help\/money\?from=%2Fhelp"/.test(fin) || /href="\/help\/money"/.test(fin));
++const dues = inCtx(COACH_CTX, ch({ questions: [{ id: "dues-how" }, { id: "dues-payment" }, { id: "dues-exempt" }], learnMore: "money#dues" }));
++ok("Player Dues: how dues work, record a payment, doesn't owe", ["How Player Dues work", "Record a payment", "A player doesn"].every((t) => dues.includes(t)));
++const peopleCoach = inCtx(COACH_CTX, ch({ pieces: "access", questions: [{ id: "coach-login", ask: "Why can't a coach sign in?" }], learnMore: "access#invite" }));
++ok("People & Access: roster vs. login pieces", /On the roster/.test(peopleCoach) && /Season Tempo access/.test(peopleCoach));
++ok("People & Access, coach: told why, no Invite button", !/settings\?invite=1/.test(peopleCoach) && peopleCoach.includes(ACCESS_REASON.admin.replace(/'/g, "&#x27;")));
++const peopleOwner = inCtx(OWNER_CTX, ch({ pieces: "access", questions: [{ id: "coach-login" }] }));
++ok("People & Access, owner: Invite someone offered", /href="\/settings\?invite=1"/.test(peopleOwner));
++ok("no new permanent instructional copy: entry points start closed", ["components/LineupClient.js", "components/TrackerClient.js", "components/FinanceClient.js", "components/SettingsClient.js"].every((f) => !/initialOpen/.test(srcOf(f))));
++ok("existing Performance QAB guidance still unchanged", /<details className="perf-guide" open=\{firstTime\}>/.test(read("app/(app)/performance/page.js")) && !/ContextHelp/.test(read("app/(app)/performance/page.js")));
++ok("new answers only where needed: what counts, change a reason", ["qab-what-counts", "qab-reason-change"].every((id) => findAnswerById(id)));
++ok("'what counts as a qab' and 'change qab reason' search to them", [searchHelp("what counts as a qab")[0].id, searchHelp("change qab reason")[0].id], ["qab-what-counts", "qab-reason-change"]);
++
++/* ------------------------------------------------------------------------ */
++section("N. H3 refinements: in-workflow wording, one Player Dues entry, 'Need help?'");
++const ctxText = (id, c) => findAnswerById(id).in?.[c];
++ok("tracker answers never send the coach to Performance or to Review & Edit by name",
++  ["qab-after-game", "qab-fix", "qab-note"].map((id) => ctxText(id, "tracker-live")).concat(["qab-fix", "qab-reason-change", "qab-note"].map((id) => ctxText(id, "tracker-review")))
++    .filter((t) => !t || /Open Performance|on Performance|Review & Edit/.test(t)), []);
++ok("Review & Edit answers don't tell you to go to Edit at-bats (you're there)",
++  ["qab-fix", "qab-reason-change", "qab-note"].map((id) => ctxText(id, "tracker-review")).filter((t) => /switch to Edit at-bats|go to Edit at-bats/i.test(t)), []);
++ok("'Can I enter this after the game?' in the tracker: return to this game later", /^Yes\. If you don't track QABs live, you can return to this game later and enter each plate appearance from your scorebook\.$/.test(ctxText("qab-after-game", "tracker-live")));
++ok("wrong batter, live: Remove under the wrong batter, + Add plate appearance under the right one (Undo re-records the same batter, so it isn't offered)", /Remove/.test(ctxText("qab-fix", "tracker-live")) && /\+ Add plate appearance/.test(ctxText("qab-fix", "tracker-live")) && !/Undo/.test(ctxText("qab-fix", "tracker-live")));
++ok("lineup answers don't say to open the screen you're on", ["qab-lineup", "qab-track"].every((id) => !/On Performance|Open Performance|set the batting order/i.test(ctxText(id, "lineup"))));
++ok("People & Access answer says 'here', not 'Settings, then People & Access'", /invites them here with Invite someone/.test(ctxText("coach-login", "people")) && !/Settings, then People/.test(ctxText("coach-login", "people")));
++ok("variants live on the canonical answers (one knowledge base, no second answer list)", !/HELP_ANSWERS|answer:\s*"/.test(read("components/ContextHelp.js")) && /a\.in\?\.\[context\]\) \|\| a\.answer/.test(read("components/ContextHelp.js")));
++ok("every variant key used by a screen exists on its answer", (() => {
++  const uses = [["components/TrackerClient.js", "tracker-live"], ["components/TrackerClient.js", "tracker-review"], ["components/LineupClient.js", "lineup"], ["components/FinanceClient.js", "dues"]];
++  return uses.every(([f, c]) => new RegExp(`context="${c}"`).test(read(f)));
++})());
++const liveRendered = inCtx(OWNER_CTX, ch({ context: "tracker-live", questions: [{ id: "qab-after-game" }], actions: false }));
++ok("rendered in the tracker, the contextual wording is used", liveRendered.includes("return to this game later") && !liveRendered.includes("Open Performance"));
++const plainRendered = inCtx(OWNER_CTX, ch({ questions: [{ id: "qab-after-game" }], actions: false }));
++ok("without a context, the canonical answer is used", plainRendered.includes("Open Performance, choose the game"));
++ok("live tracker entry reads 'Need help?' and uses the tracker wording", /label="Need help\?"\s+align="end"\s+title="Tracking help"\s+context="tracker-live"/.test(read("components/TrackerClient.js")));
++ok("Player Dues: the old term tip is gone; one Help entry remains", !/HelpTip/.test(read("components/FinanceClient.js")) && !/"Player Dues":/.test(read("lib/onboarding.js")));
++ok("the tip's one extra fact is still on screen", /Covers every dues record for this season, including players who have since left/.test(read("components/FinanceClient.js")));
++
+ console.log(`\n${passed} passed, ${failed} failed`);
+ process.exit(failed ? 1 : 0);
+-- 
+2.43.0
+

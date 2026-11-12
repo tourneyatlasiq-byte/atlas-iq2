@@ -13,10 +13,16 @@ import { createContext, useContext } from "react";
  * Without a provider, QAB is treated as off, so Help never knowingly offers
  * QAB questions it can't stand behind.
  */
-const HelpContext = createContext({ qab: false });
+const HelpContext = createContext({ qab: false, isAdmin: false, canWrite: false, phase: null });
 
-export function HelpContextProvider({ qab = false, children }) {
-  return <HelpContext.Provider value={{ qab: Boolean(qab) }}>{children}</HelpContext.Provider>;
+/**
+ * Also carries the person's access (H3), the same shape Help's actionState
+ * uses on /help, so contextual answers never offer a button the person
+ * can't complete. Unknown access fails closed.
+ */
+export function HelpContextProvider({ qab = false, isAdmin = false, canWrite = false, phase = null, children }) {
+  const value = { qab: Boolean(qab), isAdmin: Boolean(isAdmin), canWrite: Boolean(canWrite), phase: phase ?? null };
+  return <HelpContext.Provider value={value}>{children}</HelpContext.Provider>;
 }
 
 export const useHelpContext = () => useContext(HelpContext);

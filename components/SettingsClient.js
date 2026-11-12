@@ -1,6 +1,7 @@
 "use client";
 
 import { SignOutButton } from "./SignOutButton";
+import { ContextHelp } from "./ContextHelp";
 import { useState, useTransition, useEffect } from "react";
 import { PageHelp } from "./PageHelp";
 import { useMutation } from "./useMutation";
@@ -276,6 +277,13 @@ export function SettingsClient({
               </button>
             )}
           </div>
+          {/* H3: roster vs. login, answered in place (2026-11). */}
+          <ContextHelp
+            title="On the roster vs. Season Tempo access"
+            pieces="access"
+            questions={[{ id: "coach-login", ask: "Why can't a coach sign in?" }]}
+            learnMore="access#invite"
+          />
 
           {/* One column structure for every row (Phase 2D cleanup):
               Person | Access | Role | Actions. Invitation details sit under

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getContext } from "../../lib/context";
+import { getContext, isOrgAdmin, canWrite } from "../../lib/context";
 import { NavSidebar } from "../../components/NavSidebar";
 import { HelpContextProvider } from "../../components/HelpContext";
 import { AppFooter } from "../../components/AppFooter";
@@ -9,7 +9,7 @@ import { SeasonBanner } from "../../components/SeasonBanner";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }) {
-  const { user, organization, team, season, seasons, seasonPhase, currentSeason, features } =
+  const { user, profile, organization, team, season, seasons, seasonPhase, currentSeason, features } =
     await getContext();
 
   // No organization yet means a brand-new signup, not a misconfigured account.
@@ -35,8 +35,16 @@ export default async function AppLayout({ children }) {
             seasonName={season?.name}
             currentSeasonName={currentSeason?.name}
           />
-          {/* Lets the Help popover know whether QAB is on (2026-11). */}
-          <HelpContextProvider qab={features?.qab}>{children}</HelpContextProvider>
+          {/* Lets Help (popover and contextual answers) know whether QAB is on and
+              what this person may do (2026-11). Presentation only. */}
+          <HelpContextProvider
+            qab={features?.qab}
+            isAdmin={isOrgAdmin(profile)}
+            canWrite={canWrite(profile)}
+            phase={seasonPhase}
+          >
+            {children}
+          </HelpContextProvider>
 
           <AppFooter />
         </main>

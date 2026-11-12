@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ContextHelp } from "./ContextHelp";
 import Link from "next/link";
 import {
   QAB_REASONS, reasonLabel, tallyPlateAppearances,
@@ -582,6 +583,25 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         </span>
       </header>
 
+      {/* H3: a small "Need help?" that opens help IN PLACE while tracking, so
+          the coach never leaves the game. No buttons that navigate away, and
+          answers worded for someone already in the tracker. (2026-11) */}
+      {mode === "live" && (
+        <ContextHelp
+          label="Need help?"
+          align="end"
+          title="Tracking help"
+          context="tracker-live"
+          questions={[
+            { id: "qab-what-counts" },
+            { id: "qab-after-game", ask: "Can I enter this after the game?" },
+            { id: "qab-note", ask: "Can I add a note?" },
+            { id: "qab-fix", ask: "What if I chose the wrong batter?" },
+          ]}
+          actions={false}
+        />
+      )}
+
       {/* Two views and one action. Finish sits here so game management is in
           one place, but it is deliberately NOT a third tab: it is outside the
           tablist, styled as an action, and it ends the game rather than
@@ -975,6 +995,17 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           <h2 className="trk-history-h">
             Recorded plate appearances <span>({live.length})</span>
           </h2>
+          {/* H3: Review & Edit questions, answered in place (2026-11). */}
+          <ContextHelp
+            label="Need help?"
+            context="tracker-review"
+            questions={[
+              { id: "qab-fix", ask: "How do I fix the wrong batter?" },
+              { id: "qab-reason-change", ask: "Can I change a QAB reason?" },
+              { id: "qab-note", ask: "Can I edit a note?" },
+            ]}
+            actions={false}
+          />
           <p className="trk-card-s">
             Nothing is added automatically here. Use “+ Add plate appearance” for a batter.
           </p>

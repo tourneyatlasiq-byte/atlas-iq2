@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ContextHelp } from "./ContextHelp";
 import { DrawerShell } from "./DrawerShell";
 
 import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
@@ -21,7 +22,6 @@ import {
   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
-import { HelpTip } from "./HelpTip";
 import {
   saveBudgetItem,
   deleteBudgetItem,
@@ -518,7 +518,11 @@ export function FinanceClient({
 
           <section className="fin-dues-panel">
             <p className="fin-panel-label">
-              Player dues <HelpTip term="Player Dues" />
+              {/* The "Player Dues ?" term tip was removed (H3, 2026-11): the
+                  Player Dues tab's "How this works" is the one Help entry
+                  here, and the tip's one extra fact (totals include players
+                  who have left) is stated on this panel below. */}
+              Player dues
             </p>
             <p className="fin-dues-hero">
               {duesCollectedPercent(dues) ?? 0}%
@@ -693,6 +697,21 @@ export function FinanceClient({
           </button>
         ))}
       </div>
+
+      {/* H3: one "How this works" for Finance, matched to the tab (2026-11).
+          Player Dues gets its three questions; every other tab gets the
+          existing "How the pieces fit" explanation. */}
+      {tab === "payments" ? (
+        <ContextHelp
+          key="dues"
+          align="end"
+          context="dues"
+          questions={[{ id: "dues-how" }, { id: "dues-payment" }, { id: "dues-exempt" }]}
+          learnMore="money#dues"
+        />
+      ) : (
+        <ContextHelp key="pieces" align="end" title="How Finance fits together" pieces="money" learnMore="money" />
+      )}
 
       {tab === "budget" && (
         <BudgetTab

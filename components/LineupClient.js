@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ContextHelp } from "./ContextHelp";
 import { useActionFeedback } from "../lib/useActionFeedback";
 import { saveLineup, copyLineupFrom } from "../lib/actions/lineup";
 
@@ -150,6 +151,18 @@ export function LineupClient({
           {game.start_time && ` · ${fmtTime(game.start_time)}`}
           {game.game_type && ` · ${game.game_type}`}
         </p>
+        {/* H3: help in place, reusing Help answers (2026-11). */}
+        <ContextHelp
+          label="How this works"
+          context="lineup"
+          questions={[
+            { id: "qab-lineup", ask: "How does the batting order work?" },
+            { id: "tournament-roster", ask: "Where do these players come from?" },
+            { id: "qab-track", ask: "What happens after I save it?" },
+          ]}
+          actions={false}
+          learnMore="qab#batting-order"
+        />
       </header>
 
       {error && <div className="notice notice-error">{error}</div>}

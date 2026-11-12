@@ -387,8 +387,8 @@ ok("searching 'turn on qab' or 'learn about performance' still finds it", [searc
 ok("the Performance explainer answer is only offered without QAB", qfp("/performance").some((a) => a.id === "performance-premium"), false);
 ok("popover reads QAB availability from the layout's feature flags, not a new query",
   /useHelpContext\(\)/.test(menu) && /questionsForPath\(pathname \?\? "", \{ qab \}\)/.test(menu)
-  && /<HelpContextProvider qab=\{features\?\.qab\}>\{children\}<\/HelpContextProvider>/.test(read("app/(app)/layout.js")));
-ok("Help context defaults to QAB off", /createContext\(\{ qab: false \}\)/.test(read("components/HelpContext.js")));
+  && /<HelpContextProvider\s+qab=\{features\?\.qab\}\s+isAdmin=\{isOrgAdmin\(profile\)\}\s+canWrite=\{canWrite\(profile\)\}\s+phase=\{seasonPhase\}\s*>/.test(read("app/(app)/layout.js")));
+ok("Help context defaults to QAB off and no access (fails closed)", /createContext\(\{ qab: false, isAdmin: false, canWrite: false, phase: null \}\)/.test(read("components/HelpContext.js")));
 for (const q of ["add note", "note on at bat", "note on QAB", "comment on plate appearance", "add notes to qabs"]) {
   ok(`"${q}" -> qab-note`, searchHelp(q)?.[0]?.id, "qab-note");
 }
@@ -402,6 +402,76 @@ ok("npm run check runs check-queue-recovery, check-qab-notes and check-help exac
 
 { const css = read("app/globals.css"); ok("globals.css braces balance (merge guard)", (css.match(/\{/g) ?? []).length, (css.match(/\}/g) ?? []).length); }
 ok("QAB Notes styles still close before the Help block", /overflow-wrap: anywhere;\n\}\n\n\/\* ===== Help & Getting Started/.test(read("app/globals.css")));
+
+/* ------------------------------------------------------------------------ */
+section("M. H3 contextual Help (QAB, Finance, People & Access)");
+const hc = require(R("components/HelpContext.js"));
+const ctxh = require(R("components/ContextHelp.js"));
+const inCtx = (value, el) => html(React.createElement(hc.HelpContextProvider, value, el));
+const OWNER_CTX = { qab: true, isAdmin: true, canWrite: true, phase: "current" };
+const COACH_CTX = { qab: true, isAdmin: false, canWrite: true, phase: "current" };
+const ch = (props) => React.createElement(ctxh.ContextHelp, { initialOpen: true, ...props });
+const srcOf = (f) => read(f);
+const usesOf = (f) => (srcOf(f).match(/<ContextHelp\b/g) ?? []).length;
+ok("one entry point on Set Batting Order", usesOf("components/LineupClient.js"), 1);
+ok("Finance: one entry point per tab (Player Dues or the rest)", /tab === "payments" \? \(\s*<ContextHelp/.test(srcOf("components/FinanceClient.js")) && usesOf("components/FinanceClient.js") === 2);
+ok("People & Access: one entry point", usesOf("components/SettingsClient.js"), 1);
+const trk = srcOf("components/TrackerClient.js");
+ok("tracker: one entry in live mode, one in Review & Edit (never both on screen)",
+  usesOf("components/TrackerClient.js") === 2 && /\{mode === "live" && \(\s*<ContextHelp/.test(trk) && /Recorded plate appearances <span>[\s\S]{0,80}<\/h2>\s*\{\/\*[^*]*\*\/\}\s*<ContextHelp/.test(trk));
+const allUses = ["components/LineupClient.js", "components/TrackerClient.js", "components/FinanceClient.js", "components/SettingsClient.js"]
+  .flatMap((f) => [...srcOf(f).matchAll(/\{ id: "([a-z-]+)"/g)].map((m) => m[1]));
+ok("every contextual question reuses an existing Help answer", allUses.filter((id) => !findAnswerById(id)), []);
+ok("tracking help never shows navigating buttons or Learn more", (() => {
+  const live = trk.slice(trk.indexOf('title="Tracking help"'), trk.indexOf("/>", trk.indexOf('title="Tracking help"')));
+  const rev = trk.slice(trk.indexOf('label="Need help?"'), trk.indexOf("/>", trk.indexOf('label="Need help?"')));
+  return /actions=\{false\}/.test(live) && !/learnMore/.test(live) && /actions=\{false\}/.test(rev) && !/learnMore/.test(rev);
+})());
+ok("tracking help is a text 'Need help?' control, not a bare '?'", /label="Need help\?"\s+align="end"\s+title="Tracking help"/.test(trk) && !/title="Tracking help"[\s\S]{0,40}compact/.test(trk));
+const liveHelp = inCtx(OWNER_CTX, ch({ label: "Need help?", questions: [{ id: "qab-what-counts" }, { id: "qab-after-game", ask: "Can I enter this after the game?" }, { id: "qab-note", ask: "Can I add a note?" }, { id: "qab-fix", ask: "What if I chose the wrong batter?" }], actions: false }));
+ok("tracking help opens in place: a region, no links out", /role="region"/.test(liveHelp) && !/<a /.test(liveHelp));
+ok("tracking help asks the four tracking questions", ["What counts as a QAB?", "Can I enter this after the game?", "Can I add a note?", "What if I chose the wrong batter?"].every((q) => liveHelp.includes(q)));
+ok("reworded questions reuse the answer word for word", liveHelp.includes(findAnswerById("qab-what-counts").answer.replace(/'/g, "&#x27;")));
+ok("no QAB: tracking help renders nothing", inCtx({ ...OWNER_CTX, qab: false }, ch({ questions: [{ id: "qab-fix" }], actions: false })), "");
+const fin = inCtx(COACH_CTX, ch({ title: "How Finance fits together", pieces: "money", learnMore: "money" }));
+ok("Finance: the five pieces from the money guide, plus Learn more", ["Budget", "Transactions", "Money In", "Player Dues", "Payments"].every((t) => fin.includes(`<dt>${t}</dt>`)) && /Learn more in Manage team money/.test(fin));
+ok("Finance Learn more keeps from", /href="\/help\/money\?from=%2Fhelp"/.test(fin) || /href="\/help\/money"/.test(fin));
+const dues = inCtx(COACH_CTX, ch({ questions: [{ id: "dues-how" }, { id: "dues-payment" }, { id: "dues-exempt" }], learnMore: "money#dues" }));
+ok("Player Dues: how dues work, record a payment, doesn't owe", ["How Player Dues work", "Record a payment", "A player doesn"].every((t) => dues.includes(t)));
+const peopleCoach = inCtx(COACH_CTX, ch({ pieces: "access", questions: [{ id: "coach-login", ask: "Why can't a coach sign in?" }], learnMore: "access#invite" }));
+ok("People & Access: roster vs. login pieces", /On the roster/.test(peopleCoach) && /Season Tempo access/.test(peopleCoach));
+ok("People & Access, coach: told why, no Invite button", !/settings\?invite=1/.test(peopleCoach) && peopleCoach.includes(ACCESS_REASON.admin.replace(/'/g, "&#x27;")));
+const peopleOwner = inCtx(OWNER_CTX, ch({ pieces: "access", questions: [{ id: "coach-login" }] }));
+ok("People & Access, owner: Invite someone offered", /href="\/settings\?invite=1"/.test(peopleOwner));
+ok("no new permanent instructional copy: entry points start closed", ["components/LineupClient.js", "components/TrackerClient.js", "components/FinanceClient.js", "components/SettingsClient.js"].every((f) => !/initialOpen/.test(srcOf(f))));
+ok("existing Performance QAB guidance still unchanged", /<details className="perf-guide" open=\{firstTime\}>/.test(read("app/(app)/performance/page.js")) && !/ContextHelp/.test(read("app/(app)/performance/page.js")));
+ok("new answers only where needed: what counts, change a reason", ["qab-what-counts", "qab-reason-change"].every((id) => findAnswerById(id)));
+ok("'what counts as a qab' and 'change qab reason' search to them", [searchHelp("what counts as a qab")[0].id, searchHelp("change qab reason")[0].id], ["qab-what-counts", "qab-reason-change"]);
+
+/* ------------------------------------------------------------------------ */
+section("N. H3 refinements: in-workflow wording, one Player Dues entry, 'Need help?'");
+const ctxText = (id, c) => findAnswerById(id).in?.[c];
+ok("tracker answers never send the coach to Performance or to Review & Edit by name",
+  ["qab-after-game", "qab-fix", "qab-note"].map((id) => ctxText(id, "tracker-live")).concat(["qab-fix", "qab-reason-change", "qab-note"].map((id) => ctxText(id, "tracker-review")))
+    .filter((t) => !t || /Open Performance|on Performance|Review & Edit/.test(t)), []);
+ok("Review & Edit answers don't tell you to go to Edit at-bats (you're there)",
+  ["qab-fix", "qab-reason-change", "qab-note"].map((id) => ctxText(id, "tracker-review")).filter((t) => /switch to Edit at-bats|go to Edit at-bats/i.test(t)), []);
+ok("'Can I enter this after the game?' in the tracker: return to this game later", /^Yes\. If you don't track QABs live, you can return to this game later and enter each plate appearance from your scorebook\.$/.test(ctxText("qab-after-game", "tracker-live")));
+ok("wrong batter, live: Remove under the wrong batter, + Add plate appearance under the right one (Undo re-records the same batter, so it isn't offered)", /Remove/.test(ctxText("qab-fix", "tracker-live")) && /\+ Add plate appearance/.test(ctxText("qab-fix", "tracker-live")) && !/Undo/.test(ctxText("qab-fix", "tracker-live")));
+ok("lineup answers don't say to open the screen you're on", ["qab-lineup", "qab-track"].every((id) => !/On Performance|Open Performance|set the batting order/i.test(ctxText(id, "lineup"))));
+ok("People & Access answer says 'here', not 'Settings, then People & Access'", /invites them here with Invite someone/.test(ctxText("coach-login", "people")) && !/Settings, then People/.test(ctxText("coach-login", "people")));
+ok("variants live on the canonical answers (one knowledge base, no second answer list)", !/HELP_ANSWERS|answer:\s*"/.test(read("components/ContextHelp.js")) && /a\.in\?\.\[context\]\) \|\| a\.answer/.test(read("components/ContextHelp.js")));
+ok("every variant key used by a screen exists on its answer", (() => {
+  const uses = [["components/TrackerClient.js", "tracker-live"], ["components/TrackerClient.js", "tracker-review"], ["components/LineupClient.js", "lineup"], ["components/FinanceClient.js", "dues"]];
+  return uses.every(([f, c]) => new RegExp(`context="${c}"`).test(read(f)));
+})());
+const liveRendered = inCtx(OWNER_CTX, ch({ context: "tracker-live", questions: [{ id: "qab-after-game" }], actions: false }));
+ok("rendered in the tracker, the contextual wording is used", liveRendered.includes("return to this game later") && !liveRendered.includes("Open Performance"));
+const plainRendered = inCtx(OWNER_CTX, ch({ questions: [{ id: "qab-after-game" }], actions: false }));
+ok("without a context, the canonical answer is used", plainRendered.includes("Open Performance, choose the game"));
+ok("live tracker entry reads 'Need help?' and uses the tracker wording", /label="Need help\?"\s+align="end"\s+title="Tracking help"\s+context="tracker-live"/.test(read("components/TrackerClient.js")));
+ok("Player Dues: the old term tip is gone; one Help entry remains", !/HelpTip/.test(read("components/FinanceClient.js")) && !/"Player Dues":/.test(read("lib/onboarding.js")));
+ok("the tip's one extra fact is still on screen", /Covers every dues record for this season, including players who have since left/.test(read("components/FinanceClient.js")));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
