@@ -3,39 +3,40 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { SUPPORT_EMAIL } from "../lib/legal";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { HELP_GROUPS, tasksForPath, searchTasks } from "../lib/help";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { searchHelp, helpHref } from "../lib/help";
+import { questionsForPath } from "../lib/help-answers";
+import { useHelpContext } from "./HelpContext";
 
 /**
- * In-app help.
+ * The Help popover (2026-11): aware of the screen it's opened from.
  *
- * Task-based rather than a list of instructions: each entry names something a
- * coach wants to do and takes them there. Where the interface can open the
- * actual form we link straight to it; where a record has to be chosen first,
- * the sentence says so instead of implying otherwise.
+ * Questions about this screen first, each opening its direct answer in Help
+ * & Getting Started; Search Help underneath for anything else, answered by
+ * the same engine as /help. Every link carries this exact screen (`from`) so
+ * "Back to …" returns here.
  */
 export function HelpMenu() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const panelRef = useRef(null);
   const searchRef = useRef(null);
+  const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const qs = searchParams?.toString() ?? "";
+  const here = `${pathname ?? ""}${qs ? `?${qs}` : ""}`;
 
   useEffect(() => {
     if (!open) return;
-
     function away(e) {
       if (panelRef.current && !panelRef.current.contains(e.target)) close();
     }
     function key(e) {
       if (e.key === "Escape") close();
     }
-
     document.addEventListener("mousedown", away);
     document.addEventListener("keydown", key);
-    // Straight into search — typing is faster than scanning for most people.
-    searchRef.current?.focus();
-
     return () => {
       document.removeEventListener("mousedown", away);
       document.removeEventListener("keydown", key);
@@ -47,12 +48,11 @@ export function HelpMenu() {
     setQuery("");
   }
 
-  const results = useMemo(() => searchTasks(query), [query]);
-  const contextual = useMemo(() => tasksForPath(pathname ?? ""), [pathname]);
-
-  const groups = results ?? HELP_GROUPS;
+  // QAB questions only where QAB is on; otherwise this screen's non-QAB ones.
+  const { qab } = useHelpContext();
+  const questions = useMemo(() => questionsForPath(pathname ?? "", { qab }), [pathname, qab]);
+  const results = useMemo(() => searchHelp(query, 5), [query]);
   const searching = results !== null;
-  const nothingFound = searching && groups.length === 0;
 
   return (
     <div className="help-menu" ref={panelRef}>
@@ -72,80 +72,75 @@ export function HelpMenu() {
             <button className="help-close" onClick={close} aria-label="Close help">✕</button>
           </div>
 
-          <div className="help-search">
-            <input
-              ref={searchRef}
-              type="search"
-              placeholder="Search help…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search help"
-            />
-          </div>
-
           <div className="help-body">
-            {/* Hidden while searching — you're looking for something specific,
-                not for what happens to be nearby. */}
-            {!searching && contextual.length > 0 && (
-              <section className="help-group">
+            {!searching && questions.length > 0 && (
+              <section className="help-group" aria-label="Questions about this page">
                 <p className="help-group-label">On this page</p>
-                {contextual.map((t) => (
-                  <HelpTask key={t.id} task={t} onNavigate={close} featured />
-                ))}
+                <ul className="help-questions">
+                  {questions.map((a) => (
+                    <li key={a.id}>
+                      <Link href={helpHref(`/help?a=${a.id}`, here)} className="help-question" onClick={close}>
+                        <span>{a.title}</span>
+                        <span className="help-question-go" aria-hidden="true">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
 
-            {nothingFound ? (
-              <p className="help-none">
-                Nothing matches “{query.trim()}”. Try a word like payment, roster, game or facility.
-              </p>
-            ) : (
-              <>
-                {!searching && <p className="help-section-title">Common tasks</p>}
-                {groups.map((g) => (
-                  <section key={g.id} className="help-group">
-                    <p className="help-group-label">{g.label}</p>
-                    {g.tasks.map((t) => (
-                      <HelpTask key={t.id} task={t} onNavigate={close} />
-                    ))}
-                  </section>
-                ))}
-              </>
+            <div className="help-search help-search-inline">
+              <input
+                ref={searchRef}
+                type="search"
+                placeholder="Search Help"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && query.trim()) {
+                    e.preventDefault();
+                    close();
+                    router.push(helpHref(`/help?q=${encodeURIComponent(query.trim())}`, here));
+                  }
+                }}
+                aria-label="Search Help"
+              />
+            </div>
+
+            {searching && (
+              results.length === 0 ? (
+                <p className="help-none">
+                  Nothing matches “{query.trim()}” yet. Try describing what you&rsquo;re trying to do.
+                </p>
+              ) : (
+                <ul className="help-questions help-results">
+                  {results.map((r) => (
+                    <li key={r.href}>
+                      <Link href={helpHref(r.href, here)} className="help-question" onClick={close}>
+                        <span>
+                          {r.title}
+                          {r.kind !== "answer" && <span className="help-question-meta">{r.kind === "step" ? r.guideTitle : "Guide"}</span>}
+                        </span>
+                        <span className="help-question-go" aria-hidden="true">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )
             )}
 
+            <Link href={helpHref("/help", here)} className="help-center-link" onClick={close}>
+              <span className="help-center-title">Help &amp; Getting Started</span>
+              <span className="help-center-text">All help, guides and your setup progress</span>
+              <span className="help-center-go" aria-hidden="true">→</span>
+            </Link>
+
             <p className="help-contact">
-              Still stuck?{" "}
-              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+              Still stuck? <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
             </p>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function HelpTask({ task, onNavigate, featured = false }) {
-  const body = (
-    <>
-      <span className="help-task-title">{task.title}</span>
-      <span className="help-task-text">{task.text}</span>
-      {task.cta && <span className="help-task-cta">{task.cta} →</span>}
-    </>
-  );
-
-  // No destination: the control lives somewhere this panel cannot open, so the
-  // sentence has to do the work rather than a dead button.
-  if (!task.href) {
-    return <div className={`help-task help-task-static${featured ? " featured" : ""}`}>{body}</div>;
-  }
-
-  return (
-    <Link
-      href={task.href}
-      className={`help-task${featured ? " featured" : ""}`}
-      onClick={onNavigate}
-    >
-      {body}
-    </Link>
   );
 }

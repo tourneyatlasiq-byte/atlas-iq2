@@ -1,0 +1,3383 @@
+From 893bb252f3d8bccede241842e26c408bd4780270 Mon Sep 17 00:00:00 2001
+From: Claude <claude@example.com>
+Date: Thu, 12 Nov 2026 12:22:47 +0000
+Subject: [PATCH] Help & Getting Started V1 (H1 + H2, question-first)
+
+---
+ HELP-V1-INSTRUCTIONS.md              |  31 ++
+ app/(app)/help/[guide]/page.js       |  29 ++
+ app/(app)/help/access.js             |  14 +
+ app/(app)/help/page.js               |  32 ++
+ app/(app)/help/progress.js           |  39 +++
+ app/(app)/layout.js                  |   4 +-
+ app/globals.css                      | 283 ++++++++++++++++
+ claude/help-getting-started-audit.md |  48 +++
+ components/HelpAsk.js                | 179 ++++++++++
+ components/HelpCenter.js             | 253 ++++++++++++++
+ components/HelpContext.js            |  22 ++
+ components/HelpMenu.js               | 153 +++++----
+ components/HelpTools.js              | 142 ++++++++
+ components/NavSidebar.js             |  24 +-
+ components/SettingsClient.js         |  16 +-
+ lib/help-answers.js                  | 329 +++++++++++++++++++
+ lib/help-guides.js                   | 470 +++++++++++++++++++++++++++
+ lib/help-search.js                   | 224 +++++++++++++
+ lib/help.js                          | 258 ++++++++++++---
+ package.json                         |   2 +-
+ scripts/check-help.js                | 407 +++++++++++++++++++++++
+ 21 files changed, 2826 insertions(+), 133 deletions(-)
+ create mode 100644 HELP-V1-INSTRUCTIONS.md
+ create mode 100644 app/(app)/help/[guide]/page.js
+ create mode 100644 app/(app)/help/access.js
+ create mode 100644 app/(app)/help/page.js
+ create mode 100644 app/(app)/help/progress.js
+ create mode 100644 claude/help-getting-started-audit.md
+ create mode 100644 components/HelpAsk.js
+ create mode 100644 components/HelpCenter.js
+ create mode 100644 components/HelpContext.js
+ create mode 100644 components/HelpTools.js
+ create mode 100644 lib/help-answers.js
+ create mode 100644 lib/help-guides.js
+ create mode 100644 lib/help-search.js
+ create mode 100644 scripts/check-help.js
+
+diff --git a/HELP-V1-INSTRUCTIONS.md b/HELP-V1-INSTRUCTIONS.md
+new file mode 100644
+index 0000000..4e4ebba
+--- /dev/null
++++ b/HELP-V1-INSTRUCTIONS.md
+@@ -0,0 +1,31 @@
++# Help & Getting Started V1 (question-first)
++
++Built on production `main` at `d809c2b` ("notes", QAB plate appearance notes). No database, schema,
++migration, server action or authorization change. Auth Phase 3C untouched. QAB Notes code untouched.
++
++## Apply
++
++1. Copy the ZIP's contents into the root of your `atlas-iq2` clone, allowing overwrite.
++2. GitHub Desktop should show exactly **22 changed files**: 7 modified, 15 new.
++
++Modified: `app/(app)/layout.js` (one Help context provider around the page), `app/globals.css`
++(Help styles appended after the QAB Notes block), `components/HelpMenu.js`, `components/NavSidebar.js`,
++`components/SettingsClient.js`, `lib/help.js`, `package.json` (adds `check-help.js`; each check runs once).
++
++New: `app/(app)/help/page.js`, `app/(app)/help/[guide]/page.js`, `app/(app)/help/access.js`,
++`app/(app)/help/progress.js`, `components/HelpAsk.js`, `components/HelpCenter.js`,
++`components/HelpContext.js`, `components/HelpTools.js`, `lib/help-answers.js`, `lib/help-guides.js`,
++`lib/help-search.js`, `scripts/check-help.js`, `claude/help-getting-started-audit.md`,
++`HELP-V1-INSTRUCTIONS.md`, `0001-Help-Getting-Started-V1.patch` (optional, for reference).
++
++If the count differs, stop and tell Claude before committing.
++
++## Check in production after deploy (owner, then a coach/manager)
++
++1. `/help`: "How can we help?", Search Help, Popular, setup progress (compact once 3 steps are done).
++2. Search "wrong batter", "player doesn't owe dues", "add note": a direct answer with its button.
++3. Help on Performance, Finance and Tournaments: three questions for that screen.
++   An organization without QAB sees no QAB questions.
++4. Finance › Player Dues › Help › an answer › Back returns to Player Dues.
++5. Coach/manager: answers with owner-only actions explain instead of offering the button;
++   `/settings?invite=1` opens Settings without the form.
+diff --git a/app/(app)/help/[guide]/page.js b/app/(app)/help/[guide]/page.js
+new file mode 100644
+index 0000000..84c03fa
+--- /dev/null
++++ b/app/(app)/help/[guide]/page.js
+@@ -0,0 +1,29 @@
++import { notFound } from "next/navigation";
++import { getContext } from "../../../../lib/context";
++import { findGuide } from "../../../../lib/help";
++import { HelpGuide } from "../../../../components/HelpCenter";
++import { helpAccess } from "../access";
++
++export const dynamic = "force-dynamic";
++
++export async function generateMetadata({ params }) {
++  const guide = findGuide((await params)?.guide);
++  return { title: `${guide ? guide.title : "Help"} · Season Tempo` };
++}
++
++/** One Help & Getting Started guide. Read-only. */
++export default async function HelpGuidePage({ params, searchParams }) {
++  const guide = findGuide((await params)?.guide);
++  if (!guide) notFound();
++
++  const ctx = await getContext();
++  const query = await searchParams;
++
++  return (
++    <HelpGuide
++      guide={guide}
++      access={helpAccess(ctx)}
++      from={typeof query?.from === "string" ? query.from : null}
++    />
++  );
++}
+diff --git a/app/(app)/help/access.js b/app/(app)/help/access.js
+new file mode 100644
+index 0000000..564e256
+--- /dev/null
++++ b/app/(app)/help/access.js
+@@ -0,0 +1,14 @@
++import { canWrite, isOrgAdmin } from "../../../lib/context";
++
++/**
++ * What Help may offer this person (2026-11). Read from the same context every
++ * page uses; presentation only — the server still decides every action.
++ */
++export function helpAccess(ctx) {
++  return {
++    isAdmin: isOrgAdmin(ctx?.profile),
++    canWrite: canWrite(ctx?.profile),
++    qab: Boolean(ctx?.features?.qab),
++    phase: ctx?.seasonPhase ?? null,
++  };
++}
+diff --git a/app/(app)/help/page.js b/app/(app)/help/page.js
+new file mode 100644
+index 0000000..f5dc9e4
+--- /dev/null
++++ b/app/(app)/help/page.js
+@@ -0,0 +1,32 @@
++import { getContext } from "../../../lib/context";
++import { createClient } from "../../../lib/supabase/server";
++import { HelpHome } from "../../../components/HelpCenter";
++import { helpAccess } from "./access";
++import { helpProgress } from "./progress";
++
++export const dynamic = "force-dynamic";
++export const metadata = { title: "Help & Getting Started · Season Tempo" };
++
++/**
++ * Help & Getting Started (V1, 2026-11): "How can we help?". Signed-in only
++ * (inside the app shell) and read-only. ?q= opens a search, ?a= a direct
++ * answer, ?view=guides the full guide list; ?from= is where Back returns.
++ */
++export default async function HelpPage({ searchParams }) {
++  const ctx = await getContext();
++  const params = await searchParams;
++  const access = helpAccess(ctx);
++  const progress = await helpProgress(createClient(), ctx, { qab: access.qab });
++  const str = (v) => (typeof v === "string" ? v : null);
++
++  return (
++    <HelpHome
++      progress={progress}
++      access={access}
++      from={str(params?.from)}
++      query={str(params?.q) ?? ""}
++      answer={str(params?.a)}
++      showGuides={params?.view === "guides"}
++    />
++  );
++}
+diff --git a/app/(app)/help/progress.js b/app/(app)/help/progress.js
+new file mode 100644
+index 0000000..803f9c3
+--- /dev/null
++++ b/app/(app)/help/progress.js
+@@ -0,0 +1,39 @@
++import { setupState } from "../../../components/SetupNext";
++
++/**
++ * Setup progress for Help & Getting Started (2026-11). Read-only.
++ *
++ * The first four steps are the existing setup checklist exactly as Home
++ * computes it (setupState / gettingStartedSteps). Two further steps are read
++ * from real data the same way: a game exists in the season, and — only when
++ * the organization has QAB — a batting order exists for one of its games.
++ * Nothing is stored; nothing here changes Home's checklist.
++ */
++const LABELS = {
++  "name-team": ["Team created", "Confirm your team and season"],
++  roster: ["Players added", "Add your players"],
++  tournament: ["Tournament added", "Add your first tournament"],
++  dues: ["Player dues set", "Set player dues"],
++  game: ["Game added", "Add your first game"],
++  lineup: ["Batting order set", "Set a batting order"],
++};
++
++export async function helpProgress(supabase, ctx, { qab = false } = {}) {
++  const base = await setupState(supabase, ctx);
++  if (!base.steps?.length || !ctx.season) return null;
++
++  const [{ count: games }, lineups] = await Promise.all([
++    supabase.from("games").select("id", { count: "exact", head: true }).eq("season_id", ctx.season.id),
++    qab
++      ? supabase.from("game_lineup_slots").select("id", { count: "exact", head: true }).eq("season_id", ctx.season.id)
++      : Promise.resolve({ count: null }),
++  ]);
++
++  const steps = [
++    ...base.steps.map((s) => ({ id: s.id, done: s.done, href: s.href, creates: s.id !== "dues" })),
++    { id: "game", done: (games ?? 0) > 0, href: "/tournaments", creates: false },
++    ...(qab ? [{ id: "lineup", done: (lineups.count ?? 0) > 0, href: "/performance", creates: false }] : []),
++  ].map((s) => ({ ...s, label: LABELS[s.id][s.done ? 0 : 1] }));
++
++  return { steps, done: steps.filter((s) => s.done).length, total: steps.length };
++}
+diff --git a/app/(app)/layout.js b/app/(app)/layout.js
+index 1490653..c668f43 100644
+--- a/app/(app)/layout.js
++++ b/app/(app)/layout.js
+@@ -1,6 +1,7 @@
+ import { redirect } from "next/navigation";
+ import { getContext } from "../../lib/context";
+ import { NavSidebar } from "../../components/NavSidebar";
++import { HelpContextProvider } from "../../components/HelpContext";
+ import { AppFooter } from "../../components/AppFooter";
+ import { SeasonBanner } from "../../components/SeasonBanner";
+ 
+@@ -34,7 +35,8 @@ export default async function AppLayout({ children }) {
+             seasonName={season?.name}
+             currentSeasonName={currentSeason?.name}
+           />
+-          {children}
++          {/* Lets the Help popover know whether QAB is on (2026-11). */}
++          <HelpContextProvider qab={features?.qab}>{children}</HelpContextProvider>
+ 
+           <AppFooter />
+         </main>
+diff --git a/app/globals.css b/app/globals.css
+index da6d66d..5bc8c60 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -6486,3 +6486,286 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
+   display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.4; color: var(--slate);
+   font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
+ }
++
++/* ===== Help & Getting Started (V1, 2026-11) =====
++   One central page plus nine short guides. Uses the existing page, card and
++   button styles; nothing here restyles another screen. */
++
++/* Help popover: the way into Help & Getting Started. */
++.help-center-link {
++  display: grid; grid-template-columns: 1fr auto; column-gap: 10px; align-items: center;
++  margin: 10px 0 4px; padding: 11px 12px; border-radius: 10px;
++  background: var(--navy); color: #fff; text-decoration: none;
++}
++.help-center-link:hover, .help-center-link:focus-visible { background: #12335c; }
++.help-center-title { font-size: 13.5px; font-weight: 700; }
++.help-center-text { grid-column: 1; font-size: 12px; color: #c9d6e6; margin-top: 1px; }
++.help-center-go { grid-column: 2; grid-row: 1 / span 2; font-size: 16px; color: #fff; }
++
++.hc-page { max-width: 1120px; padding-bottom: 32px; }
++.hc-back {
++  display: inline-flex; align-items: center; gap: 6px; min-height: 36px;
++  margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--blue-dark);
++  text-decoration: none;
++}
++.hc-back:hover, .hc-back:focus-visible { text-decoration: underline; }
++
++.hc-unavailable { margin: 8px 0 0; font-size: 12.5px; color: var(--slate); line-height: 1.45; }
++.hc-action { margin-top: 10px; padding: 7px 13px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
++
++/* Guide index */
++.hc-section-title {
++  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
++  color: var(--slate); margin: 0 0 10px; font-family: var(--font-body);
++}
++.hc-guides {
++  list-style: none; margin: 0; padding: 0;
++  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
++}
++.hc-guides li { display: flex; }
++.hc-guide-card {
++  flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 16px;
++  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
++  color: inherit; text-decoration: none; min-height: 112px;
++}
++.hc-guide-card:hover, .hc-guide-card:focus-visible { border-color: var(--blue); }
++.hc-guide-title { font-size: 14.5px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
++.hc-guide-text { font-size: 13px; color: var(--slate); line-height: 1.45; }
++.hc-guide-meta { margin-top: auto; padding-top: 6px; font-size: 12px; font-weight: 600; color: var(--blue-dark); }
++.hc-premium {
++  font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
++  color: #8a5a00; background: #fff5dc; border: 1px solid #f3dfa6; border-radius: 999px; padding: 1px 7px;
++}
++.hc-contact { margin: 22px 0 0; font-size: 13px; color: var(--slate); }
++.hc-contact a, .hc-locked a { color: var(--blue-dark); font-weight: 600; }
++
++/* Guide page: one column with a compact selector and search above it. */
++.hc-guide-layout { max-width: 880px; }
++.hc-toolbar {
++  display: flex; align-items: flex-start; gap: 12px; max-width: 880px;
++  margin: 0 0 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border);
++}
++
++.hc-picker { position: relative; flex: 0 1 380px; min-width: 0; }
++.hc-picker-btn {
++  width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px;
++  padding: 8px 12px; background: var(--surface); border: 1px solid var(--border);
++  border-radius: var(--radius-control); cursor: pointer; font: inherit; text-align: left; color: var(--navy);
++}
++.hc-picker-btn:hover, .hc-picker-btn[aria-expanded="true"] { border-color: var(--blue); }
++.hc-picker-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--slate); }
++.hc-picker-current { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++.hc-picker-caret { color: var(--slate); font-size: 12px; }
++.hc-picker-panel, .hc-search-panel {
++  position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: 100%; min-width: 300px;
++  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
++  box-shadow: 0 14px 40px rgba(11,35,65,0.16); padding: 6px; max-height: min(70vh, 520px); overflow-y: auto;
++}
++.hc-picker-panel ul, .hc-search-panel ul { list-style: none; margin: 0; padding: 0; }
++.hc-picker-all {
++  display: flex; align-items: center; min-height: 40px; padding: 8px 10px; margin-bottom: 4px;
++  border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; color: var(--blue-dark); text-decoration: none;
++}
++.hc-picker-item {
++  display: flex; align-items: center; min-height: 40px; padding: 8px 10px; border-radius: 8px;
++  font-size: 14px; color: var(--navy); text-decoration: none;
++}
++.hc-picker-item:hover, .hc-picker-item:focus-visible, .hc-picker-all:hover { background: var(--surface-sunken); }
++.hc-picker-item.active { background: #eef4fd; color: var(--blue-dark); font-weight: 600; }
++
++.hc-search { position: relative; flex: 1 1 auto; min-width: 0; margin: 0 0 18px; }
++.hc-search.compact { margin: 0; }
++.hc-search-input {
++  width: 100%; min-height: 44px; font: inherit; font-size: 14px; padding: 10px 12px;
++  border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); outline: none;
++}
++.hc-search-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15); }
++.hc-result {
++  display: flex; flex-direction: column; gap: 1px; padding: 9px 10px; border-radius: 8px;
++  color: inherit; text-decoration: none;
++}
++.hc-result:hover, .hc-result:focus-visible { background: var(--surface-sunken); }
++.hc-result-title { font-size: 14px; font-weight: 600; color: var(--navy); }
++.hc-result-meta { font-size: 12px; color: var(--slate); }
++.hc-search-none { margin: 0; padding: 12px 10px; font-size: 13px; color: var(--slate); line-height: 1.5; }
++
++.hc-title { font-size: 24px; line-height: 1.2; }
++.hc-summary { margin: 6px 0 0; font-size: 15px; color: var(--navy); }
++.hc-who { margin: 8px 0 0; font-size: 13px; color: var(--slate); }
++.hc-locked {
++  margin: 14px 0 0; padding: 10px 12px; font-size: 13px; line-height: 1.5; color: var(--navy);
++  background: #fff8e8; border: 1px solid #f3dfa6; border-radius: var(--radius-control);
++}
++
++.hc-pieces { margin: 18px 0 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
++.hc-pieces-title { font-size: 13px; font-family: var(--font-body); font-weight: 700; color: var(--navy); margin: 0 0 8px; }
++.hc-pieces dl { margin: 0; }
++.hc-piece { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border); }
++.hc-piece:first-child { border-top: 0; padding-top: 0; }
++.hc-piece dt { font-size: 13px; font-weight: 700; color: var(--navy); }
++.hc-piece dd { margin: 0; font-size: 13px; color: var(--slate); line-height: 1.45; }
++
++.hc-steps { list-style: none; margin: 20px 0 0; padding: 0; }
++.hc-step { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border); scroll-margin-top: 20px; }
++.hc-step:first-child { border-top: 0; padding-top: 4px; }
++.hc-step:target .hc-step-num { background: var(--blue); color: #fff; }
++.hc-step-num {
++  flex: 0 0 26px; width: 26px; height: 26px; border-radius: 8px;
++  background: var(--surface-sunken); color: var(--navy);
++  display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
++}
++.hc-step-body { min-width: 0; flex: 1; }
++.hc-step-title { font-size: 15px; font-family: var(--font-body); font-weight: 700; color: var(--navy); line-height: 1.35; padding-top: 3px; }
++.hc-step-text { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; color: #334155; }
++
++.hc-know { margin: 10px 0 0; padding: 14px 16px; border-radius: 12px; background: var(--surface-sunken); }
++.hc-know-title { font-size: 13px; font-family: var(--font-body); font-weight: 700; color: var(--navy); margin: 0 0 6px; }
++.hc-know ul { margin: 0; padding-left: 18px; }
++.hc-know li { font-size: 13px; line-height: 1.5; color: #334155; }
++.hc-know li + li { margin-top: 4px; }
++.hc-related { margin: 16px 0 0; font-size: 13px; }
++.hc-related a { color: var(--blue-dark); font-weight: 600; }
++
++@media (max-width: 960px) {
++  .hc-guides { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++}
++@media (max-width: 720px) {
++  .hc-guides { grid-template-columns: minmax(0, 1fr); gap: 8px; }
++  .hc-guide-card { min-height: 0; }
++  .hc-guide-meta { padding-top: 4px; }
++  .hc-title { font-size: 21px; }
++  .hc-piece { grid-template-columns: minmax(0, 1fr); gap: 1px; }
++  .hc-action { min-height: 44px; }
++  .hc-back { min-height: 44px; display: inline-flex; align-items: center; }
++  .hc-toolbar { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 18px; padding-bottom: 14px; }
++  .hc-picker { flex: none; }
++  .hc-picker-panel, .hc-search-panel { min-width: 0; }
++}
++
++/* ===== Help: "How can we help?" (2026-11) =====
++   Question first: one search, a short Popular list, setup progress, then
++   the way into all guides. Answers lead with what to do and one action. */
++.hc-home { max-width: 760px; margin: 0 auto; }
++.hc-hero { padding: 20px 0 14px; }
++.hc-hero h1 { font-size: 30px; line-height: 1.15; }
++.hc-hero p { margin: 8px 0 0; font-size: 15px; color: var(--slate); }
++
++.ha-form { margin: 0; }
++.ha-input {
++  width: 100%; min-height: 52px; padding: 12px 16px; font: inherit; font-size: 16px;
++  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
++  box-shadow: 0 2px 10px rgba(11, 35, 65, 0.06); outline: none;
++}
++.ha-input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(47, 128, 237, 0.14); }
++.ha-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 10px 0 0; font-size: 12.5px; color: var(--slate); }
++.ha-example {
++  min-height: 32px; padding: 4px 11px; border: 1px solid var(--border); border-radius: 999px;
++  background: var(--surface); font: inherit; font-size: 12.5px; color: var(--navy); cursor: pointer;
++}
++.ha-example:hover, .ha-example:focus-visible { border-color: var(--blue); color: var(--blue-dark); }
++
++.ha-section-title {
++  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
++  color: var(--slate); margin: 0 0 8px; font-family: var(--font-body);
++}
++.ha-popular { margin-top: 28px; }
++.ha-popular ul, .ha-related ul, .hc-progress-list { list-style: none; margin: 0; padding: 0; }
++.ha-popular-item {
++  width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
++  padding: 10px 2px; background: none; border: 0; border-top: 1px solid var(--border);
++  font: inherit; font-size: 15px; font-weight: 600; color: var(--navy); text-align: left; cursor: pointer;
++}
++.ha-popular li:last-child .ha-popular-item { border-bottom: 1px solid var(--border); }
++.ha-popular-item:hover, .ha-popular-item:focus-visible { color: var(--blue-dark); }
++.ha-popular-item span:last-child { color: var(--slate); }
++
++.ha-results { margin-top: 18px; }
++.ha-answer {
++  padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
++  box-shadow: 0 6px 24px rgba(11, 35, 65, 0.07);
++}
++.ha-answer-kind { margin: 0 0 4px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue-dark); }
++.ha-answer-title { font-size: 20px; line-height: 1.25; margin: 0; }
++.ha-answer-text { margin: 8px 0 0; font-size: 15px; line-height: 1.55; color: #334155; }
++.ha-answer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 16px; }
++.ha-answer-actions .btn { min-height: 44px; display: inline-flex; align-items: center; }
++.ha-guide-link { font-size: 13.5px; font-weight: 600; color: var(--blue-dark); text-decoration: none; }
++.ha-guide-link:hover, .ha-guide-link:focus-visible { text-decoration: underline; }
++.ha-reset {
++  margin-top: 12px; min-height: 40px; padding: 0; background: none; border: 0; font: inherit;
++  font-size: 13.5px; font-weight: 600; color: var(--slate); cursor: pointer;
++}
++.ha-reset:hover { color: var(--navy); text-decoration: underline; }
++.ha-related { margin-top: 20px; }
++.ha-related-title { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--slate); margin: 0 0 6px; font-family: var(--font-body); }
++.ha-related-item {
++  width: 100%; min-height: 48px; display: flex; flex-direction: column; justify-content: center; gap: 1px;
++  padding: 8px 2px; background: none; border: 0; border-top: 1px solid var(--border);
++  font: inherit; text-align: left; text-decoration: none; color: inherit; cursor: pointer;
++}
++.ha-related-item:hover .ha-related-name, .ha-related-item:focus-visible .ha-related-name { color: var(--blue-dark); }
++.ha-related-name { font-size: 14.5px; font-weight: 600; color: var(--navy); }
++.ha-related-meta { font-size: 12px; color: var(--slate); }
++.ha-none { padding: 18px 20px; border: 1px dashed var(--border); border-radius: 12px; font-size: 14px; color: var(--slate); line-height: 1.5; }
++.ha-none p { margin: 0; }
++.ha-none-title { font-weight: 700; color: var(--navy); margin-bottom: 4px !important; }
++
++.hc-progress { margin-top: 28px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
++.hc-progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
++.hc-progress-head h2 { font-size: 16px; margin: 0; }
++.hc-progress-count { font-size: 12.5px; font-weight: 600; color: var(--slate); flex-shrink: 0; }
++.hc-progress-bar { height: 6px; margin: 12px 0 14px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; }
++.hc-progress-bar span { display: block; height: 100%; background: var(--green); border-radius: inherit; }
++.hc-progress-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
++.hc-progress-list li { display: flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--navy); font-weight: 600; }
++.hc-progress-list li.done { color: var(--slate); font-weight: 500; }
++.hc-progress-mark {
++  flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border);
++  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff;
++}
++.hc-progress-list li.done .hc-progress-mark { background: var(--green); border-color: var(--green); }
++.hc-progress-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 16px; }
++.hc-progress-actions .btn { min-height: 44px; display: inline-flex; align-items: center; }
++.hc-progress.compact .hc-progress-bar { margin-bottom: 10px; }
++.hc-progress-next { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--navy); }
++.hc-progress-next span { font-weight: 500; color: var(--slate); }
++.hc-progress-all { margin-top: 12px; border-top: 1px solid var(--border); }
++.hc-progress-all summary {
++  display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; list-style: none;
++  font-size: 13px; font-weight: 600; color: var(--slate);
++}
++.hc-progress-all summary::-webkit-details-marker { display: none; }
++.hc-progress-all summary::after { content: "▾"; margin-left: 6px; font-size: 11px; }
++.hc-progress-all[open] summary::after { content: "▴"; }
++.hc-progress-all summary:hover, .hc-progress-all summary:focus-visible { color: var(--navy); }
++.hc-progress-all .hc-progress-list { margin: 2px 0 12px; }
++.hc-progress-all .ha-guide-link { display: inline-flex; min-height: 36px; align-items: center; }
++
++.hc-more { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 28px 0 0; font-size: 14px; color: var(--slate); }
++.hc-more a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--blue-dark); text-decoration: none; }
++.hc-more a:hover, .hc-more a:focus-visible { text-decoration: underline; }
++.hc-home #all-guides { margin-top: 10px; scroll-margin-top: 20px; }
++.hc-home .hc-guides { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++
++/* Help popover: questions about this page, then search. */
++.help-questions { list-style: none; margin: 0; padding: 0; }
++.help-question {
++  display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px;
++  padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--navy); text-decoration: none;
++}
++.help-question:hover, .help-question:focus-visible { background: var(--surface-sunken); color: var(--blue-dark); }
++.help-question-go { color: var(--slate); }
++.help-question-meta { display: block; font-size: 12px; font-weight: 400; color: var(--slate); }
++.help-search-inline { padding: 8px 0 6px; border: 0; }
++.help-results { margin-bottom: 6px; }
++
++@media (max-width: 720px) {
++  .hc-hero { padding-top: 6px; }
++  .hc-hero h1 { font-size: 25px; }
++  .ha-answer { padding: 16px; }
++  .ha-answer-title { font-size: 18px; }
++  .ha-answer-actions .btn { width: 100%; justify-content: center; }
++  .hc-progress-list { grid-template-columns: minmax(0, 1fr); }
++  .hc-progress-actions .btn { width: 100%; justify-content: center; }
++  .hc-home .hc-guides { grid-template-columns: minmax(0, 1fr); }
++}
+diff --git a/claude/help-getting-started-audit.md b/claude/help-getting-started-audit.md
+new file mode 100644
+index 0000000..178eda6
+--- /dev/null
++++ b/claude/help-getting-started-audit.md
+@@ -0,0 +1,48 @@
++# Help & Getting Started V1: audit and decisions
++
++Read-only audit of `main` at `9c5bd36` (2026-11-11), accepted by Autumn 2026-11-11. Auth Phase 3C is
++paused while this work happens; its carry-forward gates and decisions are unchanged.
++
++## What existed
++
++- Help popover (`components/HelpMenu.js`, `lib/help.js`): a task launcher with search, "On this page"
++  and deep links. It answered "where is the button", not "how does this work, in what order".
++- Term tips (`HelpTip`), the Home Getting started checklist and `SetupNext` strip, and the collapsed
++  "How QAB tracking works" note on Performance (`QabGuide`).
++
++## Findings that shaped V1
++
++1. No help on the Lineup and Track screens (desktop none; phone only via More).
++2. The QAB sequence (tournament roster, batting order, track, finish, correct, report) was never
++   explained end to end; the popover had no QAB tasks.
++3. "Add a coach or manager" added a roster person with no login; access is a separate owner invitation.
++4. Invite help said "coach, manager or parent"; parent invitations have been disabled since August.
++5. Help deep links `?invite=1` / `?new-season=1` opened owner-only forms for coaches and managers; the
++   server refused only after they filled them in.
++6. The Home checklist could not be brought back once hidden.
++7. Finance relationships (Budget, Transactions, Money In, Player Dues, Payments) were undocumented.
++8. Guardian handling undocumented; "Facilities" wording drift; Reports, Contacts, Performance had no tasks.
++9. The phone More sheet showed "Help" beside a second "Help" button and opened a panel inside the sheet.
++10. Nothing tested Help links, which is how items 4 and 8 drifted.
++
++## Decisions (Autumn, 2026-11-11)
++
++1. New signed-in `/help` central guide (authenticated only; no public documentation in V1).
++2. Existing Help popover stays the fast, page-aware first layer and links into `/help`.
++3. Copy-only contextual notes on Lineup and Track approved for H3; QAB behavior unchanged.
++4. Coaches/managers can no longer open owner-only Invite and New Season forms from links; server
++   authorization unchanged.
++5. Guide copy drafted in the implementation preview rather than a separate copy document.
++6. Nine-guide structure: setup, roster and parents, tournaments and games, QAB, money, files,
++   locations, invitations, reports.
++7. Build H1 (central guide) and H2 (popover, wording and permission fixes) first; stop for review of
++   guidance density before H3 contextual notes on six product screens.
++
++No database or schema work is needed: guide content is code, the checklist is read-only and derived
++from data, and nothing is tracked.
++
++## Known limitation carried into H3
++
++Product drawers are modal, so the page-header Help button cannot be reached while a drawer is open.
++Return-to-drawer (`?from=/tournaments?open=<id>`) works and is proven, but it is only reachable from
++inside a drawer once H3 adds contextual "Learn more" links there.
+diff --git a/components/HelpAsk.js b/components/HelpAsk.js
+new file mode 100644
+index 0000000..25c7b86
+--- /dev/null
++++ b/components/HelpAsk.js
+@@ -0,0 +1,179 @@
++"use client";
++
++import { useEffect, useMemo, useRef, useState } from "react";
++import Link from "next/link";
++import { searchHelp, actionState, helpHref, isHelpLink, findGuide } from "../lib/help";
++import { findAnswer } from "../lib/help-answers";
++
++/**
++ * "How can we help?" (2026-11): question first, answer first, guide second.
++ *
++ * A query is answered with one direct answer card (the best result), then a
++ * few related results. /help?q=<query> and /help?a=<answer id> are linkable,
++ * so the Help popover and guide pages can open an answer directly, and Back
++ * still works. The query is kept in the address bar with replaceState, never
++ * a navigation per keystroke.
++ *
++ * Results come from searchHelp(), deterministic today. A conversational or AI
++ * layer can return the same result shape later without redesigning this.
++ */
++
++const EXAMPLES = ["wrong batter", "player doesn't owe dues", "add a hotel", "coach can't sign in"];
++
++export function HelpAsk({ from = null, access = {}, popular = [], initialQuery = "", initialAnswer = null, children = null }) {
++  const [query, setQuery] = useState(initialQuery);
++  const [answerId, setAnswerId] = useState(initialQuery ? null : initialAnswer);
++  const inputRef = useRef(null);
++
++  const results = useMemo(() => searchHelp(query, 6), [query]);
++  const chosen = answerId ? findAnswer(answerId) : null;
++
++  // Keep the address bar in step (q or a), preserving from=, without a
++  // navigation on every keystroke.
++  useEffect(() => {
++    const url = new URL(window.location.href);
++    url.searchParams.delete("q");
++    url.searchParams.delete("a");
++    if (query.trim()) url.searchParams.set("q", query.trim());
++    else if (answerId) url.searchParams.set("a", answerId);
++    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
++  }, [query, answerId]);
++
++  const showResults = results !== null;
++  const idle = !showResults && !chosen;
++
++  return (
++    <div className="ha">
++      <form className="ha-form" role="search" onSubmit={(e) => e.preventDefault()}>
++        <label htmlFor="ha-input" className="visually-hidden">Search Help</label>
++        <input
++          id="ha-input"
++          ref={inputRef}
++          type="search"
++          className="ha-input"
++          placeholder="Search Help"
++          autoComplete="off"
++          value={query}
++          onChange={(e) => {
++            setQuery(e.target.value);
++            setAnswerId(null);
++          }}
++        />
++      </form>
++
++      {idle && (
++        <p className="ha-examples">
++          <span>Try</span>
++          {EXAMPLES.map((ex) => (
++            <button key={ex} type="button" className="ha-example" onClick={() => { setQuery(ex); inputRef.current?.focus(); }}>
++              {ex}
++            </button>
++          ))}
++        </p>
++      )}
++
++      {chosen && (
++        <div className="ha-results">
++          <AnswerCard result={{ kind: "answer", ...chosen, text: chosen.answer }} access={access} from={from} />
++          <button type="button" className="ha-reset" onClick={() => { setAnswerId(null); inputRef.current?.focus(); }}>
++            Ask something else
++          </button>
++        </div>
++      )}
++
++      {showResults && (
++        <div className="ha-results" aria-live="polite">
++          {results.length === 0 ? (
++            <div className="ha-none">
++              <p className="ha-none-title">No answer for &ldquo;{query.trim()}&rdquo; yet.</p>
++              <p>Try describing what you&rsquo;re trying to do, like &ldquo;record a payment&rdquo; or &ldquo;add games&rdquo;. You can also browse all guides below.</p>
++            </div>
++          ) : (
++            <>
++              <AnswerCard result={results[0]} access={access} from={from} />
++              {results.length > 1 && (
++                <section className="ha-related" aria-label="Related">
++                  <h2 className="ha-related-title">Related</h2>
++                  <ul>
++                    {results.slice(1).map((r) => (
++                      <li key={r.href}>
++                        {r.kind === "answer" ? (
++                          <button type="button" className="ha-related-item" onClick={() => { setQuery(""); setAnswerId(r.id); window.scrollTo({ top: 0 }); }}>
++                            <span className="ha-related-name">{r.title}</span>
++                            <span className="ha-related-meta">Answer</span>
++                          </button>
++                        ) : (
++                          <Link href={helpHref(r.href, from)} className="ha-related-item">
++                            <span className="ha-related-name">{r.title}</span>
++                            <span className="ha-related-meta">{r.kind === "step" ? `In ${r.guideTitle}` : "Guide"}</span>
++                          </Link>
++                        )}
++                      </li>
++                    ))}
++                  </ul>
++                </section>
++              )}
++            </>
++          )}
++        </div>
++      )}
++
++      {idle && popular.length > 0 && (
++        <section className="ha-popular" aria-labelledby="ha-popular-title">
++          <h2 id="ha-popular-title" className="ha-section-title">Popular</h2>
++          <ul>
++            {popular.map((a) => (
++              <li key={a.id}>
++                <button type="button" className="ha-popular-item" onClick={() => setAnswerId(a.id)}>
++                  <span>{a.title}</span>
++                  <span aria-hidden="true">→</span>
++                </button>
++              </li>
++            ))}
++          </ul>
++        </section>
++      )}
++
++      {idle && children}
++    </div>
++  );
++}
++
++/** The direct answer: what to do, the button that does it, the guide for more. */
++export function AnswerCard({ result, access, from }) {
++  const [slug, anchor] = String(result.guide ?? "").split("#");
++  const guide = slug ? findGuide(slug) : null;
++  const state = result.action ? actionState(result.action, access) : null;
++  const guideHref = guide ? helpHref(`/help/${slug}${anchor ? `#${anchor}` : ""}`, from) : null;
++  const label = result.kind === "guide" ? "Guide" : result.kind === "step" ? `From ${result.guideTitle}` : "Answer";
++
++  return (
++    <article className="ha-answer">
++      <p className="ha-answer-kind">{label}</p>
++      <h2 className="ha-answer-title">{result.title}</h2>
++      <p className="ha-answer-text">{result.text}</p>
++      <div className="ha-answer-actions">
++        {result.kind === "guide" ? (
++          <Link href={helpHref(result.href, from)} className="btn btn-primary">Open guide →</Link>
++        ) : (
++          <>
++            {state?.ok && (
++              <Link
++                href={isHelpLink(result.action.href) ? helpHref(result.action.href, from) : result.action.href}
++                className="btn btn-primary"
++              >
++                {result.action.label} →
++              </Link>
++            )}
++            {guideHref && (
++              <Link href={guideHref} className="ha-guide-link">
++                Full guide: {guide.title} →
++              </Link>
++            )}
++          </>
++        )}
++      </div>
++      {state && !state.ok && state.reason && <p className="hc-unavailable">{state.reason}</p>}
++    </article>
++  );
++}
+diff --git a/components/HelpCenter.js b/components/HelpCenter.js
+new file mode 100644
+index 0000000..06d48f7
+--- /dev/null
++++ b/components/HelpCenter.js
+@@ -0,0 +1,253 @@
++import Link from "next/link";
++import { SUPPORT_EMAIL } from "../lib/legal";
++import { HELP_GUIDES, actionState, helpHref, helpReturn, isHelpLink } from "../lib/help";
++import { HelpGuidePicker, HelpSearch } from "./HelpTools";
++import { HelpAsk } from "./HelpAsk";
++import { popularAnswers } from "../lib/help-answers";
++
++/**
++ * Help & Getting Started (V1, 2026-11).
++ *
++ * Server-rendered and read-only: nothing here writes. Every product action a
++ * guide offers is one that already exists, and an action the person can't
++ * complete is replaced by a sentence saying why (actionState).
++ *
++ * `from` is the exact screen the person came from. It is carried between Help
++ * pages and drives "Back to …", so returning reopens the same tab and drawer.
++ */
++
++export function HelpBack({ from }) {
++  const back = helpReturn(from);
++  if (!back) return null;
++  return (
++    <Link href={back.href} className="hc-back">
++      <span aria-hidden="true">←</span> Back to {back.label}
++    </Link>
++  );
++}
++
++/** A guide action, or the reason it isn't offered. */
++function GuideAction({ action, access, from }) {
++  if (!action) return null;
++  const state = actionState(action, access);
++  if (!state.ok) return <p className="hc-unavailable">{state.reason}</p>;
++
++  const href = isHelpLink(action.href) ? helpHref(action.href, from) : action.href;
++  return (
++    <Link href={href} className="btn btn-secondary hc-action">
++      {action.label} <span aria-hidden="true">→</span>
++    </Link>
++  );
++}
++
++/* ---------------- /help ---------------- */
++
++/**
++ * "How can we help?" (2026-11): question first, answer first, guides second.
++ * The nine guides are one tap away (Browse all guides) but don't fill the
++ * page.
++ */
++export function HelpHome({ progress, access, from, query = "", answer = null, showGuides = false }) {
++  const back = helpReturn(from);
++  const fromHref = back?.href ?? null;
++  return (
++    <div className="page hc-page hc-home">
++      <HelpBack from={from} />
++
++      <header className="hc-hero">
++        <h1>How can we help?</h1>
++        <p>Ask a question or describe what you&rsquo;re trying to do.</p>
++      </header>
++
++      <HelpAsk
++        from={fromHref}
++        access={access}
++        popular={popularAnswers({ qab: access.qab })}
++        initialQuery={query}
++        initialAnswer={answer}
++      >
++        <SetupProgress progress={progress} access={access} from={fromHref} />
++
++        <p className="hc-more">
++          <Link href={`${helpHref("/help?view=guides", fromHref)}#all-guides`}>Browse all guides</Link>
++          <span aria-hidden="true">|</span>
++          <a href={`mailto:${SUPPORT_EMAIL}`}>Contact support</a>
++        </p>
++
++        {showGuides && (
++          <section className="hc-section" id="all-guides" aria-labelledby="hc-guides">
++            <h2 id="hc-guides" className="hc-section-title">All guides</h2>
++            <ul className="hc-guides">
++              {HELP_GUIDES.map((g) => (
++                <li key={g.slug}>
++                  <Link href={helpHref(`/help/${g.slug}`, fromHref)} className="hc-guide-card">
++                    <span className="hc-guide-title">
++                      {g.title}
++                      {g.feature === "qab" && !access.qab && <span className="hc-premium">Premium</span>}
++                    </span>
++                    <span className="hc-guide-text">{g.summary}</span>
++                    <span className="hc-guide-meta">{g.steps.length} steps</span>
++                  </Link>
++                </li>
++              ))}
++            </ul>
++          </section>
++        )}
++      </HelpAsk>
++    </div>
++  );
++}
++
++/**
++ * Setup as progress (2026-11): the existing live checklist plus first game
++ * and, with QAB, first batting order — all read from real data. Shown while
++ * anything is left, including for a coach who hid the checklist on Home.
++ */
++function SetupProgress({ progress, access, from }) {
++  if (!progress || progress.done === progress.total) return null;
++  const next = progress.steps.find((s) => !s.done && s.href) ?? progress.steps.find((s) => !s.done);
++  // A past season takes no new setup; say so rather than send anyone into it.
++  const state = next?.href
++    ? access.phase === "past"
++      ? { ok: false, reason: "You're viewing a past season. Switch to the current season to keep setting up." }
++      : actionState({ href: next.href, requires: "write", creates: next.creates }, access)
++    : null;
++  const pct = Math.round((progress.done / progress.total) * 100);
++  // A new team sees every step. Once three are done, the card shrinks to the
++  // next step, so it stops dominating the page (especially on a phone).
++  const compact = progress.done >= 3;
++
++  const list = (
++    <ul className="hc-progress-list">
++      {progress.steps.map((s) => (
++        <li key={s.id} className={s.done ? "done" : undefined}>
++          <span className="hc-progress-mark" aria-hidden="true">{s.done ? "✓" : ""}</span>
++          <span>{s.label}{s.done && <span className="visually-hidden"> (done)</span>}</span>
++        </li>
++      ))}
++    </ul>
++  );
++
++  return (
++    <section className={`hc-progress${compact ? " compact" : ""}`} id="checklist" aria-labelledby="hc-progress-title">
++      <div className="hc-progress-head">
++        <h2 id="hc-progress-title">Get your team ready</h2>
++        <span className="hc-progress-count">{progress.done} of {progress.total} complete</span>
++      </div>
++      <div className="hc-progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done} aria-label="Setup progress">
++        <span style={{ width: `${pct}%` }} />
++      </div>
++
++      {compact ? (
++        next && <p className="hc-progress-next"><span>Next:</span> {next.label}</p>
++      ) : (
++        list
++      )}
++
++      <div className="hc-progress-actions">
++        {state?.ok && (
++          <Link href={next.href} className="btn btn-primary">Continue setup →</Link>
++        )}
++        {state && !state.ok && <span className="hc-unavailable">{state.reason}</span>}
++        {!compact && <Link href={helpHref("/help/setup", from)} className="ha-guide-link">Setup guide →</Link>}
++      </div>
++
++      {compact && (
++        <details className="hc-progress-all">
++          <summary>View all steps</summary>
++          {list}
++          <Link href={helpHref("/help/setup", from)} className="ha-guide-link">Setup guide →</Link>
++        </details>
++      )}
++    </section>
++  );
++}
++
++/* ---------------- /help/[guide] ---------------- */
++
++export function HelpGuide({ guide, access, from }) {
++  const back = helpReturn(from);
++  const fromHref = back?.href ?? null;
++  const locked = guide.feature === "qab" && !access.qab;
++
++  return (
++    <div className="page hc-page">
++      <HelpBack from={from} />
++
++      {/* A compact selector and search instead of a permanent list of all nine
++          guides (2026-11): more room for the guide, and nothing long above it
++          on a phone. */}
++      <div className="hc-toolbar">
++        <HelpGuidePicker current={guide.slug} from={fromHref} />
++        <HelpSearch from={fromHref} compact />
++      </div>
++
++      <div className="hc-guide-layout">
++        <article className="hc-article">
++          <h1 className="hc-title">{guide.title}</h1>
++          <p className="hc-summary">{guide.summary}</p>
++          <p className="hc-who">{guide.who}</p>
++
++          {locked && (
++            <p className="hc-locked">
++              Performance is a Premium feature and isn&rsquo;t turned on for your organization. This
++              guide shows how it works. To ask about it, email{" "}
++              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
++            </p>
++          )}
++
++          {guide.pieces && (
++            <section className="hc-pieces" aria-label={guide.pieces.title}>
++              <h2 className="hc-pieces-title">{guide.pieces.title}</h2>
++              <dl>
++                {guide.pieces.items.map((p) => (
++                  <div key={p.term} className="hc-piece">
++                    <dt>{p.term}</dt>
++                    <dd>{p.text}</dd>
++                  </div>
++                ))}
++              </dl>
++            </section>
++          )}
++
++          <ol className="hc-steps">
++            {guide.steps.map((s, i) => (
++              <li key={s.id} id={s.id} className="hc-step">
++                <span className="hc-step-num" aria-hidden="true">{i + 1}</span>
++                <div className="hc-step-body">
++                  <h2 className="hc-step-title">{s.title}</h2>
++                  <p className="hc-step-text">{s.text}</p>
++                  <GuideAction action={s.action} access={access} from={fromHref} />
++                </div>
++              </li>
++            ))}
++          </ol>
++
++          {guide.goodToKnow?.length > 0 && (
++            <aside className="hc-know" aria-label="Good to know">
++              <h2 className="hc-know-title">Good to know</h2>
++              <ul>
++                {guide.goodToKnow.map((t) => (
++                  <li key={t}>{t}</li>
++                ))}
++              </ul>
++            </aside>
++          )}
++
++          {guide.related?.length > 0 && (
++            <p className="hc-related">
++              {guide.related.map((r, i) => (
++                <span key={r.href}>
++                  {i > 0 && <span className="hc-related-sep" aria-hidden="true"> · </span>}
++                  <Link href={isHelpLink(r.href) ? helpHref(r.href, fromHref) : r.href}>
++                    {r.label} →
++                  </Link>
++                </span>
++              ))}
++            </p>
++          )}
++        </article>
++      </div>
++    </div>
++  );
++}
+diff --git a/components/HelpContext.js b/components/HelpContext.js
+new file mode 100644
+index 0000000..22aabd3
+--- /dev/null
++++ b/components/HelpContext.js
+@@ -0,0 +1,22 @@
++"use client";
++
++import { createContext, useContext } from "react";
++
++/**
++ * What Help may assume about the signed-in organization (2026-11).
++ *
++ * Provided once by the app layout from the same `features` it already reads
++ * for the navigation, so the Help popover on any screen knows whether QAB is
++ * on without each page passing it down. Presentation only: RLS and the
++ * feature gate still decide what anyone can read or write.
++ *
++ * Without a provider, QAB is treated as off, so Help never knowingly offers
++ * QAB questions it can't stand behind.
++ */
++const HelpContext = createContext({ qab: false });
++
++export function HelpContextProvider({ qab = false, children }) {
++  return <HelpContext.Provider value={{ qab: Boolean(qab) }}>{children}</HelpContext.Provider>;
++}
++
++export const useHelpContext = () => useContext(HelpContext);
+diff --git a/components/HelpMenu.js b/components/HelpMenu.js
+index b3a92c7..30a3332 100644
+--- a/components/HelpMenu.js
++++ b/components/HelpMenu.js
+@@ -3,39 +3,40 @@
+ import { useState, useEffect, useRef, useMemo } from "react";
+ import { SUPPORT_EMAIL } from "../lib/legal";
+ import Link from "next/link";
+-import { usePathname } from "next/navigation";
+-import { HELP_GROUPS, tasksForPath, searchTasks } from "../lib/help";
++import { usePathname, useSearchParams, useRouter } from "next/navigation";
++import { searchHelp, helpHref } from "../lib/help";
++import { questionsForPath } from "../lib/help-answers";
++import { useHelpContext } from "./HelpContext";
+ 
+ /**
+- * In-app help.
++ * The Help popover (2026-11): aware of the screen it's opened from.
+  *
+- * Task-based rather than a list of instructions: each entry names something a
+- * coach wants to do and takes them there. Where the interface can open the
+- * actual form we link straight to it; where a record has to be chosen first,
+- * the sentence says so instead of implying otherwise.
++ * Questions about this screen first, each opening its direct answer in Help
++ * & Getting Started; Search Help underneath for anything else, answered by
++ * the same engine as /help. Every link carries this exact screen (`from`) so
++ * "Back to …" returns here.
+  */
+ export function HelpMenu() {
+   const [open, setOpen] = useState(false);
+   const [query, setQuery] = useState("");
+   const panelRef = useRef(null);
+   const searchRef = useRef(null);
++  const router = useRouter();
+   const pathname = usePathname();
++  const searchParams = useSearchParams();
++  const qs = searchParams?.toString() ?? "";
++  const here = `${pathname ?? ""}${qs ? `?${qs}` : ""}`;
+ 
+   useEffect(() => {
+     if (!open) return;
+-
+     function away(e) {
+       if (panelRef.current && !panelRef.current.contains(e.target)) close();
+     }
+     function key(e) {
+       if (e.key === "Escape") close();
+     }
+-
+     document.addEventListener("mousedown", away);
+     document.addEventListener("keydown", key);
+-    // Straight into search — typing is faster than scanning for most people.
+-    searchRef.current?.focus();
+-
+     return () => {
+       document.removeEventListener("mousedown", away);
+       document.removeEventListener("keydown", key);
+@@ -47,12 +48,11 @@ export function HelpMenu() {
+     setQuery("");
+   }
+ 
+-  const results = useMemo(() => searchTasks(query), [query]);
+-  const contextual = useMemo(() => tasksForPath(pathname ?? ""), [pathname]);
+-
+-  const groups = results ?? HELP_GROUPS;
++  // QAB questions only where QAB is on; otherwise this screen's non-QAB ones.
++  const { qab } = useHelpContext();
++  const questions = useMemo(() => questionsForPath(pathname ?? "", { qab }), [pathname, qab]);
++  const results = useMemo(() => searchHelp(query, 5), [query]);
+   const searching = results !== null;
+-  const nothingFound = searching && groups.length === 0;
+ 
+   return (
+     <div className="help-menu" ref={panelRef}>
+@@ -72,50 +72,71 @@ export function HelpMenu() {
+             <button className="help-close" onClick={close} aria-label="Close help">✕</button>
+           </div>
+ 
+-          <div className="help-search">
+-            <input
+-              ref={searchRef}
+-              type="search"
+-              placeholder="Search help…"
+-              value={query}
+-              onChange={(e) => setQuery(e.target.value)}
+-              aria-label="Search help"
+-            />
+-          </div>
+-
+           <div className="help-body">
+-            {/* Hidden while searching — you're looking for something specific,
+-                not for what happens to be nearby. */}
+-            {!searching && contextual.length > 0 && (
+-              <section className="help-group">
++            {!searching && questions.length > 0 && (
++              <section className="help-group" aria-label="Questions about this page">
+                 <p className="help-group-label">On this page</p>
+-                {contextual.map((t) => (
+-                  <HelpTask key={t.id} task={t} onNavigate={close} featured />
+-                ))}
++                <ul className="help-questions">
++                  {questions.map((a) => (
++                    <li key={a.id}>
++                      <Link href={helpHref(`/help?a=${a.id}`, here)} className="help-question" onClick={close}>
++                        <span>{a.title}</span>
++                        <span className="help-question-go" aria-hidden="true">→</span>
++                      </Link>
++                    </li>
++                  ))}
++                </ul>
+               </section>
+             )}
+ 
+-            {nothingFound ? (
+-              <p className="help-none">
+-                Nothing matches “{query.trim()}”. Try a word like payment, roster, game or facility.
+-              </p>
+-            ) : (
+-              <>
+-                {!searching && <p className="help-section-title">Common tasks</p>}
+-                {groups.map((g) => (
+-                  <section key={g.id} className="help-group">
+-                    <p className="help-group-label">{g.label}</p>
+-                    {g.tasks.map((t) => (
+-                      <HelpTask key={t.id} task={t} onNavigate={close} />
+-                    ))}
+-                  </section>
+-                ))}
+-              </>
++            <div className="help-search help-search-inline">
++              <input
++                ref={searchRef}
++                type="search"
++                placeholder="Search Help"
++                value={query}
++                onChange={(e) => setQuery(e.target.value)}
++                onKeyDown={(e) => {
++                  if (e.key === "Enter" && query.trim()) {
++                    e.preventDefault();
++                    close();
++                    router.push(helpHref(`/help?q=${encodeURIComponent(query.trim())}`, here));
++                  }
++                }}
++                aria-label="Search Help"
++              />
++            </div>
++
++            {searching && (
++              results.length === 0 ? (
++                <p className="help-none">
++                  Nothing matches “{query.trim()}” yet. Try describing what you&rsquo;re trying to do.
++                </p>
++              ) : (
++                <ul className="help-questions help-results">
++                  {results.map((r) => (
++                    <li key={r.href}>
++                      <Link href={helpHref(r.href, here)} className="help-question" onClick={close}>
++                        <span>
++                          {r.title}
++                          {r.kind !== "answer" && <span className="help-question-meta">{r.kind === "step" ? r.guideTitle : "Guide"}</span>}
++                        </span>
++                        <span className="help-question-go" aria-hidden="true">→</span>
++                      </Link>
++                    </li>
++                  ))}
++                </ul>
++              )
+             )}
+ 
++            <Link href={helpHref("/help", here)} className="help-center-link" onClick={close}>
++              <span className="help-center-title">Help &amp; Getting Started</span>
++              <span className="help-center-text">All help, guides and your setup progress</span>
++              <span className="help-center-go" aria-hidden="true">→</span>
++            </Link>
++
+             <p className="help-contact">
+-              Still stuck?{" "}
+-              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
++              Still stuck? <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+             </p>
+           </div>
+         </div>
+@@ -123,29 +144,3 @@ export function HelpMenu() {
+     </div>
+   );
+ }
+-
+-function HelpTask({ task, onNavigate, featured = false }) {
+-  const body = (
+-    <>
+-      <span className="help-task-title">{task.title}</span>
+-      <span className="help-task-text">{task.text}</span>
+-      {task.cta && <span className="help-task-cta">{task.cta} →</span>}
+-    </>
+-  );
+-
+-  // No destination: the control lives somewhere this panel cannot open, so the
+-  // sentence has to do the work rather than a dead button.
+-  if (!task.href) {
+-    return <div className={`help-task help-task-static${featured ? " featured" : ""}`}>{body}</div>;
+-  }
+-
+-  return (
+-    <Link
+-      href={task.href}
+-      className={`help-task${featured ? " featured" : ""}`}
+-      onClick={onNavigate}
+-    >
+-      {body}
+-    </Link>
+-  );
+-}
+diff --git a/components/HelpTools.js b/components/HelpTools.js
+new file mode 100644
+index 0000000..538fc59
+--- /dev/null
++++ b/components/HelpTools.js
+@@ -0,0 +1,142 @@
++"use client";
++
++import { useEffect, useMemo, useRef, useState } from "react";
++import Link from "next/link";
++import { useRouter } from "next/navigation";
++import { HELP_GUIDES, helpHref, isHelpLink, searchHelp } from "../lib/help";
++
++/**
++ * Help & Getting Started tools (2026-11): a compact guide selector and Help
++ * search, in place of a permanent list of all nine guides.
++ *
++ * Both carry `from` — the screen the person came from — into every link, so
++ * "Back to …" keeps working however they move around Help.
++ */
++
++/** Closes a disclosure on outside click and Escape, like the Help popover. */
++function useDismiss(open, setOpen, ref) {
++  useEffect(() => {
++    if (!open) return;
++    function away(e) {
++      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
++    }
++    function key(e) {
++      if (e.key === "Escape") setOpen(false);
++    }
++    document.addEventListener("mousedown", away);
++    document.addEventListener("keydown", key);
++    return () => {
++      document.removeEventListener("mousedown", away);
++      document.removeEventListener("keydown", key);
++    };
++  }, [open, setOpen, ref]);
++}
++
++const linkFor = (href, from) => (isHelpLink(href) ? helpHref(href, from) : href);
++
++export function HelpGuidePicker({ current, from, initialOpen = false }) {
++  const [open, setOpen] = useState(initialOpen);
++  const ref = useRef(null);
++  useDismiss(open, setOpen, ref);
++  const guide = HELP_GUIDES.find((g) => g.slug === current);
++
++  return (
++    <div className="hc-picker" ref={ref}>
++      <button
++        type="button"
++        className="hc-picker-btn"
++        aria-haspopup="true"
++        aria-expanded={open}
++        onClick={() => setOpen(!open)}
++      >
++        <span className="hc-picker-label">Guide</span>
++        <span className="hc-picker-current">{guide?.title ?? "Choose a guide"}</span>
++        <span className="hc-picker-caret" aria-hidden="true">▾</span>
++      </button>
++
++      {open && (
++        <div className="hc-picker-panel">
++          <Link href={`${helpHref("/help?view=guides", from)}#all-guides`} className="hc-picker-all" onClick={() => setOpen(false)}>
++            All guides
++          </Link>
++          <ul>
++            {HELP_GUIDES.map((g) => (
++              <li key={g.slug}>
++                <Link
++                  href={helpHref(`/help/${g.slug}`, from)}
++                  className={`hc-picker-item${g.slug === current ? " active" : ""}`}
++                  aria-current={g.slug === current ? "page" : undefined}
++                  onClick={() => setOpen(false)}
++                >
++                  {g.title}
++                </Link>
++              </li>
++            ))}
++          </ul>
++        </div>
++      )}
++    </div>
++  );
++}
++
++export function HelpSearch({ from, initialQuery = "", compact = false }) {
++  const [query, setQuery] = useState(initialQuery);
++  const [open, setOpen] = useState(Boolean(initialQuery));
++  const ref = useRef(null);
++  const router = useRouter();
++  useDismiss(open, setOpen, ref);
++
++  const results = useMemo(() => searchHelp(query), [query]);
++  const showPanel = open && results !== null;
++
++  function go(r) {
++    setOpen(false);
++    router.push(linkFor(r.href, from));
++  }
++
++  return (
++    <div className={`hc-search${compact ? " compact" : ""}`} ref={ref}>
++      <input
++        type="search"
++        className="hc-search-input"
++        placeholder="Search Help"
++        aria-label="Search help"
++        value={query}
++        onChange={(e) => {
++          setQuery(e.target.value);
++          setOpen(true);
++        }}
++        onFocus={() => setOpen(true)}
++        onKeyDown={(e) => {
++          if (e.key === "Enter" && results?.length) {
++            e.preventDefault();
++            go(results[0]);
++          }
++        }}
++      />
++
++      {showPanel && (
++        <div className="hc-search-panel" role="region" aria-label="Help search results">
++          {results.length === 0 ? (
++            <p className="hc-search-none">
++              Nothing matches &ldquo;{query.trim()}&rdquo;. Try a word like dues, roster, lineup or invite.
++            </p>
++          ) : (
++            <ul>
++              {results.map((r) => (
++                <li key={r.href}>
++                  <Link href={linkFor(r.href, from)} className="hc-result" onClick={() => setOpen(false)}>
++                    <span className="hc-result-title">{r.title}</span>
++                    <span className="hc-result-meta">
++                      {r.kind === "answer" ? "Answer" : r.kind === "guide" ? "Guide" : `In ${r.guideTitle}`}
++                    </span>
++                  </Link>
++                </li>
++              ))}
++            </ul>
++          )}
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/components/NavSidebar.js b/components/NavSidebar.js
+index 7cb19e1..591a333 100644
+--- a/components/NavSidebar.js
++++ b/components/NavSidebar.js
+@@ -1,10 +1,10 @@
+ "use client";
+ 
+ import { useState, useEffect } from "react";
+-import { usePathname } from "next/navigation";
++import { usePathname, useSearchParams } from "next/navigation";
+ import Link from "next/link";
+ import { LogoLockup } from "./SeasonTempoLogo";
+-import { HelpMenu } from "./HelpMenu";
++import { helpHref } from "../lib/help";
+ import { SignOutButton } from "./SignOutButton";
+ import { SUPPORT_EMAIL } from "../lib/legal";
+ import { TeamIdentity, initialsOf } from "./TeamMark";
+@@ -41,6 +41,8 @@ const NAV = [
+ 
+ export function NavSidebar({ email, organization, team, season, seasons, seasonPhase, features = {} }) {
+   const pathname = usePathname();
++  const searchParams = useSearchParams();
++  const qs = searchParams?.toString() ?? "";
+   const [moreOpen, setMoreOpen] = useState(false);
+ 
+   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+@@ -52,7 +54,7 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
+ 
+   // More reads as active whenever the current route lives inside it, so a coach
+   // on Finance is never looking at a bar with nothing lit.
+-  const moreActive = overflow.some((i) => isActive(i.href)) || isActive("/settings");
++  const moreActive = overflow.some((i) => isActive(i.href)) || isActive("/settings") || isActive("/help");
+ 
+   // Same convention as the existing drawers: Escape closes, body scroll locks.
+   useEffect(() => {
+@@ -192,14 +194,20 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
+                 <span className="sheet-row-label">Settings</span>
+               </Link>
+ 
+-              {/* The existing help system, not a mobile-only second one. */}
+-              <div className="sheet-row sheet-row-help">
++              {/* Help & Getting Started (2026-11). A plain link: the row used
++                  to hold the Help popover, which drew a second "Help" button
++                  beside this label and opened a panel from inside the sheet.
++                  The page-header Help button still opens the popover. */}
++              <Link
++                href={helpHref("/help", `${pathname}${qs ? `?${qs}` : ""}`)}
++                className={`sheet-row${isActive("/help") ? " active" : ""}`}
++                aria-current={isActive("/help") ? "page" : undefined}
++              >
+                 <span className="sheet-row-icon">
+                   <IconHelp />
+                 </span>
+-                <span className="sheet-row-label">Help</span>
+-                <HelpMenu />
+-              </div>
++                <span className="sheet-row-label">Help &amp; Getting Started</span>
++              </Link>
+ 
+               {/* Phones hide the sidebar footer, so Sign out lives here too
+                   (2026-11): a user must always be able to end their session. */}
+diff --git a/components/SettingsClient.js b/components/SettingsClient.js
+index 98da65c..234a832 100644
+--- a/components/SettingsClient.js
++++ b/components/SettingsClient.js
+@@ -43,6 +43,9 @@ function suggestNextSeasonName(current) {
+   return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+ }
+ 
++/** Settings forms that only an organization owner can use. */
++const OWNER_ONLY_PANELS = ["invite", "season-new"];
++
+ const ROLE_LABELS = {
+   owner: "Owner",
+   admin: "Admin",
+@@ -60,8 +63,13 @@ export function SettingsClient({
+   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
+   counts, isAdmin, isOwner = false, currentUserId, autoOpen = null, emailEnabled = false,
+ }) {
+-  // Opened directly from the help panel.
+-  const [editing, setEditing] = useState(autoOpen);
++  // Opened from a Help link (?invite=1, ?new-season=1). Both forms are
++  // owner-only, so for anyone else the link lands on Settings with the form
++  // closed rather than opening a form the server will refuse (2026-11). Server
++  // authorization is unchanged.
++  const [editing, setEditing] = useState(
++    OWNER_ONLY_PANELS.includes(autoOpen) && !isAdmin ? null : autoOpen
++  );
+   const [error, setError] = useState(null);
+   const confirm = useConfirm();
+   const { run: runMutation, pending } = useMutation();
+@@ -454,7 +462,7 @@ export function SettingsClient({
+         />
+       )}
+ 
+-      {editing === "season-new" && (
++      {editing === "season-new" && isAdmin && (
+         <StartNextSeasonForm
+           roster={roster}
+           suggestedName={suggestNextSeasonName(currentSeason?.name ?? season?.name)}
+@@ -466,7 +474,7 @@ export function SettingsClient({
+         />
+       )}
+ 
+-      {editing === "invite" && (
++      {editing === "invite" && isAdmin && (
+         <InviteForm
+           teams={teams}
+           pending={pending}
+diff --git a/lib/help-answers.js b/lib/help-answers.js
+new file mode 100644
+index 0000000..81436f6
+--- /dev/null
++++ b/lib/help-answers.js
+@@ -0,0 +1,329 @@
++/**
++ * Help answers (2026-11): the question-first layer of Help.
++ *
++ * Each answer is what a coach asks, answered in one or two sentences, with
++ * the action that does it and the guide step that explains more:
++ *
++ *   Question -> direct answer -> open the screen -> full guide if needed
++ *
++ *   id        stable; /help?a=<id> shows this answer
++ *   title     the task, in the coach's words
++ *   answer    one or two sentences. Copy follows the approved guide wording
++ *             and the same verified product behaviour.
++ *   action    optional { href, label, requires, creates }, permission-aware
++ *             through actionState (lib/help.js), exactly like guide actions
++ *   guide     "slug#step" — the deeper layer
++ *   keywords  everyday words and phrases a coach types. Search only.
++ *
++ * Pure data (only the support address is imported) so the server page, the Help popover, guide-page
++ * search and the check scripts all read the same answers. A future
++ * conversational/AI layer can read the same entries as its grounding.
++ */
++
++import { SUPPORT_EMAIL } from "./legal";
++
++export const HELP_ANSWERS = [
++  /* ---------- Quality At-Bats ---------- */
++  {
++    id: "qab-track",
++    title: "Track QABs for a game",
++    answer: "Open Performance, choose the game and set the batting order. Then record each plate appearance: choose the one reason that made it a QAB, or tap No QAB.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#batting-order",
++    keywords: "track tracking record qab qabs quality at bat at-bat start live score keep stats plate appearance",
++  },
++  {
++    id: "qab-after-game",
++    title: "Enter QABs after the game",
++    answer: "You can enter QABs after a game if you didn't track them live. Open Performance, choose the game and record each plate appearance from your scorebook.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#track",
++    keywords: "after later afterwards post game scorebook missed forgot didn't track not live enter catch up past game yesterday",
++  },
++  {
++    id: "qab-fix",
++    title: "Fix a completed plate appearance",
++    answer: "Open Performance, choose the tournament and Review & Edit for the completed game, then Edit the plate appearance you need to correct. Wrong batter? Remove it and record it again for the right player.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#correct",
++    keywords: "wrong batter hitter fix correct correction mistake edit change undo remove completed finished game wrong reason oops",
++  },
++  {
++    id: "qab-note",
++    title: "Add a note to a plate appearance",
++    answer: "While recording, tap + Add note to keep optional context with that plate appearance. You can view or edit it later in Review & Edit. Notes are context only; they don't change QAB counts or percentages.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#record",
++    keywords: "note notes add note comment comments context memo remark at bat plate appearance qab detail write",
++  },
++  {
++    id: "qab-lineup",
++    title: "Set a batting order",
++    answer: "On Performance, choose the game and Set batting order. Copy lineup from… reuses another game's order. Players come from the tournament roster.",
++    action: { href: "/performance", label: "Open Performance", requires: "qab" },
++    guide: "qab#batting-order",
++    keywords: "lineup line up batting order order card copy lineup who bats",
++  },
++  {
++    id: "qab-report",
++    title: "See or print QAB results",
++    answer: "Open Reports, then QAB Performance. Choose a season or a single tournament, then Print / Save as PDF.",
++    action: { href: "/reports/qab-performance", label: "Open QAB report", requires: "qab" },
++    guide: "qab#reports",
++    keywords: "qab report results stats percentage print pdf season tournament performance numbers",
++  },
++
++  {
++    id: "performance-premium",
++    title: "Learn about Performance and QAB tracking",
++    answer: "Performance, including QAB tracking, is a Premium feature that isn't turned on for your organization. Email support to ask about it.",
++    action: { href: `mailto:${SUPPORT_EMAIL}`, label: "Email support" },
++    guide: "qab",
++    keywords: "performance premium qab enable turn on upgrade locked unavailable",
++  },
++
++  /* ---------- Money ---------- */
++  {
++    id: "dues-how",
++    title: "How Player Dues work",
++    answer: "Player Dues is what each player owes for the season. Set a team total to split evenly, or an amount per player, then record payments as families pay.",
++    action: { href: "/finance?tab=player-payments", label: "Open Player Dues" },
++    guide: "money#dues",
++    keywords: "dues fees owe season cost per player charge team total split how work",
++  },
++  {
++    id: "dues-payment",
++    title: "Record a payment",
++    answer: "Open the player in Player Dues, then Record payment. Each payment is kept separately, so partial payments add up.",
++    action: { href: "/finance?tab=player-payments", label: "Open Player Dues" },
++    guide: "money#payment",
++    keywords: "pay paid payment payments venmo zelle cash check received parent family installment partial deposit",
++  },
++  {
++    id: "dues-exempt",
++    title: "A player doesn't owe dues",
++    answer: "When you set dues for all players, uncheck anyone who doesn't owe team dues. They're recorded as exempt instead of owing a balance.",
++    action: { href: "/finance?tab=player-payments", label: "Open Player Dues" },
++    guide: "money#dues",
++    keywords: "not owe no dues exempt exemption waive waived free scholarship excluded skip coach's kid daughter doesn't pay",
++  },
++  {
++    id: "dues-owed",
++    title: "See who still owes",
++    answer: "Filter Player Dues by Owes balance or Not started.",
++    action: { href: "/finance?tab=player-payments", label: "Open Player Dues" },
++    guide: "money#owed",
++    keywords: "who owes still owe outstanding balance unpaid behind chase reminder late hasnt paid",
++  },
++  {
++    id: "budget-vs-transactions",
++    title: "Budget vs. Transactions",
++    answer: "Budget is your plan: what you expect to spend and raise. Transactions are what actually happened: each expense, and money in that isn't dues.",
++    action: { href: "/finance?tab=budget", label: "Open Budget" },
++    guide: "money#budget",
++    keywords: "difference budget transactions plan actual spending vs versus compare money in",
++  },
++  {
++    id: "expense",
++    title: "Record an expense",
++    answer: "Add transaction, choose its budget line, then To Pay or Paid.",
++    action: { href: "/finance?tab=transactions&add=1", label: "Add transaction", requires: "write", creates: true },
++    guide: "money#expense",
++    keywords: "expense receipt bill bought purchase spent spend cost invoice reimburse",
++  },
++  {
++    id: "income",
++    title: "Record fundraising or a sponsor",
++    answer: "Add transaction as income when you receive it. It counts toward Money In once you enter the amount.",
++    action: { href: "/finance?tab=transactions&add=1", label: "Add transaction", requires: "write", creates: true },
++    guide: "money#income",
++    keywords: "fundraiser fundraising sponsor sponsorship donation income raised money in",
++  },
++  {
++    id: "budget-line-delete",
++    title: "Can't delete a budget line",
++    answer: "A budget line with transactions or tournaments on it can't be deleted until they're moved to another line.",
++    action: { href: "/finance?tab=budget", label: "Open Budget" },
++    guide: "money",
++    keywords: "delete remove budget line category won't blocked not allowed",
++  },
++
++  /* ---------- Tournaments and games ---------- */
++  {
++    id: "tournament-add",
++    title: "Add a tournament",
++    answer: "A name and a date is enough to start. You can add tournaments you're still considering, before you commit.",
++    action: { href: "/tournaments?add=1", label: "Add tournament", requires: "write", creates: true },
++    guide: "tournaments#add",
++    keywords: "add new tournament event tourney weekend schedule considering",
++  },
++  {
++    id: "games-add",
++    title: "Add games",
++    answer: "Games live inside a tournament. Open the tournament and choose + Add game as the schedule comes out, then enter scores after.",
++    action: { href: "/tournaments", label: "Go to Tournaments" },
++    guide: "tournaments#games",
++    keywords: "game games add schedule opponent score result bracket pool won lost",
++  },
++  {
++    id: "tournament-costs",
++    title: "How tournament costs work",
++    answer: "Enter entry and gate fees in the tournament's Costs and choose the budget line they count against. Considering and Declined tournaments don't affect your budget.",
++    action: { href: "/tournaments", label: "Go to Tournaments" },
++    guide: "tournaments#costs",
++    keywords: "cost costs fee fees entry gate budget price committed money tournament",
++  },
++  {
++    id: "tournament-places",
++    title: "Add a hotel or field to a tournament",
++    answer: "In the tournament's Locations & Resources, mark each place Used, Recommended or Considered. If a place is missing, add it in Locations & Resources first.",
++    action: { href: "/facilities?add=1", label: "Add location", requires: "write" },
++    guide: "locations#link",
++    keywords: "hotel lodging motel stay field facility venue park complex restaurant dining food eat place link tournament",
++  },
++  {
++    id: "tournament-roster",
++    title: "Set who's going to a tournament",
++    answer: "Open the tournament and set its tournament roster. Pickup players are added there, for that tournament only.",
++    action: { href: "/tournaments", label: "Go to Tournaments" },
++    guide: "tournaments#tournament-roster",
++    keywords: "tournament roster attending going pickup pick up guest player borrowed",
++  },
++  {
++    id: "tournament-decision",
++    title: "Commit to a tournament",
++    answer: "Open the tournament and set its decision to Committed. Registration and payment are tracked separately.",
++    action: { href: "/tournaments", label: "Go to Tournaments" },
++    guide: "tournaments#decide",
++    keywords: "commit committed decide decision considering declined going registration registered waitlist",
++  },
++
++  /* ---------- Team and access ---------- */
++  {
++    id: "player-add",
++    title: "Add a player",
++    answer: "On Team, choose Add person. A name is all you need; jersey, positions and sizes can come later.",
++    action: { href: "/team?add=person", label: "Add person", requires: "write", creates: true },
++    guide: "roster#add-player",
++    keywords: "add player kid athlete girl new join roster member",
++  },
++  {
++    id: "parent-add",
++    title: "Add a parent or guardian",
++    answer: "Open the player, then Contacts, then Add contact. Choose a primary contact for the player.",
++    action: { href: "/team", label: "Go to Team" },
++    guide: "roster#guardians",
++    keywords: "parent guardian mom dad mother father family contact phone email primary",
++  },
++  {
++    id: "coach-login",
++    title: "A coach can't sign in",
++    answer: "Being on the roster doesn't give anyone a login. An organization owner invites them from Settings, then People & Access, choosing their role and team. They must sign in with the exact email that was invited.",
++    action: { href: "/settings?invite=1", label: "Invite someone", requires: "admin" },
++    guide: "access#invite",
++    keywords: "login log in sign in signin access account password invite invitation coach assistant manager staff email can't cannot get in",
++  },
++  {
++    id: "player-left",
++    title: "A player left the team",
++    answer: "Open them on Team and choose Make inactive. Their dues and payment history stay.",
++    action: { href: "/team", label: "Go to Team" },
++    guide: "roster#inactive",
++    keywords: "left quit leave inactive remove player gone departed",
++  },
++  {
++    id: "players-import",
++    title: "Import players from a spreadsheet",
++    answer: "Choose Import players on Team. You review the matches before anything is saved.",
++    action: { href: "/team", label: "Go to Team" },
++    guide: "roster#import",
++    keywords: "import spreadsheet excel csv upload list bulk",
++  },
++
++  /* ---------- Season, files, places, reports ---------- */
++  {
++    id: "season-next",
++    title: "Start next season",
++    answer: "An organization owner chooses who carries over to the new season, and whether to copy the budget. Last season stays as it was.",
++    action: { href: "/settings?new-season=1", label: "Start next season", requires: "admin" },
++    guide: "setup#new-season",
++    keywords: "new season next year rollover roll over 2027 start",
++  },
++  {
++    id: "season-previous",
++    title: "Look back at a past season",
++    answer: "Use the season menu under your team name. Past seasons are kept as a record and don't take new entries.",
++    guide: "setup#previous-season",
++    keywords: "last year previous past old season history switch",
++  },
++  {
++    id: "file-upload",
++    title: "Upload a file",
++    answer: "Upload it in Files and attach it to a player or tournament so it shows up there too.",
++    action: { href: "/files?upload=1", label: "Upload file", requires: "write", creates: true },
++    guide: "files#upload",
++    keywords: "upload file document waiver insurance pdf photo paperwork form attach",
++  },
++  {
++    id: "place-notes",
++    title: "Save notes about a field",
++    answer: "Open the place in Locations & Resources and add parking, gate or concession notes. Notes stay private to your organization.",
++    action: { href: "/facilities", label: "Go to Locations & Resources" },
++    guide: "locations#notes",
++    keywords: "notes parking gate concessions restroom field facility remember tips",
++  },
++  {
++    id: "report-parents",
++    title: "Print a schedule or budget for parents",
++    answer: "Open Reports and choose Planned Season Budget or Tournament Schedule, then Print / Save as PDF.",
++    action: { href: "/reports", label: "Open Reports" },
++    guide: "reports#print",
++    keywords: "print pdf share parents handout schedule budget report email families",
++  },
++];
++
++/** Shown on /help before anything is typed. */
++export const POPULAR_ANSWERS = ["qab-track", "player-add", "dues-payment", "tournament-add"];
++/** Used in place of QAB items when Performance isn't turned on. */
++export const POPULAR_FALLBACK = ["dues-how", "games-add"];
++
++/**
++ * What the Help popover asks first, by screen. Game screens (lineup, tracking)
++ * are matched before Tournaments.
++ */
++export const PAGE_QUESTIONS = [
++  // [screen, questions with QAB on, questions with QAB off]
++  [/^\/tournaments\/[^/]+\/games\//, ["qab-track", "qab-after-game", "qab-fix"], ["games-add", "tournament-roster", "tournament-costs"]],
++  [/^\/performance(\/|$)/, ["qab-track", "qab-after-game", "qab-fix"], ["performance-premium", "games-add", "tournament-roster"]],
++  [/^\/finance(\/|$)/, ["dues-how", "dues-payment", "budget-vs-transactions"]],
++  [/^\/tournaments(\/|$)/, ["games-add", "tournament-costs", "tournament-places"]],
++  [/^\/team(\/|$)/, ["player-add", "parent-add", "coach-login"]],
++  [/^\/settings(\/|$)/, ["coach-login", "season-next", "season-previous"]],
++  [/^\/facilities(\/|$)/, ["tournament-places", "place-notes"]],
++  [/^\/files(\/|$)/, ["file-upload"]],
++  [/^\/reports(\/|$)/, ["report-parents", "qab-report"], ["report-parents", "season-previous"]],
++  [/^\/dashboard(\/|$)/, ["player-add", "tournament-add", "dues-how"]],
++];
++
++export const findAnswer = (id) => HELP_ANSWERS.find((a) => a.id === id) ?? null;
++
++const isQab = (a) => a?.action?.requires === "qab";
++
++/**
++ * Questions for this screen, at most three. Without QAB, a screen's QAB
++ * questions are replaced by its non-QAB list — never shown.
++ */
++export function questionsForPath(pathname, { qab = true } = {}) {
++  const hit = PAGE_QUESTIONS.find(([re]) => re.test(pathname ?? ""));
++  const ids = hit ? (!qab && hit[2] ? hit[2] : hit[1]) : POPULAR_ANSWERS;
++  return ids.map(findAnswer).filter((a) => a && (qab || !isQab(a))).slice(0, 3);
++}
++
++/** Popular answers for /help, swapping QAB items out when Performance is off. */
++export function popularAnswers({ qab = true } = {}) {
++  const base = POPULAR_ANSWERS.map(findAnswer).filter(Boolean);
++  if (qab) return base;
++  const kept = base.filter((a) => !isQab(a));
++  const extra = POPULAR_FALLBACK.map(findAnswer).filter((a) => a && !kept.includes(a));
++  return [...kept, ...extra].slice(0, base.length);
++}
+diff --git a/lib/help-guides.js b/lib/help-guides.js
+new file mode 100644
+index 0000000..bc383ce
+--- /dev/null
++++ b/lib/help-guides.js
+@@ -0,0 +1,470 @@
++/**
++ * Help & Getting Started guides (V1, 2026-11).
++ *
++ * Nine guides, each written around something a coach is trying to get done,
++ * not around a feature name. Kept deliberately short: a guide answers "what do
++ * I do next?", it is not documentation.
++ *
++ *   steps       3 to 7, each a title, one or two sentences, and at most one
++ *               action. Step ids are the anchors used by Help links
++ *               (/help/qab#correct).
++ *   pieces      an optional "how these fit together" block of short terms.
++ *   goodToKnow  the mistakes coaches actually make, 1 to 4 lines.
++ *   keywords    the words a coach would actually type ("venmo", "mom",
++ *               "lineup"), used only by Help search.
++ *
++ * Permission wording describes access ("anyone with access to Finance"),
++ * not today's role list, so it stays true when per-person access arrives.
++ *
++ * Actions:
++ *   href       where the button goes. A /help/... href is a link to another
++ *              guide; anything else opens the product screen.
++ *   requires   "admin" (organization owner), "write" (anyone who can change
++ *              team data) or "qab" (Performance turned on). Help never offers
++ *              an action the person can't complete; it says why instead
++ *              (see actionState in lib/help.js).
++ *   creates    true when the action adds a record, so it is held back while a
++ *              past, read-only season is being viewed.
++ *
++ * Pure data — no imports — so the server pages, the Help panel and the check
++ * scripts all read the same content.
++ */
++
++/** "On the roster" is not "can sign in". Shown wherever the two get confused. */
++const ROSTER_VS_ACCESS = {
++  title: "On the roster vs. Season Tempo access",
++  items: [
++    {
++      term: "On the roster",
++      text: "Players, coaches and staff on your team list. Adding someone here does not give them a login.",
++    },
++    {
++      term: "Season Tempo access",
++      text: "A login to use Season Tempo. Organization owners send an invitation from Settings.",
++    },
++  ],
++};
++
++export const HELP_GUIDES = [
++  {
++    slug: "setup",
++    title: "Set up your team and season",
++    summary: "New to Season Tempo? Start here. Go from a new account to a team that's ready for the season.",
++    keywords: "start begin new account setup checklist rename name season year rollover next previous last",
++    who: "Most steps are available to team members with access to those areas. Renaming and starting a new season are organization owner tasks.",
++    steps: [
++      {
++        id: "names",
++        title: "Check your team and season names",
++        text: "They were set when you signed up. An owner can fix a typo in Settings.",
++        action: { href: "/settings", label: "Open Settings", requires: "admin" },
++      },
++      {
++        id: "roster",
++        title: "Add your roster",
++        text: "Players first. Coaches and staff can go on the roster too.",
++        action: { href: "/team?add=person", label: "Add person", requires: "write", creates: true },
++      },
++      {
++        id: "tournament",
++        title: "Add your first tournament",
++        text: "A name and a date is enough. You can add tournaments you're still considering, before you commit.",
++        action: { href: "/tournaments?add=1", label: "Add tournament", requires: "write", creates: true },
++      },
++      {
++        id: "dues",
++        title: "Set what players owe",
++        text: "Enter a team total to split, or an amount per player.",
++        action: { href: "/finance?tab=player-payments", label: "Open Player Dues", requires: "write" },
++      },
++      {
++        id: "access",
++        title: "Give your coaches a login",
++        text: "Being on the roster doesn't let anyone sign in. Owners invite coaches and managers.",
++        action: { href: "/help/access", label: "How access works" },
++      },
++      {
++        id: "previous-season",
++        title: "Look back at a past season",
++        text: "Use the season menu under your team name. Past seasons are kept as a record and don't take new entries.",
++      },
++      {
++        id: "new-season",
++        title: "Start next season",
++        text: "Choose who carries over to the new season, and whether to copy the budget. Last season stays as it was. Switching to the new season is a separate step.",
++        action: { href: "/settings?new-season=1", label: "Start next season", requires: "admin" },
++      },
++    ],
++    goodToKnow: [
++      "The setup checklist ticks itself off from what you've entered. There's nothing to mark done.",
++      "Hid the checklist on Home? It's always at the top of Help & Getting Started.",
++    ],
++  },
++
++  {
++    slug: "roster",
++    title: "Build your roster and add parents",
++    summary: "Players, staff, and the parents you'll need to reach.",
++    keywords: "roster player kid athlete parent guardian mom dad family contact phone email staff coach import spreadsheet inactive pickup jersey",
++    who: "Available to team members with access to the roster.",
++    pieces: ROSTER_VS_ACCESS,
++    steps: [
++      {
++        id: "add-player",
++        title: "Add a player",
++        text: "A name is all you need. Jersey, positions and sizes can come later.",
++        action: { href: "/team?add=person", label: "Add person", requires: "write", creates: true },
++      },
++      {
++        id: "add-staff",
++        title: "Put coaches and staff on the roster",
++        text: "In Add person, set Type to Staff. They appear on the team list but can't sign in.",
++        action: { href: "/team?add=person", label: "Add person", requires: "write", creates: true },
++      },
++      {
++        id: "guardians",
++        title: "Add parents and guardians",
++        text: "Open a player, then Contacts, then Add contact. Choose a primary contact for the player.",
++        action: { href: "/team", label: "Go to Team" },
++      },
++      {
++        id: "import",
++        title: "Import players from a spreadsheet",
++        text: "Choose Import players on Team. You review the matches before anything is saved.",
++        action: { href: "/team", label: "Go to Team" },
++      },
++      {
++        id: "inactive",
++        title: "When someone leaves the team",
++        text: "Open them and choose Make inactive.",
++      },
++      {
++        id: "pickups",
++        title: "Add a pickup for one tournament",
++        text: "Pickups go on that tournament's roster, not the season roster.",
++        action: { href: "/help/tournaments#tournament-roster", label: "Tournament roster" },
++      },
++      {
++        id: "login",
++        title: "Give a coach a login",
++        text: "That's an invitation from an organization owner, not a roster entry.",
++        action: { href: "/help/access#invite", label: "How invitations work" },
++      },
++    ],
++    goodToKnow: [
++      "Making a player inactive doesn't remove their dues or payment history.",
++      "Jersey numbers and positions belong to this season, so they can change next season.",
++    ],
++  },
++
++  {
++    slug: "tournaments",
++    title: "Plan tournaments and add games",
++    summary: "From an event you're considering to games and scores.",
++    keywords: "tournament event weekend tourney game score result opponent schedule registration entry fee commit considering declined",
++    who: "Available to team members with access to Tournaments.",
++    steps: [
++      {
++        id: "add",
++        title: "Add a tournament",
++        text: "A name and a date is enough to start.",
++        action: { href: "/tournaments?add=1", label: "Add tournament", requires: "write", creates: true },
++      },
++      {
++        id: "decide",
++        title: "Considering, Committed or Declined",
++        text: "Considering and Declined don't affect your budget. A Committed tournament's cost counts against the budget line you choose for it.",
++        action: { href: "/tournaments", label: "Go to Tournaments" },
++      },
++      {
++        id: "registration",
++        title: "Track registration and payment",
++        text: "Kept separate from the decision. It's normal to commit before you've registered.",
++      },
++      {
++        id: "costs",
++        title: "Add costs and a budget line",
++        text: "In the tournament's Costs, enter the entry and gate fees and choose the budget line they count against.",
++      },
++      {
++        id: "locations",
++        title: "Link the field, hotel and places to eat",
++        text: "Use the tournament's Locations & Resources section.",
++        action: { href: "/help/locations#link", label: "Linking places" },
++      },
++      {
++        id: "tournament-roster",
++        title: "Set the tournament roster",
++        text: "Who's going, including pickups. Empty just means it isn't set yet.",
++      },
++      {
++        id: "games",
++        title: "Add games and scores",
++        text: "Games live inside the tournament. Choose + Add game as the schedule comes out, and enter scores after.",
++      },
++    ],
++    goodToKnow: [
++      "Committed with no budget line? Finance lists its cost as not assigned to a budget category, outside Available, until you choose one.",
++      "Open a tournament from the list to see all of its sections.",
++      "Tracking Quality At-Bats? The same games are used there.",
++    ],
++    related: [{ href: "/help/qab", label: "Track Quality At-Bats" }],
++  },
++
++  {
++    slug: "qab",
++    title: "Track Quality At-Bats",
++    summary: "From the tournament roster to a corrected game and the report.",
++    keywords: "qab quality at-bat at bat lineup batting order track tracking plate appearance performance stats scorebook fix correct",
++    who: "Available to team members with access to Performance.",
++    feature: "qab",
++    steps: [
++      {
++        id: "tournament-roster",
++        title: "Set the tournament roster",
++        text: "Open the tournament and set who's playing, including pickups. If it isn't set, the season roster is used.",
++        action: { href: "/tournaments", label: "Go to Tournaments" },
++      },
++      {
++        id: "batting-order",
++        title: "Set the batting order",
++        text: "On Performance, choose the game and Set batting order. Copy lineup from… reuses another game's order.",
++        action: { href: "/performance", label: "Open Performance", requires: "qab" },
++      },
++      {
++        id: "track",
++        title: "Track live, or after the game",
++        text: "Record each plate appearance as it happens. You can enter QABs after a game if you didn't track them live.",
++      },
++      {
++        id: "record",
++        title: "Record each plate appearance",
++        text: "For a QAB, choose the one reason that fits best, then Record QAB. Otherwise tap No QAB. + Add note keeps optional context with it.",
++      },
++      {
++        id: "finish",
++        title: "Finish tracking",
++        text: "Enter the final score if the game is over, or finish without one and add it later on Performance.",
++      },
++      {
++        id: "correct",
++        title: "Fix a completed game",
++        text: "Choose Review & Edit, then Edit at-bats. Change a reason, mark No QAB, or remove an at-bat. Wrong batter? Remove it and record it again.",
++        action: { href: "/performance", label: "Open Performance", requires: "qab" },
++      },
++      {
++        id: "reports",
++        title: "See and print the results",
++        text: "Reports, then QAB Performance, by season or by tournament.",
++        action: { href: "/reports/qab-performance", label: "Open QAB report", requires: "qab" },
++      },
++    ],
++    goodToKnow: [
++      "Finishing doesn't lock a game. You can correct it any time.",
++      "In Tournaments, the same game shows Set lineup, Continue QABs or Review & Edit QABs.",
++      "In a past season, corrections are limited to organization owners.",
++    ],
++  },
++
++  {
++    slug: "money",
++    title: "Manage team money",
++    summary: "Plan the season, record what happens, and see who still owes.",
++    keywords: "money finance budget expense receipt bill dues fees owe owed balance payment paid venmo cash check fundraising sponsor income",
++    who: "Available to team members with access to Finance.",
++    pieces: {
++      title: "How the pieces fit",
++      items: [
++        { term: "Budget", text: "Your plan: what you expect to spend and raise this season." },
++        { term: "Transactions", text: "What actually happened: each expense, and money in that isn't dues." },
++        { term: "Money In", text: "Everything received so far: dues, fundraising and sponsors." },
++        { term: "Player Dues", text: "What each player owes for the season." },
++        { term: "Payments", text: "What a family has paid, recorded on that player's dues." },
++      ],
++    },
++    steps: [
++      {
++        id: "budget",
++        title: "Build your budget",
++        text: "Add a line for each thing you expect to spend on or raise.",
++        action: { href: "/finance?tab=budget", label: "Open Budget" },
++      },
++      {
++        id: "expense",
++        title: "Record an expense",
++        text: "Add transaction, choose its budget line, then To Pay or Paid.",
++        action: { href: "/finance?tab=transactions&add=1", label: "Add transaction", requires: "write", creates: true },
++      },
++      {
++        id: "income",
++        title: "Record fundraising or sponsorship",
++        text: "Add transaction as income when you receive it. It counts toward Money In once you enter the amount.",
++        action: { href: "/finance?tab=transactions&add=1", label: "Add transaction", requires: "write", creates: true },
++      },
++      {
++        id: "dues",
++        title: "Set player dues",
++        text: "Enter a team total to split evenly, or an amount per player.",
++        action: { href: "/finance?tab=player-payments", label: "Open Player Dues" },
++      },
++      {
++        id: "payment",
++        title: "Record a payment",
++        text: "Open the player in Player Dues, then Record payment. Each payment is kept separately.",
++      },
++      {
++        id: "owed",
++        title: "See who still owes",
++        text: "Filter Player Dues by Owes balance or Not started.",
++      },
++    ],
++    goodToKnow: [
++      "A committed tournament's cost counts against the budget line you choose for it.",
++      "A budget line with transactions or tournaments on it can't be deleted until they're moved.",
++      "Once a payment is recorded, a player's total due can't go below what's been paid.",
++      "Setting dues for all players? Uncheck anyone who doesn't owe team dues. They're recorded as exempt.",
++    ],
++    related: [{ href: "/help/reports#budget", label: "Share the budget with parents" }],
++  },
++
++  {
++    slug: "files",
++    title: "Keep files together",
++    summary: "Waivers, insurance and schedules, where you'll look for them.",
++    keywords: "file document upload waiver insurance pdf photo paperwork form attach",
++    who: "Available to team members with access to Files.",
++    steps: [
++      {
++        id: "upload",
++        title: "Upload a file",
++        text: "PDFs, photos and documents: waivers, insurance, schedules.",
++        action: { href: "/files?upload=1", label: "Upload file", requires: "write", creates: true },
++      },
++      {
++        id: "attach",
++        title: "Attach it to a player or tournament",
++        text: "Choose who or what it belongs to, so it also shows up there.",
++      },
++      {
++        id: "open",
++        title: "Find and open a file",
++        text: "Search by file name or category, then choose a file to open it.",
++        action: { href: "/files", label: "Go to Files" },
++      },
++    ],
++    goodToKnow: ["Files are only visible to people in your organization."],
++  },
++
++  {
++    slug: "locations",
++    title: "Save fields, hotels and places to eat",
++    summary: "Know where you're playing and what to remember when you get there.",
++    keywords: "location facility field park complex venue hotel lodging restaurant dining food parking directions notes",
++    who: "Available to team members with access to Locations & Resources.",
++    steps: [
++      {
++        id: "find",
++        title: "Find a field",
++        text: "All is the shared directory. Search it by name, city or county.",
++        action: { href: "/facilities?view=all", label: "Browse all locations" },
++      },
++      {
++        id: "saved",
++        title: "Saved and All",
++        text: "Saved shows places your organization added, wrote notes on, or linked to a tournament, and fields where one of your tournaments is held (unless you declined it).",
++      },
++      {
++        id: "notes",
++        title: "Add your team's notes",
++        text: "Open a place and add parking, gate or concession notes.",
++        action: { href: "/facilities", label: "Go to Locations & Resources" },
++      },
++      {
++        id: "add",
++        title: "Add a place that's missing",
++        text: "Add location covers fields, hotels and restaurants. Places are shared, so check All first.",
++        action: { href: "/facilities?add=1", label: "Add location", requires: "write" },
++      },
++      {
++        id: "link",
++        title: "Link places to a tournament",
++        text: "In the tournament's Locations & Resources, mark each one Used, Recommended or Considered.",
++      },
++    ],
++    goodToKnow: ["Your notes stay private to your organization. Other organizations never see them."],
++  },
++
++  {
++    slug: "access",
++    title: "Invite coaches and managers",
++    summary: "Give someone a Season Tempo login for your team.",
++    keywords: "invite invitation login sign in access account user permission email assistant coach manager",
++    who: "Inviting people and changing access are organization owner tasks.",
++    pieces: ROSTER_VS_ACCESS,
++    steps: [
++      {
++        id: "invite",
++        title: "Invite someone",
++        text: "Settings, then People & Access, then Invite someone. Choose their role and team.",
++        action: { href: "/settings?invite=1", label: "Invite someone", requires: "admin" },
++      },
++      {
++        id: "deliver",
++        title: "They get an email",
++        text: "Season Tempo emails the invitation. You can also copy the link and send it yourself.",
++      },
++      {
++        id: "accept",
++        title: "They sign in with that address",
++        text: "They must use the exact email you invited. An invitation lasts 14 days.",
++      },
++      {
++        id: "manage",
++        title: "Resend, renew or revoke",
++        text: "Pending invitations are listed in People & Access, with what you can do next.",
++        action: { href: "/settings", label: "Go to Settings", requires: "admin" },
++      },
++    ],
++    goodToKnow: [
++      "What someone can see and change after they sign in depends on the access they're given.",
++      "Not an owner? Ask your organization owner to send the invitation.",
++    ],
++  },
++
++  {
++    slug: "reports",
++    title: "Print and share reports",
++    summary: "Clean documents for parents and coaches, from your season data.",
++    keywords: "report print pdf share parents handout schedule budget qab",
++    who: "Available to team members with access to Reports.",
++    steps: [
++      {
++        id: "budget",
++        title: "Planned Season Budget, for parents",
++        text: "What the season is expected to cost.",
++        action: { href: "/reports/season-budget", label: "Open budget report" },
++      },
++      {
++        id: "schedule",
++        title: "Tournament Schedule, for parents",
++        text: "Choose Tournaments only, or Include game schedule.",
++        action: { href: "/reports/tournament-schedule", label: "Open schedule" },
++      },
++      {
++        id: "qab",
++        title: "QAB Performance, for coaches",
++        text: "By season or by tournament.",
++        action: { href: "/reports/qab-performance", label: "Open QAB report", requires: "qab" },
++      },
++      {
++        id: "print",
++        title: "Print or save a PDF",
++        text: "Use Print / Save as PDF at the top of any report.",
++      },
++    ],
++    goodToKnow: ["Reports show the season you're viewing. Switch seasons with the season menu."],
++    related: [{ href: "/reports", label: "All reports" }],
++  },
++];
++
++export const findGuide = (slug) => HELP_GUIDES.find((g) => g.slug === slug) ?? null;
+diff --git a/lib/help-search.js b/lib/help-search.js
+new file mode 100644
+index 0000000..5694aa0
+--- /dev/null
++++ b/lib/help-search.js
+@@ -0,0 +1,224 @@
++/**
++ * Help search (2026-11): deterministic, question-first.
++ *
++ * Searches the direct answers first, then guide steps, guides and popover
++ * shortcuts, all from the same structured content. No AI and no external
++ * service. Everyday coach language is handled by:
++ *
++ *   - stop words ("how do I", "the", "my")         dropped
++ *   - negation ("doesn't", "can't", "no")          one token: "not"
++ *   - synonyms ("mom" = parent, "venmo" = pay)     one canonical token
++ *   - plurals ("players")                           singular
++ *   - typos ("battr", "tournment", "exmpt")          edit distance 1–2
++ *   - prefixes ("tourn", "invit")                   matched to full words
++ *
++ * askHelp(query, ctx) is the one entry point the UI calls, and it returns
++ * plain result objects ({ kind, id, title, text, href, action, guide }). A
++ * future conversational or AI layer can replace or wrap askHelp and return
++ * the same shape, so the UI does not need another redesign.
++ */
++import { HELP_ANSWERS, findAnswer } from "./help-answers";
++import { HELP_GUIDES } from "./help-guides";
++
++const STOP = new Set(`a an the i me my we our us you your to of for in on at by with and or is are am be
++  been it its this that these those there here how what where when why which who whom do does did done
++  can could should would will please help want need way get got go going some any just about into
++  from up out if so than then too very im ive id`.split(/\s+/).filter(Boolean));
++
++const NEGATION = new Set(["not", "no", "dont", "doesnt", "didnt", "cant", "cannot", "isnt", "wont", "arent", "never", "without", "wasnt", "hasnt", "havent", "hadnt", "werent", "shouldnt"]);
++
++/** Everyday words -> one canonical token. Multi-word phrases first. */
++const PHRASES = [
++  [/\bat[\s-]?bats?\b/g, "qab"],
++  [/\bquality at[\s-]?bats?\b/g, "qab"],
++  [/\bplate appearances?\b/g, "pa"],
++  [/\bbatting order\b/g, "lineup"],
++  [/\bline[\s-]?ups?\b/g, "lineup"],
++  [/\blog[\s-]?(in|on)\b/g, "login"],
++  [/\bsign[\s-]?(in|on)\b/g, "login"],
++  [/\bpick[\s-]?ups?\b/g, "pickup"],
++  [/\bmoney in\b/g, "income"],
++  [/\bscore ?book\b/g, "scorebook"],
++  // Two everyday meanings of "not paying" that point at different answers.
++  [/\b(hasnt|havent|hadnt|not|never) (yet )?(paid|payed)\b/g, "unpaid"],
++  [/\bstill (owe|owes|owing)\b/g, "unpaid"],
++  [/\b(doesnt|dont|does not|do not|wont|not|no longer) (have to )?(owe|pay)( dues)?\b/g, "exempt"],
++  [/\bno dues\b/g, "exempt"],
++];
++const SYNONYMS = {
++  qab: ["qab", "qabs", "quality"],
++  pa: ["pa", "pas", "atbat", "atbats"],
++  player: ["player", "kid", "athlete", "girl", "daughter", "child", "son", "member"],
++  parent: ["parent", "guardian", "mom", "mum", "dad", "mother", "father", "family", "families"],
++  dues: ["dues", "due", "owe", "owes", "owed", "owing", "balance", "charge"],
++  pay: ["pay", "paid", "payment", "paying", "venmo", "zelle", "cash", "cheque", "deposit", "installment"],
++  add: ["add", "put", "create", "insert"],
++  tournament: ["tournament", "tourney", "event", "weekend", "tourn", "tournment", "tournamnet"],
++  game: ["game", "match", "matchup"],
++  fix: ["fix", "correct", "correction", "edit", "change", "wrong", "mistake", "undo", "update", "adjust", "oops", "error"],
++  batter: ["batter", "hitter"],
++  after: ["after", "later", "afterwards", "afterward", "post", "missed", "forgot", "yesterday"],
++  lineup: ["lineup", "order"],
++  login: ["login", "signin", "logon", "access", "account", "password"],
++  invite: ["invite", "invitation", "invited"],
++  hotel: ["hotel", "lodging", "motel", "stay"],
++  field: ["field", "facility", "venue", "park", "complex", "diamond", "location"],
++  food: ["restaurant", "dining", "food", "eat", "lunch", "dinner"],
++  expense: ["expense", "receipt", "bill", "bought", "purchase", "spent", "spend", "invoice", "reimburse"],
++  exempt: ["exempt", "exemption", "waive", "waived", "free", "scholarship", "excluded"],
++  unpaid: ["unpaid", "outstanding", "behind", "late", "overdue"],
++  delete: ["delete", "remove", "erase"],
++  print: ["print", "pdf", "printable", "handout"],
++  income: ["income", "fundraiser", "fundraising", "sponsor", "sponsorship", "donation", "raised"],
++  coach: ["coach", "assistant", "manager", "staff"],
++  setup: ["setup", "begin", "started", "start", "new"],
++  season: ["season", "year"],
++  file: ["file", "document", "doc", "waiver", "paperwork", "form"],
++  left: ["left", "quit", "leave", "gone", "departed", "inactive"],
++  note: ["note", "notes", "comment", "comments", "memo", "remark"],
++};
++const CANON = new Map();
++for (const [canon, words] of Object.entries(SYNONYMS)) for (const w of words) CANON.set(w, canon);
++
++function singular(w) {
++  if (w.length > 4 && w.endsWith("ies")) return `${w.slice(0, -3)}y`;
++  if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
++  return w;
++}
++
++/** Lowercase, unify apostrophes, collapse phrases, split into words. */
++export function words(text) {
++  let s = String(text ?? "").toLowerCase().replace(/[’']/g, "");
++  for (const [re, rep] of PHRASES) s = s.replace(re, rep);
++  return s.split(/[^a-z0-9]+/).filter(Boolean);
++}
++
++/** Canonical tokens: stop words dropped, negation unified, synonyms mapped. */
++export function tokens(text, { keepStop = false } = {}) {
++  const out = [];
++  for (const w of words(text)) {
++    if (NEGATION.has(w)) { out.push("not"); continue; }
++    if (!keepStop && STOP.has(w)) continue;
++    const canon = CANON.get(w) ?? CANON.get(singular(w)) ?? singular(w);
++    out.push(canon);
++  }
++  return out;
++}
++
++/** Damerau-Levenshtein (optimal string alignment), small strings only. */
++function distance(a, b) {
++  if (Math.abs(a.length - b.length) > 2) return 3;
++  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
++  for (let j = 1; j <= b.length; j++) d[0][j] = j;
++  for (let i = 1; i <= a.length; i++) {
++    for (let j = 1; j <= b.length; j++) {
++      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
++      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
++      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
++    }
++  }
++  return d[a.length][b.length];
++}
++
++/** How well one query token matches a set of document tokens: 1, 0.7 or 0. */
++function tokenMatch(q, set) {
++  if (set.has(q)) return 1;
++  if (q === "not") return 0; // negation must match exactly
++  if (q.length >= 4) {
++    for (const t of set) if (t.length > q.length && t.startsWith(q)) return 0.8;
++    const allowed = q.length >= 8 ? 2 : 1;
++    for (const t of set) {
++      if (t.length >= 4 && distance(q, t) <= allowed) return 0.7;
++      // A typo of a synonym ("venmmo", "exmpt") maps through to its canonical token.
++    }
++    for (const [w, canon] of CANON) if (set.has(canon) && w.length >= 4 && distance(q, w) <= allowed) return 0.7;
++  }
++  return 0;
++}
++
++/* ---------------- index ---------------- */
++
++const FIELD_WEIGHT = { title: 3, keywords: 2, text: 1 };
++
++function entry(kind, fields, meta) {
++  return {
++    kind,
++    ...meta,
++    fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, new Set(tokens(v))])),
++    phrase: tokens(`${fields.title} ${fields.keywords ?? ""}`).join(" "),
++  };
++}
++
++const INDEX = [
++  ...HELP_ANSWERS.map((a) =>
++    entry("answer", { title: a.title, keywords: a.keywords, text: a.answer }, {
++      id: a.id, title: a.title, text: a.answer, href: `/help?a=${a.id}`, action: a.action ?? null, guide: a.guide, rank: 0,
++    })
++  ),
++  ...HELP_GUIDES.flatMap((g) =>
++    g.steps.map((s) =>
++      entry("step", { title: s.title, keywords: "", text: s.text }, {
++        id: `${g.slug}#${s.id}`, title: s.title, text: s.text, href: `/help/${g.slug}#${s.id}`,
++        action: s.action ?? null, guide: `${g.slug}#${s.id}`, guideTitle: g.title, rank: 1,
++      })
++    )
++  ),
++  ...HELP_GUIDES.map((g) =>
++    entry("guide", { title: g.title, keywords: g.keywords ?? "", text: g.summary }, {
++      id: g.slug, title: g.title, text: g.summary, href: `/help/${g.slug}`, action: null, guide: g.slug, rank: 2,
++    })
++  ),
++];
++
++/**
++ * The one search entry point. Returns null for an empty query, otherwise
++ * results best first: { kind, id, title, text, href, action, guide, guideTitle }.
++ */
++export function askHelp(query, { limit = 6 } = {}) {
++  const q = tokens(query);
++  if (q.length === 0) return null;
++  // De-duplicated query tokens; a token repeated by synonyms counts once.
++  const terms = [...new Set(q)];
++  const phrase = q.join(" ");
++
++  const scored = [];
++  for (const e of INDEX) {
++    let score = 0;
++    let matched = 0;
++    for (const t of terms) {
++      let best = 0;
++      for (const [field, set] of Object.entries(e.fields)) {
++        const m = tokenMatch(t, set);
++        if (m) best = Math.max(best, m * FIELD_WEIGHT[field]);
++      }
++      if (best) { matched += 1; score += best; }
++    }
++    const coverage = matched / terms.length;
++    // Everything typed must count for something on short queries; longer,
++    // chattier questions may leave one word unmatched.
++    const needed = terms.length <= 2 ? 1 : 0.6;
++    if (coverage < needed || score === 0) continue;
++    if (terms.includes("not") && !Object.values(e.fields).some((s) => s.has("not"))) score -= 2;
++    if (phrase.length > 6 && e.phrase.includes(phrase)) score += 3;
++    score += coverage * 4 - e.rank * 1.5;
++    scored.push({ e, score });
++  }
++  scored.sort((a, b) => b.score - a.score);
++
++  const seen = new Set();
++  const out = [];
++  for (const { e } of scored) {
++    // A guide step already covered by an answer above it adds nothing.
++    const key = e.kind === "answer" ? e.id : e.guide;
++    if (seen.has(key) || seen.has(e.href)) continue;
++    if (e.kind === "answer") seen.add(e.guide);
++    seen.add(key);
++    seen.add(e.href);
++    const { fields, phrase: _p, rank: _r, ...result } = e;
++    out.push(result);
++    if (out.length >= limit) break;
++  }
++  return out;
++}
++
++export { findAnswer };
+diff --git a/lib/help.js b/lib/help.js
+index 0dd93ce..be30cac 100644
+--- a/lib/help.js
++++ b/lib/help.js
+@@ -1,3 +1,7 @@
++import { safeNext } from "./auth-redirect";
++import { HELP_GUIDES, findGuide } from "./help-guides";
++import { askHelp } from "./help-search";
++
+ /**
+  * In-app help.
+  *
+@@ -28,13 +32,24 @@ export const HELP_GROUPS = [
+         keywords: "roster kid girl athlete new signup join jersey",
+       },
+       {
++        // Roster only. Before 2026-11 this read "Add a coach or manager", and
++        // coaches added an assistant here expecting her to be able to sign in.
+         id: "add-coach",
+-        title: "Add a coach or manager",
+-        text: "Add team staff, not a player.",
++        title: "Put a coach or staff on the roster",
++        text: "Adds them to the team list. It doesn't give them a login.",
+         href: "/team?add=person",
+         cta: "Add person",
+         direct: true,
+-        keywords: "staff assistant helper adult volunteer",
++        keywords: "staff assistant helper adult volunteer coach manager roster",
++      },
++      {
++        id: "add-guardian",
++        title: "Add a parent or guardian",
++        text: "Open a player, then Contacts, then Add contact.",
++        href: "/team",
++        cta: "Go to Team",
++        direct: false,
++        keywords: "parent guardian mom dad mother father contact phone email family primary",
+       },
+       {
+         id: "update-player",
+@@ -43,7 +58,7 @@ export const HELP_GROUPS = [
+         href: "/team",
+         cta: "Go to Team",
+         direct: false,
+-        keywords: "edit change jersey size uniform phone email parent position",
++        keywords: "edit change jersey size uniform phone email position",
+       },
+     ],
+   },
+@@ -62,12 +77,12 @@ export const HELP_GROUPS = [
+       },
+       {
+         id: "record-game",
+-        title: "Record a game",
++        title: "Add a game or score",
+         text: "Games live inside each tournament — open one first.",
+         href: "/tournaments",
+         cta: "Go to Tournaments",
+         direct: false,
+-        keywords: "score result won lost win loss record opponent bracket pool",
++        keywords: "game score result won lost win loss record opponent bracket pool",
+       },
+       {
+         id: "update-registration",
+@@ -89,6 +104,30 @@ export const HELP_GROUPS = [
+       },
+     ],
+   },
++  {
++    id: "qab",
++    label: "Quality At-Bats",
++    tasks: [
++      {
++        id: "qab-start",
++        title: "Track QABs for a game",
++        text: "Tournament roster, batting order, then track live or after the game.",
++        href: "/help/qab",
++        cta: "QAB guide",
++        direct: false,
++        keywords: "qab quality at-bat at bat track tracking lineup batting order performance plate appearance",
++      },
++      {
++        id: "qab-correct",
++        title: "Fix a completed game",
++        text: "Review & Edit, then Edit at-bats. Finishing doesn't lock a game.",
++        href: "/help/qab#correct",
++        cta: "How to correct",
++        direct: false,
++        keywords: "qab fix correct mistake wrong edit undo remove completed finished game",
++      },
++    ],
++  },
+   {
+     id: "money",
+     label: "Money",
+@@ -105,7 +144,7 @@ export const HELP_GROUPS = [
+       {
+         id: "record-payment",
+         title: "Record a player payment",
+-        text: "Log money received from a family.",
++        text: "Open the player in Player Dues, then Record payment.",
+         href: "/finance?tab=player-payments",
+         cta: "Open Player Dues",
+         direct: true,
+@@ -151,35 +190,41 @@ export const HELP_GROUPS = [
+   },
+   {
+     id: "places",
+-    label: "Facilities & Files",
++    label: "Locations & Resources",
+     tasks: [
+       {
+         id: "find-facility",
+-        title: "Find a facility",
++        title: "Find a field or facility",
+         text: "Search by name, city or county.",
+         href: "/facilities?view=all",
+-        cta: "Browse all facilities",
++        cta: "Browse all locations",
+         direct: true,
+         keywords: "facility venue field park complex where playing directions address",
+       },
+       {
+         id: "facility-notes",
+-        title: "Save facility notes",
+-        text: "Open a facility, then add parking and gate notes.",
++        title: "Save notes about a place",
++        text: "Open it, then add parking and gate notes.",
+         href: "/facilities",
+-        cta: "Go to Facilities",
++        cta: "Go to Locations & Resources",
+         direct: false,
+         keywords: "parking gate concessions restroom shade notes remember",
+       },
+       {
+         id: "add-facility",
+-        title: "Add a facility",
+-        text: "The facility isn't in Season Tempo yet.",
++        title: "Add a field, hotel or restaurant",
++        text: "The place isn't in Season Tempo yet.",
+         href: "/facilities?add=1",
+-        cta: "Add facility",
++        cta: "Add location",
+         direct: true,
+-        keywords: "new facility venue missing not listed create park",
++        keywords: "new facility venue missing not listed create park hotel lodging dining restaurant food",
+       },
++    ],
++  },
++  {
++    id: "files",
++    label: "Files & Reports",
++    tasks: [
+       {
+         id: "upload-document",
+         title: "Upload a document",
+@@ -189,6 +234,15 @@ export const HELP_GROUPS = [
+         direct: true,
+         keywords: "waiver insurance schedule roster form pdf photo paperwork document",
+       },
++      {
++        id: "print-report",
++        title: "Print a report for parents",
++        text: "Season budget or tournament schedule, as a PDF.",
++        href: "/reports",
++        cta: "Open Reports",
++        direct: true,
++        keywords: "print pdf report share parents schedule budget handout",
++      },
+     ],
+   },
+   {
+@@ -196,18 +250,21 @@ export const HELP_GROUPS = [
+     label: "Seasons & Access",
+     tasks: [
+       {
++        // Owner-only tasks route through their guide rather than opening the
++        // form: the guide says who can do it and offers the action only to an
++        // owner (2026-11).
+         id: "new-season",
+         title: "Start a new season",
+-        text: "Carry your roster into next year.",
+-        href: "/settings?new-season=1",
+-        cta: "Start next season",
+-        direct: true,
++        text: "Owners carry the roster into next year from Settings.",
++        href: "/help/setup#new-season",
++        cta: "How to start a season",
++        direct: false,
+         keywords: "next year rollover 2027 new season roll over",
+       },
+       {
+         id: "view-season",
+         title: "View a previous season",
+-        text: "Use the season menu at the top of the page.",
++        text: "Use the season menu under your team name.",
+         href: null,
+         cta: null,
+         direct: false,
+@@ -215,19 +272,19 @@ export const HELP_GROUPS = [
+       },
+       {
+         id: "invite",
+-        title: "Invite someone to Season Tempo",
+-        text: "Add a coach, manager or parent.",
+-        href: "/settings?invite=1",
+-        cta: "Invite someone",
+-        direct: true,
+-        keywords: "invite add user access permission share account",
++        title: "Give someone a login",
++        text: "Owners invite coaches and managers. Being on the roster isn't a login.",
++        href: "/help/access#invite",
++        cta: "How invitations work",
++        direct: false,
++        keywords: "invite add user access permission share account login sign in password",
+       },
+       {
+         id: "rename",
+         title: "Rename your team or season",
+-        text: "Fix a name you typed during setup.",
+-        href: "/settings",
+-        cta: "Go to Settings",
++        text: "Owners can fix a name in Settings.",
++        href: "/help/setup#names",
++        cta: "How to rename",
+         direct: false,
+         keywords: "rename change name typo spelling team organization",
+       },
+@@ -247,10 +304,12 @@ export const findTask = (id) => ALL_TASKS.find((t) => t.id === id) ?? null;
+  */
+ const ON_THIS_PAGE = {
+   "/tournaments": ["add-tournament", "record-game", "commit-tournament"],
+-  "/team": ["add-player", "add-coach", "upload-document"],
++  "/team": ["add-player", "add-guardian", "add-coach"],
+   "/facilities": ["find-facility", "facility-notes", "add-facility"],
+-  "/finance": ["set-dues", "add-expense", "build-budget"],
++  "/finance": ["set-dues", "record-payment", "add-expense"],
+   "/files": ["upload-document"],
++  "/performance": ["qab-start", "qab-correct"],
++  "/reports": ["print-report"],
+   "/settings": ["invite", "new-season", "rename"],
+ };
+ 
+@@ -259,17 +318,136 @@ export function tasksForPath(pathname) {
+   return key ? ON_THIS_PAGE[key].map(findTask).filter(Boolean) : [];
+ }
+ 
++/**
++ * The one matching rule for all Help search: every word typed must appear
++ * somewhere in the item's words. Used by the Help popover (tasks) and by
++ * Help & Getting Started (guides, steps and tasks).
++ */
++export function searchTerms(query) {
++  const q = String(query ?? "").trim().toLowerCase();
++  return q ? q.split(/\s+/) : null;
++}
++export function matchesTerms(terms, ...fields) {
++  const haystack = fields.filter(Boolean).join(" ").toLowerCase();
++  return terms.every((term) => haystack.includes(term));
++}
++
+ /** Matches title, sentence and the words a coach would actually type. */
+ export function searchTasks(query) {
+-  const q = query.trim().toLowerCase();
+-  if (!q) return null;
++  const terms = searchTerms(query);
++  if (!terms) return null;
+ 
+-  const terms = q.split(/\s+/);
+   return HELP_GROUPS.map((g) => ({
+     ...g,
+-    tasks: g.tasks.filter((t) => {
+-      const haystack = `${t.title} ${t.text} ${t.keywords}`.toLowerCase();
+-      return terms.every((term) => haystack.includes(term));
+-    }),
++    tasks: g.tasks.filter((t) => matchesTerms(terms, t.title, t.text, t.keywords)),
+   })).filter((g) => g.tasks.length > 0);
+ }
++
++/* ---------------- Help & Getting Started (V1, 2026-11) ---------------- */
++
++/**
++ * Which guide belongs to the page you're on. Game screens (lineup, tracking)
++ * live under /tournaments but are QAB work, so they are matched first.
++ * Contacts has no guide in V1.
++ */
++const PAGE_GUIDE = [
++  [/^\/tournaments\/[^/]+\/games\//, "qab"],
++  [/^\/performance(\/|$)/, "qab"],
++  [/^\/dashboard(\/|$)/, "setup"],
++  [/^\/team(\/|$)/, "roster"],
++  [/^\/tournaments(\/|$)/, "tournaments"],
++  [/^\/finance(\/|$)/, "money"],
++  [/^\/files(\/|$)/, "files"],
++  [/^\/facilities(\/|$)/, "locations"],
++  [/^\/settings(\/|$)/, "access"],
++  [/^\/reports(\/|$)/, "reports"],
++];
++
++export function guideForPath(pathname) {
++  const hit = PAGE_GUIDE.find(([re]) => re.test(pathname ?? ""));
++  return hit ? findGuide(hit[1]) : null;
++}
++
++/** Labels for "Back to …", in the navigation's own words. */
++const BACK_LABELS = [
++  [/^\/tournaments\/[^/]+\/games\/[^/]+\/lineup/, "batting order"],
++  [/^\/tournaments\/[^/]+\/games\/[^/]+\/track/, "QAB tracking"],
++  [/^\/dashboard/, "Home"],
++  [/^\/tournaments/, "Tournaments"],
++  [/^\/team/, "Team"],
++  [/^\/facilities/, "Locations & Resources"],
++  [/^\/finance/, "Finance"],
++  [/^\/performance/, "Performance"],
++  [/^\/reports/, "Reports"],
++  [/^\/files/, "Files"],
++  [/^\/contacts/, "Contacts"],
++  [/^\/settings/, "Settings"],
++];
++
++/**
++ * Where "Back" goes. `from` is the exact path and query the person left —
++ * ?open=<id>, ?tab= and the rest — so returning reopens the same drawer and
++ * tab. It passes through safeNext, so only a same-site path survives, and a
++ * path back into Help itself is ignored rather than looping.
++ */
++export function helpReturn(from) {
++  const path = safeNext(from, null);
++  if (!path || /^\/help(\/|\?|#|$)/.test(path)) return null;
++  const hit = BACK_LABELS.find(([re]) => re.test(path));
++  return { href: path, label: hit ? hit[1] : "where you were" };
++}
++
++/** A link into Help that remembers where it came from. */
++export function helpHref(target = "/help", from = null) {
++  const [base, hash] = String(target).split("#");
++  const back = helpReturn(from);
++  const qs = back ? `${base.includes("?") ? "&" : "?"}from=${encodeURIComponent(back.href)}` : "";
++  return `${base}${qs}${hash ? `#${hash}` : ""}`;
++}
++
++export const isHelpLink = (href) => typeof href === "string" && /^\/help(\/|\?|#|$)/.test(href);
++
++/**
++ * Can this person use a guide action? Help never offers what the person
++ * can't complete — it says why. Server authorization is unchanged and still
++ * decides; this only keeps Help from leading anyone into a refusal.
++ *
++ * access: { isAdmin, canWrite, qab, phase }
++ */
++/**
++ * Why an action isn't offered. Worded around access rather than role names,
++ * so it stays true when owners can grant individual access (Phase 5).
++ */
++export const ACCESS_REASON = {
++  admin: "Your access doesn't include this. An organization owner can do it.",
++  write: "Your access lets you view this, not change it.",
++};
++
++export function actionState(action, access = {}) {
++  if (!action) return { ok: false, reason: null };
++  if (action.requires === "admin" && !access.isAdmin) {
++    return { ok: false, reason: ACCESS_REASON.admin };
++  }
++  if (action.requires === "write" && !access.canWrite) {
++    return { ok: false, reason: ACCESS_REASON.write };
++  }
++  if (action.requires === "qab" && !access.qab) {
++    return { ok: false, reason: "Performance isn't turned on for your organization." };
++  }
++  if (action.creates && access.phase === "past") {
++    return { ok: false, reason: "You're viewing a past season. Switch to the current season to add this." };
++  }
++  return { ok: true, reason: null };
++}
++
++/**
++ * Help search (2026-11): question-first, deterministic. The engine lives in
++ * lib/help-search.js (answers first, then guide steps and guides, with
++ * synonyms, negation, plurals and typo tolerance). Every Help surface — the
++ * popover, /help and guide pages — calls this one function.
++ */
++export const searchHelp = (query, limit = 6) => askHelp(query, { limit });
++
++export { HELP_GUIDES, findGuide };
++
++export { askHelp };
+diff --git a/package.json b/package.json
+index e82fbf5..7567a7f 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "build": "node scripts/check-pending-columns.js && next build",
+     "start": "next start",
+     "lint": "next lint",
+-    "check": "node scripts/check-syntax.js && node scripts/check-pending-columns.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-report.js && node scripts/check-documents.js && node scripts/check-dues-edit.js && node scripts/check-txn-status.js && node scripts/check-tournament-commitments.js && node scripts/check-tournament-budget.js && node scripts/check-dues-filter.js && node scripts/check-uniform-sizes.js && node scripts/check-schedule.js && node scripts/check-schedule-report.js && node scripts/check-report-screens.js && node scripts/check-signout.js && node scripts/check-auth-access.js && node scripts/check-invite-lifecycle.js && node scripts/check-invite-email.js && node scripts/check-invite-stale.js && node scripts/check-qab-discover.js && node scripts/check-game-types.js && node scripts/check-performance-tournament.js && node scripts/check-qab-report.js && node scripts/check-qab-tournament.js && node scripts/check-qab-single-reason.js && node scripts/check-game-score.js && node scripts/check-queue-recovery.js && node scripts/check-qab-notes.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-player-zip.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
++    "check": "node scripts/check-syntax.js && node scripts/check-pending-columns.js && node scripts/check-undefined.js && node scripts/check-cursor.js && node scripts/check-report.js && node scripts/check-dues-report.js && node scripts/check-documents.js && node scripts/check-dues-edit.js && node scripts/check-txn-status.js && node scripts/check-tournament-commitments.js && node scripts/check-tournament-budget.js && node scripts/check-dues-filter.js && node scripts/check-uniform-sizes.js && node scripts/check-schedule.js && node scripts/check-schedule-report.js && node scripts/check-report-screens.js && node scripts/check-signout.js && node scripts/check-auth-access.js && node scripts/check-invite-lifecycle.js && node scripts/check-invite-email.js && node scripts/check-invite-stale.js && node scripts/check-qab-discover.js && node scripts/check-game-types.js && node scripts/check-performance-tournament.js && node scripts/check-qab-report.js && node scripts/check-qab-tournament.js && node scripts/check-qab-single-reason.js && node scripts/check-game-score.js && node scripts/check-queue-recovery.js && node scripts/check-qab-notes.js && node scripts/check-facility-address.js && node scripts/check-facility-directory.js && node scripts/check-player-lifecycle.js && node scripts/check-mutation-reliability.js && node scripts/check-player-contacts.js && node scripts/check-player-zip.js && node scripts/check-structured-names.js && node scripts/check-player-export.js && node scripts/check-table-sort.js && node scripts/check-c3c-contact-writes.js && node scripts/check-c3d-idempotency.js && node scripts/check-import-activation.js && node scripts/check-intake.js && node scripts/check-help.js && node scripts/check-migrations.js && node scripts/check-conventions.js"
+   },
+   "dependencies": {
+     "next": "14.2.5",
+diff --git a/scripts/check-help.js b/scripts/check-help.js
+new file mode 100644
+index 0000000..e387a40
+--- /dev/null
++++ b/scripts/check-help.js
+@@ -0,0 +1,407 @@
++/**
++ * Help & Getting Started V1 (2026-11).
++ *
++ * Behavioural where it can be: the real lib/help.js and lib/help-guides.js are
++ * compiled and run, and the Help pages are rendered to HTML with React. Source
++ * assertions cover the wiring that only exists in components.
++ *
++ *   A. Content shape: nine guides, short steps, unique anchors
++ *   B. Every Help link resolves to a real route, a query the page reads, and
++ *      an existing guide/anchor
++ *   C. Wording: no Parent invitations, roster vs. login, Locations & Resources
++ *   D. QAB sequence and the Finance "how the pieces fit" block
++ *   E. Permission-aware actions (actionState) and owner-only routing
++ *   F. Return navigation (helpReturn / helpHref)
++ *   G. Rendered pages: coach vs. owner, past season, checklist when hidden
++ *   H. Wiring: popover entry, More sheet link, Settings owner gate, read-only
++ *      Help pages, existing QAB guidance untouched
++ */
++const path = require("path");
++const fs = require("fs");
++const Module = require("module");
++const ROOT = path.resolve(__dirname, "..");
++let failed = 0, passed = 0;
++function ok(label, actual, expected = true) {
++  const pass = JSON.stringify(actual) === JSON.stringify(expected);
++  if (pass) passed++; else failed++;
++  console.log(`  ${pass ? "ok  " : "FAIL"}  ${label}${pass ? "" : `\n        expected ${JSON.stringify(expected)}\n        actual   ${JSON.stringify(actual)}`}`);
++}
++const section = (t) => console.log(t);
++const R = (rel) => path.join(ROOT, rel);
++const read = (rel) => fs.readFileSync(R(rel), "utf8");
++
++/* ---- compile ESM/JSX on require, with next/link stubbed ---- */
++const mocks = new Map();
++const React = require("react");
++mocks.set("next/navigation", { useRouter: () => ({ push() {}, replace() {}, refresh() {} }), usePathname: () => "/help", useSearchParams: () => new URLSearchParams() });
++mocks.set("next/link", { __esModule: true, default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) });
++const origLoad = Module._load;
++Module._load = function (request, parent, ...rest) {
++  if (mocks.has(request)) return mocks.get(request);
++  return origLoad.call(this, request, parent, ...rest);
++};
++const swc = require("next/dist/build/swc");
++const OPTS = { jsc: { parser: { syntax: "ecmascript", jsx: true }, transform: { react: { runtime: "automatic" } }, target: "es2020" }, module: { type: "commonjs" } };
++const origJs = Module._extensions[".js"];
++Module._extensions[".js"] = function (m, filename) {
++  if (filename.includes(`${path.sep}node_modules${path.sep}`)) return origJs(m, filename);
++  m._compile(swc.transformSync(fs.readFileSync(filename, "utf8"), { ...OPTS, filename }).code, filename);
++};
++const { renderToStaticMarkup } = require("react-dom/server");
++
++const help = require(R("lib/help.js"));
++const { HELP_GUIDES, findGuide } = require(R("lib/help-guides.js"));
++const center = require(R("components/HelpCenter.js"));
++const tools = require(R("components/HelpTools.js"));
++const { findAnswer: findAnswerById, HELP_ANSWERS } = require(R("lib/help-answers.js"));
++const { HELP_GROUPS, actionState, helpReturn, helpHref, guideForPath, isHelpLink, tasksForPath, searchHelp, ACCESS_REASON } = help;
++
++const allActions = HELP_GUIDES.flatMap((g) => g.steps.map((s) => ({ guide: g.slug, step: s.id, ...(s.action ?? {}) })).filter((a) => a.href));
++const allTasks = HELP_GROUPS.flatMap((g) => g.tasks);
++const allText = (g) => [g.title, g.summary, g.who, ...(g.goodToKnow ?? []), ...(g.pieces?.items ?? []).flatMap((p) => [p.term, p.text]),
++  ...g.steps.flatMap((s) => [s.title, s.text, s.action?.label ?? ""])].join(" \n ");
++
++/* ------------------------------------------------------------------------ */
++section("A. Content shape");
++ok("exactly nine guides", HELP_GUIDES.length, 9);
++ok("the approved nine, in order", HELP_GUIDES.map((g) => g.slug), ["setup", "roster", "tournaments", "qab", "money", "files", "locations", "access", "reports"]);
++ok("slugs are unique", new Set(HELP_GUIDES.map((g) => g.slug)).size, 9);
++for (const g of HELP_GUIDES) {
++  ok(`${g.slug}: 3 to 7 steps`, g.steps.length >= 3 && g.steps.length <= 7);
++  ok(`${g.slug}: step anchors unique`, new Set(g.steps.map((s) => s.id)).size, g.steps.length);
++  ok(`${g.slug}: every step text is short (≤ 170 chars)`, g.steps.filter((s) => s.text.length > 170).map((s) => s.id), []);
++  ok(`${g.slug}: has a who line and summary`, Boolean(g.who && g.summary));
++  ok(`${g.slug}: at most four Good to know lines`, (g.goodToKnow ?? []).length <= 4);
++}
++
++/* ------------------------------------------------------------------------ */
++section("B. Every Help link resolves");
++// Routes that exist, from the file system.
++function pageRoutes(dir, base = "") {
++  const out = [];
++  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
++    if (!e.isDirectory()) { if (e.name === "page.js") out.push(base || "/"); continue; }
++    const seg = /^\(.*\)$/.test(e.name) ? "" : `/${e.name}`;
++    out.push(...pageRoutes(path.join(dir, e.name), base + seg));
++  }
++  return out;
++}
++const routes = pageRoutes(R("app"));
++const routeFile = (p) => {
++  const segs = p.split("/").filter(Boolean);
++  const candidates = [path.join("app", "(app)", ...segs, "page.js"), path.join("app", ...segs, "page.js")];
++  return candidates.find((c) => fs.existsSync(R(c))) ?? null;
++};
++// The query keys a page (or its client) is known to read.
++const CLIENT_READS = { "/finance": "components/FinanceClient.js", "/facilities": "components/FacilitiesClient.js" };
++function readsParam(route, key) {
++  const src = read(routeFile(route)) + (CLIENT_READS[route] ? read(CLIENT_READS[route]) : "");
++  return new RegExp(`(\\?\\.|\\.|\\[")${key.replace("-", "\\-")}(\\b|"\\])`).test(src);
++}
++function checkHref(label, href) {
++  const [pathPart, hash] = href.split("#");
++  const [pathname, query] = pathPart.split("?");
++  if (pathname.startsWith("/help")) {
++    const slug = pathname.split("/")[2];
++    if (!slug) return ok(`${label} → /help`, hash ? false : true);
++    const g = findGuide(slug);
++    ok(`${label} → guide "${slug}" exists`, Boolean(g));
++    if (hash) ok(`${label} → anchor #${hash} exists`, Boolean(g?.steps.some((s) => s.id === hash)));
++    return;
++  }
++  ok(`${label} → route ${pathname} exists`, routes.includes(pathname));
++  for (const [k, v] of new URLSearchParams(query ?? "")) {
++    ok(`${label} → ${pathname} reads ?${k}`, readsParam(pathname, k));
++    if (pathname === "/finance" && k === "tab") {
++      const aliases = read("app/(app)/finance/page.js");
++      ok(`${label} → finance tab "${v}" is a known tab`, new RegExp(`["\\s]${v}"?:`).test(aliases));
++    }
++  }
++}
++for (const a of allActions) checkHref(`${a.guide}#${a.step}`, a.href);
++for (const t of allTasks.filter((t) => t.href)) checkHref(`task ${t.id}`, t.href);
++for (const g of HELP_GUIDES) for (const r of g.related ?? []) checkHref(`${g.slug} related`, r.href);
++
++/* ------------------------------------------------------------------------ */
++section("C. Wording");
++const accessText = allText(findGuide("access")).toLowerCase();
++const inviteTasks = allTasks.filter((t) => /invite|login|access/i.test(`${t.id} ${t.title}`));
++ok("Invitations guide never mentions parents", /parent/.test(accessText), false);
++ok("invitation tasks never mention parents", inviteTasks.filter((t) => /parent/i.test(`${t.title} ${t.text}`)).map((t) => t.id), []);
++ok("no Help text offers to invite a parent", /invite[^.]*parent|parent[^.]*invit/i.test(JSON.stringify(HELP_GROUPS) + HELP_GUIDES.map(allText).join(" ")), false);
++ok("Invitations guide says 'role and team', naming no role list", /Choose their role and team\./.test(allText(findGuide("access"))) && !/Coach or Manager|\bAdmin\b/.test(allText(findGuide("access"))));
++for (const slug of ["roster", "access"]) {
++  ok(`${slug}: explains roster vs. login`, findGuide(slug).pieces?.title, "On the roster vs. Season Tempo access");
++}
++ok("staff task says it isn't a login", /doesn't give them a login/.test(allTasks.find((t) => t.id === "add-coach").text));
++ok("no retired 'Facilities' page wording", /Go to Facilities|Browse all facilities|Facilities & Files/.test(JSON.stringify(HELP_GROUPS) + HELP_GUIDES.map(allText).join(" ")), false);
++ok("Locations guide uses Locations & Resources", /Locations & Resources/.test(allText(findGuide("locations"))));
++ok("popover group is named Locations & Resources", HELP_GROUPS.some((g) => g.label === "Locations & Resources"));
++
++/* ------------------------------------------------------------------------ */
++section("D. QAB sequence and Finance pieces");
++ok("QAB guide runs roster → order → track → record → finish → correct → reports",
++  findGuide("qab").steps.map((s) => s.id), ["tournament-roster", "batting-order", "track", "record", "finish", "correct", "reports"]);
++ok("QAB guide: enter QABs after a game if not tracked live", /You can enter QABs after a game if you didn't track them live\./.test(findGuide("qab").steps[2].text));
++ok("QAB guide says finishing doesn't lock a game", findGuide("qab").goodToKnow.some((t) => /doesn't lock/.test(t)));
++ok("QAB guide is feature-marked", findGuide("qab").feature, "qab");
++ok("QAB uses the one-reason rule", /one reason/.test(findGuide("qab").steps[3].text));
++ok("Finance pieces are the five approved terms", findGuide("money").pieces.items.map((p) => p.term), ["Budget", "Transactions", "Money In", "Player Dues", "Payments"]);
++ok("Finance transaction statuses match the product", /To Pay or Paid/.test(findGuide("money").steps.find((s) => s.id === "expense").text)
++  && /\["To Pay", "Paid"\]/.test(read("lib/finance-rules.js")));
++
++/* ------------------------------------------------------------------------ */
++section("E. Permission-aware actions");
++const OWNER = { isAdmin: true, canWrite: true, qab: true, phase: "current" };
++const COACH = { isAdmin: false, canWrite: true, qab: true, phase: "current" };
++ok("owner may invite", actionState({ href: "/settings?invite=1", requires: "admin" }, OWNER).ok, true);
++ok("coach may not invite, and is told why", actionState({ href: "/settings?invite=1", requires: "admin" }, COACH),
++  { ok: false, reason: ACCESS_REASON.admin });
++ok("coach may add a tournament", actionState({ href: "/tournaments?add=1", requires: "write", creates: true }, COACH).ok, true);
++ok("past season holds back creating", actionState({ requires: "write", creates: true, href: "/x" }, { ...OWNER, phase: "past" }).ok, false);
++ok("no QAB feature holds back QAB actions", actionState({ requires: "qab", href: "/performance" }, { ...OWNER, qab: false }).ok, false);
++ok("unknown access fails closed for owner actions", actionState({ requires: "admin", href: "/settings" }, {}).ok, false);
++const ownerForms = allActions.filter((a) => /invite=1|new-season=1/.test(a.href)).concat(allActions.filter((a) => a.href === "/settings"));
++ok("every guide action opening an owner form is owner-gated", ownerForms.filter((a) => a.requires !== "admin").map((a) => `${a.guide}#${a.step}`), []);
++ok("popover never opens an owner-only form", allTasks.filter((t) => /invite=1|new-season=1/.test(t.href ?? "")).map((t) => t.id), []);
++ok("every creating action declares write access", allActions.filter((a) => a.creates && a.requires !== "write").map((a) => `${a.guide}#${a.step}`), []);
++
++/* ------------------------------------------------------------------------ */
++section("F. Return navigation");
++ok("keeps the exact screen, tab and drawer", helpReturn("/tournaments?open=t1&section=costs"), { href: "/tournaments?open=t1&section=costs", label: "Tournaments" });
++ok("names game screens", helpReturn("/tournaments/a/games/b/track")?.label, "QAB tracking");
++ok("refuses another site", helpReturn("//evil.example/x"), null);
++ok("refuses a full URL", helpReturn("https://evil.example/"), null);
++ok("refuses javascript:", helpReturn("javascript:alert(1)"), null);
++ok("ignores a path back into Help", helpReturn("/help/qab"), null);
++ok("helpHref carries from and keeps the anchor", helpHref("/help/qab#correct", "/finance?tab=payments"), "/help/qab?from=%2Ffinance%3Ftab%3Dpayments#correct");
++ok("helpHref with no origin is a plain link", helpHref("/help", null), "/help");
++ok("guide for lineup/track is QAB", [guideForPath("/tournaments/x/games/y/lineup")?.slug, guideForPath("/tournaments/x/games/y/track")?.slug], ["qab", "qab"]);
++ok("guide for Tournaments, Finance, Settings, Locations", ["/tournaments", "/finance", "/settings", "/facilities"].map((p) => guideForPath(p)?.slug), ["tournaments", "money", "access", "locations"]);
++ok("on-this-page tasks still resolve", tasksForPath("/settings").map((t) => t.id), ["invite", "new-season", "rename"]);
++ok("isHelpLink", [isHelpLink("/help"), isHelpLink("/help/qab#x"), isHelpLink("/helpdesk"), isHelpLink("/team")], [true, true, false, false]);
++
++/* ------------------------------------------------------------------------ */
++section("G. Rendered pages");
++const progressOf = (doneIds, qab = true) => {
++  const ids = ["name-team", "roster", "tournament", "dues", "game", ...(qab ? ["lineup"] : [])];
++  const hrefs = { "name-team": null, roster: "/team", tournament: "/tournaments", dues: "/finance?tab=player-payments", game: "/tournaments", lineup: "/performance" };
++  const steps = ids.map((id) => ({ id, done: doneIds.includes(id), href: hrefs[id], creates: !["dues", "game", "lineup"].includes(id), label: id }));
++  return { steps, done: steps.filter((x) => x.done).length, total: steps.length };
++};
++const html = (el) => renderToStaticMarkup(el);
++const progress = progressOf(["name-team", "roster", "tournament"]);
++const home = html(React.createElement(center.HelpHome, { progress, access: COACH, from: "/tournaments?open=t1" }));
++ok("home asks 'How can we help?' with one Search Help box", /<h1>How can we help\?<\/h1>/.test(home) && (home.match(/id="ha-input"/g) ?? []).length === 1);
++ok("home shows Popular, not a directory of guides", /Popular/.test(home) && (home.match(/class="hc-guide-card"/g) ?? []).length === 0);
++ok("Popular is four questions", (home.match(/class="ha-popular-item"/g) ?? []).length, 4);
++ok("home shows setup progress with Continue setup", /Get your team ready/.test(home) && /3 of 6 complete/.test(home) && />Continue setup →</.test(home));
++ok("3+ done: compact — next step and View all steps, checklist folded away", /class="hc-progress compact"/.test(home) && /Next:<\/span> <!-- -->?set dues|Next:<\/span> ?dues/.test(home) && /<details class="hc-progress-all"><summary>View all steps<\/summary>/.test(home));
++const early = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster"]), access: COACH, from: null }));
++ok("fewer than 3 done: the full checklist, not compact", !/hc-progress compact/.test(early) && !/View all steps/.test(early) && (early.match(/class="hc-progress-mark"/g) ?? []).length === 6);
++ok("home offers Browse all guides and Contact support", /Browse all guides/.test(home) && /Contact support/.test(home));
++ok("Browse all guides keeps the return path", /href="\/help\?view=guides&amp;from=%2Ftournaments%3Fopen%3Dt1#all-guides"/.test(home));
++ok("home Back returns to the drawer", /<a href="\/tournaments\?open=t1" class="hc-back">.*Back to (<!-- -->)?Tournaments<\/a>/.test(home));
++const browse = html(React.createElement(center.HelpHome, { progress, access: COACH, from: "/tournaments?open=t1", showGuides: true }));
++ok("Browse all guides lists all nine", (browse.match(/class="hc-guide-card"/g) ?? []).length, 9);
++ok("guide cards carry the return path", /href="\/help\/qab\?from=%2Ftournaments%3Fopen%3Dt1"/.test(browse));
++const past = html(React.createElement(center.HelpHome, { progress, access: { ...COACH, phase: "past" }, from: null }));
++ok("past season: progress explains instead of offering Continue setup", /viewing a past season/.test(past) && !/Continue setup/.test(past));
++const doneAll = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster", "tournament", "dues", "game", "lineup"]), access: COACH, from: null }));
++ok("finished setup: the progress card steps aside", /Get your team ready/.test(doneAll), false);
++const noQab = progressOf(["name-team"], false);
++ok("no QAB: no batting-order step", noQab.steps.some((x) => x.id === "lineup"), false);
++const noQabHome = html(React.createElement(center.HelpHome, { progress: noQab, access: { ...COACH, qab: false }, from: null }));
++ok("no QAB: Popular has no QAB question", /Track QABs/.test(noQabHome), false);
++const answered = html(React.createElement(center.HelpHome, { progress, access: COACH, from: "/finance", answer: "dues-exempt" }));
++ok("?a= opens a direct answer with its action and full guide", /A player doesn(&#x27;|’)t owe dues/.test(answered) && />Open Player Dues →</.test(answered) && /Full guide: Manage team money/.test(answered));
++ok("answer links keep from", /href="\/help\/money\?from=%2Ffinance#dues"/.test(answered));
++const coachLogin = html(React.createElement(center.HelpHome, { progress, access: COACH, from: null, answer: "coach-login" }));
++ok("coach asking about sign-in: told why, no owner-only Invite button", !/settings\?invite=1/.test(coachLogin) && coachLogin.includes(ACCESS_REASON.admin.replace(/'/g, "&#x27;")));
++const ownerLogin = html(React.createElement(center.HelpHome, { progress, access: OWNER, from: null, answer: "coach-login" }));
++ok("owner asking about sign-in: Invite someone offered", /href="\/settings\?invite=1"/.test(ownerLogin));
++const searched = html(React.createElement(center.HelpHome, { progress, access: COACH, from: null, query: "wrong batter" }));
++ok("?q= answers first: wrong batter -> Fix a completed plate appearance", /<h2 class="ha-answer-title">Fix a completed plate appearance<\/h2>/.test(searched) && /Open Performance →/.test(searched));
++ok("while answering, Popular and setup step aside", !/Popular/.test(searched) && !/Get your team ready/.test(searched));
++const coachAccess = html(React.createElement(center.HelpGuide, { guide: findGuide("access"), access: COACH, from: "/settings" }));
++ok("coach: no Invite someone button", /href="\/settings\?invite=1"/.test(coachAccess), false);
++ok("coach: told why, in access terms", coachAccess.includes(ACCESS_REASON.admin.replace(/'/g, "&#x27;")));
++const ownerAccess = html(React.createElement(center.HelpGuide, { guide: findGuide("access"), access: OWNER, from: "/settings" }));
++ok("owner: Invite someone button present", /href="\/settings\?invite=1"/.test(ownerAccess));
++ok("guide steps carry anchors", /id="invite"/.test(ownerAccess));
++const lockedQab = html(React.createElement(center.HelpGuide, { guide: findGuide("qab"), access: { ...OWNER, qab: false }, from: null }));
++ok("no-QAB org: guide explains Premium, no Performance buttons", /isn(&#x27;|’|&rsquo;)t turned on/.test(lockedQab) && !/href="\/performance"/.test(lockedQab));
++const setupOwner = html(React.createElement(center.HelpGuide, { guide: findGuide("setup"), access: OWNER, from: "/dashboard" }));
++ok("guide-to-guide links keep the return path", /href="\/help\/access\?from=%2Fdashboard"/.test(setupOwner));
++const roster = html(React.createElement(center.HelpGuide, { guide: findGuide("roster"), access: COACH, from: null }));
++ok("roster guide renders roster vs. access", /On the roster vs\. Season Tempo access/.test(roster));
++
++/* ------------------------------------------------------------------------ */
++section("H. Wiring");
++const menu = read("components/HelpMenu.js");
++ok("popover links to Help & Getting Started with the current screen", /helpHref\("\/help", here\)/.test(menu) && /Help &amp; Getting Started/.test(menu));
++ok("popover asks this page's questions first, then Search Help", /questionsForPath\(pathname/.test(menu) && menu.indexOf("On this page") < menu.indexOf('placeholder="Search Help"'));
++ok("popover no longer lists the common-task directory", /HELP_GROUPS|Common tasks/.test(menu), false);
++ok("popover answers and Enter both keep this screen as from", /helpHref\(`\/help\?a=\$\{a\.id\}`, here\)/.test(menu) && /helpHref\(`\/help\?q=\$\{encodeURIComponent\(query\.trim\(\)\)\}`, here\)/.test(menu));
++const nav = read("components/NavSidebar.js");
++ok("More sheet Help row is a link, not a nested popover", !/HelpMenu/.test(nav) && /helpHref\("\/help"/.test(nav));
++const settings = read("components/SettingsClient.js");
++ok("Settings: owner-only forms don't auto-open for others", /OWNER_ONLY_PANELS\.includes\(autoOpen\) && !isAdmin \? null : autoOpen/.test(settings));
++ok("Settings: invite form renders only for owners", /editing === "invite" && isAdmin &&/.test(settings));
++ok("Settings: new season form renders only for owners", /editing === "season-new" && isAdmin &&/.test(settings));
++const pages = ["app/(app)/help/page.js", "app/(app)/help/[guide]/page.js", "components/HelpCenter.js", "app/(app)/help/access.js"].map(read).join("\n");
++ok("Help pages import no server actions", /lib\/actions/.test(pages), false);
++ok("Help pages write nothing", /\.(insert|update|upsert|delete)\(/.test(pages), false);
++ok("Help pages live inside the signed-in app shell", fs.existsSync(R("app/(app)/help/page.js")));
++ok("/help is not a public route", /["']\/help["']/.test(read("lib/supabase/middleware.js")), false);
++ok("checklist ignores the Home dismissal", /onboarding_hidden|setup\.hidden/.test(read("app/(app)/help/page.js")), false);
++const perf = read("app/(app)/performance/page.js");
++ok("existing Performance QAB guidance unchanged", /<details className="perf-guide" open=\{firstTime\}>\s*<summary>How QAB tracking works<\/summary>/.test(perf));
++ok("Home Getting started card unchanged", /onboarding_hidden && <GettingStarted/.test(read("app/(app)/dashboard/page.js")));
++
++/* ------------------------------------------------------------------------ */
++section("I. Guide selector, search and refinements (2026-11 revision)");
++const qabPage = html(React.createElement(center.HelpGuide, { guide: findGuide("qab"), access: OWNER, from: "/finance?tab=payments" }));
++ok("guide page has no permanent list of guides", /hc-nav/.test(qabPage) || /class="hc-picker-item/.test(qabPage), false);
++ok("guide page shows a compact selector with the current guide", /class="hc-picker-current">Track Quality At-Bats</.test(qabPage));
++ok("guide page has Help search", /aria-label="Search help"/.test(qabPage));
++const pickerOpen = html(React.createElement(tools.HelpGuidePicker, { current: "qab", from: "/finance?tab=payments", initialOpen: true }));
++ok("selector lists all nine guides when opened", (pickerOpen.match(/class="hc-picker-item/g) ?? []).length, 9);
++ok("selector marks the current guide", /aria-current="page"[^>]*>Track Quality At-Bats|class="hc-picker-item active"[^>]*>Track Quality At-Bats/.test(pickerOpen));
++ok("selector links keep from", (pickerOpen.match(/href="\/help\/[a-z]+\?from=%2Ffinance%3Ftab%3Dpayments"/g) ?? []).length, 9);
++ok("selector offers the way back to all guides", /href="\/help\?view=guides&amp;from=%2Ffinance%3Ftab%3Dpayments#all-guides"[^>]*>All guides/.test(pickerOpen));
++const top = (q) => searchHelp(q)?.[0]?.href;
++ok("search: 'lineup' answers batting order", top("lineup"), "/help?a=qab-lineup");
++ok("search: 'add parent' answers it directly", top("add parent"), "/help?a=parent-add");
++ok("search: 'invite' answers sign-in/access first", top("invite"), "/help?a=coach-login");
++ok("search: 'venmo' answers recording a payment", top("venmo"), "/help?a=dues-payment");
++ok("search: 'wrong batter' answers fixing a plate appearance", top("wrong batter"), "/help?a=qab-fix");
++ok("search: 'hotel' finds the hotel answer", top("hotel"), "/help?a=tournament-places");
++ok("search: no duplicate titles in results", (() => { const t = searchHelp("dues").map((r) => r.title.toLowerCase()); return t.length === new Set(t).size; })());
++ok("search: nonsense finds nothing", searchHelp("zzzqqq"), []);
++ok("search: empty or stop-words-only query is not a search", [searchHelp("   "), searchHelp("how do i")], [null, null]);
++ok("search: at most six results", searchHelp("add").length <= 6);
++ok("search results resolve to real answers, guides and anchors", ["dues", "game", "invite", "hotel", "fix"].every((q) => searchHelp(q).every((r) => {
++  if (r.kind === "answer") return Boolean(findAnswerById(r.id));
++  const [p2, h] = r.href.split("#"); const g = findGuide(p2.split("/")[2]); return g && (!h || g.steps.some((x) => x.id === h)); })));
++const searchOpen = html(React.createElement(tools.HelpSearch, { from: "/finance?tab=payments", initialQuery: "dues" }));
++ok("search result links keep from", /href="\/help(\/[a-z]+)?\?(a=[a-z-]+&amp;)?from=%2Ffinance%3Ftab%3Dpayments(#[a-z-]+)?"/.test(searchOpen));
++ok("one search engine: every Help surface calls searchHelp/askHelp", [read("components/HelpMenu.js"), read("components/HelpAsk.js"), read("components/HelpTools.js")].every((src) => /searchHelp\(/.test(src)));
++ok("landing page has Search Help", /id="ha-input"/.test(home) && /placeholder="Search Help"/.test(home));
++const everything = JSON.stringify(HELP_GROUPS) + HELP_GUIDES.map(allText).join(" ") + JSON.stringify(ACCESS_REASON);
++ok("no unverified phone-print claim", /On a phone/i.test(everything), false);
++ok("reasons don't hard-code a role list", /coaches, managers and owners|Only an organization owner can do this/i.test(everything), false);
++ok("who lines describe access, not roles", HELP_GUIDES.filter((g) => /Coaches, managers|Anyone on the team/.test(g.who)).map((g) => g.slug), []);
++
++/* ------------------------------------------------------------------------ */
++section("J. Copy refinement pass (verified against code, 2026-11)");
++const all = HELP_GUIDES.map(allText).join(" \n ");
++ok("Setup is marked as the place to start", /^New to Season Tempo\? Start here\./.test(findGuide("setup").summary));
++ok("Setup: considering tournaments can be added before committing", /still considering, before you commit/.test(all));
++ok("Setup: new season copy matches start_next_season (chosen people, optional budget, not made current)",
++  /Choose who carries over/.test(all) && /p_player_ids/.test(read("lib/actions/seasons.js")) && /copy_budget/.test(read("lib/actions/seasons.js")));
++ok("Roster: primary contact wording", /Choose a primary contact for the player\./.test(all));
++ok("Roster: inactive keeps dues and payment history", /Making a player inactive doesn't remove their dues or payment history\./.test(all)
++  && /\.update\(\{ is_active:/.test(read("lib/actions/roster.js")));
++ok("Roster: old dues-totals line removed", /Season dues totals still count/.test(all), false);
++ok("Tournaments: no blanket 'Only Committed tournaments count'", /Only Committed tournaments count/.test(all), false);
++ok("Tournaments: unassigned committed cost wording matches Finance",
++  /not assigned to a budget category/.test(all) && /decision === "Committed" &&\s*!t\.budget_item_id/.test(read("lib/queries/finance.js")));
++ok("QAB: no 'Past games can be tracked any time'", /Past games can be tracked any time/.test(all), false);
++ok("QAB: no offline/lost-signal promise until verified in production", /signal|offline|back online/i.test(all), false);
++ok("Finance: Money In wording matches the server (income stored as Paid, counted once it has an amount)",
++  /once you enter the amount/.test(all) && /income.*isActual|is_income && isActual/.test(read("lib/queries/finance.js")));
++ok("Finance: exempt note present and tied to Set player dues", /recorded as exempt/.test(all) && /owing no dues/.test(read("components/FinanceClient.js")));
++ok("Files: no link-expiry implementation detail", /60 seconds|expires/.test(all), false);
++ok("Locations: Saved matches the isOurs rule (added/notes, links, non-declined tournaments)",
++  /added, wrote notes on, or linked to a tournament, and fields where one of your tournaments is held \(unless you declined it\)/.test(all)
++  && /isOurs: committedHistory\.length > 0 \|\| orgNotes !== null \|\| links\.length > 0/.test(read("lib/queries/facilities.js")));
++ok("who lines are permission-neutral", HELP_GUIDES.filter((g) => !/team members with access|organization owner tasks/.test(g.who)).map((g) => g.slug), []);
++ok("no 'Anyone on the team'", /Anyone on the team/.test(all), false);
++ok("owner-only actions still say owner explicitly", /organization owner tasks/.test(findGuide("access").who) && /owner tasks/.test(findGuide("setup").who));
++ok("Reports: no phone-browser printing statement", /phone|browser/i.test(allText(findGuide("reports"))), false);
++
++/* ------------------------------------------------------------------------ */
++section("K. Everyday language, synonyms and typos (deterministic)");
++const NATURAL = [
++  ["wrong batter", "qab-fix"],
++  ["battr wrong", "qab-fix"],
++  ["fix a mistake in the game", "qab-fix"],
++  ["enter QAB after game", "qab-after-game"],
++  ["qabs after the game", "qab-after-game"],
++  ["enter qabs from scorebook", "qab-after-game"],
++  ["player doesn't owe dues", "dues-exempt"],
++  ["my daughter doesnt pay", "dues-exempt"],
++  ["exmpt", "dues-exempt"],
++  ["who hasnt paid", "dues-owed"],
++  ["who still owes", "dues-owed"],
++  ["coach can't login", "coach-login"],
++  ["assistant cant sign in", "coach-login"],
++  ["invite asistant coach", "coach-login"],
++  ["how do i add a tournment", "tournament-add"],
++  ["where do i put the hotel", "tournament-places"],
++  ["add a field for the tournment", "tournament-places"],
++  ["mom phone number", "parent-add"],
++  ["add kid", "player-add"],
++  ["girl quit the team", "player-left"],
++  ["venmo", "dues-payment"],
++  ["how do player dues work", "dues-how"],
++  ["difference between budget and transactions", "budget-vs-transactions"],
++  ["delete budget line", "budget-line-delete"],
++  ["copy lineup", "qab-lineup"],
++  ["qab percentage report", "qab-report"],
++  ["print schedule for parents", "report-parents"],
++  ["upload waiver", "file-upload"],
++  ["parking notes", "place-notes"],
++  ["start new season", "season-next"],
++];
++for (const [q, id] of NATURAL) ok(`"${q}" -> ${id}`, searchHelp(q)?.[0]?.id, id);
++ok("negation matters: 'doesn't owe' and 'hasn't paid' reach different answers", [top("player doesn't owe"), top("who hasn't paid")], ["/help?a=dues-exempt", "/help?a=dues-owed"]);
++ok("every answer's guide and anchor exist", HELP_ANSWERS.filter((a) => { const [g, h] = a.guide.split("#"); const gd = findGuide(g); return !gd || (h && !gd.steps.some((x) => x.id === h)); }).map((a) => a.id), []);
++ok("every answer's action is permission-tagged like the guides (owner forms are admin, creating needs write)",
++  HELP_ANSWERS.filter((a) => a.action && ((/invite=1|new-season=1/.test(a.action.href) && a.action.requires !== "admin") || (a.action.creates && a.action.requires !== "write"))).map((a) => a.id), []);
++ok("answers keep approved wording: no parent invitations, no 'Facilities' page name, no phone-print or offline promises",
++  /invite[^.]*parent|Go to Facilities|On a phone|back online|offline|60 seconds/i.test(JSON.stringify(HELP_ANSWERS)), false);
++ok("answers are short (≤ 260 characters)", HELP_ANSWERS.filter((a) => a.answer.length > 260).map((a) => a.id), []);
++const { questionsForPath: qfp, popularAnswers: pop } = require(R("lib/help-answers.js"));
++ok("Performance popover asks: track, after the game, fix", qfp("/performance").map((a) => a.id), ["qab-track", "qab-after-game", "qab-fix"]);
++ok("Finance popover asks: dues, payment, budget vs. transactions", qfp("/finance").map((a) => a.id), ["dues-how", "dues-payment", "budget-vs-transactions"]);
++ok("Tournaments popover asks: games, costs, hotel or field", qfp("/tournaments").map((a) => a.id), ["games-add", "tournament-costs", "tournament-places"]);
++ok("tracking screen asks QAB questions, not tournament ones", qfp("/tournaments/x/games/y/track")[0].id, "qab-track");
++ok("Popular swaps out QAB when Performance is off", pop({ qab: false }).some((a) => a.action?.requires === "qab"), false);
++
++/* ------------------------------------------------------------------------ */
++section("L. QAB awareness, QAB Notes answer (rebased on d809c2b)");
++ok("non-QAB Performance popover: no QAB questions, three relevant ones", qfp("/performance", { qab: false }).map((a) => a.id), ["performance-premium", "games-add", "tournament-roster"]);
++ok("non-QAB game screens: no QAB questions", qfp("/tournaments/x/games/y/track", { qab: false }).some((a) => a.action?.requires === "qab"), false);
++ok("non-QAB Reports popover: QAB report replaced", qfp("/reports", { qab: false }).map((a) => a.id), ["report-parents", "season-previous"]);
++ok("no screen ever asks more than three questions", ["/performance", "/finance", "/tournaments", "/team", "/settings", "/facilities", "/files", "/reports", "/dashboard", "/contacts"]
++  .every((p2) => qfp(p2).length <= 3 && qfp(p2, { qab: false }).length <= 3));
++ok("no non-QAB question list for any screen contains a QAB question",
++  ["/performance", "/finance", "/tournaments", "/tournaments/a/games/b/lineup", "/team", "/settings", "/facilities", "/files", "/reports", "/dashboard", "/contacts"]
++    .every((p2) => !qfp(p2, { qab: false }).some((a) => a.action?.requires === "qab")));
++ok("non-QAB Performance question is 'Learn about…', never implying self-service enabling",
++  [findAnswerById("performance-premium").title, /\b(turn on|enable|upgrade)\b/i.test(findAnswerById("performance-premium").title + " " + findAnswerById("performance-premium").answer)],
++  ["Learn about Performance and QAB tracking", false]);
++ok("searching 'turn on qab' or 'learn about performance' still finds it", [searchHelp("turn on qab")[0].id, searchHelp("learn about performance")[0].id], ["performance-premium", "performance-premium"]);
++ok("the Performance explainer answer is only offered without QAB", qfp("/performance").some((a) => a.id === "performance-premium"), false);
++ok("popover reads QAB availability from the layout's feature flags, not a new query",
++  /useHelpContext\(\)/.test(menu) && /questionsForPath\(pathname \?\? "", \{ qab \}\)/.test(menu)
++  && /<HelpContextProvider qab=\{features\?\.qab\}>\{children\}<\/HelpContextProvider>/.test(read("app/(app)/layout.js")));
++ok("Help context defaults to QAB off", /createContext\(\{ qab: false \}\)/.test(read("components/HelpContext.js")));
++for (const q of ["add note", "note on at bat", "note on QAB", "comment on plate appearance", "add notes to qabs"]) {
++  ok(`"${q}" -> qab-note`, searchHelp(q)?.[0]?.id, "qab-note");
++}
++const note = findAnswerById("qab-note");
++ok("note answer: optional, attached to the plate appearance, editable in Review & Edit", /optional/.test(note.answer) && /plate appearance/.test(note.answer) && /Review & Edit/.test(note.answer));
++ok("note answer never implies notes change calculations", /don't change QAB counts or percentages/.test(note.answer) && !/affects? (QAB|the QAB|percent)/i.test(note.answer));
++ok("QAB guide's record step mentions + Add note", /\+ Add note/.test(findGuide("qab").steps.find((x) => x.id === "record").text));
++ok("QAB Notes production code is present and untouched by Help", /function NoteField/.test(read("components/TrackerClient.js")) && fs.existsSync(R("scripts/check-qab-notes.js")));
++ok("npm run check runs check-queue-recovery, check-qab-notes and check-help exactly once each",
++  ["check-queue-recovery.js", "check-qab-notes.js", "check-help.js"].map((f) => (read("package.json").match(new RegExp(f.replace(".", "\\."), "g")) ?? []).length), [1, 1, 1]);
++
++{ const css = read("app/globals.css"); ok("globals.css braces balance (merge guard)", (css.match(/\{/g) ?? []).length, (css.match(/\}/g) ?? []).length); }
++ok("QAB Notes styles still close before the Help block", /overflow-wrap: anywhere;\n\}\n\n\/\* ===== Help & Getting Started/.test(read("app/globals.css")));
++
++console.log(`\n${passed} passed, ${failed} failed`);
++process.exit(failed ? 1 : 0);
+-- 
+2.43.0
+

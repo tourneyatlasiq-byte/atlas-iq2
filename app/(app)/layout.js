@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getContext } from "../../lib/context";
 import { NavSidebar } from "../../components/NavSidebar";
+import { HelpContextProvider } from "../../components/HelpContext";
 import { AppFooter } from "../../components/AppFooter";
 import { SeasonBanner } from "../../components/SeasonBanner";
 
@@ -34,7 +35,8 @@ export default async function AppLayout({ children }) {
             seasonName={season?.name}
             currentSeasonName={currentSeason?.name}
           />
-          {children}
+          {/* Lets the Help popover know whether QAB is on (2026-11). */}
+          <HelpContextProvider qab={features?.qab}>{children}</HelpContextProvider>
 
           <AppFooter />
         </main>

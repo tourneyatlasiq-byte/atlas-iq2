@@ -43,6 +43,9 @@ function suggestNextSeasonName(current) {
   return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
+/** Settings forms that only an organization owner can use. */
+const OWNER_ONLY_PANELS = ["invite", "season-new"];
+
 const ROLE_LABELS = {
   owner: "Owner",
   admin: "Admin",
@@ -60,8 +63,13 @@ export function SettingsClient({
   organization, team, season, seasons, currentSeason, roster, people, invites, teams,
   counts, isAdmin, isOwner = false, currentUserId, autoOpen = null, emailEnabled = false,
 }) {
-  // Opened directly from the help panel.
-  const [editing, setEditing] = useState(autoOpen);
+  // Opened from a Help link (?invite=1, ?new-season=1). Both forms are
+  // owner-only, so for anyone else the link lands on Settings with the form
+  // closed rather than opening a form the server will refuse (2026-11). Server
+  // authorization is unchanged.
+  const [editing, setEditing] = useState(
+    OWNER_ONLY_PANELS.includes(autoOpen) && !isAdmin ? null : autoOpen
+  );
   const [error, setError] = useState(null);
   const confirm = useConfirm();
   const { run: runMutation, pending } = useMutation();
@@ -454,7 +462,7 @@ export function SettingsClient({
         />
       )}
 
-      {editing === "season-new" && (
+      {editing === "season-new" && isAdmin && (
         <StartNextSeasonForm
           roster={roster}
           suggestedName={suggestNextSeasonName(currentSeason?.name ?? season?.name)}
@@ -466,7 +474,7 @@ export function SettingsClient({
         />
       )}
 
-      {editing === "invite" && (
+      {editing === "invite" && isAdmin && (
         <InviteForm
           teams={teams}
           pending={pending}

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
-import { HelpMenu } from "./HelpMenu";
+import { helpHref } from "../lib/help";
 import { SignOutButton } from "./SignOutButton";
 import { SUPPORT_EMAIL } from "../lib/legal";
 import { TeamIdentity, initialsOf } from "./TeamMark";
@@ -41,6 +41,8 @@ const NAV = [
 
 export function NavSidebar({ email, organization, team, season, seasons, seasonPhase, features = {} }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const qs = searchParams?.toString() ?? "";
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
@@ -52,7 +54,7 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
 
   // More reads as active whenever the current route lives inside it, so a coach
   // on Finance is never looking at a bar with nothing lit.
-  const moreActive = overflow.some((i) => isActive(i.href)) || isActive("/settings");
+  const moreActive = overflow.some((i) => isActive(i.href)) || isActive("/settings") || isActive("/help");
 
   // Same convention as the existing drawers: Escape closes, body scroll locks.
   useEffect(() => {
@@ -192,14 +194,20 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
                 <span className="sheet-row-label">Settings</span>
               </Link>
 
-              {/* The existing help system, not a mobile-only second one. */}
-              <div className="sheet-row sheet-row-help">
+              {/* Help & Getting Started (2026-11). A plain link: the row used
+                  to hold the Help popover, which drew a second "Help" button
+                  beside this label and opened a panel from inside the sheet.
+                  The page-header Help button still opens the popover. */}
+              <Link
+                href={helpHref("/help", `${pathname}${qs ? `?${qs}` : ""}`)}
+                className={`sheet-row${isActive("/help") ? " active" : ""}`}
+                aria-current={isActive("/help") ? "page" : undefined}
+              >
                 <span className="sheet-row-icon">
                   <IconHelp />
                 </span>
-                <span className="sheet-row-label">Help</span>
-                <HelpMenu />
-              </div>
+                <span className="sheet-row-label">Help &amp; Getting Started</span>
+              </Link>
 
               {/* Phones hide the sidebar footer, so Sign out lives here too
                   (2026-11): a user must always be able to end their session. */}
