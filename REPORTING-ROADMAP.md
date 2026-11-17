@@ -100,6 +100,11 @@ Report, a player launches a Player Performance Report).
 - **No print stylesheet or print layout primitives.** Nothing blocks adding
   them; nothing exists yet.
 
+- **Season QAB player ordering (backlog, logged 2026-11).** The Season report
+  still ranks players by QAB%. Review changing it to alphabetical, as the
+  Tournament report now does, for consistency with the player-development
+  philosophy. Not changed yet; the Season report is deliberately untouched.
+
 ---
 
 ## 5. Ordering decision: `start_time` NULLS LAST

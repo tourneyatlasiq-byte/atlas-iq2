@@ -424,6 +424,33 @@ Recorded so the reasoning is not relitigated.
 - **`getContext` falls back to `teams[0]`** only when a season cannot resolve a
   team. Multi-team is otherwise handled by deriving team from season.
 
+## Reports
+
+### Tournament QAB report: record, runs and a Tournament summary (2026-11)
+
+**Reverses** the earlier rule that the Tournament QAB report carried no game
+results, scores or aggregates beyond QAB figures. The Tournament report now shows
+the tournament record, runs scored and allowed, each game's Win / Loss / Tie with
+its final score, a comparison with the previous tracked tournament, QAB% by day
+(only when tracked games span two or more calendar dates), the highest and lowest
+QAB% games, and the one-reason QAB mix. It replaces the old Team QAB and "What
+created quality at-bats" sections; Player tournament totals and Game by game keep
+their structure.
+
+*Two scopes, kept apart.* Record and runs use **every game linked to the
+tournament that has a recorded result**. Every QAB-derived measure (tournament
+QAB%, day-by-day, highest and lowest game, reason mix, the previous-tournament
+comparison) uses **only games with QAB tracking**. An untracked game never changes
+a QAB figure. When result games lack QAB tracking, the games-tracked fact reads
+"6 of 7" and one muted line says what each scope covers.
+
+*Player order* in the Tournament report is alphabetical by the name as printed
+(first name first), consistent with the player-development philosophy; no ranking
+or highlighting of players. QAB-cell bold emphasis is removed.
+
+*Not changed:* the **Season** QAB report keeps its earlier behaviour (QAB%-ranked
+players, no scores). No database, schema or RLS change; no new tracking fields.
+
 ## Guidance and help
 
 ### Contextual QAB guidance on Performance (2026-11)
