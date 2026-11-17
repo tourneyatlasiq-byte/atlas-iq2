@@ -4930,9 +4930,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 
 /* --- QAB% by game --------------------------------------------------------- */
 
-/* Restrained by intent: one line, one reference, no axes, no gridlines and no
-   card chrome. It sits between the season summary and the player table and
-   uses the width that was previously empty. */
+/* Zoomed trend (2026-11). The scale is stated under the chart and the
+   gridlines are labelled, so the zoom is never implicit. The drawing is
+   decorative: the plot is a single slider (.qtrend-hit) that carries the
+   keyboard behaviour and the spoken detail. */
 .qtrend { margin: 18px 0 6px; }
 .qtrend-head {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -4942,54 +4943,79 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .07em;
   text-transform: uppercase; color: var(--slate);
 }
-.qtrend-key { margin: 0; font-size: 11.5px; color: var(--slate); display: flex; align-items: center; gap: 6px; }
-.qtrend-key-line {
-  display: inline-block; width: 16px; height: 0;
-  border-top: 1px dashed var(--slate); opacity: .8;
+.qtrend-keys { margin: 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.qtrend-key { font-size: 11.5px; color: var(--slate); display: inline-flex; align-items: center; gap: 6px; }
+.qtrend-key-line { display: inline-block; width: 16px; height: 0; border-top: 1px dashed var(--slate); opacity: .8; }
+.qtrend-key-live {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--surface); border: 1.5px dashed var(--navy);
 }
 
-.qtrend-svg { width: 100%; height: 168px; display: block; overflow: visible; }
-.qtrend-path { fill: none; stroke: var(--navy); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.qtrend-dot { fill: var(--surface); stroke: var(--navy); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.qtrend-season {
-  stroke: var(--slate); stroke-width: 1; stroke-dasharray: 4 4;
-  opacity: .55; vector-effect: non-scaling-stroke;
+/* The selected game. A single compact row on a desktop. */
+.qtrend-ro {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  min-height: 30px; margin: 0 0 6px; padding: 5px 10px;
+  background: var(--surface-sunken); border-radius: var(--radius-control);
+  font-size: 12.5px; color: var(--navy);
+}
+.qtrend-ro-g { font-weight: 800; }
+.qtrend-ro-score { color: var(--slate); font-variant-numeric: tabular-nums; }
+.qtrend-ro-t { display: none; width: 100%; font-size: 11.5px; color: var(--slate); order: 5; }
+.qtrend-ro-pct { margin-left: auto; font-size: 14.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.qtrend-ro-n { color: var(--slate); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.qtrend-ro .gm-res { font-size: 10px; padding: 1px 5px; border-radius: 5px; }
+.qtrend-pill {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--status-wait); background: #fff7e6; border: 1px solid #f4d9a8;
+  border-radius: 6px; padding: 1px 6px;
 }
 
-/* Labels sit on the same rhythm as the points: equal-width cells, so each
-   label falls beneath its game without absolute positioning. */
-.qtrend-labels {
-  list-style: none; margin: 6px 0 0; padding: 0;
-  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+.qtrend-wrap { position: relative; }
+.qtrend-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.qtrend-svg text { font-family: var(--font-body); }
+.qtrend-band { fill: #f6f8fb; }
+.qtrend-band-name { font-size: 10px; fill: var(--slate); }
+.qtrend-sep { stroke: #d5dde8; stroke-width: 1; }
+.qtrend-grid { stroke: #e8edf3; stroke-width: 1; }
+.qtrend-tick { font-size: 10px; fill: var(--slate); }
+.qtrend-season { stroke: var(--slate); stroke-width: 1; stroke-dasharray: 4 4; opacity: .8; }
+.qtrend-season-label { font-size: 10.5px; font-weight: 700; fill: #475569; }
+.qtrend-seg { stroke: var(--navy); stroke-width: 2; stroke-linecap: round; }
+.qtrend-seg.prov { stroke-width: 1.5; stroke-dasharray: 2 4; }
+.qtrend-guide { stroke: var(--blue); stroke-width: 1; opacity: .35; }
+.qtrend-halo { fill: var(--blue); opacity: .16; }
+.qtrend-dot { fill: var(--navy); }
+.qtrend-dot.prov { fill: var(--surface); stroke: var(--navy); stroke-width: 1.8; stroke-dasharray: 2.5 2; }
+.qtrend-lane { font-weight: 800; }
+.qtrend-lane-w { fill: #1b5e34; }
+.qtrend-lane-l { fill: #8c1d1d; }
+.qtrend-lane-t { fill: var(--slate); }
+.qtrend-date { font-size: 9.5px; fill: var(--slate); }
+
+/* One control over the plot: pointer hover or drag, arrow keys. A vertical
+   page scroll still passes through on a phone. */
+.qtrend-hit {
+  position: absolute; cursor: crosshair; touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
 }
-.qtrend-labels li {
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
-  min-width: 0; text-align: center;
-}
-.qtrend-label-opp {
-  font-size: 10.5px; color: var(--slate);
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* Percentage and result share one line so the marker costs no extra height. */
-.qtrend-label-figs {
-  display: inline-flex; align-items: center; gap: 4px;
-  max-width: 100%; flex-wrap: nowrap;
-}
-.qtrend-label-pct { font-size: 11.5px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
-.qtrend-label-sep { color: var(--border); font-size: 11px; }
-/* Reuses the .gm-res treatment from the games table, scaled down a step for
-   this denser row rather than introducing a second result style. */
-.qtrend-labels .gm-res { font-size: 9.5px; padding: 1px 4px; border-radius: 4px; }
+.qtrend-hit:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 6px; }
+
+.qtrend-note { margin: 6px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--slate); }
 
 .qtrend-single { margin: 0; font-size: 13px; line-height: 1.5; color: var(--slate); }
 .qtrend-single strong { color: var(--navy); }
 
 @media (max-width: 560px) {
-  .qtrend-svg { height: 132px; }
-  .qtrend-label-opp { font-size: 9.5px; }
-  .qtrend-label-pct { font-size: 10.5px; }
-  .qtrend-labels .gm-res { font-size: 8.5px; padding: 1px 3px; }
-  .qtrend-label-figs { gap: 3px; }
+  /* Larger on a phone: a tap must produce an obvious response. */
+  .qtrend-ro { min-height: 64px; padding: 10px 12px; gap: 3px 10px; font-size: 14px; align-content: flex-start; }
+  .qtrend-ro-opp { flex: 1 1 calc(100% - 44px); min-width: 0; font-weight: 600; }
+  .qtrend-ro-g { font-size: 15px; }
+  .qtrend-ro-t { display: block; }
+  .qtrend-ro-pct { font-size: 22px; line-height: 1.1; order: 2; }
+  .qtrend-ro-n { font-size: 12.5px; order: 3; }
+  .qtrend-ro .gm-res { font-size: 11px; padding: 1px 6px; }
+  .qtrend-pill { font-size: 10px; }
+  .qtrend-keys { gap: 10px; }
 }
 
 /* --- QAB tracker: resume selector ----------------------------------------- */

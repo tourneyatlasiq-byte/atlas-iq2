@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  indexAtX,
+  indexForKey,
+  scaleLabel,
+  shortDate,
+  thinLabels,
+  trendGroups,
+  trendPoints,
+  trendScale,
+  trendSegments,
+} from "../lib/qab-trend";
 
 /**
  * Season performance.
@@ -417,19 +429,47 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
 
 
 /**
- * Team QAB% per game, in date order.
+ * Team QAB% per game, in date order (redesigned 2026-11).
  *
- * Every figure is already computed by the server-side performance query —
- * gameRows carry qabPct, qab, pa, opponent and gameDate. Nothing is recomputed
- * and no statistic is invented: a game with no plate appearances has no point
- * rather than a zero, and the line joins only the games that exist. There is
- * no interpolation and no smoothing.
+ * Every figure is already computed by the server-side performance query. Nothing
+ * is recomputed and no statistic is invented: a game with no plate appearances
+ * has no point, there is no smoothing, and the season reference is the page's
+ * own season figure (all recorded, non-voided plate appearances, including a
+ * game still being tracked).
  *
- * Plain SVG on a 0–100 scale, so the vertical position of a point means the
- * same thing in every season regardless of how the team is performing.
+ * The vertical scale is ZOOMED to this season's range so game-to-game movement
+ * is visible, and the scale is always stated beneath the chart. Labelled
+ * gridlines carry the values. A game still being tracked is drawn as a dotted,
+ * hollow, asterisked point joined by a dotted segment, and the readout says it
+ * can still change, so unfinished work is never read as a final result.
+ *
+ * One behaviour for any season length: the same chart for 3 games or 30. The
+ * detail for a game (opponent, result, score, count) lives in a single readout
+ * above the chart, driven by hover, touch or the arrow keys, because labels
+ * under each point cannot survive 30 games on a phone.
+ *
+ * Accessibility: the plot is one slider (arrow keys, Home, End) whose spoken
+ * value is the game's full detail; the drawing itself is decorative.
  */
-function QabTrend({ games, seasonPct }) {
-  const points = (games ?? []).filter((g) => g.pa > 0 && g.qabPct != null);
+export function QabTrend({ games, seasonPct }) {
+  const points = trendPoints(games);
+  const wrapRef = useRef(null);
+  const [width, setWidth] = useState(0);
+  const [picked, setPicked] = useState(null);
+  const drawn = points.length >= 2;
+
+  // Draw at the width actually available, so type stays the same size on a
+  // phone and a desktop instead of scaling with the drawing.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!drawn || !el) return undefined;
+    const measure = () => setWidth(Math.round(el.getBoundingClientRect().width));
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [drawn]);
 
   if (points.length === 0) return null;
 
@@ -441,90 +481,223 @@ function QabTrend({ games, seasonPct }) {
       <section className="qtrend">
         <p className="qtrend-h">QAB% by game</p>
         <p className="qtrend-single">
-          <strong>{only.qabPct}%</strong> vs {only.opponent} · {only.qab} of {only.pa} plate
-          appearances. A second tracked game will start the trend.
+          <strong>
+            {only.qabPct}%{only.completed ? "" : "*"}
+          </strong>{" "}
+          vs {only.opponent} · {only.qab} of {only.pa} plate appearances.{" "}
+          {only.completed
+            ? "A second tracked game will start the trend."
+            : "This game is still being tracked, so the percentage can change."}
         </p>
       </section>
     );
   }
 
-  const W = 640;
-  const H = 132;
-  const padX = 10;
-  const padY = 14;
-  const stepX = points.length > 1 ? (W - padX * 2) / (points.length - 1) : 0;
-  const y = (pct) => padY + (1 - pct / 100) * (H - padY * 2);
-  const x = (i) => padX + i * stepX;
+  const n = points.length;
+  const W = width > 0 ? width : 720;
+  const phone = W < 480;
+  const H = phone ? 178 : 196;
+  const padL = 34;
+  const padR = phone ? 8 : 92;
+  const top = phone ? 8 : 20;
+  const lane = phone ? 34 : 36;
+  const PH = H - top - lane;
+  const plotW = W - padL - padR;
+  const slot = plotW / n;
+  const radius = n > 16 ? 3 : 4.2;
 
-  const path = points.map((g, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(g.qabPct)}`).join(" ");
+  const scale = trendScale(points.map((g) => g.qabPct), seasonPct);
+  const x = (i) => padL + (i + 0.5) * slot;
+  const y = (pct) => top + (1 - (pct - scale.lo) / (scale.hi - scale.lo)) * PH;
+
+  const sel = picked == null ? n - 1 : Math.min(picked, n - 1);
+  const cur = points[sel];
+  const groups = trendGroups(points);
+  const segments = trendSegments(points);
+  const anyProvisional = points.some((g) => !g.completed);
+  const anyResult = points.some((g) => g.result);
   const seasonY = seasonPct != null ? y(seasonPct) : null;
+
+  const describe = (g, i) =>
+    `Game ${i + 1}, ${shortDate(g.gameDate) ?? "no date"} versus ${g.opponent}, ${g.qabPct} percent, ${g.qab} of ${g.pa} plate appearances` +
+    `${g.result ? `, ${g.result === "W" ? "win" : g.result === "L" ? "loss" : "tie"}` : ""}` +
+    `${g.completed ? "" : ", in progress, can still change"}`;
+
+  const pick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setPicked(indexAtX(e.clientX - r.left, 0, r.width, n));
+  };
+
+  const dateLabels = thinLabels(
+    groups
+      .map((gr) => ({ x: padL + gr.start * slot + 3, text: shortDate(points[gr.start].gameDate) }))
+      .filter((l) => l.text)
+  );
 
   return (
     <section className="qtrend">
       <div className="qtrend-head">
         <p className="qtrend-h">QAB% by game</p>
-        {seasonPct != null && (
-          <p className="qtrend-key">
-            <span className="qtrend-key-line" aria-hidden="true" /> Season {seasonPct}%
-          </p>
-        )}
+        <p className="qtrend-keys">
+          {seasonPct != null && (
+            <span className="qtrend-key">
+              <span className="qtrend-key-line" aria-hidden="true" /> Season {seasonPct}%
+            </span>
+          )}
+          {anyProvisional && (
+            <span className="qtrend-key">
+              <span className="qtrend-key-live" aria-hidden="true" /> In progress
+            </span>
+          )}
+        </p>
       </div>
 
-      <svg
-        className="qtrend-svg"
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Team QAB percentage across ${points.length} tracked games, ${points
-          .map((g) => `${g.opponent} ${g.qabPct}%`)
-          .join(", ")}`}
-      >
-        {seasonY != null && (
-          <line
-            className="qtrend-season"
-            x1={padX}
-            x2={W - padX}
-            y1={seasonY}
-            y2={seasonY}
-          />
+      {/* The selected game's detail. Compact on a desktop so it does not
+          compete with the trend; larger on a phone, where a tap must produce an
+          obvious response. The slider below announces the same text. */}
+      <div className="qtrend-ro" aria-hidden="true">
+        <span className="qtrend-ro-g">G{sel + 1}</span>
+        <span className="qtrend-ro-opp">
+          {shortDate(cur.gameDate) ? `${shortDate(cur.gameDate)} ` : ""}vs {cur.opponent}
+        </span>
+        {cur.result && (
+          <span className={`gm-res gm-res-${cur.result.toLowerCase()}`}>{cur.result}</span>
         )}
+        {cur.hasScore && (
+          <span className="qtrend-ro-score">
+            {cur.runsFor}–{cur.runsAgainst}
+          </span>
+        )}
+        {!cur.completed && <span className="qtrend-pill">In progress, can still change</span>}
+        {cur.tournament && <span className="qtrend-ro-t">{cur.tournament}</span>}
+        <span className="qtrend-ro-pct">
+          {cur.qabPct}%{cur.completed ? "" : "*"}
+        </span>
+        <span className="qtrend-ro-n">
+          {cur.qab} of {cur.pa} PA
+        </span>
+      </div>
 
-        <path className="qtrend-path" d={path} />
+      <div className="qtrend-wrap" ref={wrapRef}>
+        <svg className="qtrend-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
+          {groups.map((gr, k) => {
+            const x0 = padL + gr.start * slot;
+            const w = (gr.end - gr.start + 1) * slot;
+            const chars = Math.floor((w - 10) / 5.6);
+            const label = gr.name.length > chars ? `${gr.name.slice(0, Math.max(0, chars - 1))}…` : gr.name;
+            return (
+              <g key={`${gr.key}-${gr.start}`}>
+                {k % 2 === 0 && <rect className="qtrend-band" x={x0} y={top} width={w} height={PH} />}
+                {!phone && gr.name && chars >= 4 && (
+                  <text className="qtrend-band-name" x={x0 + 5} y={top - 6}>
+                    {label}
+                  </text>
+                )}
+                {k > 0 && <line className="qtrend-sep" x1={x0} x2={x0} y1={top} y2={top + PH + 4} />}
+              </g>
+            );
+          })}
 
-        {points.map((g, i) => (
-          <circle key={g.gameId} className="qtrend-dot" cx={x(i)} cy={y(g.qabPct)} r="4">
-            {/* Native tooltip: no hover state to manage, and it works on
-                keyboard focus and in screen readers. */}
-            <title>{`${g.opponent} · ${g.qabPct}% · ${g.qab} of ${g.pa} PA`}</title>
-          </circle>
-        ))}
-      </svg>
+          {scale.ticks.map((t) => (
+            <g key={t}>
+              <line className="qtrend-grid" x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} />
+              <text className="qtrend-tick" x={padL - 6} y={y(t) + 3.5} textAnchor="end">
+                {t}%
+              </text>
+            </g>
+          ))}
 
-      {/* The result sits in the LABEL, never on the line or the points. The
-          chart plots QAB%; colouring the plot by outcome would suggest the two
-          are the same measure. Games with no recorded result simply omit the
-          marker rather than showing a placeholder. */}
-      <ol className="qtrend-labels">
-        {points.map((g) => (
-          <li
-            key={g.gameId}
-            title={`${g.opponent} · ${g.qabPct}% · ${g.qab} of ${g.pa} PA${
-              g.result ? ` · ${g.result}` : ""
-            }`}
-          >
-            <span className="qtrend-label-opp">{g.opponent}</span>
-            <span className="qtrend-label-figs">
-              <span className="qtrend-label-pct">{g.qabPct}%</span>
-              {g.result && (
-                <>
-                  <span className="qtrend-label-sep" aria-hidden="true">·</span>
-                  <span className={`gm-res gm-res-${g.result.toLowerCase()}`}>{g.result}</span>
-                </>
+          {seasonY != null && (
+            <>
+              <line className="qtrend-season" x1={padL} x2={W - padR} y1={seasonY} y2={seasonY} />
+              {!phone && (
+                <text className="qtrend-season-label" x={W - padR + 8} y={seasonY + 3.5}>
+                  Season {seasonPct}%
+                </text>
               )}
-            </span>
-          </li>
-        ))}
-      </ol>
+            </>
+          )}
+
+          {/* Solid only between two finished games. */}
+          {segments.map((sg) => (
+            <line
+              key={sg.to}
+              className={sg.provisional ? "qtrend-seg prov" : "qtrend-seg"}
+              x1={x(sg.from)}
+              y1={y(points[sg.from].qabPct)}
+              x2={x(sg.to)}
+              y2={y(points[sg.to].qabPct)}
+            />
+          ))}
+
+          {/* The selected game: a guide and a halo. */}
+          <line className="qtrend-guide" x1={x(sel)} x2={x(sel)} y1={top} y2={top + PH} />
+          <circle className="qtrend-halo" cx={x(sel)} cy={y(cur.qabPct)} r={radius + 6} />
+
+          {points.map((g, i) => (
+            <circle
+              key={g.gameId}
+              className={g.completed ? "qtrend-dot" : "qtrend-dot prov"}
+              cx={x(i)}
+              cy={y(g.qabPct)}
+              r={g.completed ? radius : radius + 1}
+            />
+          ))}
+
+          {/* Result lane: only where a result is recorded. */}
+          {points.map((g, i) =>
+            g.result ? (
+              <text
+                key={g.gameId}
+                className={`qtrend-lane qtrend-lane-${g.result.toLowerCase()}`}
+                x={x(i)}
+                y={top + PH + 14}
+                textAnchor="middle"
+                style={{ fontSize: n > 16 ? 8.5 : 10 }}
+              >
+                {g.result}
+              </text>
+            ) : null
+          )}
+
+          {dateLabels.map((l) => (
+            <text key={l.x} className="qtrend-date" x={l.x} y={H - 4}>
+              {l.text}
+            </text>
+          ))}
+        </svg>
+
+        <div
+          className="qtrend-hit"
+          role="slider"
+          tabIndex={0}
+          aria-label={`QAB percentage by game, ${n} games. Use the left and right arrow keys to move between games.`}
+          aria-orientation="horizontal"
+          aria-valuemin={1}
+          aria-valuemax={n}
+          aria-valuenow={sel + 1}
+          aria-valuetext={describe(cur, sel)}
+          style={{ left: padL, width: plotW, top, height: PH + lane }}
+          onPointerDown={pick}
+          onPointerMove={(e) => {
+            // Hover for a mouse; drag for a finger. A touch scrub never needs
+            // a precise tap on a small marker.
+            if (e.pointerType === "mouse" || e.buttons > 0) pick(e);
+          }}
+          onKeyDown={(e) => {
+            const next = indexForKey(e.key, sel, n);
+            if (next !== sel || ["Home", "End", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(e.key)) {
+              e.preventDefault();
+              setPicked(next);
+            }
+          }}
+        />
+      </div>
+
+      <p className="qtrend-note">
+        {scaleLabel(scale)}.{anyResult ? " W, L or T under each game when recorded." : ""}
+        {anyProvisional ? " * In progress: still being tracked, so this percentage can change." : ""}
+      </p>
     </section>
   );
 }
