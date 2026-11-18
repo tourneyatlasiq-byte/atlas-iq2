@@ -1,299 +1,160 @@
-import "./home.css";
-import "./season-home.css";
+import Link from "next/link";
+import { Barlow_Condensed } from "next/font/google";
+import "./marketing-home.css";
 import { getViewer } from "../lib/context";
-import { MarketingHeader, MarketingFooter } from "../components/MarketingChrome";
+import { SUPPORT_EMAIL } from "../lib/legal";
+import { SiteHeader } from "../components/marketing/SiteHeader";
+import { Wordmark } from "../components/marketing/SeasonMark";
+import { Shot } from "../components/marketing/Shot";
+import { WeekendPlan } from "../components/marketing/WeekendPlan";
+import { EXAMPLE_WEEKEND, SHOTS } from "../components/marketing/home-data";
+
+// Self-hosted at build time, like Inter and Poppins in the root layout, so no
+// visitor request goes to Google.
+const display = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-display-condensed",
+  display: "swap",
+});
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Season Tempo — Run a travel softball season in one place",
+  title: "Season Tempo | The whole season, in one place",
   description:
-    "From the first entry fee to the last at-bat. Tournaments, facilities, Finance, games and performance for travel softball teams and organizations.",
+    "Keep your travel softball team’s tournaments, roster, dues, facilities and games together, with fewer spreadsheets and less searching through messages.",
 };
 
+const EARLY_ACCESS = "Free during early access. We’ll give you advance notice before that changes.";
+
 /**
- * Home.
+ * Public homepage (marketing-v5, alternative to v4: light, left-aligned,
+ * Red Clay Classic shown "For the team manager" and "For families").
  *
- * Promoted from the approved prototype. The art direction is the prototype's:
- * light editorial ground, condensed display, real Northgate season data,
- * product captures as evidence rather than feature cards.
+ * The opening shows the finished work: one tournament weekend as families
+ * receive it. The first section shows how the coach manages that same
+ * tournament. The full season and the feature walkthrough live on /product.
  *
- * The narrative: plan the season, see what it has already cost, play the
- * weekend, capture what happened, and get something back you can hand to a
- * family. Finance arrives as a consequence of a weekend rather than as a
- * feature, and no section presents a module.
- *
- * Every number is real and was verified against production before it was
- * written. Two relationships have already been caught being wrong here, so
- * nothing numerical or relational is inferred.
+ * Renders for everyone. getViewer() deliberately does not redirect: a
+ * signed-in visitor keeps the marketing page and gets "Open Season Tempo".
+ * All styles are scoped under .st in marketing-home.css.
  */
-
-/* The only three games in the season with a recorded result. */
-const RESULTS = [
-  { date: "AUG 5", opp: "Northside Thunder", res: "W", score: "6–1" },
-  { date: "AUG 5", opp: "Cobb Crush", res: "W", score: "8–2" },
-  { date: "AUG 6", opp: "Lake City Lightning", res: "L", score: "6–7" },
-];
-
 export default async function HomePage() {
   const { user, hasOrganization } = await getViewer();
   const signedIn = Boolean(user);
   const appHref = hasOrganization ? "/dashboard" : "/welcome";
+  const startHref = signedIn ? appHref : "/login?new=1";
+  const startLabel = signedIn ? "Open Season Tempo" : "Get started";
 
   return (
-    <div className="sp">
-      <MarketingHeader signedIn={signedIn} appHref={appHref} />
+    <div className={`st ${display.variable}`}>
+      <a className="st-skip" href="#main">
+        Skip to content
+      </a>
 
-      {/* --- Statement -------------------------------------------------- */}
-      <section className="sp-hero">
-        <div className="sp-wrap">
-          <p className="sp-eyebrow">Travel softball</p>
+      <SiteHeader signedIn={signedIn} appHref={appHref} />
 
-          {/* Composed, not wrapped. Each line is set to hold together at every
-              width rather than letting the measure decide where to break and
-              strand a word. */}
-          <h1 className="sp-statement">
-            <span>From the first entry fee</span>
-            <span>to the last at-bat.</span>
-          </h1>
-
-          {/* The results strip moves INTO the first viewport as the right-hand
-              counterweight. The open space was the problem; more type and a
-              second column solve it without a screenshot, card or ornament. */}
-          <div className="sp-hero-foot">
-            <div className="sp-hero-left">
-              <p className="sp-lede">
-                Season Tempo is where a season is run — the weekends, the money, the games and
-                what came of them, in one place.
-              </p>
-              <div className="sp-actions">
-                <span className="sp-btn">Try Season Tempo</span>
+      <main id="main" tabIndex={-1}>
+        <section className="st-v5-open" aria-labelledby="st-h1">
+          <div className="st-wrap">
+            <div className="st-v5-head">
+              <h1 className="st-v5-mega" id="st-h1">
+                <span>The whole season,</span> <span>in one place.</span>
+              </h1>
+              <div className="st-v5-intro">
+                <p className="st-v5-lede">
+                  Keep your travel softball team&rsquo;s tournaments, roster, dues, facilities and games
+                  together, with fewer spreadsheets and less searching through messages.
+                </p>
+                <div className="st-v5-intro-act">
+                  <div className="st-v5-actions">
+                    <Link className="st-btn st-btn-night st-btn-lg" href={startHref}>
+                      {startLabel}
+                    </Link>
+                    <Link className="st-textlink st-v5-secondary" href="/product">
+                      See the product
+                    </Link>
+                  </div>
+                  {!signedIn && <p className="st-v5-note">{EARLY_ACCESS}</p>}
+                </div>
               </div>
             </div>
 
-            <div className="sp-results">
-              <p className="sp-results-head">Fall Kickoff Classic</p>
-              <ul>
-                {RESULTS.map((g) => (
-                  <li key={g.opp}>
-                    <span className="sp-r-date">{g.date}</span>
-                    <span className="sp-r-opp">{g.opp}</span>
-                    <span className={`sp-r-res ${g.res === "W" ? "w" : "l"}`}>{g.res}</span>
-                    <span className="sp-r-score">{g.score}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="sp-results-note">Hobgood Park · Woodstock, GA</p>
+            <figure className="st-pair">
+              <h2 className="st-pair-h">One tournament. Two views.</h2>
+              <p className="st-pair-label st-pair-label-m">For the team manager</p>
+              <div className="st-pair-frame">
+                <Shot shot={SHOTS.manageSummary} eager />
+              </div>
+              <p className="st-pair-label st-pair-label-f">For families</p>
+              <div className="st-pair-plan">
+                <WeekendPlan weekend={EXAMPLE_WEEKEND} />
+              </div>
+              <figcaption className="st-pair-cap">
+                Red Clay Classic as the team manager sees it in Season Tempo, and as families get it in the
+                printable Tournament Schedule. Team, places and opponents are fictional.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section className="st-v5-money" id="how" aria-labelledby="st-money-h">
+          <div className="st-wrap">
+            <div className="st-v5-row">
+              <h2 className="st-v5-display" id="st-money-h">
+                <span>Know what&rsquo;s paid.</span> <span>Know what&rsquo;s still owed.</span>
+              </h2>
+              <div className="st-v5-row-text">
+                <p>
+                  See what&rsquo;s paid, still to pay and available against the season budget, and how much of
+                  player dues has come in.
+                </p>
+                <Link className="st-textlink" href="/product">
+                  See how Finance works
+                </Link>
+              </div>
+            </div>
+            <div className="st-v5-stage">
+              <div className="st-dt">
+                <Shot shot={SHOTS.moneySummary} />
+              </div>
+              <div className="st-ph">
+                <Shot shot={SHOTS.mMoneySummary} />
+              </div>
             </div>
           </div>
+        </section>
+      </main>
 
-        </div>
-      </section>
-
-      {/* --- The season, first ------------------------------------------ */}
-      <section className="sp-season">
-        <div className="sp-wrap">
-          <div className="sp-lead">
-            <p className="sp-eyebrow">The season</p>
-            <h2 className="sp-section">
-              <span className="sp-figure">Eight weekends</span>
-              from August to April, and everything each one takes.
-            </h2>
-            <p className="sp-body">
-              Where you are going. Who is running it. Which field, and what it costs to be
-              there. A season is not a calendar — it is eight commitments, each with a
-              registration, a roster and a set of games that came out of it.
-            </p>
+      <footer className="st-footer">
+        <div className="st-wrap">
+          <div className="st-foot-grid">
+            <div className="st-foot-brand">
+              <Link className="st-logo st-logo-ink" href="/" aria-label="Season Tempo home">
+                <Wordmark tone="ink" />
+              </Link>
+              <p className="st-foot-line">The whole season, in one place.</p>
+            </div>
+            <nav className="st-foot-col" aria-labelledby="st-f1">
+              <h2 id="st-f1">Product</h2>
+              <Link href="/#how">How it works</Link>
+              <Link href="/product">Product</Link>
+              {!signedIn && <Link href="/login">Sign in</Link>}
+            </nav>
+            <nav className="st-foot-col" aria-labelledby="st-f2">
+              <h2 id="st-f2">Company</h2>
+              <Link href="/about">About</Link>
+              <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
+              <Link href="/privacy">Privacy Policy</Link>
+              <Link href="/terms">Terms of Service</Link>
+            </nav>
           </div>
-
-          <figure className="sp-plate sp-plate-wide">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-season.webp"
-              alt="Eight committed tournaments from August to April with dates, providers, facilities, registration status and cost, totalling $6,365 committed" />
-            <figcaption>
-              Committed tournaments · Northgate 16U Gold, 2026–27 season.
-            </figcaption>
-          </figure>
-        </div>
-      </section>
-
-      {/* --- Finance as a consequence of the weekend ---------------------
-
-           CORRECTED. An earlier version of this section claimed the $6,365
-           was "already in the budget" and that "nobody typed it twice". The
-           data path does not support either:
-
-             $6,365   read-time aggregate of committed tournaments
-             $5,050   of that is assigned to a budget category
-             $1,315   is NOT assigned to any category
-             $22,000  Tournament Fees is a planned figure, entered separately
-
-           So the commitments are not contained in the planned budget, and the
-           plan was not derived from them. The real benefit is narrower and
-           more useful: Season Tempo knows what has been committed before any
-           invoice arrives, holds that next to what was planned, and says so
-           when a commitment has not been assigned anywhere yet. */}
-      <section className="sp-consequence">
-        <div className="sp-wrap sp-split">
-          <div>
-            <p className="sp-eyebrow">Before a single invoice arrives</p>
-            <h2 className="sp-section">
-              <span className="sp-figure">$6,365</span>
-              committed. <span className="sp-muted">$1,130</span> actually paid.
-            </h2>
-            <p className="sp-body">
-              A tournament counts against the season the moment you commit to it, not when
-              somebody sends a bill. Season Tempo holds what you have promised next to what you
-              planned to spend &mdash; and tells you when $1,315 of it hasn&rsquo;t been assigned
-              to a category yet.
-            </p>
-          </div>
-
-          <figure className="sp-plate sp-plate-tall">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-commitments.webp"
-              alt="A season budget of $29,480 showing $3,544 paid, $5,660 still to pay, and a note that $1,315 in tournament commitments is not assigned to a budget category" />
-            <figcaption>
-              Season budget &middot; unassigned commitments are called out, not absorbed.
-            </figcaption>
-          </figure>
-        </div>
-      </section>
-
-      {/* --- Saturday ----------------------------------------------------
-
-           ONE chapter, not two. The opener and the at-bat block previously
-           carried separate eyebrows and separate heads for a single idea,
-           which cost roughly 340px of runway and made the fifth section in a
-           row begin the same way. The QAB evidence and the strongest line are
-           unchanged.
-
-           EVERY FIGURE VERIFIED against production:
-             97 plate appearances · 56 quality at-bats · 57 reasons
-             5 games tracked · 13 players
-             walk 15 · hit 10 · situation 7 · sac fly 6 · hard hit 5 ·
-             8+ pitch 5 · sac bunt 5 · HBP 4
-           No causal claim: the product counts reasons, it never relates them
-           to runs or to winning. */}
-      <section className="sp-saturday">
-        <div className="sp-wrap">
-          <hr className="sp-rule" />
-          <p className="sp-eyebrow">The weekend itself</p>
-          <h2 className="sp-chapter">Then Saturday happens.</h2>
-        </div>
-
-        {/* ONE composition, not three horizontal layers. The phone sat at
-            268px inside a 402px column — 134px of dead space around the
-            object carrying the differentiator, and the smallest plate on a
-            page whose others run 815px and wider.
-
-            The tally now lives inside the right-hand argument rather than
-            announcing itself 96px below, so a coach's decision and its
-            season-long consequence read as one thought. It keeps its own
-            scale: still the second focal point of the section, just no longer
-            a separate horizontal band. */}
-        <div className="sp-wrap sp-perf">
-          <figure className="sp-plate sp-plate-phone">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-atbat.webp"
-              alt="A phone showing a plate appearance being recorded, with hard hit ball selected among eight possible reasons" />
-            <figcaption>Recorded between innings, on the phone in your pocket.</figcaption>
-          </figure>
-
-          <div className="sp-perf-copy">
-            <h3 className="sp-section">A hit is not the only thing worth writing down.</h3>
-            <p className="sp-body">
-              The batting order is set from the roster that travelled. Then the eight-pitch
-              battle that wore a pitcher out, the bunt that moved a runner to third, the walk
-              that started the inning. A coach who watched it decides what it was, in the
-              moment, before the detail is gone.
-            </p>
-
-            <p className="sp-tally">
-              <span><b>97</b> plate appearances.</span>
-              <span><b>56</b> quality at-bats.</span>
-              <span><b>57</b> reasons why.</span>
-            </p>
-          </div>
-
-          <figure className="sp-plate sp-plate-reasons">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-reasons.webp"
-              alt="Reasons cited across the season: walk 15, hit 10, situation success 7, sacrifice fly 6, hard hit ball 5, eight-pitch at-bat 5, sacrifice bunt 5, hit by pitch 4" />
-            <figcaption>
-              Walks outnumbered hits, fifteen to ten. Not a number a box score keeps.
-            </figcaption>
-          </figure>
-        </div>
-      </section>
-
-      {/* --- What the season gives back ----------------------------------
-
-           Deliberately NOT titled Reports, and deliberately not a gallery.
-           Two documents, shown as documents rather than as screens, because
-           what leaves the product is a printed page a family reads.
-
-           The claim that nothing is assembled by hand is supported by the
-           product itself: reports read live season data each time they are
-           opened; nothing is saved or snapshotted. */}
-      <section className="sp-give">
-        <div className="sp-wrap">
-          <hr className="sp-rule" />
-          <p className="sp-eyebrow">And then somebody asks what it costs</p>
-          <h2 className="sp-chapter">By the time a parent asks,<br />it is already written.</h2>
-          <p className="sp-body sp-chapter-body">
-            A budget a family can read without a phone call. A schedule that goes on the
-            fridge. Neither is assembled — both are read from the season you have been keeping
-            since August, every time they are opened.
-          </p>
-        </div>
-
-        <div className="sp-wrap sp-docs">
-          <figure className="sp-doc">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-doc-budget.webp"
-              alt="A printed planned season budget for Northgate 16U Gold showing a $29,480 season, where the money goes by category, player dues and planned fundraising" />
-            <figcaption>Planned Season Budget · what the season costs, and why.</figcaption>
-          </figure>
-
-          <figure className="sp-doc">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/proof/plate-doc-schedule.webp"
-              alt="A printed 2026-27 tournament schedule listing eight committed weekends with dates, facilities, addresses and the games played at each" />
-            <figcaption>Tournament Schedule · every weekend, every field, every address.</figcaption>
-          </figure>
-        </div>
-      </section>
-
-      {/* --- Conclusion ---------------------------------------------------
-
-           Type only, no plate. A conclusion to the story rather than another
-           section.
-
-           The list names ONLY what Season Tempo actually holds: entry fees
-           (Finance), the schedule (Tournaments), the field (Facilities), the
-           paperwork (Files), the at-bats (Performance). An earlier draft said
-           "the group text", which would have claimed messaging the product
-           does not have.
-
-           The CTA block is built to take a starting price and a /pricing link
-           later without changing its composition. Neither exists yet: the
-           pricing is a hypothesis, and /pricing is not a route. */}
-      <section className="sp-close">
-        <div className="sp-wrap">
-          <h2 className="sp-close-head">One season.<br />One place.</h2>
-          <p className="sp-close-body">
-            The entry fees, the schedule, the field you played last year, the paperwork and
-            every at-bat that came out of it — kept together instead of scattered across
-            whatever was closest at the time.
-          </p>
-          <div className="sp-close-cta">
-            <span className="sp-btn">Try Season Tempo</span>
+          <div className="st-foot-base">
+            &copy; {new Date().getFullYear()} Season Tempo. All rights reserved.
           </div>
         </div>
-      </section>
-
-      <MarketingFooter signedIn={signedIn} />
+      </footer>
     </div>
   );
 }
