@@ -7002,3 +7002,135 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
 @media (max-width: 380px) {
   .team-identity .team-mark { display: none; }
 }
+
+/* ===== Phone layout foundations (mobile pass, 2026-11) =====================
+   Shared rules for every screen at phone width. They fix causes, not symptoms:
+   nothing here hides horizontal overflow.
+
+   1. Form fields are at least 16px. iPhone Safari zooms the whole page when a
+      smaller field takes focus and stays zoomed afterwards. Zoomed, the page
+      scrolls sideways, buttons sit past the right edge, the bottom bar slides
+      away while scrolling, the header controls and a drawer's close X land off
+      screen. Fields were 13.5 to 14px. !important because this is a platform
+      floor that must beat every component's own font size.
+   2. The phone header stays on screen while scrolling (team, season menu).
+   3. Dialogs, drawers and the More sheet are sized to the visible screen
+      (--vv-h / --vv-top from ViewportVars), which shrinks when the keyboard
+      opens. Title and close control stay at the top, actions at the bottom,
+      and only the content between them scrolls. */
+@media (max-width: 720px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea { font-size: 16px !important; }
+
+  .sidebar { position: sticky; top: 0; z-index: 30; }
+  /* In-page jumps land below the header instead of under it. */
+  html { scroll-padding-top: 76px; }
+
+  .modal-backdrop {
+    inset: auto 0 auto 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh);
+    padding: 12px 0 0; align-items: flex-end; overflow: hidden;
+  }
+  .modal {
+    max-width: none; width: 100%; max-height: 100%;
+    display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 18px 18px 0 0;
+  }
+  .modal > form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  .modal-head {
+    flex: none; position: sticky; top: 0; z-index: 3; background: var(--surface);
+    border-radius: 18px 18px 0 0; padding: 16px;
+  }
+  .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px; }
+  .modal-foot {
+    flex: none; position: sticky; bottom: 0; z-index: 3;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-radius: 0;
+  }
+  /* The full-screen variant keeps its shape, sized to the visible screen. */
+  .modal-sheet {
+    inset: auto 0 auto 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh);
+    width: 100%; border-radius: 0;
+  }
+  .modal-sheet .modal-head { border-radius: 0; }
+
+  .drawer-backdrop { inset: auto 0 auto 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); }
+  .drawer { height: 100%; max-height: 100%; min-width: 0; }
+  .drawer-head, .drawer-foot { flex: none; }
+  .drawer-foot { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+
+  .sheet-backdrop { inset: auto 0 auto 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); }
+  .sheet { max-height: calc(100% - 40px); overscroll-behavior: contain; }
+}
+
+/* Payment history in the dues drawer: four columns did not fit a 320px phone
+   and pushed Remove past the edge. Phones stack each entry as label and date
+   on the left, amount and Remove on the right. Same data, same order. */
+@media (max-width: 720px) {
+  .pay-log, .pay-log tbody { display: block; width: 100%; }
+  .pay-log tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px; row-gap: 2px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .pay-log td { display: block; padding: 0; border: 0; min-width: 0; overflow-wrap: anywhere; }
+  .pay-log td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; }
+  .pay-log td:nth-child(2) { grid-column: 1; grid-row: 2; font-size: 12.5px; }
+  .pay-log td.t-cost { grid-column: 2; grid-row: 1; text-align: right; }
+  .pay-log td.td-actions { grid-column: 2; grid-row: 2; justify-self: end; }
+  .pay-log td.td-actions .btn { min-height: 40px; margin-right: -9px; }
+}
+
+/* Tables inside a drawer on phones: the desktop cell padding (16px each side)
+   left a 288px drawer too little room for three columns. Tighter cells that
+   wrap long names; first and last cells align with the drawer's own edges. */
+@media (max-width: 720px) {
+  .drawer .table td, .drawer .table th { padding: 10px 6px; overflow-wrap: anywhere; }
+  .drawer .table td:first-child, .drawer .table th:first-child { padding-left: 0; }
+  .drawer .table td:last-child, .drawer .table th:last-child { padding-right: 0; }
+}
+
+/* Home snapshots on phones: the row held label, figure, details and link side
+   by side with nothing allowed to shrink, so at 320px the link was cut off at
+   the card's edge. A grid lets the figure and details wrap in the middle
+   column; on narrow phones the link moves under them instead of off screen. */
+@media (max-width: 720px) {
+  .snapshot {
+    display: grid; grid-template-columns: 78px minmax(0, 1fr) auto;
+    column-gap: 12px; row-gap: 4px; align-items: center;
+  }
+  .snapshot > .snap-head { grid-column: 1; grid-row: 1 / span 3; align-self: center; min-width: 0; }
+  .snapshot > :not(.snap-head):not(.snap-link) { grid-column: 2; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+  .snapshot > .snap-link { grid-column: 3; grid-row: 1 / span 3; }
+}
+@media (max-width: 400px) {
+  .snapshot { grid-template-columns: 78px minmax(0, 1fr); }
+  .snapshot > .snap-link { grid-column: 2; grid-row: auto; }
+}
+
+/* Transactions on phones: desktop cell padding made the table 46px wider than
+   its card at 320px, cutting off amounts. Tighter cells keep date,
+   description and the full amount inside the card. */
+@media (max-width: 720px) {
+  .txn-table th, .txn-table td { padding: 10px 8px; }
+  .txn-table th:first-child, .txn-table td:first-child { padding-left: 12px; }
+  .txn-table th:last-child, .txn-table td:last-child { padding-right: 12px; }
+  .txn-table td:first-child { font-size: 13px; }
+  .txn-table td { overflow-wrap: anywhere; }
+}
+
+/* Contacts on phones: the desktop column widths (22%, 23%...) and the
+   table-cell display on Contact info outranked the phone card rule, so each
+   card was squeezed into desktop percentages and a long email ran past the
+   edge. td[class] lifts the card rule above them; phone and email each get a
+   line and wrap if they must. */
+@media (max-width: 760px) {
+  .contacts-table td[class] { display: block; width: 100%; }
+  .contacts-table .cc-reach a { display: block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .contacts-table .cc-reach a + a { margin: 0; }
+}
+
+/* Bottom bar labels at 320 to 360px: "Performance" was wider than its fifth of
+   the bar and ran into More. */
+@media (max-width: 360px) {
+  .navm-label { font-size: 10px; letter-spacing: -0.01em; }
+}

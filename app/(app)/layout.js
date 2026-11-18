@@ -4,6 +4,7 @@ import { NavSidebar } from "../../components/NavSidebar";
 import { HelpContextProvider } from "../../components/HelpContext";
 import { AppFooter } from "../../components/AppFooter";
 import { SeasonBanner } from "../../components/SeasonBanner";
+import { ViewportVars } from "../../components/ViewportVars";
 
 // Reads cookies, so this subtree is dynamic. Nothing here is ever prerendered.
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }) {
 
   return (
     <div className="shell">
+      <ViewportVars />
       <NavSidebar
         email={user.email}
         organization={organization}

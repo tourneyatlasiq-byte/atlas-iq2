@@ -2448,7 +2448,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
                   onConfirm={() => onConfirmEntry(confirmingEntry.slice("entry:".length))}
                 />
               )}
-              <table className="table">
+              <table className="table pay-log">
                 <tbody>
                   {p.log.map((l) => (
                     <tr key={l.id}>
