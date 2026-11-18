@@ -2956,8 +2956,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .contacts-search { margin: 12px 0 0; max-width: 380px; }
 
 @media (max-width: 720px) {
-  .app-footer { margin-top: 28px; gap: 10px; }
-  .app-footer-links { gap: 14px; }
+  /* Hidden on phones by design (Privacy, Terms and Support live in More). The
+     earlier hide rule sat above the base .app-footer rule and lost to it. */
+  .app-footer { display: none; }
 }
 
 /* Home's head no longer restates what the page shows immediately below it. */
@@ -6852,4 +6853,152 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
   .ch-pieces > div { grid-template-columns: minmax(0, 1fr); gap: 1px; }
   .ch-trigger { min-height: 44px; }
   .ch-more, .ch-close, .ch-action { min-height: 44px; }
+}
+
+/* ===== Mobile shell: compact header and one page-header pattern (2026-11) =====
+   Phones only. Nothing above max-width 720 changes.
+
+   Global header: 108px down to about 62px. Organization, team and season all
+   stay; the organization name ellipsizes first and the team line is kept.
+   Very narrow phones drop the 32px mark rather than the team name.
+
+   Page header: title + Help, then the description at full width, then
+   actions, then content. A page with a single action puts it beside the
+   title, since it fits and costs no extra row; two or more actions form one
+   compact row under the description, primary first. Applied to every
+   .page-head that contains an h1, so the game tracking and lineup headers
+   (a lone back link) keep their own layout. */
+@media (max-width: 720px) {
+  .sidebar { padding: 8px 14px; gap: 10px; }
+  .sidebar-brand { flex: 0 0 auto; }
+  .team-identity {
+    flex: 1 1 auto; min-width: 0; padding: 0; margin: 0;
+    border-bottom: 0; gap: 8px; align-items: center;
+  }
+  .team-identity .team-mark {
+    width: 32px !important; height: 32px !important;
+    font-size: 12px !important; margin-top: 0;
+  }
+  .sidebar { min-height: 62px; }
+  /* Two rows instead of three: organization on top, then team and season side
+     by side. The organization ellipsizes first, the team line keeps the room,
+     and a long season name is capped so it cannot crowd the team out. */
+  .team-identity-text {
+    flex: 1 1 auto; min-width: 0; display: grid;
+    grid-template-columns: minmax(55%, 1fr) minmax(0, auto); column-gap: 8px; row-gap: 2px;
+    align-items: center;
+  }
+  .team-identity-name { grid-column: 1 / -1; -webkit-line-clamp: 1; font-size: 13.5px; line-height: 1.25; }
+  .team-identity-sub { grid-column: 1; grid-row: 2; margin-top: 0; font-size: 12px; min-width: 0; }
+  .team-identity .crumb-season,
+  .team-identity .crumb-picker-compact {
+    grid-column: 2; grid-row: 2; margin-top: 0; max-width: 8.5rem; min-width: 0;
+  }
+  .team-identity .crumb-season {
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 500;
+  }
+  .team-identity-text:not(:has(.team-identity-sub)) .crumb-season,
+  .team-identity-text:not(:has(.team-identity-sub)) .crumb-picker-compact { grid-column: 1; }
+  .crumb-picker-compact { display: flex; }
+  /* The generic phone rule makes season triggers 44px tall, which would
+     rebuild the header. Keep the hit area without growing the row. */
+  .team-identity .crumb-picker .season-trigger {
+    min-height: 0; padding: 5px 0; margin: -5px 0; max-width: 100%; min-width: 0;
+    font-size: 12px;
+  }
+  .team-identity .season-trigger strong {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 2.5rem; font-size: 12px;
+  }
+  .team-identity .season-chip-phase, .team-identity .season-caret { flex: none; }
+
+  /* Mark only, when the team line would be cut off beside the wordmark
+     (toggled by NavSidebar). */
+  .sidebar.brand-compact .brand-word { display: none; }
+
+  .content { padding-top: 14px; }
+
+  /* The lineup's one-column grid used 1fr, which cannot shrink below its content
+     and pushed the panel about 16px past the screen. */
+  .lineup-cols { grid-template-columns: minmax(0, 1fr); }
+
+  .page-head:has(h1) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px; align-items: center; margin-bottom: 12px;
+  }
+  .page-head:has(h1) > :first-child:not(h1) { display: contents; }
+  .page-head:has(h1) h1 { grid-column: 1; grid-row: 1; line-height: 1.2; min-width: 0; }
+  .page-head:has(h1) .page-help,
+  .page-head:has(h1) > .help-menu { grid-column: 2; grid-row: 1; }
+  .page-head:has(h1) .page-sub {
+    grid-column: 1 / -1; grid-row: 2; max-width: none; margin-top: 2px;
+  }
+
+  /* Two or more actions: one compact row under the description. Primary
+     first; with three, the primary takes its own row and the secondaries
+     share the next. */
+  .page-head:has(h1) > .foot-actions { grid-column: 1 / -1; grid-row: 3; margin-top: 8px; }
+  .page-head:has(h1) .foot-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: auto;
+  }
+  .page-head:has(h1) .foot-actions .btn { min-height: 44px; padding: 8px; flex: none; }
+  .page-head:has(h1) .foot-actions .btn-primary { order: -1; }
+  .page-head:has(h1) .foot-actions:has(.btn:nth-child(3)) .btn-primary { grid-column: 1 / -1; }
+
+  /* One action: beside the title, Help moves to the third column. */
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) {
+    grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 8px;
+  }
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) .help-trigger {
+    padding-left: 12px; padding-right: 12px;
+  }
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) .page-help,
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) > .help-menu {
+    grid-column: 3;
+  }
+  .page-head:has(h1) > .btn,
+  .page-head:has(h1) > .foot-actions:has(> .btn:only-child) {
+    grid-column: 2; grid-row: 1; margin-top: 0; width: auto; display: flex;
+  }
+  .page-head:has(h1) > .btn { min-height: 44px; padding-left: 12px; padding-right: 12px; }
+  .page-head:has(h1) > .foot-actions > .btn:only-child { width: auto; padding-left: 12px; padding-right: 12px; }
+  .page-head:has(h1) .fin-head-actions > .btn { padding-left: 12px; padding-right: 12px; }
+  /* Same centered label for buttons and links alike. */
+  .page-head:has(h1) > .btn,
+  .page-head:has(h1) .foot-actions .btn,
+  .page-head:has(h1) .fin-head-actions > .btn {
+    display: inline-flex; align-items: center; justify-content: center; text-align: center;
+  }
+  /* Finance wraps its secondary link and Help in one box. */
+  .page-head:has(h1) .fin-head-actions { display: contents; }
+  .page-head:has(h1) .fin-head-actions > .btn {
+    grid-column: 2; grid-row: 1; margin: 0; min-height: 44px;
+  }
+  .page-head:has(h1) .fin-head-actions .page-help { grid-column: 3; grid-row: 1; }
+}
+
+/* 370 to 392px (iPhone 375, 390): the title eases down a little so a single
+   action still fits beside it, for every page so titles stay consistent. */
+@media (max-width: 392px) {
+  .page-head:has(h1) h1 { font-size: clamp(18.5px, 5vw, 22px); }
+}
+
+/* A single action no longer fits beside the title below about 370px. */
+@media (max-width: 369px) {
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) .page-help,
+  .page-head:has(h1):has(> .btn, > .foot-actions > .btn:only-child, .fin-head-actions) > .help-menu,
+  .page-head:has(h1) .fin-head-actions .page-help { grid-column: 2; }
+  .page-head:has(h1) > .btn,
+  .page-head:has(h1) > .foot-actions:has(> .btn:only-child),
+  .page-head:has(h1) .fin-head-actions > .btn {
+    grid-column: 1 / -1; grid-row: 3; margin-top: 8px; width: 100%; justify-self: stretch;
+  }
+  .page-head:has(h1) > .foot-actions > .btn:only-child { width: 100%; }
+}
+
+@media (max-width: 380px) {
+  .team-identity .team-mark { display: none; }
 }

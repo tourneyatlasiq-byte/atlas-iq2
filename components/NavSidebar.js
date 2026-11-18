@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
@@ -76,8 +76,34 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
     setMoreOpen(false);
   }, [pathname]);
 
+  // Phone header: show the full wordmark when there is room, and fall back to
+  // the mark alone when the team line would otherwise be cut off. The class is
+  // toggled on the element directly because it is a pure layout measurement.
+  const asideRef = useRef(null);
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el || typeof window === "undefined") return undefined;
+    const phone = window.matchMedia("(max-width: 720px)");
+    const cut = (n) => !!n && n.scrollWidth > n.clientWidth + 1;
+    const fit = () => {
+      el.classList.remove("brand-compact");
+      if (!phone.matches) return;
+      const tight = cut(el.querySelector(".team-identity-sub"));
+      if (tight) el.classList.add("brand-compact");
+    };
+    fit();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fit) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener("resize", fit);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", fit);
+    };
+  }, [team?.name, organization?.name, season?.id, seasonPhase, seasons?.length]);
+
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" ref={asideRef}>
       <div className="sidebar-brand">
         <LogoLockup size={30} tone="light" wordSize={17} />
       </div>
