@@ -71,7 +71,7 @@ function QabAction({ tournament, game }) {
   );
 }
 
-export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0 }) {
+export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0, bare = false }) {
   const [editing, setEditing] = useState(null); // game | "new" | null
   const [error, setError] = useState(null);
   const confirmDelete = useConfirm();
@@ -116,9 +116,9 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
   }
 
   return (
-    <section className="detail-section games-section" id="section-games">
+    <section className={`detail-section games-section${bare ? " is-bare" : ""}`} id={bare ? undefined : "section-games"}>
       <div className="games-header">
-        <div className="games-heading">
+        {!bare && <div className="games-heading">
           <h3 className="detail-section-title">Games</h3>
           <span className="games-count">
             {ordered.length === 0
@@ -135,7 +135,7 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
               </>
             )}
           </span>
-        </div>
+        </div>}
 
         {/* Stays visible whether or not games exist — adding a second game is
             as common as adding the first. */}
@@ -154,8 +154,7 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
 
       {ordered.length === 0 ? (
         <p className="section-body muted games-empty">
-          No games recorded yet. Add them as the schedule is released, then enter scores once
-          they're played.
+          {bare ? "Add games once the schedule is out." : "No games recorded yet. Add them as the schedule is released, then enter scores once they're played."}
         </p>
       ) : (
         <ul className="game-list">

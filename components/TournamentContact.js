@@ -13,7 +13,7 @@ import { setTournamentContact, saveContact } from "../lib/actions/contacts";
  * a registration question comes up, often standing somewhere with one hand
  * free. Phone and email are tap-to-act for that reason.
  */
-export function TournamentContact({ tournament, contacts, providerContactIds = [], canWrite }) {
+export function TournamentContact({ tournament, contacts, providerContactIds = [], canWrite, bare = false }) {
   const [picking, setPicking] = useState(false);
   const [creating, setCreating] = useState(null); // prefill name | null
   const [error, setError] = useState(null);
@@ -39,9 +39,9 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
   }
 
   return (
-    <section className="detail-section">
+    <section className={`detail-section${bare ? " is-bare" : ""}`}>
       <div className="section-head">
-        <h3 className="detail-section-title">Tournament contact</h3>
+        {!bare && <h3 className="detail-section-title">Tournament contact</h3>}
         {canWrite && contact && (
           <button className="btn btn-ghost" onClick={() => setPicking(true)}>Change</button>
         )}
@@ -78,13 +78,13 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
             </button>
           )}
         </div>
-      ) : (
-        canWrite && (
-          <button className="btn btn-secondary" onClick={() => setPicking(true)}>
-            + Add tournament contact
-          </button>
-        )
-      )}
+      ) : canWrite ? (
+        <button className="btn btn-secondary" onClick={() => setPicking(true)}>
+          + Add tournament contact
+        </button>
+      ) : bare ? (
+        <p className="section-body muted">No contact recorded.</p>
+      ) : null}
 
       {picking && (
         <SearchPicker

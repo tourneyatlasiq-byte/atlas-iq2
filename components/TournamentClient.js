@@ -8,7 +8,7 @@ import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./Drawe
 import { typeLabel, RESOURCE_TYPES } from "../lib/facility-fields";
 import { linkTournamentResource, unlinkTournamentResource } from "../lib/actions/facilities";
 import { PageHelp } from "./PageHelp";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useOpenParam } from "./useOpenParam";
 import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
@@ -33,7 +33,9 @@ import {
   deleteTournament,
 } from "../lib/actions/tournaments";
 
-import { DECISIONS, PAID_STATUSES, statusLine, registrationState } from "../lib/tournament-status";
+import { DECISIONS, PAID_STATUSES, statusLine, registrationState, tournamentPayments } from "../lib/tournament-status";
+import { nextStep } from "../lib/tournament-next-step";
+import { MoreActionsMenu } from "./MoreActionsMenu";
 import { SeasonStrip } from "./SeasonStrip";
 import { fmtDateRange } from "../lib/dates";
 import { WeekendCard, directionsUrl as weekendDirections, fmtTime } from "./WeekendCard";
@@ -125,6 +127,8 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments);
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
+  const openSections = useRef({ id: null, open: null }); // drawer section state, per tournament
+  useEffect(() => { if (!detail) openSections.current = { id: null, open: null }; }, [detail]);
   const [error, setError] = useState(null);
   // A drawer action's failure belongs in the drawer; the page alert stays for
   // page-level actions.
@@ -452,6 +456,9 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       {/* 4. Slide-over detail */}
       {detail && !editing && (
         <TournamentDetail
+          key={detail.id}
+          savedOpen={openSections.current.id === detail.id ? openSections.current.open : null}
+          onOpenChange={(o) => { openSections.current = { id: detail.id, open: o }; }}
           qabEnabled={qabEnabled}
           t={detail}
           canWrite={canWrite}
@@ -487,6 +494,8 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           confirmUnlink={confirmUnlink}
           setConfirmUnlink={setConfirmUnlink}
           onStatus={setStatus}
+          quick={quick}
+          transactions={transactions}
         />
       )}
 
@@ -608,7 +617,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
       {address && <p className="at-field-address">{address}</p>}
 
       {url && (
-        <a className="btn btn-primary at-field-go" href={url} target="_blank" rel="noreferrer">
+        <a className="btn btn-secondary at-field-go" href={url} target="_blank" rel="noreferrer">
           Directions
         </a>
       )}
@@ -627,7 +636,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
   );
 }
 
-export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onLinkResource, onUnlinkResource, confirmUnlink = null, setConfirmUnlink = () => {}, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {} }) {
+export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onLinkResource, onUnlinkResource, confirmUnlink = null, setConfirmUnlink = () => {}, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {}, quick = null, transactions = [], savedOpen = null, onOpenChange = null }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -679,10 +688,14 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
    * drawer opens.
    */
   const searchParams = useSearchParams();
+  // Which sections are open survives the Edit form (the drawer unmounts while
+  // it is open): the parent remembers the state per tournament.
   const [open, setOpen] = useState(() => ({
     games: phase === "during",
     costs: searchParams.get("section") === "costs",
+    ...(savedOpen || {}),
   }));
+  useEffect(() => { onOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const isOpen = (key) => Boolean(open[key]);
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }));
 
@@ -698,6 +711,38 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
     setAddGameSignal((n) => n + 1);
     reveal("games");
   };
+
+  // The one volt button: the next useful action (lib/tournament-next-step.js).
+  // Commit, register and paid reuse the quick actions, so they keep every
+  // safeguard those have; roster and game open the form lower in the drawer.
+  const [rosterSignal, setRosterSignal] = useState(0);
+  const payments = tournamentPayments(t, transactions);
+  const rawStep = nextStep(t, { canWrite, rosterCount: participants.length, payments });
+  const step = rawStep && (rawStep.kind === "game" || rawStep.kind === "roster" || quick) ? rawStep : null;
+  const stepBusy = quick?.busy === t.id;
+  function runStep() {
+    if (!step) return;
+    if (step.kind === "game") return onAddGame();
+    if (step.kind === "roster") { setRosterSignal((n) => n + 1); return reveal("roster"); }
+    quick.run(t);
+  }
+
+  const played = games.filter((g) => g.result).length;
+  const contact = (contacts ?? []).find((c) => c.id === t.contact_id) ?? null;
+  const docCount = (t.documents ?? []).length;
+  const resCount = (t.resources ?? []).length;
+  const costLabel = money(t.total_cost) || null;
+  const budgetLinked = Boolean(budgetContext);
+  const gamesSummary = games.length === 0 ? "No games added" : record ? `${games.length} · ${record}` : `${games.length} ${games.length === 1 ? "game" : "games"}`;
+  const rosterSummary = participants.length === 0 ? "Roster not set" : `${participants.length} attending`;
+  const costsSummary = [costLabel, budgetLinked ? null : (costLabel ? "budget not linked" : "Budget not linked")].filter(Boolean).join(", ") || "Not recorded";
+  const placesSummary = [resCount ? `${resCount} linked` : "Nothing linked", docCount ? `${docCount} ${docCount === 1 ? "document" : "documents"}` : null].filter(Boolean).join(" · ");
+  const detailsSummary = detailCount === 0 ? "None recorded" : ([t.provider?.name, t.age_division].filter(Boolean).join(" · ") || `${detailCount} recorded`);
+  const tiles = [
+    { key: "games", label: "Games", value: games.length, caption: games.length === 0 ? "No games added" : record ? `Record ${record}` : `${played} of ${games.length} played` },
+    { key: "roster", label: "Roster", value: participants.length, caption: participants.length === 0 ? "Roster not set" : "attending" },
+    { key: "costs", label: "Costs", value: costLabel ?? "—", caption: !budgetLinked ? "Budget not linked" : t.paid_status === "Paid in Full" ? "Paid in full" : "Not paid in full" },
+  ];
   return (
     <DrawerShell onClose={onClose} labelledBy="t-detail-title">
         <div className="drawer-head">
@@ -720,55 +765,12 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
                   <span>{placeLine(t)}</span>
                 ))}
             </div>
-            <div className="drawer-head-pills">
-              <span className={`pill decision-pill decision-pill-${t.decision.toLowerCase()}`}>
-                {t.decision}
-              </span>
-              <span className={`pill ${paidClass(t.paid_status)}`}>{t.paid_status}</span>
-            </div>
-          </div>
-          <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-
-        <div className="drawer-body">
-          {/* Three numbers a coach reaches for, each still a way into its
-              section. They were three shaded boxes in a four-column grid, with
-              the fourth cell filled by an "Edit" card whose value was a
-              non-breaking space — an empty box existing to square off a grid,
-              duplicating the footer's Edit details. The boxes are heavier than
-              anything else in the drawer system, so this reads as one strip
-              with dividers instead. Still buttons, still reveal their section. */}
-          <div className="t-metrics">
-            <button className="t-metric" onClick={() => reveal("games")}>
-              <span className="t-metric-label">Games</span>
-              <span className="t-metric-value">{games.length}</span>
-            </button>
-            <button className="t-metric" onClick={() => reveal("roster")}>
-              <span className="t-metric-label">Roster</span>
-              <span className="t-metric-value">{participants.length}</span>
-            </button>
-            <button className="t-metric" onClick={() => reveal("costs")}>
-              <span className="t-metric-label">Costs</span>
-              <span className="t-metric-value">{money(t.total_cost) || "—"}</span>
-            </button>
-          </div>
-
-          {/* STATUS, in the shared section treatment. These two selects sat
-              loose under the header as full-width controls, louder than the
-              pills above them that say the same thing. The pills stay the
-              quick read; this is the quick edit. */}
-          {canWrite && (
-            <section className="detail-section">
-              <h3 className="detail-section-title">Status</h3>
-                <div className="field-row t-status">
+            {canWrite ? (
+              <div className="field-row t-status">
                 <div className="field">
                   <label htmlFor="d-decision">Are we going?</label>
-                  <select
-                    id="d-decision"
-                    value={t.decision}
-                    disabled={pending}
-                    onChange={(e) => onStatus(t.id, "decision", e.target.value)}
-                  >
+                  <select id="d-decision" value={t.decision} disabled={pending}
+                    onChange={(e) => onStatus(t.id, "decision", e.target.value)}>
                     {DECISIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
@@ -777,18 +779,45 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
                     Registration &amp; payment
                     <HelpTip term="Registration and payment" />
                   </label>
-                  <select
-                    id="d-paid"
-                    value={t.paid_status}
-                    disabled={pending}
-                    onChange={(e) => onStatus(t.id, "paid_status", e.target.value)}
-                  >
+                  <select id="d-paid" value={t.paid_status} disabled={pending}
+                    onChange={(e) => onStatus(t.id, "paid_status", e.target.value)}>
                     {PAID_STATUSES.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
               </div>
-            </section>
-          )}
+            ) : (
+              <div className="drawer-head-pills">
+                <span className={`pill decision-pill decision-pill-${t.decision.toLowerCase()}`}>{t.decision}</span>
+                <span className={`pill ${paidClass(t.paid_status)}`}>{t.paid_status}</span>
+              </div>
+            )}
+          </div>
+          <div className="drawer-head-actions">
+            {canWrite && (
+              <MoreActionsMenu disabled={pending} items={[{ label: "Delete tournament", danger: true, onSelect: onDelete }]} />
+            )}
+            <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+          </div>
+        </div>
+
+        <div className="drawer-body">
+          {/* Summary tiles: each opens its section and jumps to it. Tapping an
+              open tile only jumps; the section heading is what collapses. */}
+          <div className="t-metrics">
+            {tiles.map((x) => (
+              <button key={x.key} type="button" className={`t-metric${isOpen(x.key) ? " is-open" : ""}`}
+                aria-expanded={isOpen(x.key)} aria-controls={`section-${x.key}-body`} onClick={() => reveal(x.key)}>
+                <span className="t-metric-label">{x.label}</span>
+                <span className="t-metric-value">{x.value}</span>
+                <span className="t-metric-caption">{x.caption}</span>
+              </button>
+            ))}
+          </div>
+
+          <Collapsible id="section-games" title="Games" summary={gamesSummary}
+            open={isOpen("games")} onToggle={() => toggle("games")}>
+            <GamesSection tournament={t} games={games} canWrite={canWrite} qabEnabled={qabEnabled} openSignal={addGameSignal} bare />
+          </Collapsible>
 
           {/* PLACES REMEMBERED WITH THIS TRIP: the hotel, the restaurant.
               Deliberately NOT the playing venue, which is the facility shown
@@ -801,7 +830,15 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               Compact by design: with nothing linked this is a heading and one
               button, because the tournament drawer already carries
               registration, roster, games, costs and documents. */}
-          <Section title="Locations &amp; Resources">
+          <Collapsible id="section-places" title="Locations &amp; Resources" summary={placesSummary}
+            open={isOpen("places")} onToggle={() => toggle("places")}>
+            <AtTheField
+              facility={t.facility}
+              notes={arrivalNotes?.[t.facility?.id]}
+              phase={phase}
+              startsInDays={daysUntil(t.start_date)}
+            />
+
             {(t.resources ?? []).length === 0 ? (
               canWrite ? (
                 <button className="btn btn-ghost btn-sm" onClick={onLinkResource} disabled={pending}>
@@ -854,74 +891,18 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
                 )}
               </>
             )}
-          </Section>
-
-          {/* Kept open deliberately: this is why a coach opens a tournament on
-              a phone during an event. */}
-          <TournamentContact
-            tournament={t}
-            contacts={contacts}
-            providerContactIds={providerContactIds}
-            canWrite={canWrite}
-          />
-
-          {pickingLine && (
-            <SearchPicker
-              title="Budget line for this tournament"
-              hint="Its cost will count toward this line as soon as the tournament is committed."
-              placeholder="Search expense budget lines…"
-              items={budgetLines.map((b) => ({ ...b, searchText: `${b.name} ${b.category}` }))}
-              renderItem={(b) => (
-                <>
-                  <span className="picker-item-name">{b.name}</span>
-                  <span className="picker-item-meta">
-                    {b.category} · {money(b.available)} available
-                  </span>
-                </>
-              )}
-              emptyHint="Start typing to search your expense budget lines."
-              createLabel="Not linked"
-              onSelect={(b) => {
-                setPickingLine(false);
-                linkBudget(b.id);
-              }}
-              onCreate={() => {
-                setPickingLine(false);
-                linkBudget(null);
-              }}
-              onCancel={() => setPickingLine(false)}
-            />
-          )}
-
-          <Collapsible
-            id="section-games"
-            title="Games"
-            summary={
-              games.length === 0
-                ? "None yet"
-                : record
-                  ? `${games.length} · ${record}`
-                  : `${games.length}`
-            }
-            open={isOpen("games")}
-            onToggle={() => toggle("games")}
-          >
-            <GamesSection
-              tournament={t}
-              games={games}
+            <DocumentSection
+              documents={t.documents ?? []}
+              lockTo={{ kind: "tournament", id: t.id, label: t.name }}
+              targets={documentTargets}
               canWrite={canWrite}
-              qabEnabled={qabEnabled}
-              openSignal={addGameSignal}
+              isAdmin={isAdmin}
+              seasonName={seasonName}
             />
           </Collapsible>
 
-          <Collapsible
-            id="section-roster"
-            title="Tournament roster"
-            summary={participants.length === 0 ? "Not set" : `${participants.length} attending`}
-            open={isOpen("roster")}
-            onToggle={() => toggle("roster")}
-          >
+          <Collapsible id="section-roster" title="Tournament roster" summary={rosterSummary}
+            open={isOpen("roster")} onToggle={() => toggle("roster")}>
             <EventRoster
               tournament={t}
               participants={participants}
@@ -930,37 +911,18 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               playerDocuments={playerDocuments}
               canWrite={canWrite}
               seasonName={seasonName}
+              bare
+              openSignal={rosterSignal}
             />
           </Collapsible>
 
-          <Collapsible
-            id="section-costs"
-            title="Costs"
-            summary={money(t.total_cost) || "Not recorded"}
-            open={isOpen("costs")}
-            onToggle={() => toggle("costs")}
-          >
-            {/* Compact budget context. Deliberately four short lines — the
-                drawer is not a Finance page. */}
-            <AtTheField
-              facility={t.facility}
-              notes={arrivalNotes?.[t.facility?.id]}
-              phase={phase}
-              startsInDays={daysUntil(t.start_date)}
-            />
-
+          <Collapsible id="section-costs" title="Costs and payments" summary={costsSummary}
+            open={isOpen("costs")} onToggle={() => toggle("costs")}>
             {linkError && <div className="alert alert-error">{linkError}</div>}
 
             {!budgetContext && t.decision === "Committed" && canWrite && (
               <div className="t-budget t-budget-prompt">
-                <p className="t-budget-line">
-                  <span>This event</span>
-                  <strong>{money(t.total_cost)}</strong>
-                </p>
-                <p className="field-note">
-                  Link this to a budget line and its cost counts toward that budget straight
-                  away — before you&rsquo;ve paid anything.
-                </p>
+                <p className="field-note">Budget not linked. Link a budget line and this cost counts toward it now.</p>
                 <button className="btn btn-secondary" onClick={() => setPickingLine(true)}>
                   Choose a budget line
                 </button>
@@ -969,10 +931,6 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
 
             {budgetContext && (
               <div className="t-budget">
-                <p className="t-budget-line">
-                  <span>This event</span>
-                  <strong>{money(t.total_cost)}</strong>
-                </p>
                 <p className="t-budget-line">
                   <span>{budgetContext.name}</span>
                   <strong>
@@ -1014,9 +972,13 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               </div>
             )}
 
-            <Row label="Entry fee" value={money(t.entry_fee)} />
-            <Row label="Gate fee" value={money(t.gate_fee)} />
-            <Row label="Total cost" value={money(t.total_cost)} />
+            {(t.entry_fee != null || t.gate_fee != null || t.total_cost != null) && (
+              <>
+                <Row label="Entry fee" value={money(t.entry_fee)} />
+                <Row label="Gate fee" value={money(t.gate_fee)} />
+                <Row label="Total cost" value={money(t.total_cost)} />
+              </>
+            )}
             <p className="section-body">
               <RelatedLink href={`/finance?tab=transactions&tournament=${t.id}`}>
                 See what we&rsquo;ve paid for this tournament
@@ -1024,15 +986,13 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             </p>
           </Collapsible>
 
-          {/* Only fields with values. An empty tournament shows nothing rather
-              than a column of em-dashes. */}
-          <Collapsible
-            id="section-details"
-            title="Details"
-            summary={detailCount === 0 ? "None recorded" : null}
-            open={isOpen("details")}
-            onToggle={() => toggle("details")}
-          >
+          <Collapsible id="section-contact" title="Tournament contact" summary={contact?.full_name ?? "No contact"}
+            open={isOpen("contact")} onToggle={() => toggle("contact")}>
+            <TournamentContact tournament={t} contacts={contacts} providerContactIds={providerContactIds} canWrite={canWrite} bare />
+          </Collapsible>
+
+          <Collapsible id="section-details" title="Additional details" summary={detailsSummary}
+            open={isOpen("details")} onToggle={() => toggle("details")}>
             {detailCount === 0 ? (
               <p className="section-body muted">Nothing recorded yet. Use Edit to add details.</p>
             ) : (
@@ -1069,22 +1029,33 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             )}
           </Collapsible>
 
-          <Collapsible
-            id="section-documents"
-            title="Documents"
-            summary={`${(t.documents ?? []).length}`}
-            open={isOpen("documents")}
-            onToggle={() => toggle("documents")}
-          >
-            <DocumentSection
-              documents={t.documents ?? []}
-              lockTo={{ kind: "tournament", id: t.id, label: t.name }}
-              targets={documentTargets}
-              canWrite={canWrite}
-              isAdmin={isAdmin}
-              seasonName={seasonName}
+          {pickingLine && (
+            <SearchPicker
+              title="Budget line for this tournament"
+              hint="Its cost will count toward this line as soon as the tournament is committed."
+              placeholder="Search expense budget lines…"
+              items={budgetLines.map((b) => ({ ...b, searchText: `${b.name} ${b.category}` }))}
+              renderItem={(b) => (
+                <>
+                  <span className="picker-item-name">{b.name}</span>
+                  <span className="picker-item-meta">
+                    {b.category} · {money(b.available)} available
+                  </span>
+                </>
+              )}
+              emptyHint="Start typing to search your expense budget lines."
+              createLabel="Not linked"
+              onSelect={(b) => {
+                setPickingLine(false);
+                linkBudget(b.id);
+              }}
+              onCreate={() => {
+                setPickingLine(false);
+                linkBudget(null);
+              }}
+              onCancel={() => setPickingLine(false)}
             />
-          </Collapsible>
+          )}
 
           <Collapsible
             id="section-notes"
@@ -1147,8 +1118,12 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             ) : (
               <>
                 {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
-                <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
-                <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
+                <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit details</button>
+                {step && (
+                  <button className="btn btn-primary" onClick={runStep} disabled={pending || stepBusy}>
+                    {stepBusy ? "Saving…" : step.label}
+                  </button>
+                )}
               </>
             )}
           </div>

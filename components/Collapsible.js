@@ -9,20 +9,20 @@
  */
 export function Collapsible({ id, title, summary, open, onToggle, children, tone }) {
   return (
-    <section className="detail-section collapsible" id={id}>
+    <section className={`detail-section collapsible${open ? " is-open" : ""}`} id={id}>
       <button
         className={`collapsible-head${open ? " open" : ""}`}
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={`${id}-body`}
       >
-        <span className={`collapsible-caret${open ? "" : " collapsed"}`} aria-hidden="true">
-          ▾
-        </span>
         <span className="collapsible-title">{title}</span>
         {summary && (
           <span className={`collapsible-summary${tone ? ` tone-${tone}` : ""}`}>{summary}</span>
         )}
+        <span className={`collapsible-caret${open ? "" : " collapsed"}`} aria-hidden="true">
+          ▾
+        </span>
       </button>
 
       {open && (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ContextHelp } from "./ContextHelp";
 import { DrawerShell } from "./DrawerShell";
+import { MoreActionsMenu } from "./MoreActionsMenu";
 
 import { Fragment, useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { ConfirmAction, ConfirmDialog, useConfirm } from "./ConfirmAction";
@@ -1843,7 +1844,12 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
                 : <span className={`pill ${statusClass(t.status)}`}>{t.status}</span>}
             </div>
           </div>
-          <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+          <div className="drawer-head-actions">
+            {canWrite && (
+              <MoreActionsMenu disabled={pending} items={[{ label: "Delete transaction", danger: true, onSelect: onDelete }]} />
+            )}
+            <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+          </div>
         </div>
 
         <div className="drawer-body">
@@ -1890,7 +1896,6 @@ function TransactionDetail({ t, canWrite, pending, onClose, onEdit, onDelete,
             ) : (
             <>
             {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
-            <button className="btn btn-danger-ghost" onClick={onDelete} disabled={pending}>Delete</button>
             <button className="btn btn-primary" onClick={onEdit} disabled={pending}>Edit details</button>
             </>
             )}
@@ -2610,23 +2615,20 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
               </>
             )}
           </section>
-
-          {canWrite && p.balance > 0 && (
-            <section className="detail-section">
-              <h3 className="detail-section-title">Record a payment</h3>
-              {/* Opens the prefilled sheet: the balance is the starting amount
-                  and stays editable, so a partial payment is one edit. */}
-              <button type="button" className="btn btn-primary" onClick={onRecordOpen} disabled={pending}>
-                Record {money(p.balance)} or another amount
-              </button>
-            </section>
-          )}
         </div>
 
         {canWrite && (
           <div className="drawer-foot">
-            <span />
+            {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
             <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit total due</button>
+            {/* The one volt button: opens the prefilled sheet. The balance is
+                the starting amount and stays editable, so a partial payment
+                is one edit. */}
+            {p.balance > 0 && (
+              <button type="button" className="btn btn-primary" onClick={onRecordOpen} disabled={pending}>
+                Record {money(p.balance)}
+              </button>
+            )}
           </div>
         )}
     </DrawerShell>

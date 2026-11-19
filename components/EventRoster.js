@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { useMutation } from "./useMutation";
 import { RelatedLink } from "./RelatedLink";
 import {
@@ -25,6 +25,8 @@ export function EventRoster({
   canWrite,
   seasonName,
   playerDocuments = {},
+  bare = false,
+  openSignal = 0,
 }) {
   const [editing, setEditing] = useState(null); // "roster" | "pickup" | null
   // Selection made in the sheet, preserved while a pickup is added so the
@@ -32,6 +34,11 @@ export function EventRoster({
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState(null);
   const { run: runMutation, pending: pending } = useMutation();
+
+  // The drawer's next-step button bumps openSignal to open the roster sheet.
+  useEffect(() => {
+    if (openSignal > 0 && canWrite) setEditing("roster");
+  }, [openSignal, canWrite]);
 
   const rows = participants ?? [];
   const pickups = rows.filter((p) => p.participation === "pickup");
@@ -52,7 +59,7 @@ export function EventRoster({
   return (
     <section className="detail-section" id="section-event-roster">
       <div className="section-head">
-        <h3 className="detail-section-title">Tournament roster</h3>
+        {!bare && <h3 className="detail-section-title">Tournament roster</h3>}
         {canWrite && rows.length > 0 && (
           <div className="section-head-actions">
             <button className="btn btn-ghost" onClick={() => setEditing("pickup")}>
@@ -69,14 +76,20 @@ export function EventRoster({
 
       {rows.length === 0 ? (
         <div className="er-empty">
-          <p className="er-empty-title">Tournament roster not set</p>
-          <p className="er-empty-body">
-            Track who is dressing for this tournament. An empty roster means it hasn&rsquo;t been
-            recorded yet.
-          </p>
+          {bare ? (
+            <p className="er-empty-body">Roster not set. An empty roster means it hasn&rsquo;t been recorded yet.</p>
+          ) : (
+            <>
+              <p className="er-empty-title">Tournament roster not set</p>
+              <p className="er-empty-body">
+                Track who is dressing for this tournament. An empty roster means it hasn&rsquo;t been
+                recorded yet.
+              </p>
+            </>
+          )}
           {canWrite && (
-            <button className="btn btn-primary" onClick={() => setEditing("roster")}>
-              Set tournament roster
+            <button className={`btn ${bare ? "btn-secondary" : "btn-primary"}`} onClick={() => setEditing("roster")}>
+              {bare ? "Set roster" : "Set tournament roster"}
             </button>
           )}
         </div>
