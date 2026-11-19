@@ -69,7 +69,11 @@ export function LogoLockup({ size = 32, tone = "navy", wordSize }) {
         className="brand-word"
         style={{ color: text, fontSize: word, lineHeight: 1 }}
       >
-        SEASON TEMPO
+        {/* The approved Volt wordmark (Schibsted Grotesk, "Season Tempo") shows
+            where Volt is on; every other screen keeps the current wordmark
+            until it moves to Volt. Only one of the two is ever displayed. */}
+        <span className="brand-word-current">SEASON TEMPO</span>
+        <span className="brand-word-volt">Season Tempo</span>
       </span>
     </span>
   );

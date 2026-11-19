@@ -18,6 +18,8 @@ import { DashboardClient } from "../../../components/DashboardClient";
 import { GettingStarted } from "../../../components/GettingStarted";
 import { gettingStartedSteps, setupComplete } from "../../../lib/onboarding";
 import { createClient } from "../../../lib/supabase/server";
+import { canWrite } from "../../../lib/context";
+import { tournamentBudgetLines } from "../../../lib/finance-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +78,13 @@ export default async function DashboardPage() {
 
   const team_ = teamSummary(roster);
 
+  // For the quick actions on Home: the same per-line figures the Tournaments
+  // drawer uses, and the players with a balance, largest first.
+  const budgetLines = tournamentBudgetLines(budgetItems, transactions, tournaments);
+  const owing = payments
+    .filter((p) => !p.exempt && p.balance > 0)
+    .sort((a, b) => b.balance - a.balance || (a.displayName ?? "").localeCompare(b.displayName ?? ""));
+
   return (
     <>
       {!profile?.onboarding_hidden && <GettingStarted steps={steps} />}
@@ -100,6 +109,13 @@ export default async function DashboardPage() {
       dues={duesSummary(payments)}
       team={team_}
       seasonSummary={tournamentSummary(tournaments)}
+      season={season}
+      tournaments={tournaments}
+      transactions={transactions}
+      budgetLines={budgetLines}
+      owing={owing}
+      canWrite={canWrite(profile)}
+      todayLabel={new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
       />
     </>
   );

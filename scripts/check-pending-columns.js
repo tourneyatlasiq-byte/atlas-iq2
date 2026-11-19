@@ -7,7 +7,7 @@
  * column, so Home, Finance and Tournaments failed for every user until a
  * rollback.
  *
- * Rule: a column or table that is created ONLY by a file in supabase/pending/
+ * Rule: a column, table or function (called with supabase.rpc) that is created ONLY by a file in supabase/pending/
  * — not by any file in supabase/migrations/ — must not be referenced by
  * application code (app/, components/, lib/). Apply the migration first; move
  * it into supabase/migrations/ under its recorded version; then ship the code.
@@ -29,11 +29,15 @@ const sqlIn = (dir) => {
   return fs.readdirSync(d).filter((f) => f.endsWith(".sql")).map((f) => ({ file: `${dir}/${f}`, sql: strip(fs.readFileSync(path.join(d, f), "utf8")) }));
 };
 
-/** Columns and tables a SQL text creates. */
+/** Columns, tables and functions a SQL text creates. */
 function created(sql) {
   const out = [];
   for (const m of sql.matchAll(/add\s+column\s+(?:if\s+not\s+exists\s+)?"?([a-z_][a-z0-9_]*)"?/gi)) out.push({ kind: "column", name: m[1].toLowerCase() });
   for (const m of sql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi)) out.push({ kind: "table", name: m[1].toLowerCase() });
+  // Functions the app calls with supabase.rpc(). Same failure as a missing
+  // column: the code ships, the function is not in production yet, and every
+  // screen that calls it fails.
+  for (const m of sql.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi)) out.push({ kind: "function", name: m[1].toLowerCase() });
   return out;
 }
 

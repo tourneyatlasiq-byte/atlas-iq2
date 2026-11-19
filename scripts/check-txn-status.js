@@ -248,6 +248,8 @@ function fakeDb(line) {
   function builder(table) {
     const q2 = { table, op: "select", filters: {}, payload: null };
     const result = () => {
+      // An insert now reads back the new row's id (saveTransaction returns it for Undo).
+      if (q2.op === "insert") return { data: { id: "new-id" }, error: null };
       if (q2.op !== "select") return { data: null, error: null };
       if (table === "budget_items") return { data: line, error: null };
       return { data: [], error: null };
@@ -288,19 +290,19 @@ const INCOME_LINE_ROW = { category: "Fundraising", is_income: true, season_id: "
   }
 
   assertEq("expense with no status sent is written as Paid",
-    await save(EXPENSE_LINE_ROW, undefined), { res: { ok: true }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
+    await save(EXPENSE_LINE_ROW, undefined), { res: { ok: true, id: "new-id" }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
   assertEq("expense To Pay is written as To Pay",
-    await save(EXPENSE_LINE_ROW, "To Pay"), { res: { ok: true }, written: [{ op: "insert", status: "To Pay", amount: 300 }] });
+    await save(EXPENSE_LINE_ROW, "To Pay"), { res: { ok: true, id: "new-id" }, written: [{ op: "insert", status: "To Pay", amount: 300 }] });
   assertEq("expense Paid is written as Paid",
-    await save(EXPENSE_LINE_ROW, "Paid"), { res: { ok: true }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
+    await save(EXPENSE_LINE_ROW, "Paid"), { res: { ok: true, id: "new-id" }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
   assertEq("expense Planned is refused and nothing is written",
     await save(EXPENSE_LINE_ROW, "Planned"), { res: { ok: false, error: "Choose To Pay or Paid." }, written: [] });
   assertEq("editing an expense keeps its chosen status",
-    await save(EXPENSE_LINE_ROW, "To Pay", { id: "t9" }), { res: { ok: true }, written: [{ op: "update", status: "To Pay", amount: 300 }] });
+    await save(EXPENSE_LINE_ROW, "To Pay", { id: "t9" }), { res: { ok: true, id: "t9" }, written: [{ op: "update", status: "To Pay", amount: 300 }] });
   assertEq("income with no status sent is written as Paid",
-    await save(INCOME_LINE_ROW, undefined), { res: { ok: true }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
+    await save(INCOME_LINE_ROW, undefined), { res: { ok: true, id: "new-id" }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
   assertEq("income sent as To Pay is still written as Paid",
-    await save(INCOME_LINE_ROW, "To Pay"), { res: { ok: true }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
+    await save(INCOME_LINE_ROW, "To Pay"), { res: { ok: true, id: "new-id" }, written: [{ op: "insert", status: "Paid", amount: 300 }] });
 
   /* ---------------- G. the form and list, rendered ---------------- */
 

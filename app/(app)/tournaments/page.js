@@ -11,7 +11,8 @@ import { participantsBySeason, pickupCandidates } from "../../../lib/queries/par
 import { listSeasonRoster } from "../../../lib/queries/roster";
 import { listContacts } from "../../../lib/queries/contacts";
 import { arrivalNotesByFacility } from "../../../lib/queries/facilities";
-import { listBudgetItems, listTransactions } from "../../../lib/queries/finance";
+import { listBudgetItems, listTransactions, buildBudget, financeSummary } from "../../../lib/queries/finance";
+import { nextUpTournament } from "../../../lib/readiness/dashboard";
 import { tournamentBudgetLines } from "../../../lib/finance-rules";
 import { TournamentClient } from "../../../components/TournamentClient";
 
@@ -64,6 +65,9 @@ export default async function TournamentsPage({ searchParams }) {
   }));
 
   const setup = await setupState(createClient(), { organization, team, season, profile });
+  const params = await searchParams;
+  // Available budget for the Commit confirmation: the Finance summary rule.
+  const seasonAvailable = financeSummary(buildBudget(budgetItems, budgetTxns, tournaments), budgetTxns, []).availableBudget;
 
   return (
     <>
@@ -87,7 +91,12 @@ export default async function TournamentsPage({ searchParams }) {
       contacts={await listContacts(organization.id)}
       budgetLines={budgetLines}
       arrivalNotes={arrivalNotes}
-      autoOpen={(await searchParams)?.add === "1"}
+      autoOpen={params?.add === "1"}
+      season={season}
+      transactions={budgetTxns}
+      nextUp={nextUpTournament(withDocs)}
+      seasonAvailable={seasonAvailable}
+      initialView={params?.view === "weekend" ? "weekend" : "plan"}
     />
     </>
   );

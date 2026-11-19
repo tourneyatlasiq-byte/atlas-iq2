@@ -24,7 +24,10 @@ async function pickers(seasonId, organizationId) {
     // whether the chosen tournament is still unassigned. Read-only addition.
     supabase
       .from("tournaments")
-      .select("id, name, total_cost, budget_item_id")
+      // decision, dates and status let the guided Add transaction suggest
+      // upcoming tournaments and show the budget effect with the same rule
+      // Finance uses (committed tournaments count; considering don't).
+      .select("id, name, total_cost, budget_item_id, decision, start_date, end_date, paid_status, provider:tournament_providers ( name )")
       .eq("season_id", seasonId)
       .order("start_date"),
     // Only this season's active roster. Dues are owed by players on the team

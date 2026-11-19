@@ -1,0 +1,694 @@
+/* =========================================================================
+   Season Tempo · Volt design system (approved 2026-11-18)
+
+   One system for the app and the website: a light base, crisp type and one
+   distinctive accent. Volt (#D2FF3D, the "next" dot in the logo) is used
+   selectively: the primary action, active navigation, and Next up. Status
+   colour always comes with a word.
+
+   Applied screen by screen while it is reviewed. Every rule here is scoped
+   under html.volt, which lib/volt.js turns on for Home, Tournaments and
+   Finance; every other screen looks exactly as before.
+
+   Presentation only. Layout, sizes that keep phones usable (16px fields,
+   44px targets, the sticky header, sheets sized to the visible screen) and
+   all behaviour come from globals.css and stay as they are.
+   ========================================================================= */
+
+html.volt {
+  --volt: #d2ff3d; --volt-hover: #c3f52a; --ink: #0c0f14; --ink-2: #262b34;
+  --body: #3b4350; --muted: #626b79; --sunk: #eef0f3; --line: #e4e7ec; --line-strong: #d3d8df;
+  --paid: #067a4b; --paid-t: #e5f8ee; --paid-dot: #12b76a;
+  --due: #a64b00; --due-t: #fff1df; --due-dot: #f79009;
+  --owed: #c21b3a; --owed-t: #ffe8ec; --owed-dot: #f04461;
+  --info: #1d5fd1; --info-t: #e8f0ff;
+  --maybe: #5b3fd6; --maybe-t: #efebff;
+  --raise: 0 1px 2px rgba(12, 15, 20, 0.06), 0 8px 24px -12px rgba(12, 15, 20, 0.14);
+  --float: 0 2px 6px rgba(12, 15, 20, 0.08), 0 28px 60px -20px rgba(12, 15, 20, 0.32);
+  --font-volt-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
+
+  /* The existing tokens, re-pointed. Most of the app reads these. */
+  --navy: var(--ink);
+  --navy-soft: var(--ink-2);
+  --gold: var(--volt);
+  --green: var(--paid);
+  --blue: var(--ink);
+  --blue-dark: var(--ink);
+  --slate: var(--muted);
+  --border: var(--line);
+  --surface: #ffffff;
+  --bg: #f6f7f9;
+  --surface-sunken: var(--sunk);
+  --surface-brand: var(--ink);
+  --surface-brand-soft: var(--ink-2);
+  --danger: var(--owed);
+  --status-urgent: var(--owed);
+  --status-wait: var(--due);
+  --status-good: var(--paid);
+  --status-action: var(--info);
+  --radius-card: 20px;
+  --radius-control: 12px;
+  --shadow-card: var(--raise);
+  --font-body: var(--font-inter-tight), "Inter Tight", "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+}
+html.volt body { background: var(--bg); color: var(--body); font-feature-settings: "ss01", "cv11"; }
+html.volt :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- Type ---------- */
+html.volt h1, html.volt h2, html.volt h3 { color: var(--ink); }
+html.volt .page-head h1 { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1.02; letter-spacing: -0.035em; }
+html.volt .page-sub { color: var(--muted); font-size: 14.5px; }
+html.volt .detail-section-title,
+html.volt .fin-panel-label,
+html.volt .snap-label,
+html.volt .nextup-eyebrow,
+html.volt .group-title,
+html.volt .table th,
+html.volt .briefing-title,
+html.volt .coming-up-title,
+html.volt .t-metric-label {
+  font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+}
+html.volt .detail-section-title { font-size: 11.5px; border-bottom-color: var(--line); }
+html.volt .muted { color: var(--muted); }
+/* Tabular figures for columns of money in the UI face only; the display face
+   spaces its comma oddly with them, so big figures keep proportional digits. */
+/* Inter Tight's tabular figures space the decimal point widely, so money keeps
+   proportional figures and lines up on its right edge instead. */
+html.volt .snap-value, html.volt .t-metric-value, html.volt .fin-budget-hero, html.volt .fin-dues-hero,
+html.volt .nextup-days, html.volt .page-head h1 { font-variant-numeric: normal; }
+
+/* Links read as links in ink, not blue. */
+html.volt .link, html.volt .fin-lead-link, html.volt .snap-link, html.volt .briefing-where,
+html.volt .rel-link, html.volt .coming-up-name, html.volt .ch-more a {
+  color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong);
+  text-underline-offset: 4px; text-decoration-thickness: 1.5px;
+}
+html.volt .fin-lead-link:hover, html.volt .snap-link:hover, html.volt .link:hover { text-decoration-color: var(--ink); }
+
+/* ---------- Shell: light sidebar, light phone header, light bottom bar ---------- */
+html.volt .sidebar { background: #ffffff; color: var(--ink); box-shadow: inset -1px 0 0 var(--line); }
+html.volt .sidebar .brand-word { color: var(--ink) !important; font-family: var(--font-display); letter-spacing: -0.01em; }
+html.volt .sidebar-brand svg rect, html.volt .sidebar-brand svg circle { fill: var(--ink); }
+html.volt .sidebar-brand svg circle:last-of-type { fill: var(--volt); stroke: var(--ink); stroke-width: 3; }
+@media (min-width: 721px) {
+  html.volt .team-identity { background: var(--bg); border-radius: 14px; border-bottom: 0; margin: 0 14px 16px; padding: 12px; }
+}
+html.volt .team-identity-name { color: var(--ink); }
+html.volt .team-identity-sub, html.volt .team-identity .crumb-season { color: var(--muted); }
+html.volt .team-mark-initials.tone-light, html.volt .team-mark-initials.tone-navy { background: var(--ink); color: #fff; }
+html.volt .crumb-picker .season-trigger { background: #fff; border-color: var(--line-strong); color: var(--ink); }
+html.volt .nav-item { color: var(--body); font-weight: 550; border-left: 0; border-radius: 12px; }
+html.volt .nav-item svg { color: var(--muted); }
+html.volt .nav-item:hover { background: var(--bg); color: var(--ink); }
+html.volt .nav-item.active { background: var(--volt); color: var(--ink); font-weight: 650; }
+html.volt .nav-item.active svg { color: var(--ink); }
+html.volt .nav-premium { background: var(--sunk); color: var(--muted); }
+html.volt .sidebar-foot { border-top-color: var(--line); }
+html.volt .sidebar-user, html.volt .sidebar-user a { color: var(--muted) !important; }
+html.volt .user-mark { background: var(--sunk); color: var(--ink); }
+html.volt .sidebar-signout { border-color: var(--line-strong); color: var(--ink); }
+html.volt .sidebar-signout:hover { background: var(--bg); color: var(--ink); }
+
+@media (max-width: 720px) {
+  /* Solid, not blurred: a backdrop-filter here would make the header the
+     containing block for the fixed bottom bar inside it and pull the bar up. */
+  html.volt .sidebar { background: #f6f7f9; box-shadow: inset 0 -1px 0 var(--line); }
+  html.volt .navbar-mobile { background: rgba(255, 255, 255, 0.96); border-top: 1px solid var(--line); }
+  html.volt .navm-item { color: var(--muted); border-top: 0; }
+  html.volt .navm-item.active { background: transparent; color: var(--ink); }
+  html.volt .navm-item.active .navm-icon { background: var(--volt); border-radius: 999px; padding: 3px 13px; }
+  html.volt .navm-item.active .navm-icon svg { opacity: 1; }
+  html.volt .navm-dot { background: var(--ink); }
+  html.volt .sheet-row.active .sheet-row-icon { color: var(--ink); }
+  html.volt .sheet-row.active .sheet-row-label::after { background: var(--volt); box-shadow: 0 0 0 1.5px var(--ink); }
+  /* Close to the old size, so a title still fits beside its one action. */
+  html.volt .page-head h1 { font-size: 25px; letter-spacing: -0.03em; }
+}
+
+/* ---------- Buttons: volt for the one primary action, ink lines otherwise ---------- */
+html.volt .btn { border-radius: 12px; font-weight: 600; font-size: 14.5px; transition: background 120ms, box-shadow 120ms, transform 80ms; }
+html.volt .btn:active:not(:disabled) { transform: scale(0.98); }
+html.volt .btn-primary { background: var(--volt); color: var(--ink); box-shadow: inset 0 -2px 0 rgba(12, 15, 20, 0.12); }
+html.volt .btn-primary:hover:not(:disabled) { background: var(--volt-hover); }
+html.volt .btn-secondary { background: #fff; color: var(--ink); border-color: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+html.volt .btn-secondary:hover:not(:disabled) { background: #fff; box-shadow: inset 0 0 0 1px var(--ink); }
+html.volt .btn-ghost { color: var(--ink); }
+html.volt .btn-ghost:hover:not(:disabled) { background: var(--sunk); color: var(--ink); }
+html.volt .btn-danger-ghost { color: var(--owed); }
+html.volt .btn-danger-ghost:hover:not(:disabled) { background: var(--owed-t); }
+html.volt .help-trigger { background: #fff; border-color: var(--line-strong); color: var(--ink); }
+html.volt .help-trigger:hover { border-color: var(--ink); background: #fff; }
+
+/* ---------- Surfaces ---------- */
+html.volt .card { border: 0; border-radius: 20px; box-shadow: var(--raise); }
+html.volt .notice { background: var(--paid-t); border-color: transparent; color: var(--paid); border-radius: 14px; }
+html.volt .alert { border-radius: 14px; }
+html.volt .alert-error { background: var(--owed-t); border-color: transparent; color: var(--owed); }
+html.volt .alert-info { background: var(--info-t); border-color: transparent; color: var(--info); }
+html.volt .setup-next, html.volt .season-banner { border-radius: 14px; }
+
+/* ---------- Status: colour with a word ---------- */
+html.volt .pill { border: 0; border-radius: 999px; font-weight: 600; }
+html.volt .pill-paid, html.volt .pill-active { background: var(--paid-t); color: var(--paid); }
+html.volt .pill-deposit { background: var(--due-t); color: var(--due); }
+html.volt .pill-registered, html.volt .pill-player { background: var(--info-t); color: var(--info); }
+html.volt .pill-unregistered, html.volt .pill-inactive { background: var(--sunk); color: #4a5260; }
+html.volt .pill-waitlisted { background: var(--maybe-t); color: var(--maybe); }
+html.volt .pill-restricted { background: var(--owed-t); color: var(--owed); }
+html.volt .txn-status.pill-paid { color: var(--paid); }
+html.volt .txn-status.pill-deposit { color: var(--due); }
+
+/* ---------- Forms ---------- */
+html.volt .field label { color: var(--ink); font-weight: 600; font-size: 13px; }
+html.volt .field input, html.volt .field select, html.volt .field textarea,
+html.volt .toolbar-search, html.volt .filter-select, html.volt .fin-select {
+  border: 0; border-radius: 11px; box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink); background-color: #fff;
+}
+html.volt .field input:focus, html.volt .field select:focus, html.volt .field textarea:focus,
+html.volt .toolbar-search:focus, html.volt .filter-select:focus {
+  border: 0; box-shadow: inset 0 0 0 2px var(--ink); outline: none;
+}
+html.volt .field-note { color: var(--muted); }
+html.volt .input-money > span { color: var(--muted); font-weight: 600; }
+
+/* ---------- Dialogs and drawers ---------- */
+html.volt .modal-backdrop, html.volt .drawer-backdrop, html.volt .sheet-backdrop { background: rgba(12, 15, 20, 0.34); }
+html.volt .modal { border-radius: 20px; box-shadow: var(--float); }
+html.volt .modal-head { border-bottom-color: var(--line); }
+html.volt .modal-head h2 { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+html.volt .modal-foot { background: #fff; border-top-color: var(--line); }
+html.volt .drawer { box-shadow: var(--float); }
+html.volt .drawer-head { border-bottom-color: var(--line); }
+html.volt .drawer-head h2 { font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1.08; letter-spacing: -0.025em; }
+html.volt .drawer-foot { background: #fff; border-top-color: var(--line); }
+html.volt .drawer-close, html.volt .help-close, html.volt .ch-close { color: var(--ink); }
+html.volt .cost-box { background: var(--bg); border: 0; border-radius: 14px; }
+@media (max-width: 720px) {
+  html.volt .modal { border-radius: 20px 20px 0 0; }
+  html.volt .modal-sheet { border-radius: 0; }
+  html.volt .modal-head h2 { font-size: 20px; }
+}
+
+/* ---------- Tabs, filters, tables ---------- */
+html.volt .tab { color: var(--muted); font-weight: 600; }
+html.volt .tab:hover { color: var(--ink); }
+html.volt .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+html.volt .segmented { border: 0; box-shadow: inset 0 0 0 1px var(--line); border-radius: 12px; }
+html.volt .segment { color: var(--body); font-weight: 600; }
+html.volt .segment + .segment { border-left-color: var(--line); }
+html.volt .segment.on { background: var(--ink); color: #fff; }
+html.volt .filter-chip { background: var(--ink); color: #fff; border: 0; }
+html.volt .filter-chip button { background: rgba(255, 255, 255, 0.14); color: #fff; }
+html.volt .filter-chip button:hover { background: rgba(255, 255, 255, 0.24); }
+html.volt .table th { background: #fff; font-size: 11px; border-bottom-color: var(--line); }
+html.volt .table td { border-bottom-color: var(--line); }
+html.volt .table tbody tr:hover, html.volt .t-row:hover { background: var(--bg); }
+
+/* ---------- Next up: the one dark surface on a screen ---------- */
+html.volt .nextup, html.volt .tiq-nextup {
+  background: var(--ink); background-image: none; box-shadow: var(--float); color: #fff;
+}
+html.volt .nextup-motif { display: none; }
+html.volt .nextup-eyebrow {
+  align-self: flex-start; display: inline-flex; align-items: center; height: 26px; padding: 0 11px;
+  border-radius: 999px; background: var(--volt); color: var(--ink); font-size: 11.5px;
+}
+html.volt .nextup-days { color: var(--volt); font-family: var(--font-display); }
+html.volt .nextup-days-unit { color: #c9ced6; font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.06em; }
+html.volt .nextup .nextup-name, html.volt .tiq-nextup .nextup-name { color: #fff; font-family: var(--font-display); letter-spacing: -0.03em; }
+html.volt .nextup-line { color: #c9ced6; }
+html.volt .nextup-status-good { color: #6ce9a6; }
+html.volt .nextup-status-todo { color: #fec84b; }
+html.volt .nextup-link {
+  background: var(--volt); color: var(--ink); border: 0; border-radius: 12px; font-weight: 650;
+  box-shadow: inset 0 -2px 0 rgba(12, 15, 20, 0.12);
+}
+html.volt .nextup-link:hover { background: var(--volt-hover); color: var(--ink); }
+
+/* ---------- Home ---------- */
+html.volt .snapshots { background: #fff; box-shadow: var(--raise); border-top: 0; border-radius: 20px; }
+html.volt .snapshot { border-color: var(--line); }
+html.volt .snapshot::before { background: var(--ink); }
+html.volt .snap-value { font-family: var(--font-display); letter-spacing: -0.03em; color: var(--ink); }
+html.volt .briefing-dot.dot-urgent, html.volt .dot-urgent { background: var(--owed-dot); }
+html.volt .dot-attention, html.volt .dot-wait { background: var(--due-dot); }
+html.volt .briefing-what { color: var(--ink); }
+html.volt .briefing-link:hover { background: var(--bg); }
+html.volt .coming-up-row { border-color: var(--line); }
+
+/* ---------- Tournaments ---------- */
+html.volt .t-row { border-bottom-color: var(--line); }
+html.volt .t-name { color: var(--ink); font-weight: 650; }
+html.volt .group-count { background: var(--sunk); color: var(--muted); }
+html.volt .t-metric { background: #fff; border: 0; border-radius: 14px; box-shadow: var(--raise); }
+html.volt .t-metric-value { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+html.volt .t-budget-fill { background: var(--ink); }
+html.volt .contact-card { background: var(--bg); border: 0; border-radius: 14px; }
+html.volt .contact-action { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; }
+
+/* ---------- Finance ---------- */
+html.volt .fin-budget-hero, html.volt .fin-dues-hero {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.035em; color: var(--ink);
+}
+html.volt .fin-split-bar { background: var(--sunk); border-radius: 999px; }
+html.volt .fin-split-seg.seg-paid { background: var(--ink); }
+html.volt .fin-split-seg.seg-topay { background: repeating-linear-gradient(135deg, #8b93a1 0 4px, #a9b0bb 4px 8px); }
+html.volt .fin-split-seg.seg-available { background: #fff; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+html.volt .fin-split-item + .fin-split-item { border-left-color: var(--line); }
+html.volt .fin-dues-outstanding { color: var(--owed); }
+html.volt .meter { background: var(--sunk); }
+html.volt .meter-fill { background: var(--paid-dot); }
+html.volt .fin-attention { background: var(--due-t); box-shadow: none; }
+html.volt .fin-attention-title { color: var(--due); font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.04em; }
+html.volt .fin-attention-count { background: var(--due); color: #fff; }
+html.volt .fin-m-sections, html.volt .fin-m-report { border: 0; box-shadow: var(--raise); border-radius: 20px; }
+html.volt .fin-m-row { border-top-color: var(--line); color: var(--ink); }
+html.volt .fin-m-row:active, html.volt .fin-m-row:hover { background: var(--bg); }
+html.volt .fin-m-row-name { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+html.volt .fin-m-back { color: var(--ink); }
+html.volt .pay-owed { color: var(--owed); }
+html.volt .pay-settled { color: var(--paid); }
+html.volt .budget-row:hover { background: var(--bg); }
+
+@media (prefers-reduced-motion: reduce) {
+  html.volt .btn { transition: none; }
+  html.volt .btn:active:not(:disabled) { transform: none; }
+}
+
+/* Proportional figures for money everywhere Volt is on (see the Type note). */
+html.volt .fin-split-item dd, html.volt .t-cost, html.volt .budget-num, html.volt .pay-balance,
+html.volt .fin-budget-hero, html.volt .fin-dues-hero, html.volt .cost-row, html.volt .txn-amount { font-variant-numeric: normal; }
+html.volt .fin-split-item dd { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+@media (max-width: 720px) {
+  html.volt .navbar-mobile { background: #ffffff; }
+}
+
+/* ---------- Wordmark (approved 2026-11-19) ----------
+   "Season Tempo" in Schibsted Grotesk on Volt screens; the current uppercase
+   wordmark everywhere else until those screens move to Volt. The two rules
+   outside html.volt only keep the current wordmark exactly as it was (the
+   older `.brand-word span` rule would otherwise colour it gold). */
+.brand-word > .brand-word-current { color: inherit; }
+.brand-word > .brand-word-volt { display: none; }
+html.volt .brand-word > .brand-word-current { display: none; }
+html.volt .brand-word > .brand-word-volt {
+  display: inline; color: inherit; font-family: var(--font-display); font-weight: 800;
+  letter-spacing: -0.025em; text-transform: none; font-size: 1.12em;
+}
+
+/* ---------- Group 1 refinements (2026-11-19) ---------- */
+
+/* Home: the season, team and finance summaries carry their weight beside the
+   Next up card. Bigger figures, more room, each figure first. */
+@media (min-width: 721px) {
+  html.volt .snapshots { margin-top: 18px; }
+  html.volt .snapshot { padding: 26px 28px 24px; gap: 4px; }
+  html.volt .snapshot:first-child { padding-left: 28px; }
+  html.volt .snap-head { gap: 10px; }
+  html.volt .snap-label { font-size: 12.5px; }
+  html.volt .snap-fact { margin-top: 14px; }
+  html.volt .snap-value { font-size: 52px; font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; }
+  html.volt .snap-descriptor { display: block; margin-top: 6px; font-size: 16px; color: var(--body); font-weight: 550; }
+  html.volt .snap-meta { margin-top: 10px; font-size: 14.5px; }
+  html.volt .snap-link { padding-top: 18px; font-size: 14.5px; }
+}
+@media (max-width: 720px) {
+  html.volt .snap-value { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; }
+  html.volt .snap-descriptor { font-size: 14px; }
+}
+
+/* Tournaments on phones: no grey frame around Next up and Needs action. */
+@media (max-width: 720px) {
+  html.volt .tiq-band { background: transparent; border: 0; padding: 0; border-radius: 0; }
+  html.volt .tiq-band .briefing { background: #fff; box-shadow: var(--raise); border-radius: 20px; padding: 16px; }
+  html.volt .tiq-band-grid { gap: 12px; }
+}
+
+/* Player Dues filters: compact chips that wrap, the selected one filled in ink. */
+@media (max-width: 640px) {
+  html.volt .pay-views {
+    display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-bottom: 14px;
+    box-shadow: none; border: 0; border-radius: 0; background: transparent; overflow: visible;
+  }
+  html.volt .pay-views .segment,
+  html.volt .pay-views .segment:nth-child(odd),
+  html.volt .pay-views .segment:nth-child(-n + 2),
+  html.volt .pay-views .segment:first-child {
+    flex: 0 0 auto; min-height: 44px; padding: 0 12px; gap: 6px;
+    border: 0; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-strong);
+    font-size: 13.5px; font-weight: 600; color: var(--ink); letter-spacing: -0.005em;
+  }
+  html.volt .pay-views .segment.on { background: var(--ink); color: #fff; box-shadow: none; }
+  html.volt .pay-views .seg-count { background: var(--sunk); color: var(--muted); }
+  html.volt .pay-views .segment.on .seg-count { background: rgba(255, 255, 255, 0.18); color: #fff; }
+}
+
+/* Needs attention: a clear Show / Hide control. */
+.fin-attention-toggle {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  min-height: 44px; padding: 0 14px 0 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: #fff; color: var(--navy); box-shadow: inset 0 0 0 1px var(--border);
+  font: inherit; font-size: 14px; font-weight: 700;
+}
+.fin-attention-toggle svg { width: 16px; height: 16px; }
+html.volt .fin-attention-head { align-items: center; }
+html.volt .fin-attention-toggle { color: var(--ink); box-shadow: inset 0 0 0 1px rgba(12, 15, 20, 0.22); }
+html.volt .fin-attention-toggle:hover { box-shadow: inset 0 0 0 1px var(--ink); }
+html.volt .fin-attention-toggle[aria-expanded="true"] { background: var(--ink); color: #fff; box-shadow: none; }
+html.volt .fin-attention-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* =====================================================================
+   Group 1 interactions (2026-11-19). New components only; every class is
+   prefixed st- so nothing outside Home, Tournaments and Finance changes.
+   ===================================================================== */
+html.volt .st-eyebrow { display: block; font-family: var(--font-volt-mono); font-weight: 500; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.st-spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: st-spin .7s linear infinite; margin-right: 6px; vertical-align: -2px; }
+@keyframes st-spin { to { transform: rotate(360deg); } }
+html.volt .st-chip-volt { display: inline-flex; align-items: center; min-height: 24px; padding: 0 9px; border-radius: 999px; background: var(--volt); color: var(--ink); font-family: var(--font-volt-mono); font-size: 11px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; }
+html.volt .st-link { align-self: flex-start; color: var(--ink); font-weight: 650; font-size: 14px; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; background: none; border: 0; padding: 0; min-height: 32px; cursor: pointer; }
+html.volt .st-bar { display: flex; height: 10px; border-radius: 999px; background: var(--sunk); overflow: hidden; }
+html.volt .st-bar i { display: block; height: 100%; transition: width .52s cubic-bezier(.2,.8,.2,1); }
+html.volt .st-bar-paid { background: var(--ink); }
+html.volt .st-bar-topay { background: repeating-linear-gradient(135deg, #8d95a2 0 3px, #b9bfc8 3px 6px); }
+html.volt .st-bar-dues { background: var(--paid, #067a4b); }
+html.volt .st-bar-volt { background: var(--volt); box-shadow: inset 0 0 0 1px rgba(12,15,20,.12); }
+
+/* Toasts: global, because they can outlive the screen that raised them. */
+.st-toasts { position: fixed; z-index: 90; right: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; width: min(420px, calc(100vw - 32px)); }
+.st-toast { pointer-events: auto; width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 14px; border-radius: 16px; background: #0c0f14; color: #fff; box-shadow: 0 2px 6px rgba(12,15,20,.1), 0 24px 60px -18px rgba(12,15,20,.45); font-size: 14px; position: relative; overflow: hidden; animation: st-tin .3s cubic-bezier(.2,.8,.2,1); }
+.st-toast.is-error { background: #c21b3a; }
+.st-toast p { margin: 0; flex: 1; min-width: 0; line-height: 1.35; overflow-wrap: anywhere; }
+.st-toast-icon { width: 22px; height: 22px; border-radius: 50%; background: #d2ff3d; color: #0c0f14; display: grid; place-items: center; flex: none; }
+.st-toast.is-error .st-toast-icon { background: #fff; color: #c21b3a; }
+.st-toast-act { min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: #d2ff3d; color: #0c0f14; font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+.st-toast.is-error .st-toast-act { background: #fff; color: #c21b3a; }
+.st-toast-x { width: 36px; height: 36px; border: 0; background: transparent; color: inherit; display: grid; place-items: center; border-radius: 10px; cursor: pointer; flex: none; }
+.st-toast-life { position: absolute; left: 0; bottom: 0; height: 3px; background: #d2ff3d; opacity: .7; animation: st-life linear forwards; }
+.st-toast.is-error .st-toast-life { background: #fff; }
+.st-toast.is-paused .st-toast-life { animation-play-state: paused; }
+@keyframes st-life { from { width: 100%; } to { width: 0; } }
+@keyframes st-tin { from { transform: translateY(12px); opacity: 0; } }
+@media (max-width: 720px) {
+  .st-toasts { left: 12px; right: 12px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); align-items: stretch; }
+}
+
+/* Season tempo */
+html.volt .st-tempo { padding: 18px 22px 14px; margin-bottom: 18px; }
+html.volt .st-tempo-h { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; }
+html.volt .st-tempo-h b { font-size: 15px; color: var(--ink); font-weight: 750; }
+html.volt .st-tempo-h span { font-size: 13.5px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+html.volt .st-track { position: relative; height: 54px; margin: 8px 14px 0; }
+html.volt .st-track-line { position: absolute; left: 0; right: 0; top: 26px; height: 2px; background: var(--line); border-radius: 2px; }
+html.volt .st-track-done { position: absolute; left: 0; top: 26px; height: 2px; background: var(--ink); border-radius: 2px; }
+html.volt .st-today { position: absolute; top: 0; bottom: 4px; width: 0; border-left: 2px dotted var(--ink); }
+html.volt .st-today span { position: absolute; top: -3px; left: 5px; font-family: var(--font-volt-mono); font-size: 10.5px; color: var(--ink); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+html.volt .st-beat { position: absolute; top: 27px; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; background: transparent; border-radius: 50%; cursor: pointer; }
+html.volt .st-beat::before { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2.5px var(--ink); transition: transform .16s cubic-bezier(.2,.8,.2,1); }
+html.volt .st-beat:hover::before, html.volt .st-beat.is-on::before { transform: translate(-50%, -50%) scale(1.3); }
+html.volt .st-beat.is-played::before { background: var(--ink); }
+html.volt .st-beat.is-unreg::before { box-shadow: inset 0 0 0 2.5px var(--due, #a64b00); }
+html.volt .st-beat.is-wait::before { box-shadow: inset 0 0 0 2.5px var(--due, #a64b00); background: repeating-linear-gradient(135deg, #fff1df 0 2px, #fff 2px 4px); }
+html.volt .st-beat.is-maybe::before { box-shadow: none; border: 2px dashed #8a93a0; background: transparent; }
+html.volt .st-beat.is-next::before { width: 26px; height: 26px; background: var(--volt); box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 6px rgba(210,255,61,.35); }
+html.volt .st-beat.is-on::before { outline: 2px solid var(--ink); outline-offset: 3px; }
+html.volt .st-months { position: relative; height: 16px; margin: 0 14px; font-family: var(--font-volt-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+html.volt .st-months span { position: absolute; top: 0; transform: translateX(-2px); white-space: nowrap; }
+html.volt .st-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+html.volt .st-key span { display: inline-flex; align-items: center; gap: 6px; }
+html.volt .st-key i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 2px var(--ink); }
+html.volt .st-key i.is-played { background: var(--ink); } html.volt .st-key i.is-next { background: var(--volt); }
+html.volt .st-key i.is-unreg { box-shadow: inset 0 0 0 2px var(--due, #a64b00); } html.volt .st-key i.is-wait { box-shadow: inset 0 0 0 2px var(--due, #a64b00); background: #fff1df; }
+html.volt .st-key i.is-maybe { box-shadow: none; border: 1.5px dashed #8a93a0; }
+html.volt .st-callout { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px 10px 10px 14px; border-radius: 14px; background: var(--sunk); animation: st-tin .2s ease; }
+html.volt .st-callout > div { flex: 1; }
+html.volt .st-callout b { display: block; color: var(--ink); font-size: 14.5px; overflow-wrap: anywhere; }
+html.volt .st-callout span { display: block; font-size: 13px; color: var(--muted); }
+html.volt .st-callout-x { width: 40px; height: 40px; border: 0; background: transparent; border-radius: 10px; display: grid; place-items: center; cursor: pointer; color: var(--ink); flex: none; }
+html.volt .st-tempo-note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 520px) { html.volt .st-months span.is-odd { display: none; } }
+
+/* Home */
+html.volt .st-home-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 18px; align-items: start; }
+html.volt .st-home-grid.is-single { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+html.volt .st-wk { background: var(--ink); color: #c9ced6; border-radius: 24px; padding: 24px 24px 20px; position: relative; overflow: hidden; min-width: 0; }
+html.volt .st-wk::after { content: ""; position: absolute; right: -70px; top: -70px; width: 200px; height: 200px; border-radius: 50%; background: var(--volt); pointer-events: none; }
+html.volt .st-wk > * { position: relative; z-index: 1; }
+html.volt .st-wk-eyebrow { display: flex; align-items: center; gap: 10px; font-family: var(--font-volt-mono); font-size: 12px; color: var(--volt); text-transform: uppercase; letter-spacing: .06em; }
+html.volt .st-wk-count { margin-top: 12px; font-family: var(--font-display); font-weight: 800; font-size: 60px; line-height: .9; color: var(--volt); letter-spacing: -.05em; }
+html.volt .st-wk-count small { font-family: var(--font-volt-mono); font-weight: 500; font-size: 12.5px; color: #c9ced6; letter-spacing: .06em; text-transform: uppercase; margin-left: 8px; vertical-align: 10px; }
+html.volt .st-wk h2 { margin: 10px 0 6px; font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1.08; color: #fff; letter-spacing: -.03em; text-wrap: balance; overflow-wrap: anywhere; max-width: 24ch; }
+html.volt .st-wk.is-full h2 { font-size: 34px; }
+html.volt .st-wk-meta { margin: 0; font-size: 14.5px; line-height: 1.5; color: #c9ced6; }
+html.volt .st-wk-meta a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,.35); text-underline-offset: 3px; }
+html.volt .st-ready { margin: 18px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+html.volt .st-ready li { background: rgba(255,255,255,.06); border-radius: 14px; padding: 12px 14px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+html.volt .st-ready .k { font-family: var(--font-volt-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #9aa2ae; }
+html.volt .st-ready .v { color: #fff; font-weight: 650; font-size: 14.5px; display: flex; align-items: flex-start; gap: 7px; line-height: 1.3; }
+html.volt .st-ready .v::before { content: ""; width: 16px; height: 16px; margin-top: 1px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 2px #ffb866; }
+html.volt .st-ready .v.ok::before { box-shadow: none; background: var(--volt) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%230C0F14' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+html.volt .st-ready .v.wait::before { box-shadow: inset 0 0 0 2px #ffb866; background: repeating-linear-gradient(135deg, rgba(255,184,102,.5) 0 2px, transparent 2px 4px); }
+html.volt .st-ready .s { font-size: 12.5px; color: #9aa2ae; overflow-wrap: anywhere; }
+html.volt .st-ready .btn { margin-top: 6px; align-self: flex-start; }
+html.volt .st-games { margin: 16px 0 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.1); }
+html.volt .st-games li { display: grid; grid-template-columns: 86px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 14px; }
+html.volt .st-games .t { color: #fff; font-weight: 700; }
+html.volt .st-games .t small { display: block; color: #9aa2ae; font-weight: 500; font-size: 11px; font-family: var(--font-volt-mono); text-transform: uppercase; }
+html.volt .st-games .o { color: #fff; min-width: 0; overflow-wrap: anywhere; }
+html.volt .st-games .o span { color: #9aa2ae; }
+html.volt .st-games .f { color: #9aa2ae; font-size: 12.5px; white-space: nowrap; }
+html.volt .st-wk-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+html.volt .st-btn-dline { background: transparent; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+html.volt .st-btn-dline:hover { box-shadow: inset 0 0 0 1px #fff; color: #fff; }
+html.volt .st-todo { padding: 20px 20px 12px; min-width: 0; }
+html.volt .st-todo-h h2 { margin: 0; font-family: var(--font-display); font-weight: 750; font-size: 19px; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+html.volt .st-cnt { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; background: var(--ink); color: var(--volt); font-size: 13px; font-weight: 700; font-family: var(--font-body); }
+html.volt .st-tasks { list-style: none; margin: 10px 0 0; padding: 0; }
+html.volt .st-task { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
+html.volt .st-task:first-child { border-top: 0; }
+html.volt .st-task .briefing-dot { margin-top: 6px; }
+html.volt .st-task-title { display: block; color: var(--ink); font-weight: 650; font-size: 14.5px; line-height: 1.35; text-decoration: none; overflow-wrap: anywhere; }
+html.volt .st-task-why { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+html.volt .st-task-acts { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+html.volt .st-task-where { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 650; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+html.volt .st-payrows { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+html.volt .st-payrows li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 5px 0; }
+html.volt .st-av { width: 30px; height: 30px; border-radius: 50%; background: var(--sunk); color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: 11.5px; }
+html.volt .st-payrow-nm { min-width: 0; }
+html.volt .st-payrow-nm b, html.volt .st-payrow-nm span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.volt .st-payrow-nm b { font-size: 14px; color: var(--ink); }
+html.volt .st-payrow-nm span { font-size: 12.5px; color: var(--muted); }
+html.volt .st-payrow-amt { font-weight: 700; color: var(--ink); }
+html.volt .st-clear { margin: 14px 0 6px; color: var(--muted); font-size: 14px; display: flex; gap: 10px; align-items: center; }
+html.volt .st-clear-mark { width: 26px; height: 26px; border-radius: 50%; background: var(--volt); flex: none; }
+html.volt .st-todo-all { margin: 8px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+html.volt .st-todo-all a { color: var(--ink); font-weight: 650; }
+html.volt .st-empty { padding: 24px; }
+html.volt .st-empty h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 20px; color: var(--ink); }
+html.volt .st-empty p { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; }
+html.volt .st-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 18px; padding: 0; }
+html.volt .st-fig { padding: 22px 24px 18px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+html.volt .st-fig + .st-fig { box-shadow: inset 1px 0 0 var(--line); }
+html.volt .st-fig-big { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: .95; letter-spacing: -.045em; color: var(--ink); margin-top: 4px; }
+html.volt .st-fig-big small, html.volt .st-fcard-big small { font-size: .42em; color: var(--muted); letter-spacing: -.01em; }
+html.volt .st-fig-what { font-size: 14px; color: var(--body); font-weight: 550; }
+html.volt .st-fig .st-bar { margin-top: 8px; }
+html.volt .st-fig-det { font-size: 13px; color: var(--muted); }
+
+/* Tournaments */
+html.volt .st-views { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-strong); margin-bottom: 18px; max-width: 100%; }
+html.volt .st-views button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 650; font-size: 14px; color: var(--body); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
+html.volt .st-views button small { font-family: var(--font-volt-mono); font-size: 11px; color: var(--muted); }
+html.volt .st-views button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+html.volt .st-views button[aria-pressed="true"] small { color: var(--volt); }
+html.volt .st-views button:disabled { opacity: .5; cursor: default; }
+html.volt .st-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0; align-content: start; }
+html.volt .st-stats > div { padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+html.volt .st-stats > div:nth-child(even) { box-shadow: inset 1px 0 0 var(--line); }
+html.volt .st-stats > div:nth-child(n+3) { border-top: 1px solid var(--line); }
+html.volt .st-stats b { font-family: var(--font-display); font-weight: 800; font-size: 26px; color: var(--ink); letter-spacing: -.03em; }
+html.volt .st-stats b em { font-style: normal; color: var(--muted); font-size: .7em; }
+html.volt .st-stats > div > span:last-child { font-size: 13px; color: var(--muted); }
+html.volt .st-pipe { display: flex; flex-direction: column; gap: 6px; min-width: 150px; max-width: 220px; }
+html.volt .st-pipe-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+html.volt .st-pipe-steps i { height: 6px; border-radius: 4px; background: var(--sunk); transition: background .4s ease; }
+html.volt .st-pipe-steps i.on { background: var(--ink); }
+html.volt .st-pipe-steps i.part { background: linear-gradient(90deg, var(--ink) 50%, var(--sunk) 50%); }
+html.volt .st-pipe.is-maybe .st-pipe-steps i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+html.volt .st-pipe.is-wait .st-pipe-steps i:first-child { background: var(--ink); }
+html.volt .st-pipe.is-wait .st-pipe-steps i:nth-child(2) { background: repeating-linear-gradient(135deg, #e7a25a 0 2px, var(--sunk) 2px 4px); }
+html.volt .st-pipe-st { font-size: 13px; font-weight: 650; color: var(--ink); }
+html.volt .st-pipe-st span { color: var(--muted); font-weight: 500; }
+html.volt .t-quick { display: flex; justify-content: flex-end; min-width: 0; }
+html.volt .st-row-next { margin-left: 8px; vertical-align: 2px; }
+html.volt .st-wkv { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 18px; align-items: start; margin-bottom: 24px; }
+html.volt .st-wkv-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+html.volt .st-loc, html.volt .st-sched { padding: 20px; }
+html.volt .st-loc h3, html.volt .st-sched h3 { margin: 4px 0 8px; font-family: var(--font-display); font-weight: 750; font-size: 18px; color: var(--ink); overflow-wrap: anywhere; }
+html.volt .st-loc p { margin: 0 0 6px; font-size: 14px; line-height: 1.5; }
+html.volt .st-loc-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+html.volt .st-sched-day { margin: 14px 0 4px; }
+html.volt .st-sched-g { display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; align-items: baseline; }
+html.volt .st-sched-g b { color: var(--ink); }
+html.volt .st-sched-g span { min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+html.volt .st-sched-g em { font-style: normal; color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+/* Finance */
+html.volt .st-fband { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr); gap: 18px; align-items: stretch; margin-bottom: 18px; }
+html.volt .st-fcard { padding: 22px 24px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+html.volt .st-fcard-big { margin: 6px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 58px; line-height: .95; letter-spacing: -.045em; color: var(--ink); }
+html.volt .st-fcard-big.is-over { color: var(--owed, #c21b3a); }
+html.volt .st-fcard-of { margin: 4px 0 6px; font-size: 14px; color: var(--muted); }
+html.volt .st-fcard-of strong { color: var(--ink); }
+html.volt .st-fcard-h { margin: 8px 0 0; font-family: var(--font-display); font-weight: 750; font-size: 20px; color: var(--ink); }
+html.volt .st-fcard-note { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+html.volt .st-fcard .fin-view-link { margin-top: auto; align-self: flex-start; }
+html.volt .st-nextact { background: var(--ink); color: #c9ced6; border-radius: var(--radius-card, 18px); padding: 22px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+html.volt .st-nextact .st-eyebrow { color: var(--volt); }
+html.volt .st-nextact p { margin: 0; color: #fff; font-family: var(--font-display); font-weight: 750; font-size: 20px; line-height: 1.2; letter-spacing: -.02em; overflow-wrap: anywhere; }
+html.volt .st-nextact-sub { font-size: 13.5px; color: #9aa2ae; }
+html.volt .st-nextact-acts { margin-top: auto; padding-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Sheets (built on modal-sheet: phone layout already verified) */
+html.volt .st-sheet { max-width: 520px; }
+html.volt .st-sheet-sm { max-width: 460px; }
+html.volt .st-sheet-head { display: flex; align-items: flex-start; gap: 10px; }
+html.volt .st-sheet-titles { flex: 1; min-width: 0; }
+html.volt .st-sheet-titles h2 { margin: 2px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 21px; line-height: 1.15; color: var(--ink); letter-spacing: -.02em; overflow-wrap: anywhere; outline: none; }
+html.volt .st-sheet-back { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; min-height: 32px; font: inherit; font-weight: 650; font-size: 13.5px; color: var(--ink); cursor: pointer; margin-bottom: 2px; }
+html.volt .st-sheet-close { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--sunk); font: inherit; font-weight: 650; font-size: 13.5px; color: var(--ink); cursor: pointer; flex: none; }
+html.volt .st-sheet-foot { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+html.volt .st-grow { flex: 1; }
+html.volt .st-note { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+html.volt .st-hint { font-size: 12.5px; color: var(--muted); }
+html.volt .st-label { font-weight: 650; font-size: 13.5px; color: var(--ink); }
+html.volt .st-warn { margin: 6px 0 0; font-size: 12.5px; color: var(--due, #a64b00); font-weight: 600; }
+html.volt .st-err { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--owed-t, #ffe8ec); color: var(--owed, #c21b3a); font-size: 13.5px; line-height: 1.45; }
+html.volt .st-err svg { flex: none; margin-top: 1px; }
+html.volt .st-dup { padding: 12px 14px; border-radius: 12px; background: var(--due-t, #fff1df); color: var(--body); font-size: 13.5px; line-height: 1.45; }
+html.volt .st-dup b { color: var(--due, #a64b00); }
+html.volt .st-ok { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--paid-t, #e5f8ee); color: var(--paid, #067a4b); font-size: 13.5px; font-weight: 600; }
+html.volt .st-change { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--sunk); font-size: 14px; }
+html.volt .st-change b { color: var(--ink); }
+html.volt dl.st-kv { display: flex; flex-direction: column; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); }
+html.volt dl.st-kv div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 14px; }
+html.volt dl.st-kv div:first-child { border-top: 0; }
+html.volt dl.st-kv dt { color: var(--muted); }
+html.volt dl.st-kv dd { margin: 0; color: var(--ink); text-align: right; }
+html.volt .st-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; cursor: pointer; }
+html.volt .st-check input { width: 22px; height: 22px; margin: 0; accent-color: #0c0f14; flex: none; }
+html.volt .st-balance { display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 14px; background: var(--sunk); }
+html.volt .st-balance-fig { font-family: var(--font-display); font-weight: 800; font-size: 30px; color: var(--ink); letter-spacing: -.03em; }
+html.volt .st-balance-sub { font-size: 13px; color: var(--muted); }
+html.volt .st-balance .st-bar { margin-top: 10px; height: 8px; background: #fff; }
+html.volt .st-money { position: relative; }
+html.volt .st-money::before { content: "$"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--muted); pointer-events: none; }
+html.volt .st-money input { padding-left: 32px; font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; min-height: 58px; width: 100%; }
+html.volt .st-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+html.volt .st-quick button { min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--sunk); font: inherit; font-weight: 650; font-size: 13px; color: var(--ink); cursor: pointer; }
+html.volt .st-quick button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+html.volt .st-hist { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13.5px; }
+html.volt .st-hist li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+html.volt .st-hist b { color: var(--ink); }
+html.volt .st-prog { display: flex; gap: 6px; }
+html.volt .st-prog i { flex: 1; height: 5px; border-radius: 3px; background: var(--sunk); transition: background .3s ease; }
+html.volt .st-prog i.on { background: var(--ink); }
+html.volt .st-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+html.volt .st-kinds button { min-height: 64px; padding: 10px 12px; border: 0; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line-strong); text-align: left; display: flex; flex-direction: column; gap: 2px; justify-content: center; font: inherit; cursor: pointer; }
+html.volt .st-kinds button b { color: var(--ink); font-size: 14.5px; }
+html.volt .st-kinds button span { color: var(--muted); font-size: 12.5px; }
+html.volt .st-kinds button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); background: #fbffec; }
+html.volt .st-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--sunk); }
+html.volt .st-seg button { min-height: 44px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-weight: 650; font-size: 14px; color: var(--body); cursor: pointer; }
+html.volt .st-seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: var(--raise); }
+html.volt .st-picker { margin-top: 8px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line-strong); overflow: hidden; }
+html.volt .st-opt { width: 100%; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 52px; padding: 8px 14px; border: 0; border-top: 1px solid var(--line); background: #fff; text-align: left; font: inherit; cursor: pointer; }
+html.volt .st-opt:first-child { border-top: 0; }
+html.volt .st-opt b { display: block; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+html.volt .st-opt span span { display: block; color: var(--muted); font-size: 12.5px; }
+html.volt .st-rad { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line-strong); }
+html.volt .st-opt[aria-pressed="true"] { background: #fbffec; }
+html.volt .st-opt[aria-pressed="true"] .st-rad { box-shadow: inset 0 0 0 6px var(--ink); }
+html.volt .st-opt.is-add { grid-template-columns: 22px minmax(0, 1fr); background: var(--sunk); font-weight: 700; color: var(--ink); }
+html.volt .st-opt-fig { font-size: 13px; color: var(--muted); }
+html.volt .st-review { list-style: none; margin: 0; padding: 0; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+html.volt .st-review li { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 12px 14px; border-top: 1px solid var(--line); font-size: 14px; }
+html.volt .st-review li:first-child { border-top: 0; }
+html.volt .st-review span { color: var(--muted); font-size: 13px; }
+html.volt .st-review b { color: var(--ink); overflow-wrap: anywhere; font-weight: 650; }
+html.volt .st-impact { padding: 16px; border-radius: 14px; background: var(--ink); color: #c9ced6; font-size: 14px; }
+html.volt .st-impact .st-eyebrow { color: var(--volt); }
+html.volt .st-impact div { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+html.volt .st-impact b { color: #fff; }
+html.volt .st-impact p { margin: 10px 0 0; font-size: 13px; }
+html.volt .st-more summary { min-height: 44px; display: flex; align-items: center; font-weight: 650; font-size: 14px; color: var(--ink); cursor: pointer; }
+
+@media (max-width: 1100px) {
+  html.volt .st-fband { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  html.volt .st-nextact { grid-column: 1 / -1; }
+  html.volt .st-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html.volt .st-fig:nth-child(3) { box-shadow: inset 0 1px 0 var(--line); }
+  html.volt .st-fig:nth-child(4) { box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+}
+@media (max-width: 900px) {
+  html.volt .st-home-grid, html.volt .st-home-grid.is-single, html.volt .st-wkv { grid-template-columns: minmax(0, 1fr); }
+  html.volt .st-ready { grid-template-columns: minmax(0, 1fr); }
+  html.volt .st-ready li { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; }
+  html.volt .st-ready li .k { width: 100%; }
+  html.volt .st-ready .btn { margin-top: 0; }
+}
+@media (max-width: 720px) {
+  html.volt .st-tempo { padding: 14px 14px 12px; margin-bottom: 14px; }
+  html.volt .st-track { margin: 8px 10px 0; }
+  html.volt .st-months { margin: 0 10px; }
+  html.volt .st-home-grid { gap: 14px; }
+  html.volt .st-wk { padding: 20px 18px 18px; border-radius: 22px; }
+  html.volt .st-wk::after { width: 140px; height: 140px; right: -56px; top: -56px; }
+  html.volt .st-wk-count { font-size: 50px; }
+  html.volt .st-wk h2, html.volt .st-wk.is-full h2 { font-size: 24px; }
+  html.volt .st-games li { grid-template-columns: 74px minmax(0, 1fr); }
+  html.volt .st-games .f { grid-column: 2; }
+  html.volt .st-wk-acts .btn { flex: 1 1 100%; }
+  html.volt .st-todo { padding: 16px 16px 10px; }
+  html.volt .st-figs { margin-top: 14px; }
+  html.volt .st-fig { padding: 16px; }
+  html.volt .st-fig-big { font-size: 34px; }
+  html.volt .st-views { display: flex; width: 100%; }
+  html.volt .st-views button { flex: 1; justify-content: center; padding: 0 8px; }
+  html.volt .st-views button small { display: none; }
+  html.volt .st-pipe { max-width: none; min-width: 0; }
+  html.volt .t-quick { justify-content: flex-start; }
+  html.volt .st-fband { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  html.volt .st-fcard { padding: 18px; }
+  html.volt .st-fcard-big { font-size: 46px; }
+  html.volt .st-sheet-foot .btn { flex: 1; }
+  html.volt .st-sheet-foot .st-grow { display: none; }
+  html.volt .st-review li { grid-template-columns: 90px minmax(0, 1fr) auto; }
+}
+@media (max-width: 380px) {
+  html.volt .st-kinds { grid-template-columns: minmax(0, 1fr); }
+  html.volt .st-figs { grid-template-columns: minmax(0, 1fr); }
+  html.volt .st-fig:nth-child(n) { box-shadow: inset 0 1px 0 var(--line); }
+  html.volt .st-fig:first-child { box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-toast, html.volt .st-callout { animation: none; }
+  .st-toast-life { display: none; }
+  html.volt .st-bar i, html.volt .st-pipe-steps i, html.volt .st-beat::before { transition: none; }
+}
+html.volt .st-views { width: fit-content; }
+html.volt .st-fband > * { margin: 0; }
+@media (max-width: 720px) { html.volt .st-views { width: 100%; } }
+/* Phone Finance sections (approved 2026-11-18): each section shows only its
+   own panel; the Next card belongs to the overview. */
+@media (max-width: 720px) {
+  html.volt .fin-m-section .st-nextact { display: none; }
+  html.volt .fin-m-section .st-fband { grid-template-columns: minmax(0, 1fr); }
+  html.volt .fin-m-section.fin-tab-payments .fin-dues-panel { border-top: 0; padding: 18px; margin: 0; }
+}
+@media (max-width: 720px) { html.volt .fin-m-overview .st-fband { display: none; } }
+html.volt .st-callout-step { display: inline-flex; gap: 2px; flex: none; }
+html.volt .st-callout-step button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: #fff; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+html.volt .st-callout-step button:disabled { opacity: .35; cursor: default; }
+@media (max-width: 420px) { html.volt .st-callout { flex-wrap: wrap; } html.volt .st-callout > div { flex: 1 1 100%; } }

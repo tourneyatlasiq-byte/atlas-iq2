@@ -23,6 +23,9 @@ import {
   categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { GuidedTransaction } from "./GuidedTransaction";
+import { RecordPaymentSheet } from "./RecordPaymentSheet";
+import { CountUp } from "./CountUp";
 import {
   saveBudgetItem,
   deleteBudgetItem,
@@ -383,6 +386,8 @@ export function FinanceClient({
   // existing creation path — nothing is created automatically.
   const [duesForPlayer, setDuesForPlayer] = useState(null);
   const [openCats, setOpenCats] = useState({});
+  // The payment being recorded in the prefilled sheet (Group 1).
+  const [paying, setPaying] = useState(null);
 
   const actions = useMemo(
     () => (seasonPhase === "current" ? financeActions(payments, rosterPlayers) : []),
@@ -616,133 +621,85 @@ export function FinanceClient({
         segments that fill the bar make Budget = Paid + To Pay + Available
         structural instead of something a caption has to explain.
       */}
-      <div className="summary-band summary-band-flat fin-band">
-        <div className="summary-band-grid">
-          <section className="fin-budget-panel">
-            <p className="fin-panel-label">Total season budget</p>
-            <p className="fin-budget-hero">{summaryMoney(summary.budgetedExpenses)}</p>
+      {/*
+        Three answers, in the order a coach asks them (Group 1, 2026-11-19):
+        how much budget is left to plan with, how much is owed, what to do next.
 
-            <BudgetSplit summary={summary} />
-
-            <p className="fin-budget-context">
-              {summary.budgetedExpenses > 0 ? (
-                <>
-                  <strong>{summary.percentCommitted ?? 0}% of budget committed</strong>
-                  <span className="muted">
-                    {" · "}
-                    {summaryMoney(summary.committedExpenses)} total
-                  </span>
-                </>
-              ) : (
-                "No budget planned for this season yet."
-              )}
+        "Available budget", not "Available": it is planned spending capacity,
+        Planned minus Committed, never cash on hand. The total, the one
+        segmented bar (Budget = Paid + To Pay + Available), the unassigned
+        commitments line and the dues scope note are all kept.
+      */}
+      <div className="st-fband fin-band">
+        <section className="card st-fcard fin-budget-panel" aria-labelledby="st-fa-h">
+          <p className="st-eyebrow" id="st-fa-h">Available budget</p>
+          {summary.budgetedExpenses > 0 ? (<>
+            <p className={`st-fcard-big${summary.availableBudget < 0 ? " is-over" : ""}`}>
+              <CountUp value={summary.availableBudget} format="split" />
             </p>
-
-            {/* Shown only when unassigned commitments exist, so a team with
-                clean data sees no extra figures.
-
-                Available Budget keeps its existing meaning — budget not yet
-                committed TO A CATEGORY — and is not recalculated here.
-                buildBudget can only reach a tournament through
-                budget_item_id, so a committed tournament without one reduces
-                no category. Projected Available states what is left once
-                those commitments are accounted for, without redefining
-                anything above it. */}
+            <p className="st-fcard-of">
+              {summary.availableBudget < 0 ? "over" : "left to plan with"}, of a <strong>{summaryMoney(summary.budgetedExpenses)}</strong> season budget · {summary.percentCommitted ?? 0}% committed
+            </p>
+            <BudgetSplit summary={summary} />
             {unassignedTotal > 0 && (
               <p className="fin-unassigned-line">
                 <span className="fin-unassigned-mark" aria-hidden="true" />
                 <span>
                   <strong>{summaryMoney(unassignedTotal)}</strong> in tournament commitments isn&rsquo;t
-                  assigned to a budget category, so it isn&rsquo;t reflected in Available.{" "}
-                  <strong>{summaryMoney(projectedAvailable)}</strong> projected available.
+                  assigned to a budget category, so it isn&rsquo;t reflected in Available budget.{" "}
+                  <strong>{summaryMoney(projectedAvailable)}</strong> projected.
                 </span>
               </p>
             )}
+            <p className="st-fcard-note">Planned spending capacity, not cash on hand.</p>
+            <button className="fin-lead-link fin-view-link" onClick={() => goToTab("budget")}>View full budget →</button>
+          </>) : (<>
+            <h3 className="st-fcard-h">No budget planned yet</h3>
+            <p className="st-fcard-of">Add a line for each kind of cost. Available budget updates as you commit tournaments and record spending.</p>
+            <button className="fin-lead-link fin-view-link" onClick={() => goToTab("budget")}>Set up the budget →</button>
+          </>)}
+        </section>
 
-            <button className="fin-lead-link fin-view-link" onClick={() => goToTab("budget")}>
-              View full budget →
-            </button>
-          </section>
-
-          <section className="fin-dues-panel">
-            <p className="fin-panel-label">
-              {/* The "Player Dues ?" term tip was removed (H3, 2026-11): the
-                  Player Dues tab's "How this works" is the one Help entry
-                  here, and the tip's one extra fact (totals include players
-                  who have left) is stated on this panel below. */}
-              Player dues
-            </p>
-            <p className="fin-dues-hero">
-              {duesCollectedPercent(dues) ?? 0}%
-              <span className="fin-dues-hero-unit">collected</span>
-            </p>
-
-            <p className="fin-dues-amounts">
-              {money(dues.collected)} collected of {money(dues.expected)} in dues set
-            </p>
-
+        <section className="card st-fcard fin-dues-panel" aria-labelledby="st-fd-h">
+          <p className="st-eyebrow" id="st-fd-h">Outstanding dues</p>
+          {dues.expected > 0 ? (<>
+            <p className="st-fcard-big"><CountUp value={dues.outstanding} format="split" /></p>
+            <p className="st-fcard-of"><strong><CountUp value={dues.collected} /></strong> of {money(dues.expected)} collected · <CountUp value={duesCollectedPercent(dues) ?? 0} format="pct" /></p>
             <Meter value={dues.collected} total={dues.expected} hidePct />
-
-            <p className="fin-dues-outstanding">
-              <span className={dues.outstanding > 0 ? "fin-owed" : "fin-settled"}>
-                {dues.outstanding > 0
-                  ? `${money(dues.outstanding)} still to collect`
-                  : "All dues collected"}
+            <p className="fin-dues-scope">Covers every dues record for this season, including players who have since left the roster.</p>
+            <button className="fin-lead-link fin-view-link" onClick={() => selectAction("outstanding")}>View all player balances →</button>
+          </>) : (<>
+            <h3 className="st-fcard-h">Dues not set yet</h3>
+            <p className="st-fcard-of">Set what each player owes. Payments, partial payments and balances track from there.</p>
+            {canWrite && <button className="fin-lead-link fin-view-link" onClick={() => { goToTab("payments"); setEditPay("new"); }}>Set dues →</button>}
+          </>)}
+          {duesAction && (
+            <p className="fin-dues-gap">
+              <span className="fin-dues-gap-mark" aria-hidden="true" />
+              <span className="fin-dues-gap-text">
+                <strong>
+                  {duesAction.affected.length === 1 ? "1 player has no dues set" : `${duesAction.affected.length} players have no dues set`}
+                </strong>{": "}
+                {duesAction.affected.map((a) => a.player?.full_name).filter(Boolean).join(", ")}, not counted above.
+                {canWrite && (
+                  <button className="fin-lead-link fin-dues-gap-cta" onClick={() => { goToTab("payments"); setEditPay("new"); }}>Set dues →</button>
+                )}
               </span>
             </p>
+          )}
+        </section>
 
-            {/* Scope, stated generically.
-                These figures cover every dues obligation recorded for the
-                season, which is the right basis for accounting: a player who
-                leaves mid-season still owed what they owed, and money they
-                paid was really collected. That makes the total legitimately
-                larger than the current roster's, so the scope is named here
-                rather than left for a coach to discover by subtraction.
-                Deliberately not about any particular player — it stays true
-                whenever anyone leaves a team. */}
-            <p className="fin-dues-scope">
-              Covers every dues record for this season, including players who have since left
-              the roster.
-            </p>
-
-            <button className="fin-lead-link fin-view-link" onClick={() => selectAction("outstanding")}>
-              View all player balances →
-            </button>
-
-            {/* One compact line, not a card nested inside a card. A player with
-                no dues record is excluded from expected, collected AND
-                outstanding, so this is the only place they appear. */}
-            {duesAction && (
-              <p className="fin-dues-gap">
-                <span className="fin-dues-gap-mark" aria-hidden="true" />
-                <span className="fin-dues-gap-text">
-                  <strong>
-                    {duesAction.affected.length === 1
-                      ? "1 player has no dues set"
-                      : `${duesAction.affected.length} players have no dues set`}
-                  </strong>{" "}
-                  —{" "}
-                  {duesAction.affected
-                    .map((a) => a.player?.full_name)
-                    .filter(Boolean)
-                    .join(", ")}
-                  , not counted above.
-                  {canWrite && (
-                    <button
-                      className="fin-lead-link fin-dues-gap-cta"
-                      onClick={() => {
-                        goToTab("payments");
-                        setEditPay("new");
-                      }}
-                    >
-                      Set dues →
-                    </button>
-                  )}
-                </span>
-              </p>
-            )}
-          </section>
-        </div>
+        <NextAction
+          unassigned={unassignedTournaments}
+          payments={payments}
+          canWrite={canWrite}
+          seasonPhase={seasonPhase}
+          hasBudget={summary.budgetedExpenses > 0}
+          onAssign={() => { setNeedsOpen(true); requestAnimationFrame(() => document.getElementById("fin-attention-body")?.scrollIntoView({ block: "center" })); }}
+          onRecord={(p) => setPaying(p)}
+          onAddTxn={() => { showTab("transactions"); setEditTxn("new"); }}
+          onBudget={() => goToTab("budget")}
+        />
       </div>
 
       {/* An exception state, sized like one. Collapsed by default: the summary
@@ -755,12 +712,19 @@ export function FinanceClient({
               Needs attention
               <span className="fin-attention-count">{needsCount}</span>
             </p>
+            {/* Starts collapsed (approved 2026-11-18): one line until the
+                coach chooses to look. Show/Hide says what the tap does. */}
             <button
-              className="fin-lead-link"
+              type="button"
+              className="fin-attention-toggle"
               onClick={() => setNeedsOpen(!needsOpen)}
               aria-expanded={needsOpen}
+              aria-controls="fin-attention-body"
             >
-              {needsOpen ? "Hide" : "Review"} →
+              {needsOpen ? "Hide" : "Show"}
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d={needsOpen ? "M7 14l5-5 5 5" : "M7 10l5 5 5-5"} />
+              </svg>
             </button>
           </div>
 
@@ -782,7 +746,7 @@ export function FinanceClient({
           </p>
 
           {needsOpen && (
-            <div className="fin-attention-body">
+            <div className="fin-attention-body" id="fin-attention-body">
               {unassignedTournaments.length > 0 && (
                 <UnassignedCommitments
                   tournaments={unassignedTournaments}
@@ -977,7 +941,18 @@ export function FinanceClient({
         />
       )}
 
-      {editTxn && (
+      {editTxn === "new" && (
+        <GuidedTransaction
+          budgetItems={budgetItems}
+          tournaments={tournaments}
+          players={players}
+          facilities={facilities}
+          transactions={transactions}
+          onClose={() => setEditTxn(null)}
+        />
+      )}
+
+      {editTxn && editTxn !== "new" && (
         <TransactionForm
           row={editTxn === "new" ? null : editTxn}
           budgetItems={budgetItems}
@@ -1039,6 +1014,7 @@ export function FinanceClient({
           pending={pending}
           onClose={() => { closeDetail(); }}
           onRecord={(fd) => run(recordPayment, fd, { onDone: () => closeDetail(), success: "Payment recorded" })}
+          onRecordOpen={() => setPaying(detailPay)}
           onDeleteEntry={(entryId) => confirmDelete.ask(`entry:${entryId}`)}
           confirmingEntry={confirmDelete.asking}
           onCancelEntry={() => confirmDelete.cancel()}
@@ -1075,6 +1051,8 @@ export function FinanceClient({
           onCancel={() => setEditingTeamDues(false)}
         />
       )}
+
+      {paying && <RecordPaymentSheet p={paying} onClose={() => setPaying(null)} />}
 
       {editPay && (
         <PaymentForm
@@ -2569,7 +2547,7 @@ function FormerDuesTable({ rows, onOpen }) {
   );
 }
 
-function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry, onEdit,
+function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, onDeleteEntry, onEdit,
                         confirmingEntry = null, onCancelEntry, onConfirmEntry, drawerError = null }) {
   return (
     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
@@ -2636,26 +2614,11 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onDeleteEntry,
           {canWrite && p.balance > 0 && (
             <section className="detail-section">
               <h3 className="detail-section-title">Record a payment</h3>
-              <form action={onRecord}>
-                <input type="hidden" name="payment_id" value={p.id} />
-                <div className="field-row">
-                  <div className="field">
-                    <label htmlFor="r-amount">Amount</label>
-                    <input id="r-amount" name="amount" type="number" min="0.01" step="0.01" inputMode="decimal" required />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="r-date">Date</label>
-                    <input id="r-date" name="paid_date" type="date" required />
-                  </div>
-                </div>
-                <div className="field" style={{ marginTop: 12 }}>
-                  <label htmlFor="r-label">Label</label>
-                  <input id="r-label" name="month_label" placeholder="e.g. Feb 2027" />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ marginTop: 14 }} disabled={pending}>
-                  {pending ? "Saving…" : "Record payment"}
-                </button>
-              </form>
+              {/* Opens the prefilled sheet: the balance is the starting amount
+                  and stays editable, so a partial payment is one edit. */}
+              <button type="button" className="btn btn-primary" onClick={onRecordOpen} disabled={pending}>
+                Record {money(p.balance)} or another amount
+              </button>
             </section>
           )}
         </div>
@@ -3024,5 +2987,46 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
         </form>
       </div>
     </div>
+  );
+}
+
+
+/**
+ * The single most useful next step, from data already on the page.
+ *
+ *   1 a committed tournament with no budget line (Available budget is
+ *     understated until it is assigned)
+ *   2 the largest outstanding dues balance, recorded in place
+ *   3 otherwise, the next thing to set up or record
+ */
+function NextAction({ unassigned, payments, canWrite, seasonPhase, hasBudget, onAssign, onRecord, onAddTxn, onBudget }) {
+  let lab = "Next", txt, sub, btn = null;
+  const owing = (payments ?? []).filter((p) => !p.exempt && p.balance > 0).sort((a, b) => b.balance - a.balance);
+  if (seasonPhase === "past") {
+    lab = "Past season"; txt = "Nothing to act on"; sub = "Figures are kept as they were recorded.";
+  } else if (unassigned.length > 0) {
+    const u = unassigned[0];
+    txt = `Put ${u.amount > 0 ? summaryMoney(u.amount) + " for " : ""}${u.name} on a budget line`;
+    sub = "Until then it isn't counted in Available budget.";
+    if (canWrite) btn = <button type="button" className="btn btn-primary" onClick={onAssign}>Assign a budget line</button>;
+  } else if (owing.length > 0) {
+    const p = owing[0];
+    txt = `Collect ${money(p.balance)} from ${p.displayName}`;
+    sub = p.totalPaid > 0 ? `Paid ${money(p.totalPaid)} of ${money(p.totalDue)} so far` : "Nothing paid yet";
+    if (canWrite) btn = <button type="button" className="btn btn-primary" onClick={() => onRecord(p)}>Record {money(p.balance)}</button>;
+  } else if (!hasBudget) {
+    lab = "Start here"; txt = "Set up your season budget"; sub = "Everything else in Finance builds on it.";
+    btn = <button type="button" className="btn btn-primary" onClick={onBudget}>Open Budget</button>;
+  } else {
+    lab = "All caught up"; txt = "Nothing needs attention"; sub = "Record spending as it happens.";
+    if (canWrite) btn = <button type="button" className="btn btn-primary" onClick={onAddTxn}>Add transaction</button>;
+  }
+  return (
+    <section className="st-nextact" aria-label="Next action">
+      <span className="st-eyebrow">{lab}</span>
+      <p>{txt}</p>
+      <span className="st-nextact-sub">{sub}</span>
+      {btn && <div className="st-nextact-acts">{btn}</div>}
+    </section>
   );
 }

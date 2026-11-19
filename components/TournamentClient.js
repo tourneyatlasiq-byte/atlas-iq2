@@ -32,11 +32,13 @@ import {
   deleteTournament,
 } from "../lib/actions/tournaments";
 
-const DECISIONS = ["Considering", "Committed", "Declined"];
+import { DECISIONS, PAID_STATUSES, statusLine, registrationState } from "../lib/tournament-status";
+import { SeasonStrip } from "./SeasonStrip";
+import { WeekendCard, directionsUrl as weekendDirections, fmtTime } from "./WeekendCard";
+import { useQuickStatus, QuickButton } from "./QuickStatus";
 // Display order differs from the value list: Committed first, since that is
 // what a coach checks before anything else.
 const GROUP_ORDER = ["Committed", "Considering", "Declined"];
-const PAID_STATUSES = ["Not Registered", "Waitlisted", "Registered", "Deposit Paid", "Paid in Full"];
 const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay"];
 
 
@@ -103,8 +105,18 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ qabEnabled = false, tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {} }) {
+export function TournamentClient({ qabEnabled = false, tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {}, season = null, transactions = [], nextUp = null, seasonAvailable = null, initialView = "plan" }) {
   const router = useRouter();
+  // Season plan (every weekend, quick status) or Next weekend (run the day).
+  const [view, setViewState] = useState(initialView);
+  function setView(v) {
+    setViewState(v);
+    const url = new URL(window.location.href);
+    if (v === "weekend") url.searchParams.set("view", "weekend"); else url.searchParams.delete("view");
+    window.history.replaceState(null, "", url);
+  }
+  const quick = useQuickStatus({ transactions, budgetLines, seasonAvailable });
+  const nextT = nextUp?.tournament ?? null;
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
   // Linking a place to this trip. Separate from the playing-facility picker
@@ -273,10 +285,29 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
         <PageHelp />
       </div>
 
+      {tournaments.length > 0 && (
+        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} />
+      )}
+
+      {tournaments.length > 0 && (
+        <div className="st-views" role="group" aria-label="View">
+          <button type="button" aria-pressed={view === "plan"} onClick={() => setView("plan")}>Season plan</button>
+          <button type="button" aria-pressed={view === "weekend"} onClick={() => setView("weekend")} disabled={!nextT}>
+            Next weekend{nextT && <small>{nextUp.daysAway <= 0 ? "now" : `in ${nextUp.daysAway} ${nextUp.daysAway === 1 ? "day" : "days"}`}</small>}
+          </button>
+        </div>
+      )}
+
+      {view === "weekend" && nextT && (
+        <WeekendView t={nextT} daysAway={nextUp.daysAway} transactions={transactions} canWrite={canWrite} quick={quick}
+          notes={arrivalNotes?.[nextT.facility?.id]} onOpen={() => openDetail(nextT)} />
+      )}
+
+      {view === "plan" && (<>
       {/* 1. Season summary */}
       <div className="tiq-band">
         <div className="tiq-band-grid">
-          <TiqNextUp tournament={summary.next} />
+          <SeasonStats summary={summary} record={record} tournaments={tournaments} />
 
           <section className={`briefing${actions.length === 0 ? " briefing-is-clear" : ""}`}>
             <p className="briefing-title">Needs action</p>
@@ -318,22 +349,6 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           </section>
         </div>
       </div>
-
-      {/* Context, not headlines. The list is the point of this screen. */}
-      <p className="page-context">
-        <strong>{summary.committedCount}</strong> committed
-        <span className="tiq-dot" aria-hidden="true">·</span>
-        <strong>{money(summary.committedCost)}</strong> committed cost
-        <span className="tiq-dot" aria-hidden="true">·</span>
-        {record.played > 0 ? (
-          <>
-            <strong>{record.w}&ndash;{record.l}{record.t > 0 ? `–${record.t}` : ""}</strong> season record
-          </>
-        ) : (
-          <span className="muted">no games played yet</span>
-        )}
-      </p>
-
 
       {activeAction && (
         <FilterChip
@@ -410,6 +425,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
                               />
                             )}
                             {t.name}
+                            {nextT?.id === t.id && <span className="st-chip-volt st-row-next">Next up</span>}
                           </span>
                           <span className="t-meta">
                             {[t.provider?.name, t.facility?.name ?? t.location]
@@ -419,23 +435,14 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
                         </span>
                       </button>
 
-                      {/* Registration and payment as words, not two pills. */}
-                      <span className={`t-status t-status-${statusParts(t.paid_status).tone}`}>
-                        {statusParts(t.paid_status).registered
-                          ? `Registered · ${statusParts(t.paid_status).detail}`
-                          : statusParts(t.paid_status).detail}
-                      </span>
+                      {/* Committed, registered, paid: three steps and one line
+                          of words. Payment figures come from Finance. */}
+                      <StatusPipe t={t} transactions={transactions} />
 
                       <span className="t-cost">{money(t.total_cost)}</span>
-                      {canWrite && decision === "Considering" && (
-                        <button
-                          className="btn btn-commit"
-                          disabled={pending}
-                          onClick={() => setStatus(t.id, "decision", "Committed")}
-                        >
-                          Commit
-                        </button>
-                      )}
+                      <span className="t-quick">
+                        <QuickButton t={t} quick={quick} canWrite={canWrite} variant={registrationState(t).registered ? "secondary" : "primary"} />
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -444,6 +451,10 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           );
         })
       )}
+
+      </>)}
+
+      {quick.element}
 
       {/* 4. Slide-over detail */}
       {detail && !editing && (
@@ -1532,5 +1543,81 @@ function TiqNextUp({ tournament: t }) {
         </div>
       </div>
     </section>
+  );
+}
+
+
+/* ---------------- Group 1: season plan and next weekend ---------------- */
+
+function StatusPipe({ t, transactions }) {
+  if (t.decision === "Declined") return <span className="t-status t-status-none">Declined</span>;
+  const s = statusLine(t, transactions);
+  const r = registrationState(t);
+  const step = t.decision === "Considering" ? 0 : r.step;
+  const cls = (n) => (step >= n ? "on" : step === n - 0.5 ? "part" : "");
+  return (
+    <span className={`st-pipe${t.decision === "Considering" ? " is-maybe" : ""}${r.waitlisted ? " is-wait" : ""}`} title="Committed, registered, paid">
+      <span className="st-pipe-steps" aria-hidden="true"><i className={cls(1)} /><i className={cls(2)} /><i className={cls(3)} /></span>
+      <span className="st-pipe-st">{s.main}{s.sub && <span> · {s.sub}</span>}</span>
+    </span>
+  );
+}
+
+function SeasonStats({ summary, record, tournaments }) {
+  const committed = tournaments.filter((t) => t.decision === "Committed");
+  const registered = committed.filter((t) => registrationState(t).registered).length;
+  const waitlisted = committed.filter((t) => t.paid_status === "Waitlisted").length;
+  const considering = tournaments.filter((t) => t.decision === "Considering").length;
+  return (
+    <section className="st-stats card" aria-label="Season at a glance">
+      <div><span className="st-eyebrow">Committed</span><b>{summary.committedCount}</b><span>{considering} considering</span></div>
+      <div><span className="st-eyebrow">Registered</span><b>{registered}<em> of {committed.length}</em></b><span>{waitlisted ? `${waitlisted} waitlisted` : committed.length - registered ? `${committed.length - registered} to register` : "All registered"}</span></div>
+      <div><span className="st-eyebrow">Committed cost</span><b>{money(summary.committedCost)}</b><span>for committed weekends</span></div>
+      <div><span className="st-eyebrow">Record</span><b>{record.played > 0 ? `${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ""}` : "0-0"}</b><span>{record.played > 0 ? `${record.played} games played` : "No games played yet"}</span></div>
+    </section>
+  );
+}
+
+function WeekendView({ t, daysAway, transactions, canWrite, quick, notes, onOpen }) {
+  const f = t.facility;
+  const dir = weekendDirections(f);
+  const address = f ? [f.street_address, f.city, f.state, f.zip].filter(Boolean).join(", ") : t.location;
+  const byDay = {};
+  [...(t.games ?? [])].sort((a, b) => `${a.game_date ?? ""}${a.start_time ?? ""}`.localeCompare(`${b.game_date ?? ""}${b.start_time ?? ""}`))
+    .forEach((g) => (byDay[g.game_date ?? "No date"] = [...(byDay[g.game_date ?? "No date"] ?? []), g]));
+  const day = (s) => s === "No date" ? s : new Date(s + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return (
+    <div className="st-wkv">
+      <WeekendCard t={t} daysAway={daysAway} transactions={transactions} canWrite={canWrite} quick={quick} full />
+      <div className="st-wkv-side">
+        <section className="card st-loc">
+          <span className="st-eyebrow">Where</span>
+          <h3>{f?.name ?? t.location ?? "Venue not set"}</h3>
+          {address && f?.name && <p>{address}</p>}
+          {notes?.parking && <p><b>Parking</b> {notes.parking}</p>}
+          {notes?.entry && <p><b>Entry</b> {notes.entry}</p>}
+          <div className="st-loc-acts">
+            {dir && <a className="btn btn-primary btn-sm" href={dir} target="_blank" rel="noreferrer">Directions</a>}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onOpen}>Open tournament</button>
+          </div>
+        </section>
+        <section className="card st-sched">
+          <h3>Game schedule</h3>
+          {Object.keys(byDay).length === 0 ? <p className="st-note">No games yet. Add them from the tournament when the schedule is out.</p> :
+            Object.entries(byDay).map(([k, gs]) => (
+              <div key={k}>
+                <p className="st-eyebrow st-sched-day">{day(k)}</p>
+                {gs.map((g) => (
+                  <div key={g.id} className="st-sched-g">
+                    <b>{fmtTime(g.start_time)}</b>
+                    <span>{g.opponent_name ? `vs ${g.opponent_name}` : "Opponent TBD"}</span>
+                    <em>{g.result ? `${g.result}${g.runs_for != null ? ` ${g.runs_for}-${g.runs_against}` : ""}` : g.game_type ?? ""}</em>
+                  </div>
+                ))}
+              </div>
+            ))}
+        </section>
+      </div>
+    </div>
   );
 }

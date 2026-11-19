@@ -7,8 +7,34 @@ after it has been applied through the MCP tool and named with the version
 Supabase actually recorded — the process established in B0 that keeps the
 repository and production history aligned.
 
-**Nothing is currently pending.** This directory holds no SQL awaiting
-application.
+## Group 1 payments migration: applied
+
+`mark_tournament_paid_in_full` (atomic Mark paid in full, atomic player payments,
+duplicate protection, Undo safeguards) was applied to production on 2026-11-19
+(version 20261119172925) and now lives in
+`supabase/migrations/20261119172925_mark_tournament_paid_in_full.sql`. The server
+actions depend on these objects, all of which exist in production:
+
+| Object | Used by |
+| --- | --- |
+| `budget_transactions.request_key` (uuid, nullable) + unique index `(organization_id, request_key)` where not null | `saveTransaction` |
+| `payment_log.request_key` (uuid, nullable) + unique index `(request_key)` where not null | `record_player_payment` |
+| tables `tournament_payment_operations`, `player_payment_operations` (RLS on, read-only for clients) | the four writers |
+| functions `tournament_money_state`, `tournament_payment_fingerprint`, `player_payment_fingerprint` (security invoker) | the writers |
+| functions `mark_tournament_paid_in_full`, `undo_mark_tournament_paid_in_full`, `record_player_payment`, `undo_player_payment` (security definer, search_path public, pg_temp, signed-in users only) | `markTournamentPaidInFull`, `undoMarkTournamentPaidInFull`, `recordPayment`, `undoRecordedPayment` |
+
+Why the build blocks code while a file is still in this folder: `scripts/check-pending-columns.js`
+fails `npm run build` if app code references a column, table or `rpc()` function
+that only a pending file creates. Vercel deploys every push to `main` in
+minutes, while the database changes only when a migration is applied by hand.
+If the code goes first, every screen that touches the missing object fails for
+every user (this happened on 2026-11-07 with `report_total_only`). The blocker
+turns that into a failed build instead of a broken production.
+
+Local tests for it (need a local Postgres 16; see each script's header):
+`scripts/test-mark-paid-local.sh` (SQL), `scripts/test-mark-paid-concurrency.sh`
+(simultaneous sessions), `scripts/test-actions-local.sh` (the real server
+actions through supabase-js).
 
 ## Standing rule: Import Players stays disabled
 

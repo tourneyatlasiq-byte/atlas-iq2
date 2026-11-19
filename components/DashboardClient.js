@@ -1,412 +1,188 @@
 "use client";
 
 import Link from "next/link";
-import { PageHelp } from "./PageHelp";
-import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { useState } from "react";
 import { money } from "../lib/finance-rules";
 import { plainLanguage } from "../lib/readiness/dashboard";
-import { TopoMotif } from "./TopoMotif";
-import { ModuleMark } from "./ModuleMark";
+import { PageHelp } from "./PageHelp";
+import { SeasonStrip } from "./SeasonStrip";
+import { WeekendCard } from "./WeekendCard";
+import { useQuickStatus, QuickButton } from "./QuickStatus";
+import { RecordPaymentSheet } from "./RecordPaymentSheet";
+import { CountUp } from "./CountUp";
 
 /**
- * Home — the coach's operational screen.
+ * Home: what a coach needs right now.
  *
- * Answers three questions in order: what's next, what needs attention, how is
- * the season doing. Everything shown is computed by the same functions the
- * modules use; Home only decides emphasis and wording.
+ *   1 The season tempo  every weekend of the selected season, tap for detail
+ *   2 The next weekend  registration, payment, games and directions, with the
+ *                       actions for that weekend on the card itself
+ *   3 To do             the Needs Action rules the modules use, minus the next
+ *                       weekend (it lives on the card), dues payable in place
+ *   4 Season summary    Available budget, dues collected, season, team
  *
- * Exactly one brand surface per screen. Next Up is it — that is what makes it
- * unmistakably the most important thing here, without a chart or a border.
- */
-
-
-function fmtRange(start, end) {
-  if (!start) return "—";
-  const f = (d) =>
-    new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  if (!end || end === start) return f(start);
-  return `${f(start)} to ${f(end)}`;
-}
-
-/**
- * Three meanings, no more. Rule priority decides which.
- *
- *   red    urgent      a deadline or money already overdue   (<= 15)
- *   amber  attention   needs doing, not yet critical         (16-30)
- *   blue   planning    informational, decide when you can    (> 30)
- *
- * Four near-identical warm dots communicated nothing; this restores meaning.
+ * Every figure still comes from the module queries and rules; Home decides
+ * emphasis and wording only. Writes go through the same server actions as the
+ * modules, gated by canWrite.
  */
 const dotClass = (p) => (p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "dot-planning");
+const ACTION_LIMIT = 6;
 
 export function DashboardClient({
-  nextUp, actions, finance, funds, dues, team, seasonSummary, seasonPhase = "current", setupComplete = true }) {
-  // Reveal conditions. Every one reads a prop the page already passes — no
-  // new query, no schema, no new prop.
-  const hasTournaments = (seasonSummary?.committedCount ?? 0) > 0;
-  const hasRoster =
-    (team?.playerCount ?? 0) > 0 || (team?.inactivePlayerCount ?? 0) > 0;
-  const hasFinance =
-    (finance?.budgetedExpenses ?? 0) > 0 || (dues?.expected ?? 0) > 0;
+  nextUp, actions, finance, dues, team, seasonSummary, seasonPhase = "current", setupComplete = true,
+  season = null, tournaments = [], transactions = [], budgetLines = [], owing = [], canWrite = false, todayLabel = "",
+}) {
+  const quick = useQuickStatus({ transactions, budgetLines, seasonAvailable: finance?.availableBudget ?? null });
+  const [paying, setPaying] = useState(null);
+  // The player just paid stays first, so the updated balance is visible
+  // rather than the row jumping out of the top three.
+  const [recent, setRecent] = useState(null);
+  const owingShown = recent ? [...owing.filter((p) => p.id === recent), ...owing.filter((p) => p.id !== recent)] : owing;
 
-  // Next Up appears as soon as there is an event to show, whether or not the
-  // rest of setup is done — that payoff should not wait.
-  const showNextUp = Boolean(nextUp) || setupComplete;
+  const hasTournaments = (tournaments ?? []).length > 0;
+  const hasRoster = (team?.playerCount ?? 0) > 0 || (team?.inactivePlayerCount ?? 0) > 0;
+  const hasFinance = (finance?.budgetedExpenses ?? 0) > 0 || (dues?.expected ?? 0) > 0;
+  const next = nextUp?.tournament ?? null;
 
-  // Never "Nothing urgent yet" during onboarding: an empty briefing beside an
-  // unfinished checklist tells the coach two contradictory things.
-  const showBriefing = setupComplete || (actions?.visible?.length ?? 0) > 0;
-
-  const showSnapshots = setupComplete || hasTournaments || hasRoster || hasFinance;
+  // The next weekend's own tasks are on its card. Tournament rules keep every
+  // other tournament; a rule left with nothing to say is dropped.
+  const todo = (actions?.all ?? actions?.visible ?? [])
+    .map((a) => {
+      if (a.moduleKey !== "tournaments" || !next) return a;
+      const affected = (a.affected ?? []).filter((x) => x.id !== next.id);
+      return affected.length ? { ...a, affected } : null;
+    })
+    .filter(Boolean);
+  const shown = todo.slice(0, ACTION_LIMIT);
+  const hidden = todo.length - shown.length;
 
   return (
     <>
-      <div className="page-head page-head-tight">
-        <h1>Home</h1>
+      <div className="page-head page-head-tight st-home-head">
+        <div>
+          <h1>Home</h1>
+          {todayLabel && <div className="page-sub">{todayLabel}</div>}
+        </div>
         <PageHelp />
       </div>
 
-      {/* Home grows with the account rather than showing empty furniture.
-          Each condition is a fact about the data, not a step in an assumed
-          sequence: a Considering tournament and a Committed one reveal
-          different sections, and that is correct.
+      {(hasTournaments || setupComplete) && (
+        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={next?.id ?? null} />
+      )}
 
-          Once setup is complete every condition below is true, so the
-          established Home renders exactly as before. */}
-      {(showNextUp || showBriefing) && (
-        <div className="home-band">
-          <div className={`home-top${showNextUp && showBriefing ? "" : " home-top-single"}`}>
-            {showNextUp && (
-              <div className="home-left">
-                <NextUp nextUp={nextUp} />
-                <ComingUp upcoming={seasonSummary?.upcoming} />
-              </div>
-            )}
-            {showBriefing && (
-              <Briefing
-                actions={actions}
-                seasonPhase={seasonPhase}
-                setupComplete={setupComplete}
-              />
-            )}
+      <div className={`st-home-grid${next ? "" : " is-single"}`}>
+        {next ? (
+          <WeekendCard t={next} daysAway={nextUp.daysAway} transactions={transactions} canWrite={canWrite} quick={quick} />
+        ) : (
+          (setupComplete || hasTournaments) && (
+            <section className="st-empty card">
+              <h3>No weekend coming up</h3>
+              <p>Commit to a tournament and it shows here with its registration, payment and games.</p>
+              <Link className="btn btn-primary" href={hasTournaments ? "/tournaments" : "/tournaments?add=1"}>{hasTournaments ? "Plan a weekend" : "Add tournament"}</Link>
+            </section>
+          )
+        )}
+
+        <section className="card st-todo" aria-labelledby="st-todo-h">
+          <div className="st-todo-h">
+            <h2 id="st-todo-h">To do {seasonPhase === "current" && shown.length > 0 && <span className="st-cnt">{todo.length}</span>}</h2>
           </div>
-        </div>
+
+          {seasonPhase !== "current" ? (
+            <p className="st-clear">{seasonPhase === "past" ? "Past season. Nothing to act on in a finished season." : "Planning ahead. To do starts once this becomes your current season."}</p>
+          ) : shown.length === 0 ? (
+            <p className="st-clear"><span className="st-clear-mark" aria-hidden="true" />{setupComplete ? "You're caught up. Nothing needs your attention right now." : "Nothing urgent yet. Items appear here as you build your season."}</p>
+          ) : (
+            <ul className="st-tasks">
+              {shown.map((a) => (
+                <li key={a.id} className="st-task">
+                  <span className={`briefing-dot ${dotClass(a.priority)}`} aria-hidden="true" />
+                  <div style={{ minWidth: 0 }}>
+                    <Link href={a.href} className="st-task-title">{plainLanguage(a)}</Link>
+                    {a.moduleKey === "tournaments" && a.affected?.length > 0 && (
+                      <span className="st-task-why">{a.affected.slice(0, 2).map((x) => x.name).join(", ")}{a.affected.length > 2 ? ` and ${a.affected.length - 2} more` : ""}</span>
+                    )}
+                    {a.id === "finance:outstanding" && owing.length > 0 && (
+                      <ul className="st-payrows">
+                        {owingShown.slice(0, 3).map((p) => (
+                          <li key={p.id}>
+                            <span className="st-av" aria-hidden="true">{initials(p.displayName)}</span>
+                            <span className="st-payrow-nm"><b>{p.displayName}</b><span>{p.totalPaid > 0 ? `Paid ${money(p.totalPaid)} of ${money(p.totalDue)}` : "Nothing paid yet"}</span></span>
+                            {canWrite ? (
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPaying(p)}>Record {money(p.balance)}</button>
+                            ) : <span className="st-payrow-amt">{money(p.balance)}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {a.moduleKey === "tournaments" && a.affected?.length === 1 && canWrite && (
+                      <div className="st-task-acts">
+                        {(() => { const t = tournaments.find((x) => x.id === a.affected[0].id); return t ? <QuickInline t={t} quick={quick} canWrite={canWrite} /> : null; })()}
+                      </div>
+                    )}
+                    <Link href={a.href} className="st-task-where">{a.id === "finance:outstanding" && owing.length > 3 ? `All ${owing.length} in Player Dues` : a.module} <span aria-hidden="true">→</span></Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {seasonPhase === "current" && (
+            <p className="st-todo-all">
+              {hidden > 0 ? `${hidden} more. ` : ""}Everything outstanding: <Link href="/tournaments">Tournaments</Link> · <Link href="/finance">Finance</Link> · <Link href="/team">Team</Link>
+            </p>
+          )}
+        </section>
+      </div>
+
+      {(setupComplete || hasTournaments || hasRoster || hasFinance) && (
+        <section className="card st-figs" aria-label="Season summary">
+          <div className="st-fig">
+            <span className="st-eyebrow">Available budget</span>
+            {(finance?.budgetedExpenses ?? 0) > 0 ? (<>
+              <span className="st-fig-big"><CountUp value={finance.availableBudget} format="split" /></span>
+              <span className="st-fig-what">left to plan with, of {money(finance.budgetedExpenses)}</span>
+              <span className="st-bar"><i className="st-bar-paid" style={{ width: `${pct(finance.actualExpenses, finance.budgetedExpenses)}%` }} /><i className="st-bar-topay" style={{ width: `${pct(finance.toPay, finance.budgetedExpenses)}%` }} /></span>
+              <span className="st-fig-det">{money(finance.actualExpenses)} paid · {money(finance.toPay)} to pay</span>
+            </>) : <span className="st-fig-what">No budget planned yet.</span>}
+            <Link className="st-link" href="/finance">Finance</Link>
+          </div>
+          <div className="st-fig">
+            <span className="st-eyebrow">Dues collected</span>
+            {(dues?.expected ?? 0) > 0 ? (<>
+              <span className="st-fig-big"><CountUp value={dues.expected ? (dues.collected / dues.expected) * 100 : 0} format="pct" /></span>
+              <span className="st-fig-what"><CountUp value={dues.collected} /> of {money(dues.expected)}</span>
+              <span className="st-bar"><i className="st-bar-dues" style={{ width: `${pct(dues.collected, dues.expected)}%` }} /></span>
+              <span className="st-fig-det"><CountUp value={dues.outstanding} /> still to collect</span>
+            </>) : <span className="st-fig-what">Dues not set yet.</span>}
+            <Link className="st-link" href="/finance?tab=player-dues">Player Dues</Link>
+          </div>
+          <div className="st-fig">
+            <span className="st-eyebrow">Season</span>
+            <span className="st-fig-big"><CountUp value={seasonSummary?.committedCount ?? 0} format="int" /></span>
+            <span className="st-fig-what">committed {seasonSummary?.committedCount === 1 ? "tournament" : "tournaments"}</span>
+            <span className="st-bar"><i className="st-bar-volt" style={{ width: `${pct(registeredCount(tournaments), seasonSummary?.committedCount)}%` }} /></span>
+            <span className="st-fig-det">{registeredCount(tournaments)} registered · {money(seasonSummary?.committedCost ?? 0)} committed cost</span>
+            <Link className="st-link" href="/tournaments">Tournaments</Link>
+          </div>
+          <div className="st-fig">
+            <span className="st-eyebrow">Team</span>
+            <span className="st-fig-big">{(team?.playerCount ?? 0) + (team?.inactivePlayerCount ?? 0)}</span>
+            <span className="st-fig-what">{(team?.playerCount ?? 0) + (team?.inactivePlayerCount ?? 0) === 1 ? "player" : "players"}</span>
+            <span className="st-fig-det">{[team?.playerCount > 0 && `${team.playerCount} active`, team?.inactivePlayerCount > 0 && `${team.inactivePlayerCount} inactive`].filter(Boolean).join(" · ") || "Add your roster"}</span>
+            <Link className="st-link" href="/team">Team</Link>
+          </div>
+        </section>
       )}
 
-      {/* Each card appears when it has something to report. The existing
-          empty-state branches inside them still handle a populated account
-          whose one module is genuinely empty. */}
-      {showSnapshots && (
-        <div className="snapshots">
-          {(setupComplete || hasTournaments) && <SeasonSnapshot summary={seasonSummary} />}
-          {(setupComplete || hasRoster) && <TeamSnapshot team={team} />}
-          {(setupComplete || hasFinance) && (
-            <FinanceSnapshot finance={finance} funds={funds} dues={dues} />
-          )}
-        </div>
-      )}
+      {paying && <RecordPaymentSheet p={paying} onClose={() => setPaying(null)} onSaved={setRecent} />}
+      {quick.element}
     </>
   );
 }
 
-/* ---------------- Next Up ---------------- */
-
-function NextUp({ nextUp }) {
-  if (!nextUp) {
-    return (
-      <section className="nextup nextup-empty">
-        <TopoMotif />
-        <div className="nextup-inner">
-          <span className="nextup-eyebrow">Next up</span>
-          <h2 className="nextup-name">No tournaments scheduled yet</h2>
-          <div className="nextup-lines">
-            <span className="nextup-line">
-              Add tournaments you&rsquo;re considering and start building your season.
-            </span>
-          </div>
-          <div className="nextup-foot">
-            <span />
-            <Link href="/tournaments?add=1" className="nextup-link">
-              Add tournament <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const t = nextUp.tournament;
-  const paid = t.paid_status === "Paid in Full";
-  const days = nextUp.daysAway;
-
-  const place = t.facility?.name
-    ? [t.facility.name, [t.facility.city, t.facility.state].filter(Boolean).join(", ")]
-        .filter(Boolean)
-        .join(", ")
-    : t.location;
-
-  return (
-    <section className="nextup">
-      <TopoMotif />
-      <div className="nextup-inner">
-        <span className="nextup-eyebrow">Next up</span>
-
-        {/* "When" is the question a coach opens Season Tempo to answer, so it leads. */}
-        <div className="nextup-when">
-          {days === 0 ? (
-            <span className="nextup-days">Today</span>
-          ) : (
-            <>
-              <span className="nextup-days">{days}</span>
-              <span className="nextup-days-unit">{days === 1 ? "day away" : "days away"}</span>
-            </>
-          )}
-        </div>
-
-        <h2 className="nextup-name">{t.name}</h2>
-
-        <div className="nextup-lines">
-          <span className="nextup-line">
-            {fmtRange(t.start_date, t.end_date)}
-            {t.provider?.name && ` · ${t.provider.name}`}
-          </span>
-          {place && <span className="nextup-line">{place}</span>}
-        </div>
-
-        <div className="nextup-foot">
-          <span className={`nextup-status ${paid ? "nextup-status-good" : "nextup-status-todo"}`}>
-            <span aria-hidden="true">{paid ? "✓" : "•"}</span>
-            {paid ? "Paid in full" : t.paid_status}
-          </span>
-
-          <Link href="/tournaments" className="nextup-link">
-            Open in Tournaments <span aria-hidden="true">→</span>
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
+function QuickInline({ t, quick, canWrite }) {
+  return <QuickButton t={t} quick={quick} canWrite={canWrite} variant="primary" />;
 }
-
-/* ---------------- Needs Action ---------------- */
-
-/**
- * The two events after the one in Next Up.
- *
- * Quiet supporting context, not a second hero: it fills the left column when
- * Needs Action runs long, and disappears entirely when there is nothing after
- * the next event rather than leaving an empty shell.
- */
-function ComingUp({ upcoming }) {
-  const rest = (upcoming ?? []).slice(1, 3);
-  if (rest.length === 0) return null;
-
-  return (
-    <section className="coming-up">
-      <p className="coming-up-title">Coming up</p>
-      <ul className="coming-up-list">
-        {rest.map((t) => (
-          <li key={t.id}>
-            <Link href={`/tournaments?open=${t.id}`} className="coming-up-row">
-              <span className="coming-up-date">{fmtRange(t.start_date, t.end_date)}</span>
-              <span className="coming-up-name">{t.name}</span>
-              {t.paid_status && <span className="coming-up-meta">{t.paid_status}</span>}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Briefing({ actions, seasonPhase, setupComplete = true }) {
-  if (seasonPhase !== "current") {
-    return (
-      <section className="briefing briefing-is-clear">
-        <p className="briefing-title">Needs action</p>
-        <div className="briefing-clear">
-          <p className="briefing-clear-title">
-            {seasonPhase === "past" ? "Past season" : "Planning ahead"}
-          </p>
-          <p className="briefing-clear-sub">
-            {seasonPhase === "past"
-              ? "Nothing to act on in a finished season."
-              : "Needs action starts once this becomes your current season."}
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  if (!actions?.visible?.length) {
-    // "You're up to date" is only true once there is something to be up to
-    // date with. On a new account every readiness rule is silent for lack of
-    // data, so the old copy congratulated a user who had done nothing — while
-    // Getting Started, two inches above, said three steps remained.
-    //
-    // Getting Started still owns setup tasks; this deliberately does not
-    // repeat them.
-    if (!setupComplete) {
-      return (
-        <section className="briefing briefing-is-clear">
-          <p className="briefing-title">Needs action</p>
-          <div className="briefing-clear">
-            <p className="briefing-clear-title">Nothing urgent yet</p>
-            <p className="briefing-clear-sub">
-              Operational items that need your attention will appear here as you build your
-              season.
-            </p>
-          </div>
-        </section>
-      );
-    }
-
-    return (
-      <section className="briefing briefing-is-clear">
-        <p className="briefing-title">Needs action</p>
-        <div className="briefing-clear briefing-clear-good">
-          <p className="briefing-clear-title">You&rsquo;re up to date</p>
-          <p className="briefing-clear-sub">Nothing needs your attention right now.</p>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="briefing">
-      <p className="briefing-title">Needs action</p>
-
-      <ul className="briefing-list">
-        {actions.visible.map((a) => (
-          <li key={a.id} className="briefing-item">
-            <Link href={a.href} className="briefing-link">
-              <span className={`briefing-dot ${dotClass(a.priority)}`} aria-hidden="true" />
-              <span className="briefing-text">
-                <span className="briefing-what">{plainLanguage(a)}</span>
-                <span className="briefing-where">{a.module} →</span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-
-      {actions.hidden > 0 && (
-        <p className="briefing-more">
-          {actions.hidden} more in {actions.overflowModules.join(" and ")}.
-        </p>
-      )}
-    </section>
-  );
-}
-
-/* ---------------- Snapshots ---------------- */
-
-function Snapshot({ label, mark, children, href, cta }) {
-  return (
-    <Link href={href} className="snapshot">
-      <span className="snap-head">
-        <ModuleMark kind={mark} />
-        <span className="snap-label">{label}</span>
-      </span>
-      {children}
-      <span className="snap-link">{cta} →</span>
-    </Link>
-  );
-}
-
-function SeasonSnapshot({ summary }) {
-  if (summary.committedCount === 0) {
-    return (
-      <Snapshot label="Season" mark="season" href="/tournaments" cta="Plan your season">
-        <div className="snap-empty">
-          <p>No tournaments committed yet. Commit to an event and its cost and dates appear here.</p>
-        </div>
-      </Snapshot>
-    );
-  }
-
-  return (
-    <Snapshot label="Season" mark="season" href="/tournaments" cta="Tournaments">
-      <p className="snap-fact">
-        <span className="snap-value">{summary.committedCount}</span>{" "}
-        <span className="snap-descriptor">
-          committed {summary.committedCount === 1 ? "tournament" : "tournaments"}
-        </span>
-      </p>
-      <p className="snap-meta">
-        {summary.next
-          ? `Next ${fmtRange(summary.next.start_date, summary.next.end_date)} · ${money(summary.committedCost)} committed`
-          : `No upcoming events · ${money(summary.committedCost)} committed`}
-      </p>
-    </Snapshot>
-  );
-}
-
-function TeamSnapshot({ team }) {
-  if (team.playerCount + team.staffCount === 0) {
-    return (
-      <Snapshot label="Team" mark="team" href="/team?add=person" cta="Add players">
-        <div className="snap-empty">
-          <p>Build your roster. Add your players and coaches.</p>
-        </div>
-      </Snapshot>
-    );
-  }
-
-  // Total roster, then how it breaks down. Pickups are not included: they live
-  // in tournament_participants, which Home does not load, and adding that
-  // query is outside this pass.
-  const totalPlayers = team.playerCount + (team.inactivePlayerCount ?? 0);
-
-  const composition = [
-    team.playerCount > 0 && `${team.playerCount} active`,
-    (team.inactivePlayerCount ?? 0) > 0 && `${team.inactivePlayerCount} inactive`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  return (
-    <Snapshot label="Team" mark="team" href="/team" cta="Team">
-      <p className="snap-fact">
-        <span className="snap-value">{totalPlayers}</span>{" "}
-        <span className="snap-descriptor">{totalPlayers === 1 ? "player" : "players"}</span>
-      </p>
-      {/* What the roster looks like — not what needs doing. Needs Action owns
-          that, and repeating it here said the same thing twice on one screen.
-          Empty categories are omitted rather than shown as "0 inactive". */}
-      <p className="snap-meta">{composition}</p>
-    </Snapshot>
-  );
-}
-
-/**
- * Finance keeps the module's own vocabulary — Home and Finance must describe
- * the same numbers the same way. Received and dues outstanding sit beneath as
- * separate facts; nothing is netted against the budget.
- */
-function FinanceSnapshot({ finance, funds, dues }) {
-  if (finance.budgetedExpenses === 0 && dues.expected === 0) {
-    return (
-      <Snapshot label="Finance" mark="finance" href="/finance?tab=player-payments" cta="Set up player payments">
-        <div className="snap-empty">
-          <p>Set what each player owes for the season. Budget and spending follow from there.</p>
-        </div>
-      </Snapshot>
-    );
-  }
-
-  return (
-    <Snapshot label="Finance" mark="finance" href="/finance" cta="Finance">
-        {/* "Left", matching the Budget tab. The underlying figure is
-            unchanged — budget minus what is already spoken for. */}
-      <p className="snap-fact">
-        <span className="snap-value">{money(finance.availableBudget)}</span>{" "}
-        <span className="snap-descriptor">left</span>
-      </p>
-      <p className="snap-meta">
-        {money(finance.committedExpenses)} used
-        {finance.percentCommitted != null && ` · ${finance.percentCommitted}% of budget`}
-      </p>
-    </Snapshot>
-  );
-}
+const pct = (a, b) => (b > 0 ? Math.max(0, Math.min(100, (Number(a) / Number(b)) * 100)) : 0);
+const initials = (n) => (n ?? "").split(/[\s-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+const registeredCount = (ts) => (ts ?? []).filter((t) => t.decision === "Committed" && ["Registered", "Deposit Paid", "Paid in Full"].includes(t.paid_status)).length;

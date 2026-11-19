@@ -80,7 +80,10 @@ const EXPECTED = {
     "lib/actions/facility-import.js": 1, "lib/actions/seasons.js": 2, "lib/actions/settings.js": 1,
   },
   "canWrite( callers": {
-    "app/(app)/contacts/page.js": 1, "app/(app)/facilities/page.js": 1, "app/(app)/files/page.js": 1,
+    "app/(app)/contacts/page.js": 1,
+    // Group 1 (2026-11-19): Home gates its quick actions and Record buttons.
+    "app/(app)/dashboard/page.js": 1,
+    "app/(app)/facilities/page.js": 1, "app/(app)/files/page.js": 1,
     "app/(app)/finance/page.js": 1, "app/(app)/help/access.js": 1, "app/(app)/layout.js": 1,
     "app/(app)/performance/page.js": 1, "app/(app)/team/page.js": 1,
     "app/(app)/tournaments/[tournamentId]/games/[gameId]/lineup/page.js": 1,
