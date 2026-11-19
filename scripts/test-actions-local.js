@@ -99,6 +99,7 @@ Module._extensions[".js"] = function (module, filename) {
 };
 const tAct = require(path.join(ROOT, "lib", "actions", "tournaments.js"));
 const fAct = require(path.join(ROOT, "lib", "actions", "finance.js"));
+const rAct = require(path.join(ROOT, "lib", "actions", "roster.js"));
 
 /* ---- helpers ---- */
 const form = (o) => { const fd = new FormData(); for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== null) fd.set(k, String(v)); return fd; };
@@ -333,6 +334,40 @@ const as = (u) => { current = USERS[u]; };
   mk(23, 450, 0); mkTx(23, 400);
   r = await tAct.markTournamentPaidInFull(form(send(23, { record_payment: "false", to_pay_id: "", amount: "" })));
   ok("status-only saves and leaves the entry To Pay", r.ok === true && sql(`select status from budget_transactions where id='${TXG(23)}'`) === "To Pay" && sql(`select paid_status from tournaments where id='${T(23)}'`) === "Paid in Full", r);
+
+  /* ===================== roster: Make inactive / Make active persist ===================== */
+  section("setRosterActive: what the drawer sends (assignment_id + is_active) saves and survives a reload");
+  const R1 = "d0000000-0000-0000-0000-000000000001", R2 = "d0000000-0000-0000-0000-000000000002", R3 = "d0000000-0000-0000-0000-000000000003";
+  // "Reload" = a brand-new client for the same signed-in user reading the row back, plus the database itself.
+  const reload = async (id) => (await clientFor(current).from("team_season_players").select("is_active").eq("id", id).single()).data?.is_active;
+  const dbActive = (id) => sql(`select is_active from team_season_players where id='${id}'`);
+  as("coach");
+  ok("starts active", dbActive(R1) === "t" && (await reload(R1)) === true);
+  // RosterClient.toggleActive: fd.set("assignment_id", row.id); fd.set("is_active", String(next)); next = row.is_active === false -> false for an active row
+  r = await rAct.setRosterActive(form({ assignment_id: R1, is_active: String(false) }));
+  ok("Make inactive saves", r.ok === true, r);
+  ok("...and after a reload the player is still inactive", dbActive(R1) === "f" && (await reload(R1)) === false);
+  ok("...and a neighbouring player is untouched", dbActive(R2) === "t");
+  r = await rAct.setRosterActive(form({ assignment_id: R1, is_active: String(true) }));
+  ok("Make active saves", r.ok === true, r);
+  ok("...and after a reload the player is active again", dbActive(R1) === "t" && (await reload(R1)) === true);
+  r = await rAct.setRosterActive(form({ assignment_id: R1 }));
+  ok("a request carrying no is_active value is never read as 'true' (the old Make active bug sent an event object)", r.ok === true && dbActive(R1) === "f", r);
+  await rAct.setRosterActive(form({ assignment_id: R1, is_active: "true" }));
+  as("parent");
+  r = await rAct.setRosterActive(form({ assignment_id: R2, is_active: "false" }));
+  ok("a parent cannot make a player inactive (row security)", dbActive(R2) === "t", r);
+  as("coachB");
+  r = await rAct.setRosterActive(form({ assignment_id: R1, is_active: "false" }));
+  ok("a coach from another organization cannot change this roster", dbActive(R1) === "t", r);
+  as("owner");
+  sql(`update seasons set phase='past' where id='${SEASON_A}'`);
+  r = await rAct.setRosterActive(form({ assignment_id: R2, is_active: "false" }));
+  ok("owner can correct a finished season", dbActive(R2) === "f", r);
+  as("coach");
+  r = await rAct.setRosterActive(form({ assignment_id: R2, is_active: "true" }));
+  ok("a coach cannot change a finished season's roster", dbActive(R2) === "f", r);
+  sql(`update seasons set phase='current' where id='${SEASON_A}'`);
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);

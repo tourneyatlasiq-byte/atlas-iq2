@@ -21,7 +21,7 @@ import {
  */
 const LINK_TYPES = ["Instagram", "X", "TikTok", "Hudl", "Recruiting profile", "Other"];
 
-export function PlayerRecruiting({ playerId, links = [], interests = [], contacts = [], canWrite }) {
+export function PlayerRecruiting({ playerId, links = [], interests = [], contacts = [], canWrite, bare = false }) {
   const [addingLink, setAddingLink] = useState(false);
   const [addingCollege, setAddingCollege] = useState(false);
   const [pickingContact, setPickingContact] = useState(null); // interest row
@@ -41,6 +41,7 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
     });
   }
 
+  const Outer = bare ? "div" : "section";
   const contactFor = (id) => contacts.find((c) => c.id === id) ?? null;
 
   return (
@@ -53,8 +54,9 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
           was something they could add. Each row is one line whether it holds
           "None" or real values, and populated information is readable without
           expanding anything. */}
-      <section className="detail-section">
-        <h3 className="detail-section-title">Recruiting</h3>
+      {/* bare: the caller supplies the heading (a collapsible section). */}
+      <Outer className={bare ? "pc-bare" : "detail-section"}>
+        {!bare && <h3 className="detail-section-title">Recruiting</h3>}
 
         {/* Compact rows, not two large empty sections. Most players will have
             neither, and this is not the point of the player record. */}
@@ -157,7 +159,7 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
             </button>
           )}
         </div>
-      </section>
+      </Outer>
 
       {addingLink && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setAddingLink(false)}>

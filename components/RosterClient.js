@@ -23,6 +23,8 @@ import { SortHeader } from "./SortHeader";
 import { formatPlayerAddress } from "../lib/player-export";
 import { composeFullName, hasStructuredName } from "../lib/intake/normalize";
 import { DocumentSection } from "./DocumentSection";
+import { Collapsible } from "./Collapsible";
+import { MoreActionsMenu } from "./MoreActionsMenu";
 import { PlayerCityStateZip } from "./PlayerCityStateZip";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import {
@@ -104,12 +106,6 @@ function rosterActionText(a) {
   return fn ? fn(a.affected?.length ?? 0) : a.detail;
 }
 
-/** Uniform as one string, for the mobile sub-line. */
-function uniformText(row) {
-  if (!row.jersey_size && !row.pants_size) return "Uniform not set";
-  return `${row.jersey_size ?? "—"} · ${row.pants_size ?? "—"}`;
-}
-
 export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, matchCandidates = [], seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
@@ -133,6 +129,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   );
 
   const { detail, openDetail, closeDetail } = useOpenParam(openable);
+  useEffect(() => { if (!detail) openSections.current = { id: null, open: null }; }, [detail]);
 
   /**
    * The player id for whatever the drawer has open — and NOTHING else.
@@ -191,6 +188,9 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   };
   const [actionsOpen, setActionsOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null);
+  // Which drawer sections are open survives the Edit form (the drawer unmounts
+  // behind it); cleared when the drawer closes.
+  const openSections = useRef({ id: null, open: null });
 
   /**
    * Sorting is layered ON TOP of the filtered set, never instead of it.
@@ -626,7 +626,6 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                         {[
                           isStaff ? roleName : p.grad_year,
                           isStaff ? null : row.positions?.length ? row.positions.join(" / ") : null,
-                          isStaff ? null : uniformText(row),
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -656,8 +655,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                         <span className="muted">—</span>
                       ) : row.jersey_size || row.pants_size ? (
                         <>
-                          {row.jersey_size ?? "—"} <span className="muted">·</span>{" "}
-                          {row.pants_size ?? "—"}
+                          {[row.jersey_size && `Jersey ${row.jersey_size}`, row.pants_size && `Pants ${row.pants_size}`].filter(Boolean).join(", ")}
                         </>
                       ) : (
                         <span className="muted">Not set</span>
@@ -681,6 +679,9 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
 
       {detail && !editing && (
         <PlayerDetail
+          key={detail.id}
+          savedOpen={openSections.current.id === detail.id ? openSections.current.open : null}
+          onOpenChange={(o) => { openSections.current = { id: detail.id, open: o }; }}
           row={detail}
           canWrite={canWrite}
           isAdmin={isAdmin}
@@ -703,7 +704,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           onRoster={rows.some((r) => r.player_id === detailPlayerId)}
           playerId={detailPlayerId}
           onAddToRoster={(fd) => run(addPickupToRoster, fd)}
-          onToggleActive={(next) => toggleActive(detail, next)}
+          onToggleActive={(next) => toggleActive(detail, next === true)}
         />
       )}
 
@@ -838,27 +839,99 @@ function Disclose({ enabled, label, children }) {
 
 
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, onConfirmRemove, onCancelRemove, confirmingRemove = false, drawerError = null, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] } }) {
+/** What the Contacts heading says when closed: the way to reach the family. */
+function contactsSummary(p, isPlayer, contactInfo) {
+  if (!isPlayer) return { text: p.player_phone || p.player_email || "None on file", tone: null };
+  if (!contactInfo.hasAnyDetail) return { text: "None on file", tone: "warn" };
+  const primary = contactInfo.primary;
+  const how = primary?.phone || primary?.email || p.player_phone || p.player_email;
+  const who = primary?.full_name || primary?.relationship || "Contact";
+  const more = contactInfo.contacts.length > 1 ? ` +${contactInfo.contacts.length - 1}` : "";
+  return how
+    ? { text: `${who}, ${how}${more}`, tone: null }
+    : { text: `${who}: no phone or email`, tone: "warn" };
+}
+
+/** Player details heading: what a coach scans for, and the gap that matters. */
+function playerSummary(p) {
+  const parts = [];
+  if (p.grad_year) parts.push(`Class of ${p.grad_year}`);
+  if (p.throws || p.bats) parts.push(`Throws ${p.throws ?? "?"}, bats ${p.bats ?? "?"}`);
+  if (!p.date_of_birth) return { text: parts.length ? `${parts.join(" · ")} · No birth date` : "No birth date", tone: "warn" };
+  return { text: parts.join(" · ") || "Details recorded", tone: null };
+}
+
+function uniformSummary(row) {
+  if (!row.jersey_size && !row.pants_size) return "Sizes not set";
+  return [row.jersey_size && `Jersey ${row.jersey_size}`, row.pants_size && `Pants ${row.pants_size}`].filter(Boolean).join(", ");
+}
+
+function recruitingSummary(recruiting) {
+  const l = recruiting?.links?.length ?? 0;
+  const c = recruiting?.interests?.length ?? 0;
+  if (!l && !c) return "None";
+  return [l && `${l} ${l === 1 ? "link" : "links"}`, c && `${c} ${c === 1 ? "college" : "colleges"}`].filter(Boolean).join(", ");
+}
+
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, onConfirmRemove, onCancelRemove, confirmingRemove = false, drawerError = null, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] }, savedOpen = null, onOpenChange = null }) {
   const p = row.player ?? {};
 
   // One record type, two very different people. A coach has no jersey number,
   // no guardian and no college interest, so the drawer asks what kind of
   // member this is rather than showing athlete fields to everyone.
   const isPlayer = (p.person_type ?? "player") === "player";
-  const memberNoun = isPlayer ? "player" : p.person_type === "manager" ? "manager" : "coach";
 
-  // A section with nothing in it is noise. These stay editable either way.
-  // hasAnyDetail comes from the shared resolver, which readiness also uses, so
-  // this drawer can no longer show contact details for a player the Needs
-  // Action list is calling unreachable.
   // ONE display rule, the canonical one. composeFullName() prefers a
   // preferred first name and falls back to full_name for a legacy record, so
   // the drawer never needs a second notion of what a player is called.
   const displayName = composeFullName(p) ?? p.full_name ?? "—";
 
+  // hasAnyDetail comes from the shared resolver, which readiness also uses, so
+  // this drawer can no longer show contact details for a player the Needs
+  // Action list is calling unreachable.
   const contactInfo = resolvePlayerContact(p);
   const hasContact = Boolean(p.player_email || p.player_phone || (isPlayer && contactInfo.hasAnyDetail));
-  const hasUniform = Boolean(row.jersey_size || row.pants_size);
+  const showContacts = hasContact || (isPlayer && canWrite);
+
+  // Sections open and close independently. Contacts starts open: how to reach
+  // the family is what a coach opens this drawer for. The parent remembers the
+  // state while the Edit form is open (the drawer unmounts behind it).
+  const [open, setOpen] = useState(() => ({ contacts: true, ...(savedOpen || {}) }));
+  useEffect(() => { onOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }));
+
+  const promote = !onRoster && pickupHistory.length > 0 && onAddToRoster;
+  const onRosterRow = onRoster !== false;
+
+  const hasPlayerRows = Boolean(p.preferred_first_name && p.legal_first_name && p.preferred_first_name !== p.legal_first_name)
+    || p.date_of_birth || p.grad_year || p.high_school || p.street_address || p.street_address_2 || p.city || p.state || p.zip
+    || p.throws || p.bats || p.notes;
+
+  const cs = showContacts ? contactsSummary(p, isPlayer, contactInfo) : null;
+  const ps = isPlayer ? playerSummary(p) : null;
+  const docs = row.documents ?? [];
+
+  // The two lifecycle actions do different things to history, so the menu says
+  // so. Make inactive changes nothing but the list a player appears in.
+  // Remove from roster keeps anything paid or played (and marks them inactive
+  // instead) and only cleans up setup records when there is no history.
+  const menuItems = canWrite && onRosterRow ? [
+    ...(onToggleActive ? [{
+      label: row.is_active === false ? "Make active" : "Make inactive",
+      description: row.is_active === false
+        ? "Puts them back on the active roster. Nothing else changes."
+        : "Moves them to the Inactive list. All history, payments and documents stay.",
+      // Say what the new state IS. This used to pass the click event, so
+      // Make active could never reactivate anyone.
+      onSelect: () => onToggleActive(row.is_active === false),
+    }] : []),
+    {
+      label: "Remove from roster",
+      description: "Anything paid or played is kept and they become inactive. A player with no history is cleaned out of the season.",
+      danger: true,
+      onSelect: onRemove,
+    },
+  ] : [];
 
   return (
     // The shell owns the backdrop, the press-origin guard, Escape and the
@@ -872,7 +945,7 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               {row.jersey_number != null && <span className="drawer-head-dates">#{row.jersey_number}</span>}
               {row.positions?.length > 0 && <span>{row.positions.join(" / ")}</span>}
               {p.grad_year && <span>Class of {p.grad_year}</span>}
-              {(p.person_type ?? "player") !== "player" && <span>{staffRole(p)}</span>}
+              {!isPlayer && <span>{staffRole(p)}</span>}
             </div>
             <div className="drawer-head-pills">
               <span className={`pill ${row.is_active ? "pill-active" : "pill-inactive"}`}>
@@ -882,45 +955,21 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </div>
           </div>
           <div className="drawer-head-actions">
-            {/* ON A PHONE, EDIT DETAILS LIVES UP HERE. In the footer it wraps
-                onto the lowest row, and iPhone Safari's bottom toolbar covers
-                that row, so coaches could not find it. The top of the drawer
-                is never covered. CSS shows exactly one of the two buttons. */}
-            {canWrite && (
-              <button className="btn btn-primary btn-sm drawer-head-edit" onClick={onEdit} disabled={pending}>
-                Edit details
-              </button>
-            )}
+            {menuItems.length > 0 && <MoreActionsMenu disabled={pending} items={menuItems} />}
             <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
           </div>
         </div>
 
         <div className="drawer-body">
           {/* A pickup who is not on the season roster can be promoted without
-              creating a second person — every document and appearance stays. */}
-          {!onRoster && pickupHistory.length > 0 && onAddToRoster && (
-            <div className="drawer-related pickup-promote">
-              <p className="pickup-promote-text">
-                Played with you as a pickup but isn&rsquo;t on the {seasonName} roster.
-              </p>
-              <button
-                className="btn btn-secondary"
-                disabled={pending}
-                onClick={() => {
-                  const fd = new FormData();
-                  fd.set("player_id", playerId);
-                  onAddToRoster(fd);
-                }}
-              >
-                Add to {seasonName} roster
-              </button>
-            </div>
+              creating a second person: every document and appearance stays.
+              The action itself is the footer's one volt button. */}
+          {promote && (
+            <p className="pickup-promote-text">
+              Played with you as a pickup but isn&rsquo;t on the {seasonName} roster.
+            </p>
           )}
 
-          {/* PLAYER — intrinsic identity. Empty read-only fields are
-              suppressed rather than shown as em-dashes; they stay available in
-              Edit. Season-specific values are NOT here — they belong to the
-              team and season, and live in the next section. */}
           {!isPlayer && (
             <Section title="Team Role">
               <Row label="Name" value={displayName} />
@@ -928,88 +977,93 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             </Section>
           )}
 
-          {isPlayer && (
-            <Section title="Player">
-              <Row label="Name" value={displayName} />
-              {p.preferred_first_name && p.legal_first_name
-                && p.preferred_first_name !== p.legal_first_name && (
-                <Row label="Legal name" value={`${p.legal_first_name} ${p.last_name ?? ""}`.trim()} />
-              )}
-              {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
-              {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
-              {p.high_school && <Row label="High school" value={p.high_school} />}
-              {/* Only when something is stored. An empty Address section is
-                  drawer height spent saying nothing. */}
-              {(p.street_address || p.street_address_2 || p.city || p.state || p.zip) && (
-                <Row label="Address" value={formatPlayerAddress(p)} />
-              )}
-              {(p.throws || p.bats) && (
-                <Row
-                  label="Throws / Bats"
-                  value={`${p.throws ?? "—"} / ${p.bats ?? "—"}`}
-                />
-              )}
-              {/* A note is about the player, so it belongs with her details
-                  rather than as its own heading between Recruiting and
-                  Documents. Hidden when empty, as before. */}
-              {p.notes && <Row label="Notes" value={p.notes} />}
-            </Section>
-          )}
-
-          {/* TEAM & UNIFORM — everything that belongs to THIS season's
-              assignment rather than to the person. Jersey number used to sit
-              in Player Information and the sizes under a separate Uniform
-              heading further down, which split one idea across two places. */}
-          {isPlayer && (row.jersey_number != null || row.positions?.length > 0
-            || row.jersey_size || row.pants_size) && (
-            <Section title="Team & Uniform">
-              {row.jersey_number != null && <Row label="Jersey number" value={row.jersey_number} />}
-              {row.positions?.length > 0 && (
-                <Row label="Positions" value={row.positions.join(" / ")} />
-              )}
-              {row.jersey_size && <Row label="Jersey size" value={row.jersey_size} />}
-              {row.pants_size && <Row label="Pants size" value={row.pants_size} />}
-            </Section>
-          )}
-
-          {/* CONTACTS — one heading. Player email/phone render here and
-              ONLY here; guardian cards follow. Shown when there is anything to
-              show, or when a coach could add a guardian. */}
-          {(hasContact || (isPlayer && canWrite)) && (
-            <PlayerContacts
-              playerId={playerId ?? row.player_id}
-              contactInfo={contactInfo}
-              canWrite={canWrite}
-              pending={pending}
-              player={p}
-              isPlayer={isPlayer}
-            />
+          {showContacts && (
+            <Collapsible id="section-contacts" title="Contacts" summary={cs.text} tone={cs.tone}
+              open={Boolean(open.contacts)} onToggle={() => toggle("contacts")}>
+              <PlayerContacts
+                bare
+                playerId={playerId ?? row.player_id}
+                contactInfo={contactInfo}
+                canWrite={canWrite}
+                pending={pending}
+                player={p}
+                isPlayer={isPlayer}
+              />
+            </Collapsible>
           )}
 
           {isPlayer && (
-          <PlayerRecruiting
-            playerId={playerId ?? row.player_id}
-            links={recruiting.links}
-            interests={recruiting.interests}
-            contacts={contacts}
-            canWrite={canWrite}
-          />
+            <Collapsible id="section-player" title="Player details" summary={ps.text} tone={ps.tone}
+              open={Boolean(open.player)} onToggle={() => toggle("player")}>
+              {hasPlayerRows ? (
+                <>
+                  {p.preferred_first_name && p.legal_first_name
+                    && p.preferred_first_name !== p.legal_first_name && (
+                    <Row label="Legal name" value={`${p.legal_first_name} ${p.last_name ?? ""}`.trim()} />
+                  )}
+                  {p.date_of_birth && <Row label="Date of birth" value={fmtDate(p.date_of_birth)} />}
+                  {p.grad_year && <Row label="Grad year" value={p.grad_year} />}
+                  {p.high_school && <Row label="High school" value={p.high_school} />}
+                  {(p.street_address || p.street_address_2 || p.city || p.state || p.zip) && (
+                    <Row label="Address" value={formatPlayerAddress(p)} />
+                  )}
+                  {(p.throws || p.bats) && (
+                    <Row label="Throws / Bats" value={`${p.throws ?? "—"} / ${p.bats ?? "—"}`} />
+                  )}
+                  {p.notes && <Row label="Notes" value={p.notes} />}
+                </>
+              ) : (
+                <p className="section-body muted">Nothing recorded yet. Use Edit details to add it.</p>
+              )}
+            </Collapsible>
           )}
 
+          {/* TEAM & UNIFORM: everything that belongs to THIS season's
+              assignment rather than to the person. Sizes are labeled in full
+              here; the list no longer shows them as a bare pair. */}
+          {isPlayer && (
+            <Collapsible id="section-uniform" title="Team and uniform" summary={uniformSummary(row)}
+              tone={!row.jersey_size && !row.pants_size ? "quiet" : null}
+              open={Boolean(open.uniform)} onToggle={() => toggle("uniform")}>
+              <Row label="Jersey number" value={row.jersey_number ?? "Not set"} />
+              <Row label="Positions" value={row.positions?.length ? row.positions.join(" / ") : "Not set"} />
+              <Row label="Jersey size" value={row.jersey_size ?? "Not set"} />
+              <Row label="Pants size" value={row.pants_size ?? "Not set"} />
+            </Collapsible>
+          )}
 
           {isPlayer && (
-          <DocumentSection
-            documents={row.documents ?? []}
-            lockTo={{ kind: "player", id: p.id, label: p.full_name }}
-            targets={documentTargets}
-            canWrite={canWrite}
-            isAdmin={isAdmin}
-            seasonName={seasonName}
-          />
+            <Collapsible id="section-recruiting" title="Recruiting" summary={recruitingSummary(recruiting)}
+              tone={recruitingSummary(recruiting) === "None" ? "quiet" : null}
+              open={Boolean(open.recruiting)} onToggle={() => toggle("recruiting")}>
+              <PlayerRecruiting
+                bare
+                playerId={playerId ?? row.player_id}
+                links={recruiting.links}
+                interests={recruiting.interests}
+                contacts={contacts}
+                canWrite={canWrite}
+              />
+            </Collapsible>
           )}
 
-          {/* Roster status sits last: active/inactive is already in the header,
-              so this is where you act on it, not where you learn it. */}
+          {isPlayer && (
+            <Collapsible id="section-documents" title="Documents"
+              summary={docs.length ? `${docs.length} ${docs.length === 1 ? "document" : "documents"}` : "None attached"}
+              tone={docs.length ? null : "quiet"}
+              open={Boolean(open.documents)} onToggle={() => toggle("documents")}>
+              <DocumentSection
+                bare
+                documents={docs}
+                lockTo={{ kind: "player", id: p.id, label: p.full_name }}
+                targets={documentTargets}
+                canWrite={canWrite}
+                isAdmin={isAdmin}
+                seasonName={seasonName}
+              />
+            </Collapsible>
+          )}
+
           {pickupHistory.length > 0 && (
             <section className="detail-section">
               <h3 className="detail-section-title">Played with us</h3>
@@ -1024,21 +1078,18 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               </ul>
             </section>
           )}
-
         </div>
 
-        {/* THREE ACTIONS, THREE WEIGHTS — not three equal buttons. Edit
-            details is what a coach came here to do, so it stays primary.
-            Remove from roster is destructive and stays visually separate.
-            Make inactive replaces the old Roster Status section: status itself
-            is already on the header pill, so only the ACTION needed a home,
-            and a ghost button keeps it available without competing. */}
+        {/* ONE ROW. Edit details is what a coach came here to do, so it is the
+            volt button unless there is a genuine next step (promoting a pickup
+            onto the roster), in which case that takes volt and Edit is
+            outlined. Make inactive and Remove from roster live in More
+            actions, up in the header. */}
         {canWrite && (
           <div className="drawer-foot">
             {/* FEEDBACK BELONGS TO THE SURFACE THE ACTION WAS TAKEN ON.
-                This used to render at the top of the Team page, underneath a
-                fixed full-height drawer — on a phone a failed removal was
-                indistinguishable from a successful one. */}
+                A failed removal used to render at the top of the Team page,
+                underneath a fixed full-height drawer. */}
             {drawerError && (
               <p className="drawer-foot-error" role="alert">{drawerError}</p>
             )}
@@ -1064,24 +1115,22 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
               </div>
             ) : (
             <div className="drawer-foot-row">
-              <div className="drawer-foot-lifecycle">
-                {/* The label and the header pill both come from row, which is
-                    derived from the refreshed roster — so a successful toggle
-                    changes what is on screen. That IS the success signal; a
-                    toast would be noise on top of it. */}
-                {onToggleActive && (
-                  <button className="btn btn-ghost" disabled={pending} onClick={onToggleActive}>
-                    {pending ? "Saving…"
-                      : row.is_active === false ? "Make active" : "Make inactive"}
-                  </button>
-                )}
-                <button className="btn btn-secondary" onClick={onRemove} disabled={pending}>
-                  Remove from roster
-                </button>
-              </div>
-              <button className="btn btn-primary drawer-foot-edit" onClick={onEdit} disabled={pending}>
+              <button className={promote ? "btn btn-secondary" : "btn btn-primary"} onClick={onEdit} disabled={pending}>
                 Edit details
               </button>
+              {promote && (
+                <button
+                  className="btn btn-primary"
+                  disabled={pending}
+                  onClick={() => {
+                    const fd = new FormData();
+                    fd.set("player_id", playerId);
+                    onAddToRoster(fd);
+                  }}
+                >
+                  Add to roster
+                </button>
+              )}
             </div>
             )}
           </div>

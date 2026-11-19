@@ -33,7 +33,7 @@ function contactHeading(c) {
 }
 
 export function PlayerContacts({ playerId, contactInfo, canWrite, pending: parentPending,
-                                 player = {}, isPlayer = true }) {
+                                 player = {}, isPlayer = true, bare = false }) {
   const { run: runMutation, pending: busy } = useMutation();
   const [editing, setEditing] = useState(null);   // contact id, "legacy", or "new"
   const [form, setForm] = useState(BLANK);
@@ -163,10 +163,14 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
     run(setPrimaryContact, fd);
   }
 
+  // bare: the caller supplies the heading (a collapsible section), so this
+  // renders only the content and its Add contact action.
+  const Outer = bare ? "div" : "section";
   return (
-    <section className="detail-section">
-      <div className="detail-section-head">
-        <h3 className="detail-section-title">Contacts</h3>
+    <Outer className={bare ? "pc-bare" : "detail-section"}>
+      {(!bare || (canWrite && isPlayer && editing === null)) && (
+      <div className={bare ? "detail-section-head bare-head" : "detail-section-head"}>
+        {!bare && <h3 className="detail-section-title">Contacts</h3>}
         {canWrite && isPlayer && editing === null && (
           <button type="button" className="btn btn-ghost btn-sm"
                   onClick={() => { setEditing("new"); setForm(BLANK); setError(null); }}
@@ -175,6 +179,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
           </button>
         )}
       </div>
+      )}
 
       {/* Panel level keeps the errors that belong to no form — a failed
           Remove or Make primary. An edit's error is shown on the edit. */}
@@ -317,7 +322,7 @@ export function PlayerContacts({ playerId, contactInfo, canWrite, pending: paren
                 emptyOffer={emptyOffer === "new"}
                 canRemove={false} />
       )}
-    </section>
+    </Outer>
   );
 }
 

@@ -25,10 +25,13 @@ export function DocumentSection({
   isAdmin,
   seasonName,
   onChanged,
+  bare = false,
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  // bare: the caller supplies the heading (a collapsible section).
+  const Outer = bare ? "div" : "section";
 
   async function open(doc) {
     setError(null);
@@ -56,8 +59,8 @@ export function DocumentSection({
     // field. Same title treatment as PLAYER, TEAM & UNIFORM, CONTACTS and
     // RECRUITING; only the empty CONTENT stays compact.
     return (
-      <section className="detail-section">
-        <h3 className="detail-section-title">Documents</h3>
+      <Outer className={bare ? "pc-bare" : "detail-section"}>
+        {!bare && <h3 className="detail-section-title">Documents</h3>}
         {error && <div className="alert alert-error">{error}</div>}
         <div className="compact-row compact-row-flush">
           <span className="compact-value muted">None attached</span>
@@ -67,14 +70,14 @@ export function DocumentSection({
             </button>
           )}
         </div>
-      </section>
+      </Outer>
     );
   }
 
   return (
-    <section className="detail-section">
-      <div className="detail-section-head">
-        <h3 className="detail-section-title">Documents</h3>
+    <Outer className={bare ? "pc-bare" : "detail-section"}>
+      <div className={bare ? "detail-section-head bare-head" : "detail-section-head"}>
+        {!bare && <h3 className="detail-section-title">Documents</h3>}
         {canWrite && (
           <button className="btn btn-ghost" onClick={() => setUploading(true)} disabled={busy}>
             Add document
@@ -120,6 +123,6 @@ export function DocumentSection({
           onUploaded={onChanged}
         />
       )}
-    </section>
+    </Outer>
   );
 }

@@ -703,3 +703,78 @@ html.volt .st-callout-step { display: inline-flex; gap: 2px; flex: none; }
 html.volt .st-callout-step button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: #fff; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
 html.volt .st-callout-step button:disabled { opacity: .35; cursor: default; }
 @media (max-width: 420px) { html.volt .st-callout { flex-wrap: wrap; } html.volt .st-callout > div { flex: 1 1 100%; } }
+
+/* =========================================================================
+   Tournament drawer (2026-11): status in the header, summary tiles that jump,
+   sections that collapse independently, one volt button.
+   ========================================================================= */
+html.volt .drawer-head .t-status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0 0; }
+html.volt .drawer-head .t-status .field { margin: 0; }
+html.volt .drawer-head .t-status label {
+  display: flex; align-items: center; gap: 4px; margin-bottom: 5px;
+  font-family: var(--font-volt-mono); font-size: 10.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+html.volt .drawer-head .t-status select { min-height: 44px; }
+html.volt .drawer-head-text { flex: 1 1 auto; }
+
+html.volt .more-menu { position: relative; }
+html.volt .more-menu-btn {
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; border-radius: 12px; color: var(--ink); cursor: pointer;
+}
+html.volt .more-menu-btn:hover:not(:disabled), html.volt .more-menu-btn[aria-expanded="true"] { background: var(--sunk); }
+html.volt .more-menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 200px; width: max-content; max-width: min(300px, calc(100vw - 32px));
+  background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--float); padding: 6px;
+}
+html.volt .more-menu-item {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; width: 100%; min-height: 44px; padding: 10px 12px; border: 0; background: transparent;
+  border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; font-family: inherit;
+}
+html.volt .more-menu-item:hover:not(:disabled) { background: var(--sunk); }
+html.volt .more-menu-item.is-danger { color: var(--owed); }
+html.volt .more-menu-desc { font-size: 12.5px; font-weight: 400; line-height: 1.35; color: var(--muted); }
+html.volt .more-menu-item.is-danger .more-menu-desc { color: var(--muted); }
+html.volt .collapsible-summary.tone-warn { color: #b45309; font-weight: 600; }
+html.volt .pc-bare { padding: 2px 0 0; }
+html.volt .bare-head { display: flex; justify-content: flex-end; margin: 0 0 6px; }
+
+/* Tiles */
+html.volt .t-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; border: 0; background: transparent; overflow: visible; margin-bottom: 18px; }
+html.volt .t-metric {
+  border: 1px solid var(--line); background: var(--sunk); box-shadow: none; border-radius: 14px;
+  padding: 11px 12px; min-height: 92px; gap: 2px; justify-content: flex-start;
+}
+html.volt .t-metric:hover { background: #fff; }
+html.volt .t-metric.is-open { background: #fff; border: 1.5px solid var(--ink); padding: 10px 11px; }
+html.volt .t-metric-value { font-size: 24px; line-height: 1.1; }
+html.volt .t-metric-caption { font-size: 12.5px; line-height: 1.25; color: var(--muted); white-space: normal; }
+
+/* Sections: heading left, summary and chevron right; an open section sits on a
+   tinted panel so several can be open and still read as separate blocks. */
+html.volt .collapsible { border-top: 1px solid var(--line); scroll-margin-top: 8px; }
+html.volt .collapsible.is-open { background: var(--sunk); border-radius: 16px; border-top-color: transparent; margin: 8px 0; padding: 0 14px 2px; }
+html.volt .collapsible-head { min-height: 56px; padding: 0 4px; gap: 12px; }
+html.volt .collapsible.is-open .collapsible-head { padding: 0; }
+html.volt .collapsible-title { font-family: var(--font-body); font-size: 16px; font-weight: 650; color: var(--ink); }
+html.volt .collapsible-summary { margin-left: auto; font-size: 14px; color: var(--muted); max-width: 55%; }
+html.volt .collapsible-caret { font-size: 13px; color: var(--ink); }
+html.volt .collapsible-body { padding: 0 0 16px; }
+html.volt .collapsible .detail-section { padding: 0; margin: 0; border: 0; }
+html.volt .games-section.is-bare .games-header { justify-content: flex-end; margin-bottom: 8px; }
+html.volt .collapsible .er-empty { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; }
+html.volt .collapsible .er-empty .er-empty-body { margin: 0; flex: 1; font-size: 14px; color: var(--body); max-width: none; }
+html.volt .collapsible .btn { min-height: 44px; }
+
+/* Footer: Edit details outlined, the next step is the one volt button. */
+html.volt .drawer-foot { gap: 10px; justify-content: flex-end; }
+html.volt .drawer-foot .btn { min-height: 48px; }
+html.volt .drawer-foot-error { flex: 1 1 100%; margin: 0 0 4px; }
+
+/* Tournament drawer, very narrow phones (320px): stack the two status
+   selects so their labels stay readable, and let tile amounts shrink. */
+@media (max-width: 359px) {
+  html.volt .drawer-head .t-status { grid-template-columns: minmax(0, 1fr); }
+  html.volt .t-metrics { gap: 6px; }
+  html.volt .t-metric-value { font-size: clamp(16px, 5.4vw, 20px); overflow-wrap: anywhere; }
+}

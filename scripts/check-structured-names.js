@@ -250,7 +250,7 @@ section("Contact card uses real, Season Tempo-specific classes");
     !/className="contact-card/.test(ui));
   ok("it no longer uses a generic .badge", !/className="badge/.test(ui));
   ok("it uses the established .detail-section language",
-    /className="detail-section"/.test(ui) && /className="detail-section-title"/.test(ui));
+    /"detail-section"/.test(ui) && /className="detail-section-title"/.test(ui));
 
   for (const c of ["pc-card", "pc-card-head", "pc-name", "pc-badge", "pc-badge-quiet",
                    "pc-body", "pc-actions", "pc-empty", "pc-head", "pc-card-editing"]) {
@@ -290,15 +290,21 @@ section("Drawer information architecture");
   const drawer = ui.slice(ui.indexOf("export function PlayerDetail"), ui.indexOf("function AddPersonFlow"));
   const at = (needle) => drawer.indexOf(needle);
 
-  ok("PLAYER comes before TEAM & UNIFORM",
-    at('<Section title="Player">') > -1
-    && at('<Section title="Player">') < at('<Section title="Team & Uniform">'));
-  ok("TEAM & UNIFORM comes before CONTACTS",
-    at('<Section title="Team & Uniform">') < at("<PlayerContacts"));
-  ok("CONTACTS comes before RECRUITING",
-    at("<PlayerContacts") < at("<PlayerRecruiting"));
-  ok("RECRUITING comes before DOCUMENTS",
-    at("<PlayerRecruiting") < at("<DocumentSection"));
+  // 2026-11 redesign: collapsible sections, each carrying its answer in the
+  // heading. Contacts leads (how to reach the family is why a coach opens the
+  // drawer) and starts open; the rest start closed.
+  const idAt = (id) => drawer.indexOf(`id="${id}"`);
+  ok("CONTACTS comes first, before PLAYER DETAILS",
+    idAt("section-contacts") > -1 && idAt("section-contacts") < idAt("section-player"));
+  ok("PLAYER DETAILS comes before TEAM AND UNIFORM", idAt("section-player") < idAt("section-uniform"));
+  ok("TEAM AND UNIFORM comes before RECRUITING", idAt("section-uniform") < idAt("section-recruiting"));
+  ok("RECRUITING comes before DOCUMENTS", idAt("section-recruiting") < idAt("section-documents"));
+  ok("Contacts starts open, the rest closed", /useState\(\(\) => \(\{ contacts: true,/.test(drawer));
+  ok("every section is a Collapsible with its own summary",
+    ["section-contacts", "section-player", "section-uniform", "section-recruiting", "section-documents"]
+      .every((id) => new RegExp(`<Collapsible id="${id}"[^>]*summary=`).test(drawer.replace(/\n\s+/g, " "))));
+  ok("the children render bare so the heading is not repeated",
+    /<PlayerContacts\s+bare/.test(drawer) && /<PlayerRecruiting\s+bare/.test(drawer) && /<DocumentSection\s+bare/.test(drawer));
 
   // The two headings that used to stack.
   ok('the "Player Information" heading is gone', !drawer.includes('title="Player Information"'));
@@ -307,18 +313,16 @@ section("Drawer information architecture");
   ok("the Roster Status section is gone", !drawer.includes('title="Roster Status"'));
 
   // Season fields grouped, not mixed into intrinsic player data.
-  const teamSection = drawer.slice(at('<Section title="Team & Uniform">'), at("<PlayerContacts"));
+  const teamSection = drawer.slice(drawer.indexOf('id="section-uniform"'), drawer.indexOf('id="section-recruiting"'));
   for (const f of ["jersey_number", "positions", "jersey_size", "pants_size"]) {
-    ok(`TEAM & UNIFORM contains ${f}`, teamSection.includes(f));
+    ok(`TEAM AND UNIFORM contains ${f}`, teamSection.includes(f));
   }
-  // Bounded by PLAYER's own closing tag — slicing to the next section's title
-  // would sweep in that section's render guard, which legitimately names
-  // jersey_number.
-  const playerStart = at('<Section title="Player">');
-  const playerSection = drawer.slice(playerStart, drawer.indexOf("</Section>", playerStart));
-  ok("PLAYER contains high school", playerSection.includes("high_school"));
-  ok("PLAYER contains throws / bats", playerSection.includes("Throws / Bats"));
-  ok("PLAYER does NOT contain jersey number", !playerSection.includes("jersey_number"));
+  ok("sizes are labeled in full, never a bare pair",
+    /label="Jersey size"/.test(teamSection) && /label="Pants size"/.test(teamSection) && /`Jersey \$\{row\.jersey_size\}`/.test(ui));
+  const playerSection = drawer.slice(drawer.indexOf('id="section-player"'), drawer.indexOf('id="section-uniform"'));
+  ok("PLAYER DETAILS contains high school", playerSection.includes("high_school"));
+  ok("PLAYER DETAILS contains throws / bats", playerSection.includes("Throws / Bats"));
+  ok("PLAYER DETAILS does NOT contain jersey number", !playerSection.includes("jersey_number"));
 
   // No duplication: player email/phone live in exactly one place.
   ok("player email/phone are NOT rendered in the drawer body",
@@ -329,16 +333,16 @@ section("Drawer information architecture");
   ok("guardian cards still come from player_contacts only",
     !/parent_(name|email|phone)/.test(pc));
 
-  // Footer hierarchy: three weights, not three equal buttons.
+  // Footer hierarchy (2026-11): one row. Edit details is the volt button unless
+  // there is a genuine next step; lifecycle actions live in More actions.
   const foot = drawer.slice(drawer.indexOf('className="drawer-foot'));
-  ok("Edit details remains the primary action", /btn-primary[^>]*onClick=\{onEdit\}/.test(foot));
-  ok("Remove from roster remains secondary", /btn-secondary[^>]*onClick=\{onRemove\}/.test(foot));
-  ok("Make inactive is a ghost action in the footer", /btn-ghost[^>]*onClick=\{onToggleActive\}/.test(foot));
-  ok("...on the same row as Remove from roster", /drawer-foot-lifecycle/.test(foot));
-  ok("...with Edit details still last (primary, right)",
-    foot.indexOf("onToggleActive") < foot.indexOf("onRemove")
-    && foot.indexOf("onRemove") < foot.indexOf("onEdit"));
-  ok("...and the toggle capability is preserved", foot.includes("Make active"));
+  ok("Edit details remains the primary action", /btn-primary"[^]*onClick=\{onEdit\}/.test(foot.replace(/\n\s+/g, " ")) || /"btn btn-primary"\}[^]*onClick=\{onEdit\}/.test(foot.replace(/\n\s+/g, " ")));
+  ok("Remove from roster is not a footer button any more", !/onClick=\{onRemove\}/.test(foot));
+  ok("Make inactive is not a footer button any more", !/onClick=\{onToggleActive\}/.test(foot));
+  ok("both are More actions items, Remove marked as the dangerous one",
+    /label: "Remove from roster"[\s\S]{0,260}danger: true/.test(drawer) && /"Make active" : "Make inactive"/.test(drawer));
+  ok("...and the toggle capability is preserved", drawer.includes("Make active"));
+  ok("the Remove confirmation is kept, in the footer", /confirmingRemove \?/.test(foot) && /Keep on roster/.test(foot));
 
   // Compact empty states — collapsed, never removed.
   ok("Documents collapses when empty", /documents\.length === 0 && !uploading/.test(doc));
@@ -362,7 +366,7 @@ section("Drawer information architecture");
   ok(".pc-head was removed in favour of .detail-section-head",
     !css.includes(".pc-head") && !pc.includes("pc-head"));
   ok("...and Contacts uses the shared section-head pattern",
-    pc.includes('className="detail-section-head"'));
+    pc.includes("detail-section-head"));
 }
 
 // -------------------------------------------------- edit details structure
@@ -947,27 +951,28 @@ section("Tournament drawer body");
   ok("no second Edit affordance was added",
     (t.match(/onClick=\{onEdit\}/g) ?? []).length, 1);
 
-  ok("the three metrics survive as buttons",
-    (t.match(/<button className="t-metric"/g) ?? []).length, 3);
-  ok("...still revealing their sections",
-    /t-metric"[\s\S]{0,80}?reveal\("games"\)/.test(t)
-    && /t-metric"[\s\S]{0,80}?reveal\("roster"\)/.test(t)
-    && /t-metric"[\s\S]{0,80}?reveal\("costs"\)/.test(t));
-  ok("...as one strip rather than three cards",
-    /\.t-metrics \{[^}]*display: flex/.test(css) && /\.t-metric \{[^}]*border-left/.test(css));
+  // 2026-11 drawer redesign: tiles jump (never collapse), status lives in the
+  // header, contact is a collapsible section whose own heading is not repeated.
+  ok("the three metrics are buttons, rendered from one list of three tiles",
+    /className=\{`t-metric\$\{isOpen\(x\.key\)/.test(t)
+    && /key: "games"/.test(t) && /key: "roster"/.test(t) && /key: "costs"/.test(t));
+  ok("...each only reveals its section (open and jump), never toggles it",
+    /onClick=\{\(\) => reveal\(x\.key\)\}/.test(t) && !/onClick=\{\(\) => toggle\(x\.key\)\}/.test(t));
   ok("the heavy KPI boxes are no longer used", !/className="t-action"/.test(t));
 
-  ok("status moved into a shared section",
-    /<h3 className="detail-section-title">Status<\/h3>/.test(t));
+  ok("status sits in the drawer header, not a separate section",
+    !/<h3 className="detail-section-title">Status<\/h3>/.test(t) && /className="field-row t-status"/.test(t));
   ok("...keeping both controls",
     /id="d-decision"/.test(t) && /id="d-paid"/.test(t));
-  ok("the header pills remain the quick read",
+  ok("read-only users still get the pills",
     /decision-pill/.test(t) && /paidClass\(t\.paid_status\)/.test(t));
 
   ok("the contact section keeps its title+action pattern",
     /section-head/.test(read("components/TournamentContact.js")));
-  ok("the footer keeps two actions",
-    /drawer-foot/.test(t) && /Edit details/.test(t));
+  ok("the footer keeps Edit details (outlined) and one next-step button",
+    /drawer-foot/.test(t) && /className="btn btn-secondary" onClick=\{onEdit\}/.test(t) && /step\.label/.test(t));
+  ok("Delete lives in the More actions menu, still behind its confirmation",
+    /MoreActionsMenu/.test(t) && /label: "Delete tournament"/.test(t) && /confirmingDelete \?/.test(t) && !/btn-danger-ghost" onClick=\{onDelete\}/.test(t));
 }
 
 console.log(`\n${passed} assertions, ${failures.length} failed\n`);

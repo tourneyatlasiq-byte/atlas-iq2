@@ -16,6 +16,7 @@ P="psql -q -d $DB -v ON_ERROR_STOP=1"
 $P -f scripts/sql/local/mark-paid-schema.sql >/dev/null 2>&1
 $P -f ${MIGRATION:-supabase/migrations/20261119172925_mark_tournament_paid_in_full.sql}
 $P -f scripts/sql/local/actions-seed.sql
+$P -f scripts/sql/local/roster-seed.sql
 export JWT_SECRET=local-test-secret-local-test-secret-1234
 export DB_URI="postgres://${PGUSER:-postgres}@127.0.0.1:${PGPORT:-5432}/$DB"
 export SHIM_PORT=$PORT

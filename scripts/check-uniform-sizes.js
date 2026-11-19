@@ -119,25 +119,40 @@ assertEq("edit: unlisted value is offered alongside the full list", selectOf(leg
 const none = selectOf(render({ ...base, jersey_size: null, pants_size: null }), "jersey_size");
 assertEq("edit: no saved size leaves the select on —", none && none.selected, [""]);
 
-console.log("C. player drawer Edit details placement");
+console.log("C. player drawer footer and lifecycle actions (redesigned 2026-11)");
 const { PlayerDetail } = require(path.join(ROOT, "components", "RosterClient.js"));
-function drawer(canWrite) {
+function drawer(canWrite, extra = {}) {
   return renderToStaticMarkup(React.createElement(PlayerDetail, {
     row: { ...base, player: { ...base.player } }, canWrite, isAdmin: false, documentTargets: {},
     seasonName: "2026-27", pending: false, onClose() {}, onEdit() {}, onRemove() {},
-    onToggleActive() {}, onRoster: true, playerId: "p1", contacts: [], recruiting: { links: [], interests: [] },
+    onToggleActive() {}, onRoster: true, playerId: "p1", contacts: [], recruiting: { links: [], interests: [] }, ...extra,
   }));
 }
 const writable = drawer(true);
 const head = writable.slice(writable.indexOf('class="drawer-head"'), writable.indexOf('class="drawer-body"'));
-assertEq("writer: header carries the phone Edit details button", /drawer-head-edit[^>]*>Edit details</.test(head), true);
-assertEq("writer: footer keeps the desktop Edit details button", /drawer-foot-edit[^>]*>Edit details</.test(writable), true);
-assertEq("read-only: no Edit details anywhere", /Edit details/.test(drawer(false)), false);
-const css = fs.readFileSync(path.join(ROOT, "app", "globals.css"), "utf8");
-assertEq("css: header button hidden by default (desktop)", /\.drawer-head-edit \{ display: none; \}/.test(css), true);
-const phone = css.slice(css.indexOf(".drawer-head-edit { display: none; }"));
-assertEq("css: at 720px and below the header button shows and the footer one hides",
-  /@media \(max-width: 720px\) \{\s*\.drawer-head-edit \{ display: inline-flex;[^}]*min-height: 44px;[^}]*\}\s*\.drawer-foot-edit \{ display: none; \}/.test(phone), true);
+const foot = writable.slice(writable.indexOf('class="drawer-foot"'));
+assertEq("writer: the header no longer carries a second Edit details button", /Edit details/.test(head), false);
+assertEq("writer: the footer carries exactly one Edit details, and it is the volt button",
+  (foot.match(/Edit details/g) || []).length === 1 && /btn btn-primary"[^>]*>Edit details</.test(foot), true);
+assertEq("writer: Make inactive and Remove from roster are not footer buttons",
+  /Make inactive|Remove from roster/.test(foot), false);
+assertEq("writer: the header offers a More actions menu", /aria-label="More actions"/.test(head), true);
+assertEq("read-only: no Edit details and no More actions anywhere",
+  /Edit details|More actions/.test(drawer(false)), false);
+const rc = fs.readFileSync(path.join(ROOT, "components", "RosterClient.js"), "utf8");
+assertEq("Make active passes the new state (it used to pass the click event, so it could never reactivate)",
+  /onSelect: \(\) => onToggleActive\(row\.is_active === false\)/.test(rc) && /toggleActive\(detail, next === true\)/.test(rc), true);
+assertEq("the menu explains how the two actions treat history",
+  /All history, payments and documents stay/.test(rc) && /Anything paid or played is kept/.test(rc), true);
+assertEq("a pickup who is not on the roster gets no lifecycle menu",
+  /More actions/.test(drawer(true, { onRoster: false, pickupHistory: [{ id: "t1", name: "T" }], onAddToRoster() {} })), false);
+assertEq("...and Add to roster takes the volt button, Edit details is outlined",
+  /btn btn-secondary"[^>]*>Edit details</.test(drawer(true, { onRoster: false, pickupHistory: [{ id: "t1", name: "T" }], onAddToRoster() {} }))
+  && /btn btn-primary"[^>]*>Add to roster</.test(drawer(true, { onRoster: false, pickupHistory: [{ id: "t1", name: "T" }], onAddToRoster() {} })), true);
+// globals.css is pinned (check-qab-trend), so the retired .drawer-head-edit /
+// .drawer-foot-edit rules stay in it, unused. The footer button must never
+// carry those classes again, or the phone rule would hide it.
+assertEq("the footer Edit details does not use the retired phone-hiding class", /drawer-foot-edit|drawer-head-edit/.test(writable), false);
 
 console.error = consoleError;
 console.log(`\n${passed} passed, ${failed} failed`);
