@@ -6556,6 +6556,11 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
   color: inherit; text-decoration: none; min-height: 112px;
 }
 .hc-guide-card:hover, .hc-guide-card:focus-visible { border-color: var(--blue); }
+/* The app section a guide covers, named exactly as the navigation names it. */
+.hc-guide-section {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--slate);
+}
 .hc-guide-title { font-size: 14.5px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hc-guide-text { font-size: 13px; color: var(--slate); line-height: 1.45; }
 .hc-guide-meta { margin-top: auto; padding-top: 6px; font-size: 12px; font-weight: 600; color: var(--blue-dark); }
@@ -7134,3 +7139,123 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
 @media (max-width: 360px) {
   .navm-label { font-size: 10px; letter-spacing: -0.01em; }
 }
+
+/* Forms that slid sideways on iPhone (Edit tournament, Add transaction).
+   iPhone Safari gives date fields a minimum width based on their content and
+   will not shrink them, and a 1fr grid column cannot shrink below its
+   content. One date field therefore widened its whole row, then every field
+   in the form, and the form became a sideways scroller. Columns and fields
+   may now shrink to the screen, and date and time fields drop the native
+   minimum so they fill their column like every other field. */
+@media (max-width: 720px) {
+  .field-row { grid-template-columns: minmax(0, 1fr); }
+  .field-row > *, .field > * { min-width: 0; }
+  .field input, .field select, .field textarea { max-width: 100%; }
+  .field input[type="date"], .field input[type="time"], .field input[type="datetime-local"], .field input[type="month"] {
+    -webkit-appearance: none; appearance: none; display: block; width: 100%; min-width: 0; text-align: left;
+    min-height: 44px;
+  }
+  .field input[type="date"]::-webkit-date-and-time-value,
+  .field input[type="time"]::-webkit-date-and-time-value { text-align: left; }
+}
+
+/* Needs attention on phones: the "Choose a budget line" dropdown sized itself
+   to its longest option and ran past the card edge. It now takes the row's
+   width and shortens its label instead; Assign wraps below when needed. */
+@media (max-width: 640px) {
+  .fin-unassigned-row, .fin-unassigned-assign { min-width: 0; max-width: 100%; }
+  .fin-unassigned-assign select { flex: 1 1 100%; width: 100%; min-width: 0; max-width: 100%; }
+}
+
+/* ===== Finance on phones (approved 2026-11-18) ==============================
+   Overview first, then one section at a time. FinanceClient marks the root
+   with fin-m-overview or fin-m-section and the current tab; these rules only
+   choose what shows. Desktop and tablet are unchanged. */
+.fin-m-back, .fin-h-section, .fin-m-sections, .fin-m-report, .fin-m-secfig { display: none; }
+
+@media (max-width: 720px) {
+  .fin-root .tabs { display: none; }
+  .fin-root .fin-head-actions > .btn { display: none; } /* Parent report lives on the overview */
+  .fin-root .fin-view-link { display: none; }           /* you are already in that section */
+
+  /* Overview */
+  .fin-m-overview .fin-band,
+  .fin-m-overview .fin-context,
+  .fin-m-overview .fin-tabbody,
+  .fin-m-overview .filter-chip { display: none; }
+  .fin-m-overview .fin-m-sections { display: flex; }
+  .fin-m-overview .fin-m-report { display: grid; }
+  .fin-m-sections {
+    flex-direction: column; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-card); overflow: hidden; margin-bottom: 12px;
+  }
+  .fin-m-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px;
+    align-items: center; width: 100%; min-height: 64px; padding: 12px 16px; text-align: left;
+    background: var(--surface); border: 0; border-top: 1px solid var(--border);
+    font: inherit; color: var(--navy); cursor: pointer; text-decoration: none;
+  }
+  .fin-m-sections .fin-m-row:first-child { border-top: 0; }
+  .fin-m-row-name { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+  .fin-m-row-fig { grid-column: 1; font-size: 13px; color: var(--slate); overflow-wrap: anywhere; }
+  .fin-m-chev { grid-column: 2; grid-row: 1 / span 2; font-size: 22px; line-height: 1; color: var(--slate); }
+  .fin-m-row:active { background: var(--bg); }
+  .fin-m-report { border: 1px solid var(--border); border-radius: var(--radius-card); }
+  .fin-m-report .fin-m-row-name { font-size: 15px; }
+
+  /* Needs attention: one compact row that expands in place. */
+  .fin-root .fin-attention { padding: 12px 16px; margin-bottom: 12px; }
+  .fin-root .fin-attention-summary { margin: 2px 0 0; font-size: 13px; }
+
+  /* Section */
+  .fin-m-section .fin-m-back {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: -6px 0 2px -4px;
+    padding: 0 4px; background: none; border: 0; font: inherit; font-weight: 600; color: var(--blue);
+    cursor: pointer; align-self: flex-start;
+  }
+  .fin-m-section .fin-m-back span { font-size: 20px; line-height: 1; }
+  .fin-m-section .fin-h-main, .fin-m-section .page-head .page-sub { display: none; }
+  .fin-m-section .fin-h-section { display: inline; }
+  .fin-m-section .fin-attention { display: none; }
+  .fin-m-section.fin-tab-transactions .fin-m-secfig { display: block; margin: -4px 0 12px; font-size: 13.5px; color: var(--slate); }
+  .fin-m-section.fin-tab-transactions .fin-band,
+  .fin-m-section.fin-tab-funds .fin-band { display: none; }
+  .fin-m-section.fin-tab-budget .fin-dues-panel,
+  .fin-m-section.fin-tab-payments .fin-budget-panel { display: none; }
+  .fin-m-section .summary-band-grid { grid-template-columns: minmax(0, 1fr); }
+
+  /* Transactions list: date and vendor under the description, so the full
+     amount always fits beside it. */
+  .txn-table thead { display: none; }
+  .txn-table, .txn-table tbody { display: block; width: 100%; }
+  .txn-table tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px;
+    padding: 12px; border-bottom: 1px solid var(--border);
+  }
+  .txn-table tr:last-child { border-bottom: 0; }
+  .txn-table td { display: block; padding: 0 !important; border: 0; min-width: 0; }
+  .txn-table td:nth-child(2) { grid-column: 1; grid-row: 1; }
+  .txn-table td:nth-child(1) { grid-column: 1; grid-row: 2; font-size: 12.5px !important; color: var(--slate); margin-top: 2px; }
+  .txn-table td:nth-child(4) { grid-column: 2; grid-row: 1 / span 2; text-align: right; align-self: start; }
+}
+@media (max-width: 720px) {
+  /* The report row belongs to the overview only; the header button gives way to it. */
+  .fin-m-section .fin-m-report { display: none; }
+  .fin-root .page-head .fin-head-actions > a.btn { display: none; }
+}
+@media (max-width: 720px) {
+  /* Alone in its section, the dues panel needs no divider from the budget panel. */
+  .fin-m-section.fin-tab-payments .fin-dues-panel { border-top: 0; padding-top: 0; margin-top: 0; }
+  .fin-m-section.fin-tab-payments .fin-dues-panel::before { display: none; }
+}
+
+/* Dialogs sit above drawers. A dialog opened from inside a drawer (Link a
+   location or resource, confirmations) used z-index 50 against the drawer's
+   60, so it opened hidden behind the drawer and the tap looked like nothing
+   happened, on every screen size. */
+.modal-backdrop { z-index: 70; }
+
+/* Contact phone and email links (tournament contact, player contacts, college
+   contacts): a long email was wider than a 320px drawer and made the drawer
+   slide sideways. Links may break inside the address instead. */
+.contact-actions > *, .contact-action { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }

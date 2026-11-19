@@ -81,6 +81,7 @@ export function HelpHome({ progress, access, from, query = "", answer = null, sh
               {HELP_GUIDES.map((g) => (
                 <li key={g.slug}>
                   <Link href={helpHref(`/help/${g.slug}`, fromHref)} className="hc-guide-card">
+                    <span className="hc-guide-section">{g.section}</span>
                     <span className="hc-guide-title">
                       {g.title}
                       {g.feature === "qab" && !access.qab && <span className="hc-premium">Premium</span>}

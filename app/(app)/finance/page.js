@@ -97,7 +97,15 @@ export default async function FinancePage({ searchParams }) {
   // Awaited so this works whether searchParams is a plain object (Next 14) or
   // a promise (Next 15). Awaiting a non-promise simply returns it.
   const params = await searchParams;
-  const requestedTab = TAB_ALIASES[params?.tab] ?? "budget";
+  // A record link (?open=, the payment drawer) or the dues form (?add=dues)
+  // belongs to Player Dues, so the tab behind it is Player Dues even when the
+  // link names no tab. Before, the drawer opened over the Budget tab.
+  const requestedTab =
+    TAB_ALIASES[params?.tab] ??
+    (params?.open || params?.add === "dues" ? "payments" : "budget");
+  // Phones open the named section directly; with no section in the link they
+  // open the Finance overview.
+  const sectionRequested = Boolean(TAB_ALIASES[params?.tab] || params?.open || params?.add === "dues");
 
   const setup = await setupState(createClient(), { organization, team, season, profile });
 
@@ -121,6 +129,7 @@ export default async function FinancePage({ searchParams }) {
       seasonName={season.name}
       seasonPhase={seasonPhase}
       initialTab={requestedTab}
+      sectionRequested={sectionRequested}
       autoOpen={params?.add === "1"}
       autoAddDues={params?.add === "dues"}
       initialTournament={params?.tournament ?? null}

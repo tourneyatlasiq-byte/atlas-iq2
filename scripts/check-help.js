@@ -64,7 +64,8 @@ const allText = (g) => [g.title, g.summary, g.who, ...(g.goodToKnow ?? []), ...(
 /* ------------------------------------------------------------------------ */
 section("A. Content shape");
 ok("exactly nine guides", HELP_GUIDES.length, 9);
-ok("the approved nine, in order", HELP_GUIDES.map((g) => g.slug), ["setup", "roster", "tournaments", "qab", "money", "files", "locations", "access", "reports"]);
+ok("the approved nine, in navigation order (2026-11-18)", HELP_GUIDES.map((g) => g.slug), ["setup", "tournaments", "roster", "locations", "money", "qab", "reports", "files", "access"]);
+ok("every guide names its app section", HELP_GUIDES.map((g) => g.section), ["Getting started", "Tournaments", "Team", "Locations & Resources", "Finance", "Performance", "Reports", "Files", "Settings"]);
 ok("slugs are unique", new Set(HELP_GUIDES.map((g) => g.slug)).size, 9);
 for (const g of HELP_GUIDES) {
   ok(`${g.slug}: 3 to 7 steps`, g.steps.length >= 3 && g.steps.length <= 7);
@@ -214,7 +215,7 @@ ok("no QAB: no batting-order step", noQab.steps.some((x) => x.id === "lineup"), 
 const noQabHome = html(React.createElement(center.HelpHome, { progress: noQab, access: { ...COACH, qab: false }, from: null }));
 ok("no QAB: Popular has no QAB question", /Track QABs/.test(noQabHome), false);
 const answered = html(React.createElement(center.HelpHome, { progress, access: COACH, from: "/finance", answer: "dues-exempt" }));
-ok("?a= opens a direct answer with its action and full guide", /A player doesn(&#x27;|’)t owe dues/.test(answered) && />Open Player Dues →</.test(answered) && /Full guide: Manage team money/.test(answered));
+ok("?a= opens a direct answer with its action and full guide", /A player doesn(&#x27;|’)t owe dues/.test(answered) && />Open Player Dues →</.test(answered) && /Full guide: Budget, expenses and player dues/.test(answered));
 ok("answer links keep from", /href="\/help\/money\?from=%2Ffinance#dues"/.test(answered));
 const coachLogin = html(React.createElement(center.HelpHome, { progress, access: COACH, from: null, answer: "coach-login" }));
 ok("coach asking about sign-in: told why, no owner-only Invite button", !/settings\?invite=1/.test(coachLogin) && coachLogin.includes(ACCESS_REASON.admin.replace(/'/g, "&#x27;")));
@@ -434,7 +435,7 @@ ok("tracking help asks the four tracking questions", ["What counts as a QAB?", "
 ok("reworded questions reuse the answer word for word", liveHelp.includes(findAnswerById("qab-what-counts").answer.replace(/'/g, "&#x27;")));
 ok("no QAB: tracking help renders nothing", inCtx({ ...OWNER_CTX, qab: false }, ch({ questions: [{ id: "qab-fix" }], actions: false })), "");
 const fin = inCtx(COACH_CTX, ch({ title: "How Finance fits together", pieces: "money", learnMore: "money" }));
-ok("Finance: the five pieces from the money guide, plus Learn more", ["Budget", "Transactions", "Money In", "Player Dues", "Payments"].every((t) => fin.includes(`<dt>${t}</dt>`)) && /Learn more in Manage team money/.test(fin));
+ok("Finance: the five pieces from the money guide, plus Learn more", ["Budget", "Transactions", "Money In", "Player Dues", "Payments"].every((t) => fin.includes(`<dt>${t}</dt>`)) && /Learn more in Budget, expenses and player dues/.test(fin));
 ok("Finance Learn more keeps from", /href="\/help\/money\?from=%2Fhelp"/.test(fin) || /href="\/help\/money"/.test(fin));
 const dues = inCtx(COACH_CTX, ch({ questions: [{ id: "dues-how" }, { id: "dues-payment" }, { id: "dues-exempt" }], learnMore: "money#dues" }));
 ok("Player Dues: how dues work, record a payment, doesn't owe", ["How Player Dues work", "Record a payment", "A player doesn"].every((t) => dues.includes(t)));

@@ -802,7 +802,9 @@ console.log("\nTeam dues allocation");
   assertEq("...the primary action opens the first",
     /onClick=\{\(\) => onReviewTransaction\?\.\(blockers\[0\]\)\}/.test(ui), true);
   assertEq("...closing the confirmation and switching tab",
-    /confirmDelete\.cancel\(\);\s*\n\s*setTab\("transactions"\);\s*\n\s*setDetailTxn\(t\)/.test(ui), true);
+    // showTab switches the tab on desktop and opens the Transactions section
+    // on phones (Finance phone layout, 2026-11-18).
+    /confirmDelete\.cancel\(\);\s*\n\s*(setTab|showTab)\("transactions"\);\s*\n\s*setDetailTxn\(t\)/.test(ui), true);
   assertEq("...to a form where the budget line can actually be changed",
     /onClick=\{\(\) => setPickingLine\(true\)\}/.test(ui), true);
 

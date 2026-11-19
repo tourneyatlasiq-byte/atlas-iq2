@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ContextHelp } from "./ContextHelp";
 import { DrawerShell } from "./DrawerShell";
 
@@ -235,8 +236,113 @@ export function FinanceClient({
   initialTournament = null,
   rosterPlayers = [],
   autoAddDues = false,
+  // True when the link named a section (or a record inside one). Phones then
+  // open that section; otherwise they open the Finance overview.
+  sectionRequested = false,
 }) {
   const [tab, setTab] = useState(initialTab);
+
+  /*
+   * Phones (≤720px) show Finance as an overview plus one section at a time
+   * (approved 2026-11-18). Desktop keeps the tabs. One `tab` state serves
+   * both; CSS decides which layout is visible, so there is no client-side
+   * screen detection during render and no layout flash.
+   *
+   * The open section is written to the address (?tab=) so the phone's Back
+   * gesture returns to the overview, and a direct link opens its section.
+   * All four section bodies stay mounted, so a search or filter survives
+   * moving between sections, and each view remembers its scroll position.
+   */
+  const [mobileView, setMobileView] = useState(sectionRequested ? "section" : "overview");
+  const tabRef = useRef(tab);
+  const viewRef = useRef(mobileView);
+  tabRef.current = tab;
+  viewRef.current = mobileView;
+  const scrollMemo = useRef({});
+  // True only when this page itself opened the section, so "‹ Finance" can
+  // step back through history; a visitor from a direct link has nothing to
+  // step back to inside Finance.
+  const pushedSection = useRef(false);
+  // History entries a drawer added on top of the section (it opens with a
+  // push and closes with a replace), so "‹ Finance" steps back past them.
+  const drawerEntries = useRef(0);
+  const fromPop = useRef(false);
+  const searchParams = useSearchParams();
+  const openParam = searchParams?.get("open") ?? null;
+  const prevOpen = useRef(openParam);
+  useEffect(() => {
+    if (!fromPop.current && openParam && !prevOpen.current && pushedSection.current) drawerEntries.current += 1;
+    fromPop.current = false;
+    prevOpen.current = openParam;
+  }, [openParam]);
+  const isPhone = () =>
+    typeof window !== "undefined" && Boolean(window.matchMedia?.("(max-width: 720px)").matches);
+  const viewKey = () => (viewRef.current === "overview" ? "overview" : tabRef.current);
+  const rememberScroll = () => { scrollMemo.current[viewKey()] = window.scrollY; };
+  const restoreScroll = (key) =>
+    requestAnimationFrame(() => window.scrollTo(0, scrollMemo.current[key] ?? 0));
+
+  function openSection(key) {
+    rememberScroll();
+    setTab(key);
+    setMobileView("section");
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", key);
+    window.history.pushState(null, "", url);
+    pushedSection.current = true;
+    drawerEntries.current = 0;
+    restoreScroll(key);
+  }
+
+  function backToOverview() {
+    if (pushedSection.current) {
+      // popstate below shows the overview
+      window.history.go(-(1 + Math.max(0, drawerEntries.current)));
+      drawerEntries.current = 0;
+      return;
+    }
+    rememberScroll();
+    setMobileView("overview");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url);
+    restoreScroll("overview");
+  }
+
+  useEffect(() => {
+    const KEYS = { budget: "budget", transactions: "transactions", funds: "funds", payments: "payments" };
+    function onPop() {
+      fromPop.current = true;
+      const here = new URL(window.location.href).searchParams;
+      const hasOpen = Boolean(here.get("open"));
+      if (hasOpen !== Boolean(prevOpen.current) && pushedSection.current) {
+        drawerEntries.current = Math.max(0, drawerEntries.current + (hasOpen ? 1 : -1));
+      }
+      if (!isPhone()) return;
+      const key = KEYS[here.get("tab")];
+      const next = key ? `section:${key}` : "overview";
+      if (next === (viewRef.current === "overview" ? "overview" : `section:${tabRef.current}`)) return;
+      rememberScroll();
+      if (key) {
+        setTab(key);
+        setMobileView("section");
+        restoreScroll(key);
+      } else {
+        pushedSection.current = false;
+        drawerEntries.current = 0;
+        setMobileView("overview");
+        restoreScroll("overview");
+      }
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  /** Desktop switches the tab; a phone opens that section. */
+  function showTab(key) {
+    if (isPhone()) openSection(key);
+    else setTab(key);
+  }
 
   /**
    * ?tournament=<id> narrows Transactions to one event. Filtered from the
@@ -367,6 +473,7 @@ export function FinanceClient({
    * Honours prefers-reduced-motion.
    */
   function goToTab(key) {
+    if (isPhone()) { openSection(key); return; }
     setTab(key);
     requestAnimationFrame(() => {
       const reduce =
@@ -395,8 +502,41 @@ export function FinanceClient({
    */
   const filterPlayerIds = useMemo(() => actionPlayerIds(activeAction), [activeAction]);
 
+  const SECTIONS = [
+    { key: "budget", label: "Budget" },
+    { key: "transactions", label: "Transactions" },
+    { key: "funds", label: "Money In" },
+    { key: "payments", label: "Player Dues" },
+  ];
+  const sectionLabel = SECTIONS.find((x) => x.key === tab)?.label ?? "Budget";
+
+  /** The one figure each overview row carries. Display only; every figure is read from the existing summaries. */
+  function sectionFigure(key) {
+    if (key === "budget") {
+      if (!(summary.budgetedExpenses > 0)) return "No budget planned yet";
+      return summary.availableBudget < 0
+        ? `${summaryMoney(-summary.availableBudget)} over budget`
+        : `${summaryMoney(summary.availableBudget)} available of ${summaryMoney(summary.budgetedExpenses)}`;
+    }
+    if (key === "transactions") {
+      const n = transactions.length;
+      if (n === 0) return "Nothing recorded yet";
+      const toPay = sumMoney(
+        transactions
+          .filter((t) => !t.is_income && t.status === "To Pay" && t.actual_amount != null)
+          .map((t) => t.actual_amount)
+      );
+      return `${n} recorded${toPay > 0 ? ` · ${money(toPay)} to pay` : ""}`;
+    }
+    if (key === "funds") return `${summaryMoney(funds.total)} received this season`;
+    if (!(dues.expected > 0)) return "Dues not set yet";
+    return `${duesCollectedPercent(dues) ?? 0}% collected · ${
+      dues.outstanding > 0 ? `${money(dues.outstanding)} to collect` : "all collected"
+    }`;
+  }
+
   return (
-    <>
+    <div className={`fin-root fin-m-${mobileView} fin-tab-${tab}`}>
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
 
@@ -419,7 +559,7 @@ export function FinanceClient({
           <div className="dues-budget-actions">
             {payments.some((p) => p.totalDue != null) ? (
               <button className="btn btn-secondary"
-                      onClick={() => { setDuesBudgetNotice(null); setTab("players"); }}>
+                      onClick={() => { setDuesBudgetNotice(null); showTab("payments"); }}>
                 View player dues
               </button>
             ) : (
@@ -430,7 +570,7 @@ export function FinanceClient({
                         // nothing is charged by dismissing this.
                         setDuesPrefill(duesBudgetNotice.amount ?? null);
                         setDuesBudgetNotice(null);
-                        setTab("players");
+                        showTab("payments");
                         setEditPay("new");
                       }}>
                 Set player dues
@@ -443,9 +583,17 @@ export function FinanceClient({
         </div>
       )}
 
+      {/* Phones, inside a section: the way back to the Finance overview. */}
+      <button type="button" className="fin-m-back" onClick={backToOverview}>
+        <span aria-hidden="true">‹</span> Finance
+      </button>
+
       <div className="page-head">
         <div>
-          <h1>Finance</h1>
+          <h1>
+            <span className="fin-h-main">Finance</span>
+            <span className="fin-h-section">{sectionLabel}</span>
+          </h1>
           <div className="page-sub">{MODULE_DESCRIPTIONS.finance}</div>
         </div>
         <div className="fin-head-actions">
@@ -511,7 +659,7 @@ export function FinanceClient({
               </p>
             )}
 
-            <button className="fin-lead-link" onClick={() => goToTab("budget")}>
+            <button className="fin-lead-link fin-view-link" onClick={() => goToTab("budget")}>
               View full budget →
             </button>
           </section>
@@ -557,7 +705,7 @@ export function FinanceClient({
               the roster.
             </p>
 
-            <button className="fin-lead-link" onClick={() => selectAction("outstanding")}>
+            <button className="fin-lead-link fin-view-link" onClick={() => selectAction("outstanding")}>
               View all player balances →
             </button>
 
@@ -672,6 +820,23 @@ export function FinanceClient({
         </section>
       )}
 
+      {/* Phones: the four sections, then the parent report. */}
+      <nav className="fin-m-sections" aria-label="Finance sections">
+        {SECTIONS.map((x) => (
+          <button key={x.key} type="button" className="fin-m-row" onClick={() => openSection(x.key)}>
+            <span className="fin-m-row-name">{x.label}</span>
+            <span className="fin-m-row-fig">{sectionFigure(x.key)}</span>
+            <span className="fin-m-chev" aria-hidden="true">›</span>
+          </button>
+        ))}
+      </nav>
+      <Link className="fin-m-row fin-m-report" href="/reports/season-budget?from=finance">
+        <span className="fin-m-row-name">Parent budget report</span>
+        <span className="fin-m-row-fig">A summary to share with families</span>
+        <span className="fin-m-chev" aria-hidden="true">›</span>
+      </Link>
+      {tab === "transactions" && <p className="fin-m-secfig">{sectionFigure("transactions")}</p>}
+
       {activeAction && (
         <FilterChip
           label={`Showing ${activeAction.affected.length} ${FINANCE_FILTER_LABELS[activeAction.id] ?? "affected"}`}
@@ -680,12 +845,7 @@ export function FinanceClient({
       )}
 
       <div className="tabs" role="tablist" ref={tabsRef}>
-        {[
-          { key: "budget", label: "Budget" },
-          { key: "transactions", label: "Transactions" },
-          { key: "funds", label: "Money In" },
-          { key: "payments", label: "Player Dues" },
-        ].map((t) => (
+        {SECTIONS.map((t) => (
           <button
             key={t.key}
             role="tab"
@@ -701,6 +861,7 @@ export function FinanceClient({
       {/* H3: one "How this works" for Finance, matched to the tab (2026-11).
           Player Dues gets its three questions; every other tab gets the
           existing "How the pieces fit" explanation. */}
+      <div className="fin-context">
       {tab === "payments" ? (
         <ContextHelp
           key="dues"
@@ -712,8 +873,9 @@ export function FinanceClient({
       ) : (
         <ContextHelp key="pieces" align="end" title="How Finance fits together" pieces="money" learnMore="money" />
       )}
+      </div>
 
-      {tab === "budget" && (
+      <div className="fin-tabbody" hidden={tab !== "budget"}>
         <BudgetTab
           budget={budget}
           summary={summary}
@@ -741,24 +903,26 @@ export function FinanceClient({
              not left with a stale modal behind the drawer. */
           onReviewTransaction={(t) => {
             confirmDelete.cancel();
-            setTab("transactions");
+            showTab("transactions");
             setDetailTxn(t);
           }}
         />
-      )}
+      </div>
 
-      {tab === "funds" && <FundsInTab funds={funds} dues={dues} />}
+      <div className="fin-tabbody" hidden={tab !== "funds"}>
+        <FundsInTab funds={funds} dues={dues} />
+      </div>
 
-      {tab === "transactions" && (
+      <div className="fin-tabbody" hidden={tab !== "transactions"}>
         <TransactionsTab
           transactions={transactions}
           canWrite={canWrite}
           onAdd={() => setEditTxn("new")}
           onOpen={(t) => setDetailTxn(t)}
         />
-      )}
+      </div>
 
-      {tab === "payments" && (
+      <div className="fin-tabbody" hidden={tab !== "payments"}>
         <PaymentsTab
           payments={payments}
           filterPlayerIds={filterPlayerIds}
@@ -774,7 +938,7 @@ export function FinanceClient({
           filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
           onClearFilter={() => setActionId(null)}
         />
-      )}
+      </div>
 
       {editBudget && (
         <BudgetForm
@@ -936,7 +1100,7 @@ export function FinanceClient({
           onCancel={() => { setEditPay(null); setDuesForPlayer(null); }}
         />
       )}
-    </>
+    </div>
   );
 }
 
