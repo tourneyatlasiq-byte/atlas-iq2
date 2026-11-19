@@ -9,6 +9,7 @@ import { FinalScoreFollowUp } from "../../../components/FinalScoreFollowUp";
 import { canWrite } from "../../../lib/context";
 import { needsFinalScore } from "../../../lib/game-rules";
 import { formatDayLabel } from "../../../lib/schedule-rules";
+import { fmtDateRange } from "../../../lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -34,17 +35,7 @@ function fmtDate(d) {
   return `${Number(m)}/${Number(day)}`;
 }
 
-function fmtRange(start, end) {
-  if (!start) return null;
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const [ys, ms, ds] = start.split("-");
-  const from = `${months[Number(ms) - 1]} ${Number(ds)}`;
-  if (!end || end === start) return from;
-  const [ye, me, de] = end.split("-");
-  return Number(me) === Number(ms)
-    ? `${from} to ${Number(de)}`
-    : `${from} to ${months[Number(me) - 1]} ${Number(de)}`;
-}
+const fmtRange = (start, end) => (start ? fmtDateRange(start, end) : null);
 
 export default async function PerformancePage({ searchParams } = {}) {
   const { features, season: currentSeason, profile, seasonPhase } = await getContext();

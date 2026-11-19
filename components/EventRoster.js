@@ -13,7 +13,7 @@ import {
  * Event roster — who is dressing for this tournament.
  *
  * Deliberately not a roster-management screen. The season roster is who belongs
- * to the team this year; this is attendance for one weekend. Nothing is ever
+ * to the team this year; this is attendance for one tournament. Nothing is ever
  * pre-selected, because an empty event roster means "not recorded yet" rather
  * than "everyone attended".
  */
@@ -175,7 +175,7 @@ export function EventRoster({
 }
 
 /**
- * Attendance for one weekend, not roster management.
+ * Attendance for one tournament, not roster management.
  *
  * Everyone starts unchecked. "Select everyone" exists because most weekends
  * most players travel — but it is an explicit act, so the record still means

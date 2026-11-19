@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { statusLine } from "../lib/tournament-status";
+import { fmtDateRange } from "../lib/dates";
 
 /**
- * The season tempo: every weekend of the selected season as a beat on one line.
+ * The season tempo: every tournament of the selected season as a beat on one line.
  *
  * The range comes from the season's own dates. A season without dates falls
  * back to its tournaments' dates, so a planning season still draws. Tapping a
@@ -17,13 +18,7 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const at = (s) => new Date(s + "T12:00:00");
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function fmtRange(a, b) {
-  if (!a) return "Date not set";
-  const x = at(a), y = at(b ?? a);
-  const f = (d) => `${MON[d.getMonth()]} ${d.getDate()}`;
-  if (!b || a === b) return f(x);
-  return x.getMonth() === y.getMonth() ? `${f(x)} to ${y.getDate()}` : `${f(x)} to ${f(y)}`;
-}
+const fmtRange = fmtDateRange;
 
 export function SeasonStrip({ season, tournaments = [], transactions = [], nextId = null, today = iso(new Date()), compact = false }) {
   const [sel, setSel] = useState(null);
@@ -78,13 +73,13 @@ export function SeasonStrip({ season, tournaments = [], transactions = [], nextI
   return (
     <section className={`st-tempo card${compact ? " is-compact" : ""}`} aria-label={`${season?.name ?? "Season"} tempo`}>
       <div className="st-tempo-h">
-        <b>{beats.length === 0 ? `${season?.name ?? "Season"} tempo` : next ? `Weekend ${nextIndex} of ${committed.length}` : `${season?.name ?? "Season"}`}</b>
+        <b>{beats.length === 0 ? `${season?.name ?? "Season"} tempo` : next ? `Tournament ${nextIndex} of ${committed.length}` : `${season?.name ?? "Season"}`}</b>
         <span>
           {beats.length === 0
             ? "Each tournament you add becomes a beat on this line."
             : next
               ? daysTo <= 0 ? `${next.name} is on now` : `${daysTo} ${daysTo === 1 ? "day" : "days"} to ${next.name}`
-              : "No committed weekends ahead"}
+              : "No committed tournaments ahead"}
         </span>
       </div>
 
@@ -122,13 +117,13 @@ export function SeasonStrip({ season, tournaments = [], transactions = [], nextI
               {fmtRange(selected.start_date, selected.end_date)} · {(() => { const s = statusLine(selected, transactions); return s.sub ? `${s.main}, ${s.sub}` : s.main; })()}
             </span>
           </div>
-          {/* Weekends a fortnight apart overlap on a phone-width line, so a tap
-              can land on a neighbour. Stepping makes every weekend reachable. */}
+          {/* Tournaments a fortnight apart overlap on a phone-width line, so a tap
+              can land on a neighbour. Stepping makes every tournament reachable. */}
           <span className="st-callout-step">
-            <button type="button" aria-label="Previous weekend" disabled={beats.indexOf(selected) === 0} onClick={() => setSel(beats[beats.indexOf(selected) - 1].id)}>
+            <button type="button" aria-label="Previous tournament" disabled={beats.indexOf(selected) === 0} onClick={() => setSel(beats[beats.indexOf(selected) - 1].id)}>
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M14.5 6l-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <button type="button" aria-label="Next weekend" disabled={beats.indexOf(selected) === beats.length - 1} onClick={() => setSel(beats[beats.indexOf(selected) + 1].id)}>
+            <button type="button" aria-label="Next tournament" disabled={beats.indexOf(selected) === beats.length - 1} onClick={() => setSel(beats[beats.indexOf(selected) + 1].id)}>
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9.5 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           </span>

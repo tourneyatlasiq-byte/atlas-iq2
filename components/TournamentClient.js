@@ -35,6 +35,7 @@ import {
 
 import { DECISIONS, PAID_STATUSES, statusLine, registrationState } from "../lib/tournament-status";
 import { SeasonStrip } from "./SeasonStrip";
+import { fmtDateRange } from "../lib/dates";
 import { WeekendCard, directionsUrl as weekendDirections, fmtTime } from "./WeekendCard";
 import { useQuickStatus, QuickButton } from "./QuickStatus";
 // Display order differs from the value list: Committed first, since that is
@@ -43,18 +44,9 @@ const GROUP_ORDER = ["Committed", "Considering", "Declined"];
 const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay"];
 
 
-function dateRange(start, end) {
-  if (!start) return "—";
-  const d = (x) => new Date(x + "T00:00:00");
-  const mon = (x) => d(x).toLocaleDateString(undefined, { month: "short" });
-  const day = (x) => d(x).getDate();
-
-  // The year is already stated by the season, and repeating it on every row
-  // costs about 40px of the width that makes names ragged.
-  if (!end || end === start) return `${mon(start)} ${day(start)}`;
-  if (mon(start) === mon(end)) return `${mon(start)} ${day(start)} – ${day(end)}`;
-  return `${mon(start)} ${day(start)} – ${mon(end)} ${day(end)}`;
-}
+// The year is already stated by the season, so it only appears when a range
+// crosses a new year (see lib/dates.js).
+const dateRange = (start, end) => fmtDateRange(start, end, { empty: "—" });
 
 /**
  * Where the tournament is.
@@ -108,7 +100,7 @@ const paidClass = (s) =>
 
 export function TournamentClient({ qabEnabled = false, tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {}, season = null, transactions = [], nextUp = null, seasonAvailable = null, initialView = "plan" }) {
   const router = useRouter();
-  // Season plan (every weekend, quick status) or Next weekend (run the day).
+  // Season plan (every tournament, quick status) or Next tournament (run the day).
   const [view, setViewState] = useState(initialView);
   function setView(v) {
     setViewState(v);
@@ -294,7 +286,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
         <div className="st-views" role="group" aria-label="View">
           <button type="button" aria-pressed={view === "plan"} onClick={() => setView("plan")}>Season plan</button>
           <button type="button" aria-pressed={view === "weekend"} onClick={() => setView("weekend")} disabled={!nextT}>
-            Next weekend{nextT && <small>{nextUp.daysAway <= 0 ? "now" : `in ${nextUp.daysAway} ${nextUp.daysAway === 1 ? "day" : "days"}`}</small>}
+            Next tournament{nextT && <small>{nextUp.daysAway <= 0 ? "now" : `in ${nextUp.daysAway} ${nextUp.daysAway === 1 ? "day" : "days"}`}</small>}
           </button>
         </div>
       )}
@@ -1548,7 +1540,7 @@ function TiqNextUp({ tournament: t }) {
 }
 
 
-/* ---------------- Group 1: season plan and next weekend ---------------- */
+/* ---------------- Group 1: season plan and next tournament ---------------- */
 
 function StatusPipe({ t, transactions }) {
   if (t.decision === "Declined") return <span className="t-status t-status-none">Declined</span>;
@@ -1573,7 +1565,7 @@ function SeasonStats({ summary, record, tournaments }) {
     <section className="st-stats card" aria-label="Season at a glance">
       <div><span className="st-eyebrow">Committed</span><b>{summary.committedCount}</b><span>{considering} considering</span></div>
       <div><span className="st-eyebrow">Registered</span><b>{registered}<em> of {committed.length}</em></b><span>{waitlisted ? `${waitlisted} waitlisted` : committed.length - registered ? `${committed.length - registered} to register` : "All registered"}</span></div>
-      <div><span className="st-eyebrow">Committed cost</span><b>{money(summary.committedCost)}</b><span>for committed weekends</span></div>
+      <div><span className="st-eyebrow">Committed cost</span><b>{money(summary.committedCost)}</b><span>for committed tournaments</span></div>
       <div><span className="st-eyebrow">Record</span><b>{record.played > 0 ? `${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ""}` : "0-0"}</b><span>{record.played > 0 ? `${record.played} games played` : "No games played yet"}</span></div>
     </section>
   );

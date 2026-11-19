@@ -56,7 +56,7 @@ export default async function AboutPage() {
           <h2>Built around how travel softball actually operates</h2>
           <p>
             The season has a shape: events you&rsquo;re weighing up, the ones you commit to, the
-            weekends you play, the money that follows, and what you carry into next year.
+            tournaments you play, the money that follows, and what you carry into next year.
             Season Tempo follows that shape instead of splitting it across tools that
             don&rsquo;t know about each other.
           </p>

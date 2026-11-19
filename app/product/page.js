@@ -79,7 +79,7 @@ export default async function ProductPage() {
         <div className="mk-wrap">
           <div className="mk-workflow mk-workflow-reverse mk-workflow-tall">
             <div className="mk-workflow-text">
-              <span className="mk-eyebrow">Run the weekend</span>
+              <span className="mk-eyebrow">Run the tournament</span>
               <h2>One tournament, everything about it.</h2>
               <p>
                 Dates, facility and entry cost at the top. Registration status you can update as
@@ -136,7 +136,7 @@ export default async function ProductPage() {
           <ol className="mk-lifecycle">
             <Phase n="1" name="Plan">Add events you&rsquo;re considering. Compare cost, dates and travel.</Phase>
             <Phase n="2" name="Commit">Decide what you&rsquo;re playing. Costs start counting straight away.</Phase>
-            <Phase n="3" name="Play">Record pool play and bracket results as the weekend happens.</Phase>
+            <Phase n="3" name="Play">Record pool play and bracket results as the tournament happens.</Phase>
             <Phase n="4" name="Track">Watch the budget, dues and what still needs your attention.</Phase>
             <Phase n="5" name="Learn">Note what the facility was like and whether you&rsquo;d go back.</Phase>
             <Phase n="6" name="Next season">Carry your roster forward. Prior seasons stay for reference.</Phase>

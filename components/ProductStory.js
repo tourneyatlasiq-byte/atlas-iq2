@@ -22,7 +22,7 @@ const STEPS = [
   {
     n: "01",
     tab: "Tournament",
-    title: "Commit to the weekend.",
+    title: "Commit to the tournament.",
     body: "Track the tournament, facility, registration and entry fee together.",
     img: "/mk-tournaments.webp",
     mobileImg: "/mk-tournaments-mobile.webp",

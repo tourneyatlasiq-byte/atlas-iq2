@@ -76,9 +76,9 @@ export function DashboardClient({
         ) : (
           (setupComplete || hasTournaments) && (
             <section className="st-empty card">
-              <h3>No weekend coming up</h3>
+              <h3>No tournament coming up</h3>
               <p>Commit to a tournament and it shows here with its registration, payment and games.</p>
-              <Link className="btn btn-primary" href={hasTournaments ? "/tournaments" : "/tournaments?add=1"}>{hasTournaments ? "Plan a weekend" : "Add tournament"}</Link>
+              <Link className="btn btn-primary" href={hasTournaments ? "/tournaments" : "/tournaments?add=1"}>{hasTournaments ? "Plan a tournament" : "Add tournament"}</Link>
             </section>
           )
         )}

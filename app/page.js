@@ -113,7 +113,7 @@ export default async function HomePage() {
           <h2 className="mk-centered">Where a season actually gets run</h2>
           <div className="mk-grid mk-grid-3">
             <Capability title="Tournaments">
-              Everything about a weekend in one place — dates, facility, entry and gate fees,
+              Everything about a tournament in one place — dates, facility, entry and gate fees,
               registration status, the tournament director, your tournament roster and results.
             </Capability>
             <Capability title="Team">

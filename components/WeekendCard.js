@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { money } from "../lib/finance-rules";
+import { fmtDateRange, fmtDayRange } from "../lib/dates";
 import { registrationState, tournamentPayments } from "../lib/tournament-status";
 import { QuickButton } from "./QuickStatus";
 
 /**
- * The next weekend: registration, payment, games and where to go.
+ * The next tournament: registration, payment, games and where to go.
  *
  * Registration and payment come from paid_status plus what Finance has
  * recorded against the tournament (there is no deposit amount field). Games
@@ -14,22 +15,14 @@ import { QuickButton } from "./QuickStatus";
  * numbers are NOT shown: games has no field column, so that is a proposed
  * feature, not data the app holds.
  */
-const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const at = (s) => new Date(s + "T12:00:00");
-export function fmtRange(a, b) {
-  if (!a) return "Date not set";
-  const x = at(a), y = at(b ?? a);
-  const f = (d) => `${MON[d.getMonth()]} ${d.getDate()}`;
-  if (!b || a === b) return f(x);
-  return x.getMonth() === y.getMonth() ? `${f(x)} to ${y.getDate()}` : `${f(x)} to ${f(y)}`;
-}
+export const fmtRange = fmtDateRange;
+const dayName = (s) => fmtDayRange(s, null); // one day: "Sat"
 export function fmtTime(t) {
   if (!t) return "Time TBD";
   const [h, m] = t.split(":").map(Number);
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
-function dayName(s) { return s ? DOW[at(s).getDay()] : ""; }
 export function directionsUrl(f) {
   if (!f) return null;
   if (f.maps_link) return f.maps_link;
@@ -58,7 +51,7 @@ export function WeekendCard({ t, daysAway, transactions = [], canWrite, quick, f
 
   return (
     <article className={`st-wk${full ? " is-full" : ""}`} aria-labelledby={`wk-${t.id}`}>
-      <div className="st-wk-eyebrow"><span className="st-chip-volt">Next up</span>{t.start_date && <span>{dayName(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` to ${dayName(t.end_date)}` : ""}</span>}</div>
+      <div className="st-wk-eyebrow"><span className="st-chip-volt">Next up</span>{t.start_date && <span>{fmtDayRange(t.start_date, t.end_date)}</span>}</div>
       <div className="st-wk-count">{days <= 0 ? "Today" : days === 1 ? "Tomorrow" : <>{days}<small>days away</small></>}</div>
       <h2 id={`wk-${t.id}`}>{t.name}</h2>
       <p className="st-wk-meta">
@@ -101,7 +94,7 @@ export function WeekendCard({ t, daysAway, transactions = [], canWrite, quick, f
 
       {!full && (
         <div className="st-wk-acts">
-          <Link className="btn btn-primary" href="/tournaments?view=weekend">Open the weekend <span aria-hidden="true">→</span></Link>
+          <Link className="btn btn-primary" href="/tournaments?view=weekend">Open next tournament <span aria-hidden="true">→</span></Link>
           {dir && <a className="btn st-btn-dline" href={dir} target="_blank" rel="noreferrer">Directions</a>}
         </div>
       )}

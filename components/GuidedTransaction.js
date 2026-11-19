@@ -175,7 +175,7 @@ export function GuidedTransaction({ budgetItems = [], tournaments = [], players 
           <div className="st-seg" role="group" aria-label="Decision">
             {["Committed", "Considering"].map((v) => <button key={v} type="button" aria-pressed={(sub.decision ?? "Committed") === v} onClick={() => setSub({ ...sub, decision: v })}>{v}</button>)}
           </div>
-          <span className="st-hint">Committed weekends count against their budget line. You can add the organizer, venue and more from Tournaments later.</span>
+          <span className="st-hint">Committed tournaments count against their budget line. You can add the organizer, venue and more from Tournaments later.</span>
         </div>
         <SheetError>{err}</SheetError>
       </StSheet>

@@ -42,12 +42,12 @@ const PRIMARY = [
   {
     key: "tournaments",
     label: "Tournaments",
-    line: "Every weekend you are considering, committed to, or have already played.",
+    line: "Every tournament you are considering, committed to, or have already played.",
     points: [
       "Dates, provider, facility and age division",
       "Entry fees, registration and payment status",
       "Tournament roster, including pickups",
-      "Games, scores and results for the weekend",
+      "Games, scores and results for the tournament",
     ],
     img: "/mk-tournaments.webp",
     alt: "A season of committed tournaments with dates, providers and facilities",
