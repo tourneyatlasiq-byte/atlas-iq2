@@ -189,6 +189,19 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
           >
             <div className="sheet-grip" aria-hidden="true" />
 
+            {/* A visible, labeled way out (2026-11-18). Tapping outside the
+                sheet and Escape still close it too. Sticky, so it stays
+                reachable when the list scrolls or the keyboard is up. */}
+            <div className="sheet-head">
+              <h2 className="sheet-title">More</h2>
+              <button type="button" className="sheet-close" onClick={() => setMoreOpen(false)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+                Close
+              </button>
+            </div>
+
             <nav className="sheet-list" aria-label="More">
               {overflow.map((item) => {
                 const active = isActive(item.href);

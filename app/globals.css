@@ -7259,3 +7259,21 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
    contacts): a long email was wider than a 320px drawer and made the drawer
    slide sideways. Links may break inside the address instead. */
 .contact-actions > *, .contact-action { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+
+/* More sheet: a visible, labeled Close, pinned to the top of the sheet. */
+@media (max-width: 720px) {
+  .sheet { padding-top: 0; }
+  .sheet-grip { margin-top: 8px; }
+  .sheet-head {
+    position: sticky; top: 0; z-index: 1; background: var(--surface);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 2px 4px 8px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+  }
+  .sheet-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--navy); margin: 0; }
+  .sheet-close {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+    font: inherit; font-size: 15px; font-weight: 600; color: var(--navy); cursor: pointer;
+  }
+  .sheet-close svg { width: 16px; height: 16px; }
+}
