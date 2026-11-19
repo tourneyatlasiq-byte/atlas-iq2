@@ -81,6 +81,10 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const [noteOpen, setNoteOpen] = useState(false);
   const noteTooLong = noteLength(note.trim()) > MAX_NOTE_LENGTH;
   const [sync, setSync] = useState(SYNCED);
+  // Browser-reported connection (2026-11-19). It only changes what the status
+  // line says; recording, the queue and syncing do not read it. A phone can
+  // report online with no signal, so queue failures still show as they did.
+  const [online, setOnline] = useState(true);
   // Presentation only. Switching modes never creates, edits, voids or
   // renumbers a plate appearance — it changes what is rendered and whether
   // advancing the batting order implicitly creates a PA.
@@ -243,6 +247,26 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       clearInterval(t);
     };
   }, [sync_, refreshStatus]);
+
+  useEffect(() => {
+    setOnline(typeof navigator === "undefined" ? true : navigator.onLine !== false);
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
+
+  // What the status line shows. "All saved" is only true while connected; an
+  // offline phone keeps every tap, so say that instead of looking idle.
+  const shownSync = !online && sync.tone === "ok"
+    ? { tone: "wait", text: "Offline. At-bats you record are kept on this phone and sync when you reconnect." }
+    : !online && sync.tone === "wait"
+      ? { ...sync, text: `${sync.text} (offline)` }
+      : sync;
 
   /**
    * Finishing is gated on an empty queue.
@@ -523,8 +547,11 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 
   return (
     <div className="trk">
-      <div className={`trk-sync trk-sync-${sync.tone}`}>
-        <span>{sync.text}</span>
+      <div
+        className={`trk-sync trk-sync-${shownSync.tone}`}
+        role={shownSync.tone === "bad" ? "alert" : "status"}
+      >
+        <span>{shownSync.text}</span>
         {/* Retry only helps a write that can still go through; an at-bat
             awaiting review needs the decision below instead. */}
         {sync.retry && (
@@ -770,6 +797,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             className="trk-save"
             onClick={() => commit(selected)}
             disabled={!canWrite || selected.length === 0 || noteTooLong}
+            aria-describedby={canWrite && selected.length === 0 ? "trk-save-hint" : undefined}
           >
             Record QAB
           </button>
@@ -782,6 +810,13 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             No QAB
           </button>
         </div>
+        {/* The line keeps its space once a reason is chosen, so nothing below
+            it moves in the middle of a game. */}
+        {canWrite && (
+          <p className="trk-save-hint" id="trk-save-hint">
+            {selected.length === 0 ? "Choose a reason first" : "\u00a0"}
+          </p>
+        )}
       </section>
       )}
 

@@ -800,3 +800,123 @@ html.volt .tag-late {
 html.volt .lineup-late-note { font-size: 14px; margin: 12px 0 0; padding: 12px 14px; border-radius: 10px; background: #eef6ff; color: #12365c; }
 html.volt .lineup-clear { margin: 0 0 12px; }
 html.volt .lineup-recovery { background: #fff4d9; color: #5c3d00; }
+
+/* =========================================================================
+   Performance and the game tracker (2026-11-19). Presentation only: layout,
+   44px targets and every behaviour come from globals.css.
+   ========================================================================= */
+
+/* ---------- Performance ---------- */
+html.volt .season-title { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+html.volt .season-toggle { background: var(--sunk); border-radius: 12px; padding: 4px; }
+html.volt .season-toggle button { border-radius: 9px; color: var(--muted); font-weight: 600; min-height: 36px; }
+html.volt .season-toggle button.on { background: #fff; color: var(--ink); box-shadow: var(--raise); }
+html.volt .season-label,
+html.volt .season-rname,
+html.volt .gm-head,
+html.volt .gm-figs em,
+html.volt .season-tallies em {
+  font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
+}
+html.volt .season-label { font-size: 11px; color: var(--muted); }
+html.volt .season-card { box-shadow: var(--raise); border-color: var(--line); }
+
+/* Hero: the one dark surface on this screen. Volt only fills the meter. */
+html.volt .season-hero { background: var(--ink); border: 0; color: #fff; box-shadow: var(--float); }
+html.volt .season-hero .season-label { color: rgba(255, 255, 255, 0.62); }
+html.volt .season-pct { color: #fff; font-size: 56px; letter-spacing: -0.04em; font-variant-numeric: normal; }
+html.volt .season-counts, html.volt .season-counts strong { color: #fff; }
+html.volt .season-counts span { color: rgba(255, 255, 255, 0.55); }
+html.volt .season-tallies strong { color: #fff; }
+html.volt .season-tallies em { color: rgba(255, 255, 255, 0.62); font-size: 10.5px; }
+html.volt .season-meter { background: rgba(255, 255, 255, 0.16); height: 8px; }
+html.volt .season-meter > span { background: var(--volt); }
+html.volt .season-record { color: rgba(255, 255, 255, 0.7); }
+html.volt .season-record strong { color: #fff; }
+
+/* Games list */
+html.volt .gm-head { font-size: 10.5px; color: var(--muted); border-bottom-color: var(--line); }
+html.volt .gm-opp { color: var(--ink); font-weight: 650; }
+html.volt .gm-pct { color: var(--ink); font-size: 20px; letter-spacing: -0.02em; }
+html.volt .gm-res { border-radius: 6px; }
+html.volt .gm-res-w { background: var(--paid-t); color: var(--paid); }
+html.volt .gm-res-l { background: var(--owed-t); color: var(--owed); }
+html.volt .gm-res-t { background: var(--sunk); color: var(--muted); }
+html.volt .gm-status { background: var(--due-t); color: var(--due); }
+html.volt .gm-status.done { background: var(--paid-t); color: var(--paid); }
+html.volt .gm-list > li { border-top-color: var(--line); }
+html.volt .gm-list > li.open, html.volt .gm-line:hover > .gm-row, html.volt .gm-row:hover { background: var(--bg); }
+html.volt .gm-edit { color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
+html.volt .gm-line:hover .gm-edit { text-decoration-color: var(--ink); }
+html.volt .gm-edit:hover:not(:disabled) { background: transparent; }
+
+/* Reasons and trend bars read in ink, not blue. */
+html.volt .season-rbar, html.volt .season-bar, html.volt .pd-reason-bar { background: var(--sunk); }
+html.volt .season-rbar { height: 10px; border-radius: 999px; }
+html.volt .season-rbar > span { border-radius: 999px; }
+/* The column header already says QAB / PA on wide screens. */
+@media (min-width: 861px) { html.volt .gm-figs em { display: none; } }
+html.volt .season-rbar > span, html.volt .season-bar > span, html.volt .pd-reason-bar > span { background: var(--ink); }
+html.volt .season-more { color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; }
+html.volt .season-note { margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+html.volt .season-note summary { cursor: pointer; display: inline-block; padding: 2px 0; color: var(--body); font-weight: 600; }
+html.volt .season-note p { margin: 4px 0 0; }
+
+@media (max-width: 720px) {
+  html.volt .season-toggle button { min-height: 44px; padding: 0 16px; }
+  html.volt .season-more { min-height: 44px; display: inline-flex; align-items: center; margin-top: 0; }
+  html.volt .season-note summary { min-height: 44px; display: inline-flex; align-items: center; }
+  html.volt .season-pct { font-size: 48px; }
+}
+
+/* ---------- Game tracker ---------- */
+html.volt .trk-head { color: var(--muted); }
+html.volt .trk-tally strong { color: var(--ink); }
+html.volt .trk-batter, html.volt .trk-card { border-color: var(--line); box-shadow: var(--raise); }
+html.volt .trk-batter-eyebrow { font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.04em; color: var(--muted); }
+html.volt .trk-name { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+html.volt .trk-card-h { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.015em; }
+html.volt .trk-modes { background: var(--sunk); border-radius: 14px; }
+html.volt .trk-modes button { border-radius: 10px; color: var(--muted); }
+html.volt .trk-modes button.on { background: #fff; color: var(--ink); box-shadow: var(--raise); }
+
+/* Sync status. "All saved" is quiet: a line of small text and a dot, no bar.
+   Waiting, offline and failed keep their full-width bar, a word and a stronger
+   weight, because those are the ones that need a glance mid-game. */
+html.volt .trk-sync { gap: 12px; font-size: 14px; }
+html.volt .trk-sync-ok {
+  justify-content: flex-start; gap: 8px; background: transparent; color: var(--muted);
+  padding: 0 2px; margin-bottom: 8px; font-size: 12.5px; font-weight: 500;
+}
+html.volt .trk-sync-ok::before {
+  content: ""; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--paid-dot);
+}
+html.volt .trk-sync-wait {
+  background: var(--due-t); color: var(--due); font-weight: 700; padding: 11px 14px;
+  box-shadow: inset 4px 0 0 var(--due-dot);
+}
+html.volt .trk-sync-bad {
+  background: var(--owed-t); color: var(--owed); font-weight: 700; padding: 11px 14px;
+  box-shadow: inset 4px 0 0 var(--owed-dot);
+}
+html.volt .trk-sync button { min-height: 44px; }
+
+/* Reasons */
+html.volt .trk-reason { border: 1.5px solid var(--line-strong); border-radius: 14px; color: var(--ink); background: #fff; }
+html.volt .trk-reason:hover:not(:disabled) { border-color: var(--ink); background: #fff; }
+html.volt .trk-reason.on, html.volt .trk-reason.on:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
+html.volt .trk-reason.on .trk-reason-check { background: var(--volt); border-color: var(--volt); }
+
+/* Commit. Record QAB is the one primary action; disabled it keeps its name and
+   reads as unavailable (not as a faded version of the live button). */
+html.volt .trk-save { background: var(--volt); border-color: var(--ink); color: var(--ink); box-shadow: inset 0 -2px 0 rgba(12, 15, 20, 0.12); }
+html.volt .trk-save:hover:not(:disabled) { background: var(--volt-hover); border-color: var(--ink); }
+html.volt .trk-save:disabled { background: var(--sunk); border-color: var(--line-strong); color: var(--muted); box-shadow: none; opacity: 1; cursor: not-allowed; }
+html.volt .trk-noqab { background: #fff; color: var(--ink); border-color: var(--line-strong); }
+html.volt .trk-noqab:hover:not(:disabled) { background: #fff; border-color: var(--ink); }
+html.volt .trk-save-hint { margin: 10px 2px 0; min-height: 1.45em; font-size: 13px; line-height: 1.45; font-weight: 600; color: var(--body); }
+
+/* Game management sits clear of the history heading beneath it. */
+html.volt .trk-manage { margin: 20px 0 26px; padding-top: 18px; border-top-color: var(--line); }
+html.volt .trk-manage-btn { min-height: 48px; }
+html.volt .trk-history-h { font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.04em; color: var(--muted); margin-top: 0; }

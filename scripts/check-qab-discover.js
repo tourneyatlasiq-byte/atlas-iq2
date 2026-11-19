@@ -182,11 +182,22 @@ Module._extensions[".css"] = () => {};
   ok("every tracked game in the season has its own Review & Edit link",
     ["t-fall/games/g-old-1", "t-fall/games/g-old-2", "t-peach/games/g-now"].map((p) => ps.includes(`href="/tournaments/${p}/track"`)), [true, true, true]);
   ok("…including last weekend's games when a newer tournament exists", ps.includes('href="/tournaments/t-fall/games/g-old-1/track"') && ps.includes("Peach State Showdown"), true);
-  ok("the link label is the one given", (ps.match(/Review &amp; Edit →/g) ?? []).length, 3);
+  ok("completed games say Review & Edit; the game still being tracked says Open tracker",
+    [(ps.match(/Review &amp; Edit →/g) ?? []).length, (ps.match(/Open tracker →/g) ?? []).length], [2, 1]);
+  ok("…and the in-progress label is on the in-progress game's own link",
+    /href="\/tournaments\/t-peach\/games\/g-now\/track"[^>]*>Open tracker →</.test(ps), true);
+  ok("each link's accessible name carries the label and the opponent",
+    [ps.includes('aria-label="Open tracker: Peachtree Force"'), ps.includes('aria-label="Review &amp; Edit: Northside Thunder"')], [true, true]);
   ok("the header gets a matching empty column, so figures stay aligned", ps.includes('class="gm-head gm-head-link"'), true);
-  ok("the row still expands as before (button kept)", (ps.match(/class="gm-row"/g) ?? []).length, 3);
+  ok("every row keeps its lineup expand control (its own caret button, 2026-11-19)", [(ps.match(/class="gm-row"/g) ?? []).length, (ps.match(/class="gm-toggle"/g) ?? []).length, (ps.match(/aria-expanded="false"/g) ?? []).length], [3, 3, 3]);
+  ok("the whole row opens the game: the visible link sits in the same .gm-line as the row", (ps.match(/class="gm-line"><div class="gm-row">/g) ?? []).length, 3);
+  ok("one link per row in the tab order (no second link, no chevron-only link)", (ps.match(/<a /g) ?? []).length, 3);
   const psView = renderToStaticMarkup(h(PerformanceSeason, { ...props, gameLinkLabel: "View →" }));
-  ok("past season for a coach: the link says View", [(psView.match(/View →/g) ?? []).length, psView.includes("Review &amp; Edit")], [3, false]);
+  ok("past season for a coach: every link says View, even for a game never completed", [(psView.match(/View →/g) ?? []).length, psView.includes("Review &amp; Edit"), psView.includes("Open tracker")], [3, false, false]);
+  const { gameLinkLabelFor } = require(R("lib/performance-links.js"));
+  ok("gameLinkLabelFor: completion decides between Open tracker and Review & Edit; View and no label pass through",
+    [gameLinkLabelFor("Review & Edit →", false), gameLinkLabelFor("Review & Edit →", true), gameLinkLabelFor("View →", false), gameLinkLabelFor(null, false)],
+    ["Open tracker →", "Review & Edit →", "View →", null]);
   const psNone = renderToStaticMarkup(h(PerformanceSeason, props));
   ok("without a label (any other use) nothing changes: no links, original header", [psNone.includes("/track"), psNone.includes("gm-head-link")], [false, false]);
 
@@ -209,7 +220,7 @@ Module._extensions[".css"] = () => {};
   section("F. responsive layout");
   const css = read("app/globals.css");
   ok("beside the sidebar (721–860px) the season games use the card layout, so the page can't scroll sideways",
-    /@media \(min-width: 721px\) and \(max-width: 860px\) \{\s*\.gm-head \{ display: none; \}/.test(css) && /max-width: 860px\)[\s\S]*?\.gm-list > li\.gm-item \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(css), true);
+    /@media \(min-width: 721px\) and \(max-width: 860px\) \{\s*\.gm-head \{ display: none; \}/.test(css) && /max-width: 860px\)[\s\S]*?\.gm-line \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(css), true);
 
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);

@@ -4379,10 +4379,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .gm-score { font-size: 12.5px; color: var(--navy); font-variant-numeric: tabular-nums; }
 .gm-noscore { font-size: 11.5px; color: var(--slate); font-style: italic; }
 
-.gm-figs { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; text-align: right; }
+.gm-figs { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; column-gap: 3px; line-height: 1.15; text-align: right; }
 .gm-figs strong { font-size: 14px; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
 .gm-figs span { color: var(--border); }
-.gm-figs em { font-style: normal; font-size: 10px; color: var(--slate); }
+.gm-figs em { flex: 0 0 100%; font-style: normal; font-size: 10px; color: var(--slate); }
 .gm-pct { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; text-align: right; }
 
 .gm-status {
@@ -4517,12 +4517,12 @@ td.committed { color: var(--status-wait); font-weight: 600; }
     grid-template-areas: "caret id pct" ". outcome outcome" ". figs status";
     row-gap: 6px; padding: 12px 8px;
   }
-  .gm-caret { grid-area: caret; align-self: start; margin-top: 3px; }
+  .gm-caret, .gm-toggle { grid-area: caret; align-self: start; margin-top: 3px; }
   .gm-id { grid-area: id; }
   .gm-pct { grid-area: pct; align-self: start; }
   .gm-outcome { grid-area: outcome; }
-  .gm-figs { grid-area: figs; flex-direction: row; align-items: baseline; gap: 5px; }
-  .gm-figs em { font-size: 10.5px; }
+  .gm-figs { grid-area: figs; flex-wrap: nowrap; justify-content: flex-start; align-items: baseline; gap: 5px; }
+  .gm-figs em { flex: 0 0 auto; font-size: 10.5px; }
   .gm-status { grid-area: status; justify-self: end; }
 
   .lc { padding: 4px 10px 14px 14px; }
@@ -6392,21 +6392,38 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
    The row button and the link share the row; the header gains an equal empty
    column, so every existing figure keeps its alignment. */
 .season-games { --gm-action-w: 132px; }
-.gm-list > li.gm-item {
+/* The row and its link sit in .gm-line. The link (visible, in the tab order) is
+   stretched over the whole line, so the row opens the game (2026-11-19) while
+   the lineup caret stays its own button above it. The expanded panel is a
+   sibling of .gm-line, so the stretch never covers it. */
+.gm-line {
+  position: relative;
   display: grid; grid-template-columns: minmax(0, 1fr) var(--gm-action-w);
   column-gap: 12px; align-items: center;
 }
-.gm-list > li.gm-item > .lc,
-.gm-list > li.gm-item > .pex { grid-column: 1 / -1; }
+.gm-edit::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: 10px; }
+.gm-edit:focus-visible { outline: none; }
+.gm-edit:focus-visible::after { outline: 2.5px solid var(--navy); outline-offset: -2px; }
+.gm-line:hover > .gm-row { background: var(--surface-sunken); }
+div.gm-row { cursor: pointer; }
+/* The caret keeps its 16px column; the hit area grows to a 44px target without
+   moving anything. */
+.gm-toggle {
+  position: relative; z-index: 2; width: 16px; height: 16px; padding: 0;
+  background: none; border: none; color: var(--slate); font-size: 10px; line-height: 1; cursor: pointer;
+  font-family: var(--font-body);
+}
+.gm-toggle::before { content: ""; position: absolute; inset: -14px -8px -14px -10px; }
+.gm-toggle .gm-caret { pointer-events: none; }
 .season-games .gm-head.gm-head-link {
   grid-template-columns: 16px minmax(0, 1fr) 140px 92px 64px 132px var(--gm-action-w);
 }
 .gm-edit { justify-self: end; white-space: nowrap; min-height: 44px; display: inline-flex; align-items: center; }
 
 @media (max-width: 720px) {
-  .gm-list > li.gm-item { grid-template-columns: minmax(0, 1fr); }
+  .gm-line { grid-template-columns: minmax(0, 1fr); }
   /* The link's text starts on the same line as the opponent name above it. */
-  .gm-list > li.gm-item > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
+  .gm-line > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
 }
 
 /* Season Games list beside the sidebar (721–860px): the six-column table does
@@ -6419,15 +6436,15 @@ input[type="file"].visually-hidden { width: 1px; padding: 0; border: 0; }
     grid-template-areas: "caret id pct" ". outcome outcome" ". figs status";
     row-gap: 6px; padding: 12px 8px;
   }
-  .gm-caret { grid-area: caret; align-self: start; margin-top: 3px; }
+  .gm-caret, .gm-toggle { grid-area: caret; align-self: start; margin-top: 3px; }
   .gm-id { grid-area: id; }
   .gm-pct { grid-area: pct; align-self: start; }
   .gm-outcome { grid-area: outcome; }
-  .gm-figs { grid-area: figs; flex-direction: row; align-items: baseline; gap: 5px; }
-  .gm-figs em { font-size: 10.5px; }
+  .gm-figs { grid-area: figs; flex-wrap: nowrap; justify-content: flex-start; align-items: baseline; gap: 5px; }
+  .gm-figs em { flex: 0 0 auto; font-size: 10.5px; }
   .gm-status { grid-area: status; justify-self: end; }
-  .gm-list > li.gm-item { grid-template-columns: minmax(0, 1fr); }
-  .gm-list > li.gm-item > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
+  .gm-line { grid-template-columns: minmax(0, 1fr); }
+  .gm-line > .gm-edit { justify-self: start; margin: -4px 0 10px 27px; }
 }
 
 /* ===== Settings hierarchy (2026-11, reviewed with Chris) =====================

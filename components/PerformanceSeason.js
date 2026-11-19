@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { gameLinkLabelFor } from "../lib/performance-links";
 
 import {
   indexAtX,
@@ -248,70 +249,98 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                 <ul className="gm-list">
                 {games.map((g) => {
                   const open = openGame === g.gameId;
+                  // Linkable rows (2026-11-19): the whole row opens the game
+                  // through the visible link, which is stretched over the row
+                  // (see .gm-line). One link in the tab order, never two. The
+                  // lineup details keep their own caret button, above the link.
+                  const linkable = Boolean(gameLinkLabel && g.tournamentId);
+                  const linkLabel = gameLinkLabelFor(gameLinkLabel, g.completed);
+                  const cells = (
+                    <>
+                      <span className="gm-id">
+                        <span className="gm-opp">{g.opponent}</span>
+                        <span className="gm-meta">
+                          {fmtDate(g.gameDate)}
+                          {g.tournament && ` · ${g.tournament}`}
+                        </span>
+                      </span>
+
+                      <span className="gm-outcome">
+                        {g.hasScore ? (
+                          <>
+                            <span className={`gm-res gm-res-${(g.result ?? "").toLowerCase()}`}>
+                              {g.result}
+                            </span>
+                            <span className="gm-score">
+                              {g.runsFor}–{g.runsAgainst}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="gm-noscore">No score recorded</span>
+                        )}
+                      </span>
+
+                      <span className="gm-figs">
+                        <strong>{g.qab}</strong>
+                        <span aria-hidden="true"> / </span>
+                        <strong>{g.pa}</strong>
+                        <em>QAB / PA</em>
+                      </span>
+
+                      <span className="gm-pct">{g.qabPct == null ? "—" : `${g.qabPct}%`}</span>
+
+                      {/* Explicit completion, never inferred from the score. */}
+                      <span className={`gm-status${g.completed ? " done" : ""}`}>
+                        {g.completed ? "Complete" : "Tracking in progress"}
+                      </span>
+                    </>
+                  );
+                  const caret = (
+                    <span className="gm-caret" aria-hidden="true">
+                      {open ? "▾" : "▸"}
+                    </span>
+                  );
                   return (
                     <li key={g.gameId} className={`${open ? "open" : ""}${gameLinkLabel ? " gm-item" : ""}`.trim() || undefined}>
-                      <button
-                        type="button"
-                        className="gm-row"
-                        aria-expanded={open}
-                        onClick={() => setOpenGame(open ? null : g.gameId)}
-                      >
-                        <span className="gm-caret" aria-hidden="true">
-                          {open ? "▾" : "▸"}
-                        </span>
-
-                        <span className="gm-id">
-                          <span className="gm-opp">{g.opponent}</span>
-                          <span className="gm-meta">
-                            {fmtDate(g.gameDate)}
-                            {g.tournament && ` · ${g.tournament}`}
-                          </span>
-                        </span>
-
-                        <span className="gm-outcome">
-                          {g.hasScore ? (
-                            <>
-                              <span className={`gm-res gm-res-${(g.result ?? "").toLowerCase()}`}>
-                                {g.result}
-                              </span>
-                              <span className="gm-score">
-                                {g.runsFor}–{g.runsAgainst}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="gm-noscore">No score recorded</span>
-                          )}
-                        </span>
-
-                        <span className="gm-figs">
-                          <strong>{g.qab}</strong>
-                          <span aria-hidden="true"> / </span>
-                          <strong>{g.pa}</strong>
-                          <em>QAB / PA</em>
-                        </span>
-
-                        <span className="gm-pct">{g.qabPct == null ? "—" : `${g.qabPct}%`}</span>
-
-                        {/* Explicit completion, never inferred from the score. */}
-                        <span className={`gm-status${g.completed ? " done" : ""}`}>
-                          {g.completed ? "Complete" : "Tracking in progress"}
-                        </span>
-                      </button>
-
-                      {/* Every tracked game in the season links to its tracker
-                          (2026-11), so last weekend's game can still be reviewed
-                          and corrected after the next tournament is added. */}
-                      {gameLinkLabel &&
-                        (g.tournamentId ? (
+                      {linkable ? (
+                        /* Every tracked game in the season links to its tracker
+                           (2026-11), so last weekend's game can still be reviewed
+                           and corrected after the next tournament is added. */
+                        <div className="gm-line">
+                          <div className="gm-row">
+                            <button
+                              type="button"
+                              className="gm-toggle"
+                              aria-expanded={open}
+                              aria-label={`${open ? "Hide" : "Show"} lineup details for ${g.opponent}`}
+                              onClick={() => setOpenGame(open ? null : g.gameId)}
+                            >
+                              {caret}
+                            </button>
+                            {cells}
+                          </div>
                           <Link
                             className="btn btn-ghost gm-edit"
                             href={`/tournaments/${g.tournamentId}/games/${g.gameId}/track`}
+                            aria-label={`${linkLabel.replace(/\s*→\s*$/, "")}: ${g.opponent}`}
                           >
-                            {gameLinkLabel}
+                            {linkLabel}
                           </Link>
-                        ) : (
-                          <span />
-                        ))}
+                        </div>
+                      ) : (
+                        <div className={gameLinkLabel ? "gm-line" : undefined}>
+                          <button
+                            type="button"
+                            className="gm-row"
+                            aria-expanded={open}
+                            onClick={() => setOpenGame(open ? null : g.gameId)}
+                          >
+                            {caret}
+                            {cells}
+                          </button>
+                          {gameLinkLabel && <span />}
+                        </div>
+                      )}
 
                       {open && <LineupContribution game={g} />}
                     </li>
@@ -331,10 +360,15 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
               {team.qab} {team.qab === 1 ? "quality at-bat" : "quality at-bats"} by primary reason
             </p>
             {reasonsCited > team.qab && (
-              <p className="season-sub">
-                Reason counts total {reasonsCited}: a plate appearance saved before the one-reason
-                rule still has more than one reason. Choose its primary reason in the game tracker.
-              </p>
+              <details className="season-note">
+                <summary>
+                  Counts total {reasonsCited}, not {team.qab}. Why?
+                </summary>
+                <p>
+                  Reason counts total {reasonsCited}: a plate appearance saved before the one-reason
+                  rule still has more than one reason. Choose its primary reason in the game tracker.
+                </p>
+              </details>
             )}
 
             <ul className="season-rlist">
