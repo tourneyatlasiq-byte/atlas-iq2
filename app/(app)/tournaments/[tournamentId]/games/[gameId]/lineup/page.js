@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getContext, canWrite } from "../../../../../../../lib/context";
 import { getLineupContext, lineupCopySources } from "../../../../../../../lib/queries/lineup";
 import { LineupClient } from "../../../../../../../components/LineupClient";
+import { LineupUnavailable } from "../../../../../../../components/LineupUnavailable";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +20,27 @@ export const dynamic = "force-dynamic";
  * Nothing about it assumes which one.
  */
 export default async function LineupPage({ params }) {
-  const { profile } = await getContext();
+  const { profile, features } = await getContext();
   const ctx = await getLineupContext(params.gameId);
 
   if (!ctx) notFound();
   if (ctx.game.tournament_id !== params.tournamentId) notFound();
+
+  // Batting orders belong to QAB. The database already hides the data from an
+  // organization without it; this says so plainly instead of rendering an
+  // editor that can never save.
+  if (!features?.qab) {
+    return (
+      <div className="page">
+        <div className="page-head">
+          <Link href="/tournaments" className="back-link">
+            ← Tournaments
+          </Link>
+        </div>
+        <LineupUnavailable />
+      </div>
+    );
+  }
 
   const copySources = await lineupCopySources(params.gameId);
 
@@ -41,6 +58,7 @@ export default async function LineupPage({ params }) {
         availablePlayers={ctx.availablePlayers}
         playerSource={ctx.playerSource}
         copySources={copySources}
+        plateAppearances={ctx.plateAppearances}
         canWrite={canWrite(profile)}
       />
     </div>

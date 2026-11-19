@@ -40,12 +40,44 @@ function filters(url, params, startAt = 1) {
   }
   return { where: where.length ? " where " + where.join(" and ") : "", values };
 }
+/**
+ * select=a,b,alias:tbl(c,d) -> columns plus a JSON object per many-to-one embed
+ * (joined on tbl.id = base.<alias>_id, still under the caller's row security).
+ * Only what the actions use; anything else throws rather than guessing.
+ */
+function selectList(sel) {
+  if (!sel || sel === "*") return "*";
+  const parts = []; let depth = 0, cur = "";
+  for (const ch of sel) {
+    if (ch === "(") depth++; if (ch === ")") depth--;
+    if (ch === "," && depth === 0) { parts.push(cur); cur = ""; } else cur += ch;
+  }
+  parts.push(cur);
+  return parts.map((raw) => {
+    const t = raw.trim(); const m = /^([a-z_0-9]+):([a-z_0-9]+)\s*\(([^)]*)\)$/.exec(t);
+    if (!m) return q(t);
+    const [, alias, tbl, cols] = m;
+    const inner = cols.split(",").map((c) => `e.${q(c.trim())}`).join(", ");
+    return `(select to_jsonb(x) from (select ${inner} from ${q(tbl)} e where e.id = ${q(alias + "_id")}) x) as ${q(alias)}`;
+  }).join(", ");
+}
+const orderBy = (url) => {
+  const o = url.searchParams.get("order"); if (!o) return "";
+  return " order by " + o.split(",").map((t) => { const [c, d] = t.split("."); return `${q(c)}${d === "desc" ? " desc" : ""}`; }).join(", ");
+};
 const returning = (url) => {
   const sel = url.searchParams.get("select");
   if (!sel) return "";
   return " returning " + (sel === "*" ? "*" : sel.split(",").map((c) => q(c.trim())).join(", "));
 };
 
+// A jsonb parameter receives JSON text; any other parameter (including uuid[] and text[]) receives the native value.
+async function paramTypes(client, fn) {
+  const r = await client.query(
+    "select n.name, format_type(t.oid, null) as type from pg_proc p, unnest(p.proargnames, string_to_array(p.proargtypes::text, ' ')::oid[]) as n(name, typ) join pg_type t on t.oid = n.typ where p.proname = $1",
+    [fn]);
+  return Object.fromEntries(r.rows.map((x) => [x.name, x.type]));
+}
 async function handle(req, res) {
   const url = new URL(req.url, "http://x");
   const claims = verify((req.headers.authorization || "").replace(/^Bearer /, ""));
@@ -63,8 +95,9 @@ async function handle(req, res) {
     const m = /^\/rpc\/([a-z_0-9]+)$/.exec(url.pathname);
     if (m && req.method === "POST") {
       const keys = Object.keys(json || {});
+      const types = await paramTypes(client, m[1]);
       const sql = `select ${q(m[1])}(${keys.map((k, i) => `${q(k)} := $${i + 1}`).join(", ")}) as r`;
-      result = await client.query(sql, keys.map((k) => (json[k] !== null && typeof json[k] === "object" ? JSON.stringify(json[k]) : json[k])));
+      result = await client.query(sql, keys.map((k) => (types[k] === "jsonb" && json[k] !== null ? JSON.stringify(json[k]) : json[k])));
       const out = result.rows[0].r;
       await client.query("commit");
       res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(out));
@@ -73,7 +106,7 @@ async function handle(req, res) {
     if (req.method === "GET") {
       const sel = url.searchParams.get("select") || "*";
       const { where, values } = filters(url);
-      result = await client.query(`select ${sel === "*" ? "*" : sel.split(",").map((c) => q(c.trim())).join(", ")} from ${q(table)}${where}`, values);
+      result = await client.query(`select ${selectList(sel)} from ${q(table)}${where}${orderBy(url)}`, values);
     } else if (req.method === "POST") {
       const rows = Array.isArray(json) ? json : [json]; const cols = Object.keys(rows[0]);
       const values = []; const tuples = rows.map((r) => "(" + cols.map((c) => { values.push(r[c]); return `$${values.length}`; }).join(", ") + ")");

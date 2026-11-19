@@ -4,6 +4,9 @@ import { useState } from "react";
 import { ContextHelp } from "./ContextHelp";
 import { useActionFeedback } from "../lib/useActionFeedback";
 import { saveLineup, copyLineupFrom } from "../lib/actions/lineup";
+import { ConfirmDialog } from "./ConfirmAction";
+import { useUnsavedGuard } from "../lib/useUnsavedGuard";
+import { lateArrivalTiming, lateArrivalMessage } from "../lib/lineup-rules";
 
 /**
  * QAB batting order editor.
@@ -42,6 +45,7 @@ export function LineupClient({
   availablePlayers,
   playerSource,
   copySources = [],
+  plateAppearances = [],
   canWrite,
 }) {
   const [order, setOrder] = useState(() => initialLineup.map((s) => s.player_id));
@@ -54,7 +58,29 @@ export function LineupClient({
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyFrom, setCopyFrom] = useState("");
   const [confirmReplace, setConfirmReplace] = useState(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const { error, notice, pending, run, setError } = useActionFeedback();
+  const guard = useUnsavedGuard(dirty);
+
+  // Once an at-bat is recorded the saved order is fixed: the slot numbers those
+  // at-bats and the tracker's "who is next" are keyed to must not move. Late
+  // arrivals can be added at the end and Substitute (in the tracker) stays
+  // available. The database enforces this; the screen just stops offering what
+  // would be refused. `lockedCount` is how many slots are saved and fixed.
+  const inGame = plateAppearances.some((r) => !r.voided_at);
+  const [lockedCount, setLockedCount] = useState(() => (inGame ? initialLineup.length : 0));
+  // Recovery: at-bats exist but the saved order is empty (for example it was cleared
+  // from another device just before tracking began, or an old bug). Rebuilding it is
+  // NOT a late arrival, so it gets its own wording and an explicit confirmation.
+  const [recovery, setRecovery] = useState(() => inGame && initialLineup.length === 0);
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
+  const timing = inGame && !recovery
+    ? lateArrivalTiming(
+        [...Array(lockedCount)].map((_, i) => ({ batting_order: i + 1 })),
+        plateAppearances
+      )
+    : null;
+  const addedCount = inGame && !recovery ? Math.max(0, order.length - lockedCount) : 0;
 
   const byId = new Map(availablePlayers.map((p) => [p.player_id, p]));
   for (const s of copiedMeta) {
@@ -80,19 +106,40 @@ export function LineupClient({
   };
 
   const add = (playerId) => mutate([...order, playerId]);
-  const remove = (i) => mutate(order.filter((_, idx) => idx !== i));
+  const remove = (i) => {
+    if (inGame && i < lockedCount) return;
+    mutate(order.filter((_, idx) => idx !== i));
+  };
 
   const move = (i, delta) => {
     const j = i + delta;
     if (j < 0 || j >= order.length) return;
+    if (inGame && (i < lockedCount || j < lockedCount)) return;
     const next = [...order];
     [next[i], next[j]] = [next[j], next[i]];
     mutate(next);
   };
 
   const save = () =>
-    run(() => saveLineup(game.id, order), null, {
-      onDone: () => setDirty(false),
+    run(() => saveLineup(game.id, order, recovery ? { rebuild: true } : {}), null, {
+      onDone: () => {
+        setDirty(false);
+        setConfirmRebuild(false);
+        if (inGame) setLockedCount(order.length);
+        setRecovery(false);
+      },
+      success: (r) => r.notice,
+    });
+
+  // Clearing is its own deliberate action, available only before the first
+  // at-bat. It persists straight away (an empty save), then the screen is empty.
+  const clear = () =>
+    run(() => saveLineup(game.id, []), null, {
+      onDone: () => {
+        setOrder([]);
+        setDirty(false);
+        setConfirmClear(false);
+      },
       success: (r) => r.notice,
     });
 
@@ -177,7 +224,35 @@ export function LineupClient({
       {/* The coach names the source game. The old control inferred it as "the
           previous game" and tie-broke on a random UUID, so on a one-day
           tournament it could copy from a game that had not been played yet. */}
-      {copySources.length > 0 && canWrite && (
+      {recovery && (
+        <div className="notice notice-warn lineup-ingame lineup-recovery" role="status">
+          <p>
+            <strong>This game has recorded at-bats but no batting order.</strong> You can rebuild
+            it here. This is not a late arrival: the recorded at-bats keep their original slot
+            numbers, so slot 1 should be the player who batted first, slot 2 the next, and so on.
+            Check the order against your scorebook before saving. Once saved it is locked.
+          </p>
+          <p>
+            <a href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}>Back to tracking →</a>
+          </p>
+        </div>
+      )}
+
+      {inGame && !recovery && (
+        <div className="notice notice-info lineup-ingame" role="status">
+          <p>
+            <strong>This game is being tracked.</strong> The {lockedCount}{" "}
+            {lockedCount === 1 ? "batter" : "batters"} already in the order are locked so every
+            recorded at-bat stays with the right player. You can add late arrivals at the end of
+            the order. To replace a player, use Substitute while tracking.
+          </p>
+          <p>
+            <a href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}>Back to tracking →</a>
+          </p>
+        </div>
+      )}
+
+      {copySources.length > 0 && canWrite && !inGame && (
         <div className="lineup-copy">
           {!copyOpen ? (
             <button
@@ -273,6 +348,19 @@ export function LineupClient({
         <section className="lineup-panel">
           <h2 className="lineup-h2">Batting Order <span>({order.length})</span></h2>
 
+          {canWrite && !inGame && order.length > 0 && !dirty && (
+            <div className="lineup-clear">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setConfirmClear(true)}
+                disabled={pending}
+              >
+                Clear lineup
+              </button>
+            </div>
+          )}
+
           {order.length === 0 ? (
             <p className="lineup-empty">
               No batters yet. Tap a player below to add them to slot 1.
@@ -281,20 +369,29 @@ export function LineupClient({
             <ol className="lineup-slots">
               {order.map((playerId, i) => {
                 const p = byId.get(playerId) ?? { full_name: "Unknown player" };
+                const locked = inGame && !recovery && i < lockedCount;
+                const lateAdd = inGame && !recovery && i >= lockedCount;
                 return (
-                  <li key={playerId} className="slot">
+                  <li key={playerId} className={`slot${locked ? " is-locked" : ""}${lateAdd ? " is-late" : ""}`}>
                     <span className="slot-num">{i + 1}</span>
                     <span className="slot-id">
                       <span className="slot-jersey">{jersey(p)}</span>
                       <span className="slot-name">{p.full_name}</span>
                       {isPickup(p) && <span className="tag-pickup">Pickup</span>}
+                      {lateAdd && <span className="tag-late">Late arrival</span>}
                     </span>
                     <span className="slot-controls">
+                     {locked ? (
+                      <span className="slot-lock" title="Locked while the game is being tracked">
+                        Locked
+                      </span>
+                     ) : (
+                      <>
                       <button
                         type="button"
                         aria-label={`Move ${p.full_name} up`}
                         onClick={() => move(i, -1)}
-                        disabled={i === 0 || !canWrite || pending}
+                        disabled={i === 0 || (inGame && i - 1 < lockedCount) || !canWrite || pending}
                       >
                         ▲
                       </button>
@@ -314,16 +411,22 @@ export function LineupClient({
                       >
                         ✕
                       </button>
+                      </>
+                     )}
                     </span>
                   </li>
                 );
               })}
             </ol>
           )}
+
+          {inGame && !recovery && addedCount > 0 && (
+            <p className="lineup-late-note">{lateArrivalMessage(timing, addedCount)}</p>
+          )}
         </section>
 
         <section className="lineup-panel">
-          <h2 className="lineup-h2">Available Players <span>({bench.length})</span></h2>
+          <h2 className="lineup-h2">{inGame && !recovery ? "Add a Late Arrival" : "Available Players"} <span>({bench.length})</span></h2>
 
           {bench.length === 0 ? (
             <p className="lineup-empty">
@@ -360,20 +463,32 @@ export function LineupClient({
       {/* Sticky rather than fixed: it follows the coach down an 11-batter list,
           then settles into the flow at the end so it never sits on top of the
           last row or the footer. */}
-      {canWrite && order.length > 0 && (
+      {canWrite && (order.length > 0 || dirty) && (
         <div className={`lineup-bar${dirty ? " is-dirty" : ""}`}>
           {dirty ? (
             <>
               <span className="lineup-bar-state">
-                Unsaved changes · {order.length} {order.length === 1 ? "batter" : "batters"}
+                {inGame
+                  ? recovery
+                    ? `Unsaved rebuild · ${order.length} ${order.length === 1 ? "batter" : "batters"}`
+                    : `Unsaved changes · ${addedCount} late ${addedCount === 1 ? "batter" : "batters"}`
+                  : `Unsaved changes · ${order.length} ${order.length === 1 ? "batter" : "batters"}`}
               </span>
               <button
                 type="button"
                 className="lineup-bar-action"
-                onClick={save}
-                disabled={pending}
+                onClick={recovery ? () => setConfirmRebuild(true) : save}
+                disabled={pending || (inGame && !recovery && addedCount === 0) || (recovery && order.length === 0)}
               >
-                {pending ? "Saving…" : "Save Lineup"}
+                {pending
+                  ? "Saving…"
+                  : recovery
+                    ? "Rebuild Batting Order"
+                    : inGame
+                    ? "Add Late Batters"
+                    : order.length === 0
+                      ? "Save Empty Lineup"
+                      : "Save Lineup"}
               </button>
             </>
           ) : (
@@ -385,11 +500,54 @@ export function LineupClient({
                 className="lineup-bar-action"
                 href={`/tournaments/${game.tournament_id}/games/${game.id}/track`}
               >
-                Start QAB Tracking →
+                {inGame ? "Back to Tracking →" : "Start QAB Tracking →"}
               </a>
             </>
           )}
         </div>
+      )}
+
+      {confirmRebuild && (
+        <ConfirmDialog
+          title="Rebuild the batting order?"
+          message={`This game already has recorded at-bats. They keep their original slot numbers, so each slot must match the player who batted there. After you save, these ${order.length} slots are locked and can only be extended with late arrivals.`}
+          confirmLabel="Rebuild batting order"
+          pendingLabel="Saving…"
+          cancelLabel="Keep editing"
+          onConfirm={save}
+          onCancel={() => setConfirmRebuild(false)}
+          pending={pending}
+          error={error}
+        />
+      )}
+
+      {confirmClear && (
+        <ConfirmDialog
+          title="Clear lineup?"
+          message={`This removes all ${order.length} ${order.length === 1 ? "batter" : "batters"} from this game's batting order. Players stay on your roster. No at-bats have been recorded, so nothing else is affected, and you can set a new order any time before tracking starts.`}
+          confirmLabel="Clear lineup"
+          pendingLabel="Clearing…"
+          cancelLabel="Keep lineup"
+          onConfirm={clear}
+          onCancel={() => setConfirmClear(false)}
+          pending={pending}
+          error={error}
+        />
+      )}
+
+      {guard.pending && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          message={
+            inGame && !recovery
+              ? "You have late batters that are not saved yet. If you leave now they will not be added to the batting order."
+              : "You have changes to this batting order that are not saved. If you leave now they will be lost."
+          }
+          confirmLabel="Leave without saving"
+          cancelLabel="Keep editing"
+          onConfirm={guard.leave}
+          onCancel={guard.stay}
+        />
       )}
     </div>
   );

@@ -783,3 +783,20 @@ html.volt .drawer-foot-error { flex: 1 1 100%; margin: 0 0 4px; }
    (never the red used for an over-spent expense), and are stated in words. */
 html.volt .fi-over { color: var(--status-good); font-weight: 700; }
 html.volt .budget-num.income-over { color: var(--status-good); font-weight: 700; }
+
+/* Lineup: tracked-game mode, late arrivals, clear lineup (2026-11). */
+html.volt .lineup-ingame p { margin: 0 0 8px; }
+html.volt .lineup-ingame p:last-child { margin-bottom: 0; }
+html.volt .lineup-ingame a { font-weight: 700; }
+html.volt .slot.is-locked { background: color-mix(in srgb, var(--line) 28%, transparent); }
+html.volt .slot-lock {
+  display: inline-flex; align-items: center; min-height: 52px; padding: 0 14px;
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+html.volt .tag-late {
+  flex: 0 0 auto; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+  color: #0b5d3b; background: #dff5ea; border-radius: 999px; padding: 2px 7px;
+}
+html.volt .lineup-late-note { font-size: 14px; margin: 12px 0 0; padding: 12px 14px; border-radius: 10px; background: #eef6ff; color: #12365c; }
+html.volt .lineup-clear { margin: 0 0 12px; }
+html.volt .lineup-recovery { background: #fff4d9; color: #5c3d00; }
