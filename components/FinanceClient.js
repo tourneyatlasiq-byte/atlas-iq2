@@ -22,7 +22,7 @@ import {
   TXN_STATUSES, DEFAULT_TXN_STATUS, transactionEffect, money, quantity, cents, sumMoney, allocateMoney, canSaveDuesForm,
   tournamentPaidTotal, duesCollectedPercent, outstandingTotal, reconcileDues,
   actionPlayerIds, scopeReconciledDues, duesHeaderState, presetDuesTarget,
-  categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL,
+  categoryOptions, CATEGORY_OTHER, CATEGORY_OTHER_LABEL, incomeProgress,
 } from "../lib/finance-rules";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { GuidedTransaction } from "./GuidedTransaction";
@@ -213,6 +213,24 @@ function financeActionText(a, dues) {
   return a.detail;
 }
 
+
+/**
+ * The Remove confirmation names the payment being removed.
+ *
+ * Looked up from the entry list already on screen by the id the confirmation
+ * holds, so the coach sees the amount and date of the row they pressed, not a
+ * generic question that could be about any of them. Falls back to the generic
+ * wording only if the entry cannot be found (a stale drawer), never to a guess.
+ */
+export function removeEntryMessage(payment, entryId) {
+  const entry = (payment?.log ?? []).find((l) => String(l.id) === String(entryId));
+  const tail = "The amount is deducted from what has been paid; the total due is unchanged.";
+  if (!entry) return `Remove this payment entry? ${tail}`;
+  const who = payment?.player?.full_name ?? payment?.displayName ?? null;
+  const when = entry.paid_date ? fmtDate(entry.paid_date) : null;
+  const label = when ?? entry.month_label ?? null;
+  return `Remove the ${money(entry.amount)} payment${label ? ` from ${label}` : ""}${who ? ` for ${who}` : ""}? ${tail}`;
+}
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -875,7 +893,32 @@ export function FinanceClient({
       </div>
 
       <div className="fin-tabbody" hidden={tab !== "funds"}>
-        <FundsInTab funds={funds} dues={dues} />
+        <FundsInTab
+          funds={funds}
+          dues={dues}
+          budget={budget}
+          canWrite={canWrite}
+          pending={pending}
+          openCats={openCats}
+          setOpenCats={setOpenCats}
+          onEdit={(row) => setEditBudget(row)}
+          onDelete={(row) => confirmDelete.ask(`budget:${row.id}`)}
+          confirmingDelete={confirmDelete.asking}
+          onCancelDelete={() => confirmDelete.cancel()}
+          onConfirmDelete={(row) => {
+            const fd = new FormData();
+            fd.set("id", row.id);
+            run(deleteBudgetItem, fd, () => confirmDelete.cancel());
+          }}
+          deleteError={error}
+          transactions={transactions}
+          tournaments={tournaments}
+          onReviewTransaction={(t) => {
+            confirmDelete.cancel();
+            showTab("transactions");
+            setDetailTxn(t);
+          }}
+        />
       </div>
 
       <div className="fin-tabbody" hidden={tab !== "transactions"}>
@@ -1091,7 +1134,12 @@ export function FinanceClient({
  * Player dues derive from Player Payments and are read-only here — recording
  * them as transactions as well would double-count every payment.
  */
-export function FundsInTab({ funds, dues }) {
+export function FundsInTab({
+  funds, dues, budget = null, canWrite = false, pending = false,
+  openCats = {}, setOpenCats = () => {},
+  onEdit, onDelete, confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
+  transactions = [], tournaments = [], onReviewTransaction,
+}) {
   const rows = [
     {
       label: "Player dues",
@@ -1128,7 +1176,8 @@ export function FundsInTab({ funds, dues }) {
 
       <div className="fi-grid">
         {rows.map((r) => {
-          const remaining = Math.max(0, (r.goal ?? 0) - r.received);
+          const progress = incomeProgress(r.goal, r.received);
+          const remaining = progress.remaining;
           return (
             <div key={r.label} className="fi-card">
               <div className="fi-row-head">
@@ -1143,7 +1192,11 @@ export function FundsInTab({ funds, dues }) {
                 <>
                   <Meter value={r.received} total={r.goal} />
                   <p className="fi-row-foot">
-                    {remaining > 0 ? (
+                    {progress.state === "over" ? (
+                      <span className="fi-met fi-over">
+                        Over {r.goalWord} by {money(progress.over)}
+                      </span>
+                    ) : remaining > 0 ? (
                       <>
                         {money(remaining)}{" "}
                         {r.goalWord === "expected" ? "still to collect" : "to goal"}
@@ -1164,6 +1217,32 @@ export function FundsInTab({ funds, dues }) {
           );
         })}
       </div>
+
+      {/* Income goals are budget lines flagged as income, so they are edited
+          and deleted with the same form, the same server action and the same
+          protections as an expense line. Nothing here is a second copy of that
+          logic: this is the existing table, in income mode. */}
+      {budget?.income?.length > 0 && (
+        <BudgetSection
+          title="Income goals"
+          income
+          lineLabel="income goal"
+          groups={budget.income}
+          openCats={openCats}
+          setOpenCats={setOpenCats}
+          canWrite={canWrite}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          pending={pending}
+          confirmingDelete={confirmingDelete}
+          onCancelDelete={onCancelDelete}
+          onConfirmDelete={onConfirmDelete}
+          deleteError={deleteError}
+          transactions={transactions}
+          onReviewTransaction={onReviewTransaction}
+          tournaments={tournaments}
+        />
+      )}
     </>
   );
 }
@@ -1271,8 +1350,27 @@ function summaryMoney(n) {
 
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
                         confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
-                        transactions = [], onReviewTransaction, tournaments = [] }) {
+                        transactions = [], onReviewTransaction, tournaments = [],
+                        lineLabel = "budget line" }) {
   if (groups.length === 0) return null;
+
+  /**
+   * INCOME MODE.
+   *
+   * The same table, the same Edit and Delete, the same protections. Only the
+   * words and the figures shown change: an income line is a goal with money
+   * received against it, not a cost with money paid out. The expense wording
+   * and arithmetic below are untouched when `income` is false.
+   *
+   * Category open-state is keyed separately so an income category and an
+   * expense category that share a name do not open together.
+   */
+  const catKey = (g) => (income ? `income:${g.category}` : g.category);
+  const progressText = (p) =>
+    p.state === "over" ? `Over goal by ${money(p.over)}`
+    : p.state === "met" ? "Goal met"
+    : p.state === "no-goal" ? "No goal set"
+    : p.received > 0 ? "In progress" : "Not started";
 
   // The parent holds an id; the dialog needs the row it names. Looked up
   // across every category so a collapsed one still resolves.
@@ -1325,21 +1423,22 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
         <div className="budget-row budget-colhead" aria-hidden="true">
           <span />
           <span>Category</span>
-          <span className="budget-num">Budget</span>
-          <span className="budget-num">Paid</span>
-          <span className="budget-num">To pay</span>
-          <span className="budget-num budget-num-avail">Available</span>
+          <span className="budget-num">{income ? "Goal" : "Budget"}</span>
+          <span className="budget-num">{income ? "Received" : "Paid"}</span>
+          <span className="budget-num">{income ? "Remaining" : "To pay"}</span>
+          <span className="budget-num budget-num-avail">{income ? "Status" : "Available"}</span>
           <span />
         </div>
 
         {groups.map((g) => {
-          const open = openCats[g.category] ?? false;
+          const open = openCats[catKey(g)] ?? false;
+          const gp = income ? incomeProgress(g.budgeted, g.paidTotal) : null;
 
           return (
             <div key={g.category} className={`budget-group${open ? " is-open" : ""}`}>
               <button
                 className="budget-row budget-cat"
-                onClick={() => setOpenCats({ ...openCats, [g.category]: !open })}
+                onClick={() => setOpenCats({ ...openCats, [catKey(g)]: !open })}
                 aria-expanded={open}
               >
                 <span className={`group-caret${open ? "" : " collapsed"}`} aria-hidden="true">▾</span>
@@ -1349,7 +1448,11 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   {/* Same information the Status column carried, in plain
                       English beneath the category it describes. */}
                   <span className="budget-sub budget-cat-sub">
-                    {g.percentCommitted == null
+                    {income
+                      ? gp.state === "no-goal"
+                        ? "No goal set"
+                        : `${Math.min(100, Math.round((gp.received / gp.goal) * 100))}% of goal received`
+                      : g.percentCommitted == null
                       ? "No spending recorded"
                       : `${g.percentCommitted}% of budget committed`}
                   </span>
@@ -1358,17 +1461,28 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 {/* data-label drives the mobile layout, where the column
                     header is hidden and four bare figures would otherwise be
                     unexplained. Desktop ignores it entirely. */}
-                <span className="budget-num" data-label="Budget">{summaryMoney(g.budgeted)}</span>
-                <span className="budget-num" data-label="Paid">{summaryMoney(g.paidTotal)}</span>
-                <span className="budget-num" data-label="To pay">{summaryMoney(g.toPay)}</span>
-                <span
-                  data-label="Available"
-                  className={`budget-num budget-num-avail strong${g.available < 0 ? " over" : ""}`}
-                >
-                  {g.available < 0
-                    ? `Over ${summaryMoney(Math.abs(g.available))}`
-                    : summaryMoney(g.available)}
+                <span className="budget-num" data-label={income ? "Goal" : "Budget"}>{summaryMoney(g.budgeted)}</span>
+                <span className="budget-num" data-label={income ? "Received" : "Paid"}>{summaryMoney(g.paidTotal)}</span>
+                <span className="budget-num" data-label={income ? "Remaining" : "To pay"}>
+                  {income ? summaryMoney(gp.remaining) : summaryMoney(g.toPay)}
                 </span>
+                {income ? (
+                  <span
+                    data-label="Status"
+                    className={`budget-num budget-num-avail strong${gp.state === "over" ? " income-over" : ""}`}
+                  >
+                    {progressText(gp)}
+                  </span>
+                ) : (
+                  <span
+                    data-label="Available"
+                    className={`budget-num budget-num-avail strong${g.available < 0 ? " over" : ""}`}
+                  >
+                    {g.available < 0
+                      ? `Over ${summaryMoney(Math.abs(g.available))}`
+                      : summaryMoney(g.available)}
+                  </span>
+                )}
 
                 {/* Track 6 is shared with the line rows' actions. The category
                     row keeps the cell so the columns stay aligned; its Status
@@ -1391,19 +1505,36 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                       )}
                     </span>
 
-                    <span className="budget-num" data-label="Budget">{money(r.budgeted)}</span>
-                    <span className="budget-num" data-label="Paid">{money(r.actual)}</span>
-                    <span className="budget-num" data-label="To pay">
-                      {income ? money(0) : money(r.toPay)}
-                    </span>
-                    <span
-                      data-label="Available"
-                      className={`budget-num budget-num-avail${r.available < 0 ? " over" : ""}`}
-                    >
-                      {r.available < 0
-                        ? `Over ${money(Math.abs(r.available))}`
-                        : money(r.available)}
-                    </span>
+                    {(() => {
+                      const rp = income ? incomeProgress(r.budgeted, r.actual) : null;
+                      return income ? (
+                        <>
+                          <span className="budget-num" data-label="Goal">{money(r.budgeted)}</span>
+                          <span className="budget-num" data-label="Received">{money(r.actual)}</span>
+                          <span className="budget-num" data-label="Remaining">{money(rp.remaining)}</span>
+                          <span
+                            data-label="Status"
+                            className={`budget-num budget-num-avail${rp.state === "over" ? " income-over" : ""}`}
+                          >
+                            {progressText(rp)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="budget-num" data-label="Budget">{money(r.budgeted)}</span>
+                          <span className="budget-num" data-label="Paid">{money(r.actual)}</span>
+                          <span className="budget-num" data-label="To pay">{money(r.toPay)}</span>
+                          <span
+                            data-label="Available"
+                            className={`budget-num budget-num-avail${r.available < 0 ? " over" : ""}`}
+                          >
+                            {r.available < 0
+                              ? `Over ${money(Math.abs(r.available))}`
+                              : money(r.available)}
+                          </span>
+                        </>
+                      );
+                    })()}
 
                     <span className="budget-line-actions">
                       {canWrite && (
@@ -1428,11 +1559,11 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
           and it is the same question either way. */}
       {confirmRow && blockers.length === 0 && tournamentBlockers.length === 0 && (
         <ConfirmDialog
-          title="Delete budget line"
-          message={`Delete the budget line "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
-          confirmLabel="Delete budget line"
+          title={`Delete ${lineLabel}`}
+          message={`Delete the ${lineLabel} "${confirmRow.name}"? Transactions already recorded against it are not deleted.`}
+          confirmLabel={`Delete ${lineLabel}`}
           pendingLabel="Deleting…"
-          cancelLabel="Keep budget line"
+          cancelLabel={`Keep ${lineLabel}`}
           pending={pending}
           error={deleteError}
           onCancel={onCancelDelete}
@@ -1450,7 +1581,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
         <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancelDelete}>
           <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <h2>Can&rsquo;t delete this budget line yet</h2>
+              <h2>Can&rsquo;t delete this {lineLabel} yet</h2>
             </div>
 
             <div className="modal-body">
@@ -1487,7 +1618,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
 
             <div className="modal-foot">
               <button type="button" className="btn btn-secondary" onClick={onCancelDelete}>
-                Keep budget line
+                Keep {lineLabel}
               </button>
               {/* No Delete button here either — it could only fail. */}
               <RelatedLink
@@ -1517,7 +1648,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
         <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancelDelete}>
           <div className="modal modal-confirm" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <h2>Can&rsquo;t delete this budget line yet</h2>
+              <h2>Can&rsquo;t delete this {lineLabel} yet</h2>
             </div>
 
             <div className="modal-body">
@@ -1525,7 +1656,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 <strong>{blockers.length}</strong>{" "}
                 {blockers.length === 1 ? "transaction is" : "transactions are"} assigned to{" "}
                 &ldquo;{confirmRow.name}&rdquo;. Reassign{" "}
-                {blockers.length === 1 ? "it" : "them"} before deleting this budget line.
+                {blockers.length === 1 ? "it" : "them"} before deleting this {lineLabel}.
               </p>
 
               <ul className="blocker-list">
@@ -1557,7 +1688,7 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
 
             <div className="modal-foot">
               <button type="button" className="btn btn-secondary" onClick={onCancelDelete}>
-                Keep budget line
+                Keep {lineLabel}
               </button>
               {/* No Delete button at all. It could only fail. */}
               <button
@@ -2585,7 +2716,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
               {/* Asked here, beside the entry list, not in a native dialog. */}
               {confirmingEntry?.startsWith?.("entry:") && (
                 <ConfirmAction
-                  message="Remove this payment entry? The amount is deducted from what has been paid; the total due is unchanged."
+                  message={removeEntryMessage(p, confirmingEntry.slice("entry:".length))}
                   confirmLabel="Remove entry"
                   pendingLabel="Removing…"
                   cancelLabel="Keep entry"

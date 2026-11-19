@@ -369,6 +369,96 @@ const as = (u) => { current = USERS[u]; };
   ok("a coach cannot change a finished season's roster", dbActive(R2) === "f", r);
   sql(`update seasons set phase='current' where id='${SEASON_A}'`);
 
+
+  /* ===================== income goals + payment entries: delete protections ===================== */
+  section("deleteBudgetItem on income goals: clean delete, linked records protect it, move_to, roles, past seasons");
+  const I = (n) => `e1000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
+  const mkGoal = (id, name, org = A, season = SEASON_A, income = true, goal = 500) =>
+    sql(`insert into budget_items (id, organization_id, season_id, category, name, is_income, budgeted) values ('${id}','${org}','${season}','Sponsors','${name}',${income},${goal})`);
+  const exists = (id) => sql(`select count(*) from budget_items where id='${id}'`) === "1";
+  const mkIncomeTxn = (id, goalId) =>
+    sql(`insert into budget_transactions (id, organization_id, season_id, budget_item_id, category, item, actual_amount, status, is_income, txn_date) values ('${id}','${A}','${SEASON_A}','${goalId}','Sponsors','Banner',650,'Paid',true,'2026-10-01')`);
+  const TX_I = (n) => `e2000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
+
+  as("coach");
+  mkGoal(I(1), "Clean goal");
+  r = await fAct.deleteBudgetItem(form({ id: I(1) }));
+  ok("an income goal with nothing linked deletes", r.ok === true && !exists(I(1)), r);
+
+  mkGoal(I(2), "Goal with money received");
+  mkIncomeTxn(TX_I(2), I(2));
+  r = await fAct.deleteBudgetItem(form({ id: I(2) }));
+  ok("a goal with a recorded receipt is refused with needsReassign and a count", r.ok === false && r.needsReassign === true && r.count === 1, r);
+  ok("...the goal and the receipt are both still there, still linked", exists(I(2)) && sql(`select budget_item_id from budget_transactions where id='${TX_I(2)}'`) === I(2));
+
+  r = await fAct.deleteBudgetItem(form({ id: I(2), move_to: LINE2 }));
+  ok("move_to an EXPENSE line is refused for income receipts", r.ok === false && /don't match/.test(r.error ?? ""), r);
+  ok("...nothing moved, nothing deleted", exists(I(2)) && sql(`select budget_item_id from budget_transactions where id='${TX_I(2)}'`) === I(2));
+
+  mkGoal(I(3), "Other income goal");
+  r = await fAct.deleteBudgetItem(form({ id: I(2), move_to: I(3) }));
+  ok("move_to another INCOME goal moves the receipt, then deletes the goal", r.ok === true && !exists(I(2)) && sql(`select budget_item_id from budget_transactions where id='${TX_I(2)}'`) === I(3), r);
+  ok("...the receipt amount is untouched by the move", Number(sql(`select actual_amount from budget_transactions where id='${TX_I(2)}'`)) === 650);
+
+  r = await fAct.deleteBudgetItem(form({ id: LINE }));
+  ok("a line a tournament is allocated to is refused and names the tournaments (the shared protection)", r.ok === false && Array.isArray(r.tournamentBlockers) && r.tournamentBlockers.length > 0, r);
+  ok("...and is still there", exists(LINE));
+
+  mkGoal(I(4), "Parent target");
+  as("parent");
+  r = await fAct.deleteBudgetItem(form({ id: I(4) }));
+  ok("a parent cannot delete an income goal", r.ok === false && exists(I(4)), r);
+  as("coachB");
+  r = await fAct.deleteBudgetItem(form({ id: I(4) }));
+  ok("a coach from another organization cannot delete it", exists(I(4)), r);
+  as("owner");
+  sql(`update seasons set phase='past' where id='${SEASON_A}'`);
+  as("coach");
+  r = await fAct.deleteBudgetItem(form({ id: I(4) }));
+  ok("a coach cannot delete a goal in a finished season", exists(I(4)), r);
+  as("owner");
+  r = await fAct.deleteBudgetItem(form({ id: I(4) }));
+  ok("an owner can correct a finished season", r.ok === true && !exists(I(4)), r);
+  sql(`update seasons set phase='current' where id='${SEASON_A}'`);
+  as("coach");
+  r = await fAct.deleteBudgetItem(form({}));
+  ok("a request with no id is refused", r.ok === false, r);
+
+  section("saveBudgetItem on an income goal: edit keeps it an income goal");
+  r = await fAct.saveBudgetItem(form({ id: I(3), category: "Sponsors", name: "Renamed goal", budget_method: "total", budgeted: "750", is_income: "true" }));
+  ok("editing the name and goal saves", r.ok === true && sql(`select name || '|' || budgeted from budget_items where id='${I(3)}'`).startsWith("Renamed goal|750"), r);
+  ok("...and it is still income", sql(`select is_income from budget_items where id='${I(3)}'`) === "t");
+  as("parent");
+  r = await fAct.saveBudgetItem(form({ id: I(3), category: "Sponsors", name: "Hacked", budget_method: "total", budgeted: "1", is_income: "true" }));
+  ok("a parent cannot edit it", sql(`select name from budget_items where id='${I(3)}'`) === "Renamed goal", r);
+  as("coach");
+
+  section("deletePaymentEntry: removes only the chosen entry, keeps the payment record, respects roles");
+  const PAY5 = "f0000000-0000-0000-0000-000000000005";
+  const E1 = "e3000000-0000-0000-0000-000000000001", E2 = "e3000000-0000-0000-0000-000000000002";
+  sql(`insert into player_payments (id, organization_id, season_id, player_name, initial_cost) values ('${PAY5}','${A}','${SEASON_A}','P5 entries',1000)`);
+  sql(`insert into payment_log (id, payment_id, amount, paid_date) values ('${E1}','${PAY5}',100,'2026-10-01'),('${E2}','${PAY5}',50,'2026-10-05')`);
+  const logIds = () => sql(`select string_agg(id::text, ',' order by amount) from payment_log where payment_id='${PAY5}'`);
+  as("parent");
+  r = await fAct.deletePaymentEntry(form({ id: E2 }));
+  ok("a parent cannot remove a payment entry", logIds() === `${E2},${E1}`, r);
+  as("coachB");
+  r = await fAct.deletePaymentEntry(form({ id: E2 }));
+  ok("a coach from another organization cannot", logIds() === `${E2},${E1}`, r);
+  as("coach");
+  r = await fAct.deletePaymentEntry(form({ id: E2 }));
+  ok("a coach removes exactly the entry they chose", r.ok === true && logIds() === E1, r);
+  ok("...the $100 entry and the payment record remain, total due unchanged", Number(sql(`select sum(amount) from payment_log where payment_id='${PAY5}'`)) === 100 && Number(sql(`select initial_cost from player_payments where id='${PAY5}'`)) === 1000, r);
+  r = await fAct.deletePaymentEntry(form({}));
+  ok("a request with no id is refused", r.ok === false, r);
+  as("owner");
+  sql(`update seasons set phase='past' where id='${SEASON_A}'`);
+  as("coach");
+  r = await fAct.deletePaymentEntry(form({ id: E1 }));
+  ok("a coach cannot remove an entry from a finished season", logIds() === E1, r);
+  as("owner");
+  sql(`update seasons set phase='current' where id='${SEASON_A}'`);
+
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

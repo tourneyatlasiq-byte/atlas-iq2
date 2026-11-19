@@ -778,3 +778,8 @@ html.volt .drawer-foot-error { flex: 1 1 100%; margin: 0 0 4px; }
   html.volt .t-metrics { gap: 6px; }
   html.volt .t-metric-value { font-size: clamp(16px, 5.4vw, 20px); overflow-wrap: anywhere; }
 }
+
+/* Money In: receipts above the target are good news, so they read as success
+   (never the red used for an over-spent expense), and are stated in words. */
+html.volt .fi-over { color: var(--status-good); font-weight: 700; }
+html.volt .budget-num.income-over { color: var(--status-good); font-weight: 700; }

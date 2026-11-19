@@ -770,7 +770,7 @@ console.log("\nTeam dues allocation");
   assertEq("a blocked line gets a different dialog",
     /confirmRow && blockers\.length > 0 && \(/.test(ui), true);
   assertEq("...titled as a blocker, not a confirmation",
-    /Can&rsquo;t delete this budget line yet/.test(ui), true);
+    /Can&rsquo;t delete this \{lineLabel\} yet/.test(ui) && /lineLabel = "budget line"/.test(ui), true);
   assertEq("...naming the budget line", /assigned to\{" "\}\s*\n\s*&ldquo;\{confirmRow\.name\}&rdquo;/.test(ui), true);
 
   // Date, description and amount for each blocker.
@@ -794,7 +794,7 @@ console.log("\nTeam dues allocation");
   // No button that could only fail.
   assertEq("no Delete button while blocked",
     /No Delete button at all\. It could only fail\./.test(ui), true);
-  assertEq("Keep budget line is still offered", /Keep budget line/.test(ui), true);
+  assertEq("Keep budget line is still offered (expense wording is the default)", /Keep \{lineLabel\}/.test(ui) && /lineLabel = "budget line"/.test(ui), true);
 
   // The route out.
   assertEq("a blocker row opens that transaction",

@@ -49,7 +49,8 @@ create table public.budget_items (
   organization_id uuid references organizations(id) on delete cascade,
   season_id uuid references seasons(id),
   category text not null, name text, is_income boolean not null default false,
-  budgeted numeric default 0
+  budgeted numeric default 0,
+  quantity numeric(10, 2), unit_cost numeric(12, 2), notes text
 );
 create table public.tournaments (
   id uuid primary key default gen_random_uuid(),
@@ -136,6 +137,7 @@ begin
   return NEW;
 end; $$;
 create trigger season_write_policy before insert or update or delete on public.tournaments for each row execute function public.enforce_season_write_policy('season_id');
+create trigger season_write_policy before insert or update or delete on public.budget_items for each row execute function public.enforce_season_write_policy('season_id');
 create trigger season_write_policy before insert or update or delete on public.budget_transactions for each row execute function public.enforce_season_write_policy('season_id');
 create trigger season_write_policy before insert or update or delete on public.player_payments for each row execute function public.enforce_season_write_policy('season_id');
 create trigger season_write_policy before insert or update or delete on public.payment_log for each row execute function public.enforce_season_write_policy('via_payment');
@@ -155,6 +157,9 @@ create policy "budget_transactions: season write" on public.budget_transactions 
   using ((season_id in (select auth_season_ids()) or (season_id is null and organization_id = (select auth_organization_id()))) and (select auth_can_write()))
   with check ((season_id in (select auth_season_ids()) or (season_id is null and organization_id = (select auth_organization_id()))) and (select auth_can_write()));
 create policy "budget_items: season read" on public.budget_items for select using (season_id in (select auth_season_ids()));
+create policy "budget_items: season write" on public.budget_items for all
+  using (season_id in (select auth_season_ids()) and (select auth_can_write()))
+  with check (season_id in (select auth_season_ids()) and (select auth_can_write()));
 
 create function public.auth_linked_player_ids() returns setof uuid language sql stable security definer set search_path = public as $$ select null::uuid where false $$;
 alter table public.player_payments enable row level security;
