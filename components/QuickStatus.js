@@ -19,7 +19,7 @@ import { StSheet, SheetError, callAction, todayIso, useRefreshThen } from "./StS
  *
  * Callers pass canWrite; without it no action renders at all.
  */
-export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvailable = null }) {
+export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvailable = null, onEditDetails = null }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(null);
@@ -55,6 +55,7 @@ export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvai
   const element = dialog ? (
     dialog.kind === "paid" ? (
       <PaidDialog t={dialog.t} transactions={transactions} budgetLines={budgetLines}
+        onEditDetails={(t) => (onEditDetails ? onEditDetails(t) : router.push(`/tournaments?open=${t.id}`))}
         onClose={() => setDialog(null)}
         onDone={(res) => {
           const t = dialog.t;
@@ -116,7 +117,7 @@ function newKey() {
  * twice. If an unpaid (To Pay) entry exists, that entry is marked Paid, so the
  * money is never recorded a second time.
  */
-function PaidDialog({ t, transactions, budgetLines, onClose, onDone }) {
+function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetails }) {
   const first = tournamentPayments(t, transactions);
   const expenseLines = budgetLines.filter((l) => !l.is_income);
   const key = useRef(newKey());
@@ -131,6 +132,22 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone }) {
   const [err, setErr] = useState(null);
   const [notice, setNotice] = useState(null);
   const [saving, setSaving] = useState(false);
+  // When the amount being recorded is less than what the tournament still owes,
+  // the person must choose what happens to the difference: record it, or
+  // correct the tournament cost. It is never left outstanding silently.
+  const [fix, setFix] = useState(null);       // null | "record"
+  const [recFrom, setRecFrom] = useState(0);  // the amount before "record" raised it
+  const cents = (n) => Math.round(n * 100) / 100;
+  const amt = Number(amount) || 0;
+  const owed = live.remaining;
+  const shortBy = also && !nothing && owed != null && amt > 0 ? cents(owed - (fix === "record" ? recFrom : amt)) : 0;
+  const mismatch = shortBy > 0.004;
+
+  function chooseFix(v) {
+    if (v === "record" && fix !== "record") { setRecFrom(amt); setAmount(String(owed)); }
+    setFix(v); setErr(null);
+  }
+  function editAmount(v) { setAmount(v); setFix(null); }
 
   function applyLive(state) {
     const entries = (state.to_pay ?? []).map((x) => ({ id: x.id, amount: Number(x.amount ?? 0), txn_date: x.txn_date, budget_item_id: x.budget_item_id }));
@@ -142,6 +159,7 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone }) {
     setDate(e0?.txn_date ?? todayIso());
     setLine(e0?.budget_item_id ?? t.budget_item_id ?? line);
     setAlso(!(next.remaining <= 0 && !e0));
+    setFix(null);
   }
 
   async function save() {
@@ -150,6 +168,7 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone }) {
     if (also && !nothing) {
       if (!(amt > 0)) return setErr("Enter an amount greater than zero.");
       if (!line) return setErr("Choose the budget line this payment counts against.");
+      if (mismatch && !fix) return setErr(`Record the full ${money(owed)}, correct the cost in Edit details, or turn off the Finance entry to change only the status.`);
     }
     setSaving(true); setErr(null);
     const res = await callAction(markTournamentPaidInFull, {
@@ -206,7 +225,7 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone }) {
               {live.entries.length > 1 && (
                 <div className="field">
                   <label htmlFor="mp-entry">Which unpaid entry</label>
-                  <select id="mp-entry" value={entry?.id ?? ""} onChange={(e) => { const x = live.entries.find((y) => y.id === e.target.value); setEntryId(x.id); setAmount(String(x.amount)); setDate(x.txn_date ?? todayIso()); setLine(x.budget_item_id ?? line); }}>
+                  <select id="mp-entry" value={entry?.id ?? ""} onChange={(e) => { const x = live.entries.find((y) => y.id === e.target.value); setFix(null); setEntryId(x.id); setAmount(String(x.amount)); setDate(x.txn_date ?? todayIso()); setLine(x.budget_item_id ?? line); }}>
                     {live.entries.map((x) => <option key={x.id} value={x.id}>{money(x.amount)} on {x.txn_date}</option>)}
                   </select>
                 </div>
@@ -214,13 +233,29 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone }) {
               <div className="field-row">
                 <div className="field">
                   <label htmlFor="mp-amount">Amount</label>
-                  <input id="mp-amount" type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                  <input id="mp-amount" type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => editAmount(e.target.value)} />
                 </div>
                 <div className="field">
                   <label htmlFor="mp-date">Date paid</label>
                   <input id="mp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
               </div>
+              {mismatch && (
+                <fieldset className="st-gap" aria-describedby="mp-gap-why">
+                  <legend>The amounts don{"\u2019"}t match</legend>
+                  <p id="mp-gap-why" className="st-note">
+                    {money(live.cost)} is the tournament cost and {money(live.paid)} is paid, so {money(owed)} is still to pay. {entry ? <>The unpaid Finance entry is {money(fix === "record" ? recFrom : amt)}</> : <>You are recording {money(fix === "record" ? recFrom : amt)}</>}, which would leave <b>{money(shortBy)}</b> unpaid. Choose what to do about the difference.
+                  </p>
+                  <label className="st-radio">
+                    <input type="radio" name="mp-fix" value="record" checked={fix === "record"} onChange={() => chooseFix("record")} />
+                    <span><b>Record the full {money(owed)}</b><small>{entry ? `Raises the unpaid entry from ${money(recFrom || amt)} to ${money(owed)} and marks it paid.` : `Records ${money(owed)} as paid.`}</small></span>
+                  </label>
+                  <button type="button" className="btn btn-secondary st-gap-edit" onClick={() => { onClose(); onEditDetails?.(t); }}>
+                    Correct the cost in Edit details
+                  </button>
+                  <p className="st-note">Closes this and opens Edit details. After you fix the cost, open Mark paid in full again.</p>
+                </fieldset>
+              )}
               <div className="field">
                 <label htmlFor="mp-line">Budget line</label>
                 <select id="mp-line" value={line} onChange={(e) => setLine(e.target.value)}>

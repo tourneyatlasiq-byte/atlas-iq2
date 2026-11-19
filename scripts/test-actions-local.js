@@ -302,6 +302,38 @@ const as = (u) => { current = USERS[u]; };
   r = await tAct.markTournamentPaidInFull(form({ ...figs(T(12)), id: T(12), request_key: uuid(), expected_status: "Registered", expected_paid: 0, expected_to_pay_count: 1, record_payment: "true", to_pay_id: "d0000000-0000-0000-0000-0000000000e1" }));
   ok("saving again from the refreshed figures succeeds", r.ok === true && sql(`select status from budget_transactions where id='d0000000-0000-0000-0000-0000000000e1'`) === "Paid", r);
 
+  /* ===================== cost versus unpaid entry: the server never leaves the difference silent ===================== */
+  section("markTournamentPaidInFull: a payment smaller than what is owed is refused, and the cost is never written");
+  as("owner");
+  const mk = (n, entry, gate) => sql(`insert into tournaments (id, organization_id, season_id, name, entry_fee, gate_fee, decision, paid_status, budget_item_id) values ('${T(n)}','${A}','${SEASON_A}','T${n} gap',${entry},${gate},'Committed','Registered','e0000000-0000-0000-0000-000000000001')`);
+  const TXG = (n) => `d0000000-0000-0000-0000-0000000001${String(n).padStart(2, "0")}`;
+  const mkTx = (n, amt) => sql(`insert into budget_transactions (id, organization_id, season_id, tournament_id, budget_item_id, category, item, actual_amount, status, txn_date) values ('${TXG(n)}','${A}','${SEASON_A}','${T(n)}','e0000000-0000-0000-0000-000000000001','Tournaments','owed',${amt},'To Pay','2026-11-19')`);
+  const send = (n, extra) => ({ ...figs(T(n)), id: T(n), request_key: uuid(), expected_status: "Registered", expected_paid: 0, expected_to_pay_count: 1, record_payment: "true", to_pay_id: TXG(n), amount: 400, ...extra });
+  const fees = (n) => sql(`select entry_fee::numeric(10,2)||':'||gate_fee::numeric(10,2) from tournaments where id='${T(n)}'`);
+  mk(21, 450, 0); mkTx(21, 400);
+  r = await tAct.markTournamentPaidInFull(form(send(21, {})));
+  ok("$400 against $450 owed is refused (code difference)", r.ok === false && r.code === "difference", r);
+  ok("...nothing changed", sql(`select paid_status from tournaments where id='${T(21)}'`) === "Registered" && sql(`select status from budget_transactions where id='${TXG(21)}'`) === "To Pay" && fees(21) === "450.00:0.00");
+  r = await tAct.markTournamentPaidInFull(form(send(21, { cost_fix: "cost" })));
+  ok("a request that asks for a cost correction is still just refused; the action has no cost path", r.ok === false && r.code === "difference" && fees(21) === "450.00:0.00", r);
+  r = await tAct.markTournamentPaidInFull(form(send(21, { amount: 450 })));
+  ok("the full $450 saves", r.ok === true, r);
+  ok("entry paid at 450, tournament Paid in Full, fees untouched", sql(`select status||':'||actual_amount::numeric(10,2) from budget_transactions where id='${TXG(21)}'`) === "Paid:450.00" && sql(`select paid_status from tournaments where id='${T(21)}'`) === "Paid in Full" && fees(21) === "450.00:0.00");
+  const opId = JSON.parse(JSON.stringify(r)).operation_id;
+  r = await tAct.undoMarkTournamentPaidInFull(form({ operation_id: opId }));
+  ok("Undo restores the entry (400, To Pay) and the status", r.ok === true && sql(`select status||':'||actual_amount::numeric(10,2) from budget_transactions where id='${TXG(21)}'`) === "To Pay:400.00" && sql(`select paid_status from tournaments where id='${T(21)}'`) === "Registered", r);
+
+  section("markTournamentPaidInFull: the cost corrected through the normal edit, then it saves");
+  mk(22, 450, 0); mkTx(22, 400);
+  sql(`update tournaments set entry_fee = 400 where id='${T(22)}'`);
+  r = await tAct.markTournamentPaidInFull(form(send(22, {})));
+  ok("with the corrected cost the $400 entry saves", r.ok === true && sql(`select paid_status from tournaments where id='${T(22)}'`) === "Paid in Full", r);
+
+  section("markTournamentPaidInFull: status-only is never refused for a difference");
+  mk(23, 450, 0); mkTx(23, 400);
+  r = await tAct.markTournamentPaidInFull(form(send(23, { record_payment: "false", to_pay_id: "", amount: "" })));
+  ok("status-only saves and leaves the entry To Pay", r.ok === true && sql(`select status from budget_transactions where id='${TXG(23)}'`) === "To Pay" && sql(`select paid_status from tournaments where id='${T(23)}'`) === "Paid in Full", r);
+
   console.log(`\n${passed + failed} assertions, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

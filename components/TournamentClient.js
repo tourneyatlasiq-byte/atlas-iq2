@@ -116,7 +116,8 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     if (v === "weekend") url.searchParams.set("view", "weekend"); else url.searchParams.delete("view");
     window.history.replaceState(null, "", url);
   }
-  const quick = useQuickStatus({ transactions, budgetLines, seasonAvailable });
+  // "Correct the cost in Edit details" from Mark paid in full opens this screen's own edit form.
+  const quick = useQuickStatus({ transactions, budgetLines, seasonAvailable, onEditDetails: (t) => setEditing(t) });
   const nextT = nextUp?.tournament ?? null;
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);

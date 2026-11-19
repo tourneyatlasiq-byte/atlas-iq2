@@ -161,8 +161,9 @@ const LINES = [{ id: LINE, category: "Tournaments", name: "Tournament fees", is_
 const money2 = (q) => sql(q);
 
 let root;
+const editCalls = []; // tournaments the dialog handed to Edit details
 function Harness({ t, transactions }) {
-  const quick = useQuickStatus({ transactions, budgetLines: LINES, seasonAvailable: 5000 });
+  const quick = useQuickStatus({ transactions, budgetLines: LINES, seasonAvailable: 5000, onEditDetails: (x) => editCalls.push(x.id) });
   return React.createElement(React.Fragment, null, React.createElement(QuickButton, { t, quick, canWrite: true }), quick.element);
 }
 async function mountQuick(n) {
@@ -424,6 +425,87 @@ const add = (n, amount, status, extra = {}) => sql(`insert into budget_transacti
   ok("a person without write access sees an error and nothing is saved", await until(() => !!dlg()?.querySelector("[role=alert], .st-err"), "err") || /not allowed|permission|couldn/i.test(dlg()?.textContent ?? ""), dlg()?.textContent);
   ok("the sheet stays open on step 4", /Step 4 of 4/.test(dlg()?.textContent ?? ""));
   ok("no row was created", money2(`select count(*) from budget_transactions where actual_amount = 12 and item <> 'T1 deposit'`) === "0");
+  await unmount();
+
+  /* ===== Mark paid in full: the cost and the unpaid entry disagree ($450 cost, $400 entry) ===== */
+  const mkT = (n, entry, gate) => sql(`insert into tournaments (id, organization_id, season_id, name, entry_fee, gate_fee, decision, paid_status, budget_item_id) values ('${T(n)}','${A}','${SEASON_A}','T${n} Gap',${entry},${gate},'Committed','Registered','${LINE}')`);
+  const radio = (v) => document.querySelector(`.st-sheet input[type=radio][value="${v}"]`);
+  const paidState = (n) => money2(`select paid_status from tournaments where id='${T(n)}'`);
+  const cost = (n) => money2(`select total_cost::numeric(10,2) from tournaments where id='${T(n)}'`);
+  const entryRow = (n) => money2(`select status||':'||actual_amount::numeric(10,2) from budget_transactions where tournament_id='${T(n)}'`);
+  const editBtn = () => byText(".st-sheet button", /Correct the cost in Edit details/);
+
+  section("Mismatch: $450 cost, $400 unpaid entry. The dialog explains it and makes the person choose");
+  as("owner");
+  mkT(13, 450, 0); add(13, 400, "To Pay", { item: "T13 owed" });
+  await mountQuick(13);
+  await click(quickBtn());
+  ok("explains the $50 difference with both figures", /\$50/.test(dlg().textContent) && /\$450/.test(dlg().textContent) && /\$400/.test(dlg().textContent), dlg().textContent);
+  ok("offers to record the full $450", !!radio("record") && /Record the full \$450/.test(dlg().textContent), dlg().textContent);
+  ok("offers to correct the cost in Edit details", !!editBtn());
+  ok("the cost is never edited inside this dialog (no cost choice, no cost field)", !radio("cost") && !dlg().querySelector("#mp-cost"));
+  ok("the choice is not pre-selected", !radio("record").checked);
+  ok("the status-only option is still there", !!dlg().querySelector("input[type=checkbox]"));
+  await click(dlgPrimary());
+  ok("saving without choosing is refused and says why", await until(() => /Record the full \$450(\.00)?, correct the cost in Edit details/i.test(dlg()?.textContent ?? ""), "choose"), dlg()?.textContent);
+  ok("nothing was saved", paidState(13) === "Registered" && entryRow(13) === "To Pay:400.00" && cost(13) === "450.00");
+  await unmount();
+
+  section("Mismatch, record the full $450 (the entry is raised to $450 and marked paid)");
+  as("owner");
+  await mountQuick(13);
+  await click(quickBtn());
+  await click(radio("record"));
+  ok("the amount now reads 450", document.getElementById("mp-amount").value === "450", document.getElementById("mp-amount").value);
+  await click(dlgPrimary());
+  ok("tournament is Paid in Full", await until(() => paidState(13) === "Paid in Full", "paid"));
+  ok("Finance shows $450 paid, cost unchanged", entryRow(13) === "Paid:450.00" && cost(13) === "450.00");
+  await until(() => toastUndo(), "undo");
+  await click(toastUndo());
+  ok("Undo puts the entry back to To Pay at 400 and the status back", await until(() => paidState(13) === "Registered" && entryRow(13) === "To Pay:400.00", "undo"));
+  ok("the cost is still 450 (this dialog never touches it)", cost(13) === "450.00");
+  await unmount();
+
+  section("Mismatch, correct the cost in Edit details: hands off, changes nothing, then reopening has no gap");
+  as("owner");
+  mkT(14, 450, 0); add(14, 400, "To Pay", { item: "T14 owed" });
+  editCalls.length = 0;
+  await mountQuick(14);
+  await click(quickBtn());
+  await click(editBtn());
+  ok("the dialog closed", await until(() => !dlg(), "closed"));
+  ok("Edit details was opened for this tournament", editCalls.length === 1 && editCalls[0] === T(14), editCalls);
+  ok("nothing was changed by handing off", paidState(14) === "Registered" && entryRow(14) === "To Pay:400.00" && cost(14) === "450.00");
+  await unmount();
+  sql(`update tournaments set entry_fee = 400 where id='${T(14)}'`); // what saving Edit details does
+  await mountQuick(14);
+  await click(quickBtn());
+  ok("reopened after the cost was corrected: no mismatch panel", !radio("record") && !/don.t match/i.test(dlg().textContent), dlg().textContent);
+  await click(dlgPrimary());
+  ok("saves: Paid in Full, the entry paid at 400", await until(() => paidState(14) === "Paid in Full" && entryRow(14) === "Paid:400.00", "paid"));
+  await unmount();
+
+  section("Mismatch, status-only: nothing in Finance changes, no choice needed");
+  as("owner");
+  mkT(16, 450, 0); add(16, 400, "To Pay", { item: "T16 owed" });
+  await mountQuick(16);
+  await click(quickBtn());
+  await click(dlg().querySelector("input[type=checkbox]"));
+  await click(dlgPrimary());
+  ok("status changed", await until(() => paidState(16) === "Paid in Full", "paid"));
+  ok("the unpaid entry and the cost are untouched", entryRow(16) === "To Pay:400.00" && cost(16) === "450.00");
+  await unmount();
+
+  section("Mismatch, the cost was edited elsewhere while the dialog was open: the new gap is shown, nothing saved");
+  as("owner");
+  mkT(17, 400, 0); add(17, 400, "To Pay", { item: "T17 owed" });
+  await mountQuick(17);
+  await click(quickBtn());
+  sql(`update tournaments set entry_fee = 450 where id='${T(17)}'`);
+  await click(dlgPrimary());
+  ok("explains the balance changed", await until(() => /balance changed/i.test(dlg()?.textContent ?? ""), "notice"), dlg()?.textContent);
+  ok("now shows the $50 difference and its choices", !!radio("record") && !!editBtn(), dlg()?.textContent);
+  ok("nothing was saved", paidState(17) === "Registered" && entryRow(17) === "To Pay:400.00" && cost(17) === "450.00");
   await unmount();
 
   console.log(`\n${passed} passed, ${failed} failed`);
