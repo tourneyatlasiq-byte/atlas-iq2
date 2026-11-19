@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./DrawerShell";
 import { PageHelp } from "./PageHelp";
@@ -185,11 +186,10 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
       else if (importing) setImporting(false);
       else closeDetail();
     }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
     };
   }, [overlayOpen, editing, editingNotes, importing, suggesting]);

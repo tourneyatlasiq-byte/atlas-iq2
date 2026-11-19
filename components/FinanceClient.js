@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ContextHelp } from "./ContextHelp";
@@ -427,11 +428,10 @@ export function FinanceClient({
       else if (detailTxn) setDetailTxn(null);
       else closeDetail();
     }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
     };
   }, [overlayOpen, editBudget, editTxn, editPay, detailTxn]);

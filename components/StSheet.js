@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -20,14 +21,13 @@ export function StSheet({ eyebrow, title, onClose, back, children, foot, size = 
   const opener = useRef(null);
   useEffect(() => {
     opener.current = document.activeElement;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     const f = ref.current?.querySelector("[data-autofocus]") ?? ref.current?.querySelector("h2");
     f?.focus?.({ preventScroll: true });
     const onKey = (e) => { if (e.key === "Escape" && !busy) onClose?.(); };
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
       opener.current?.focus?.({ preventScroll: true });
     };

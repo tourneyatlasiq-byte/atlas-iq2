@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { SignOutButton } from "./SignOutButton";
 import { ContextHelp } from "./ContextHelp";
 import { useState, useTransition, useEffect } from "react";
@@ -97,11 +98,10 @@ export function SettingsClient({
     function onKey(e) {
       if (e.key === "Escape") { setEditing(null); setNewInvite(null); }
     }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
     };
   }, [editing]);

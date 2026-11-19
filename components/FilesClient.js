@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import { DrawerShell, DrawerRow as Row } from "./DrawerShell";
@@ -124,11 +125,10 @@ export function FilesClient({ documents, summary, targets, seasonName, canWrite,
       else if (uploading) setUploading(false);
       else closeDetail();
     }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
     };
   }, [overlayOpen, editing, uploading]);

@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { money } from "../lib/finance-rules";
 import { useMutation } from "./useMutation";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
@@ -159,12 +160,11 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       else closeDetail();
     }
 
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     document.addEventListener("keydown", onKey);
 
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
     };
   }, [overlayOpen, editing]);

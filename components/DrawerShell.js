@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useEffect, useRef } from "react";
 
 /**
@@ -55,9 +56,8 @@ export function DrawerShell({
 
   useEffect(() => {
     if (!lockScroll) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    const unlock = lockPageScroll();
+    return () => { unlock(); };
   }, [lockScroll]);
 
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -62,11 +63,10 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
     function onKey(e) {
       if (e.key === "Escape") setMoreOpen(false);
     }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockPageScroll();
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlock();
       document.removeEventListener("keydown", onKey);
     };
   }, [moreOpen]);
