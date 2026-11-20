@@ -26,7 +26,7 @@ const { isVoltPath, VOLT_BOOT } = mod;
 const cases = [
   ["/performance", true], ["/performance/", true],
   ["/tournaments/t1/games/g1/track", true], ["/tournaments/t1/games/g1/track/", true],
-  ["/dashboard", true], ["/tournaments", true], ["/finance", true], ["/team", true],
+  ["/dashboard", true], ["/tournaments", true], ["/finance", true], ["/team", true], ["/facilities", true], ["/facilities/x", false],
   ["/tournaments/t1", false], ["/tournaments/t1/games/g1/lineup", true], ["/tournaments/t1/games/g1/lineup/extra", false],
   ["/tournaments/t1/games/g1/track/extra", false], ["/tournaments/t1/games/track", false],
   ["/settings", false], ["/reports", false], ["/performance-x", false], ["/", false],
