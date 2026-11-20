@@ -1,0 +1,35 @@
+/** IMP-001: the status line wording and the "All saved" rule. Run: node scripts/check-sync-status.js */
+const fs = require("fs"), path = require("path"), os = require("os");
+const { pathToFileURL } = require("url");
+let n = 0, bad = 0;
+const eq = (label, a, b) => { n++; const ok = JSON.stringify(a) === JSON.stringify(b); if (!ok) bad++; console.log(`  ${ok ? "ok  " : "FAIL"}  ${label}${ok ? "" : `\n        expected ${JSON.stringify(b)}\n        actual   ${JSON.stringify(a)}`}`); };
+(async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sync-"));
+  fs.writeFileSync(path.join(dir, "package.json"), '{"type":"module"}');
+  fs.writeFileSync(path.join(dir, "s.js"), fs.readFileSync("lib/sync-status.js", "utf8"));
+  const { syncDisplay: d, ALL_SAVED, blocksFinish } = await import(pathToFileURL(path.join(dir, "s.js")).href);
+  const idle = { readable: true, waiting: 0, review: 0, other: 0, failed: 0, firstError: null };
+  console.log("\nSync status (IMP-001)\n");
+  eq("before the first successful read: Checking, never All saved", d({ checked: false, status: null }).text, "Checking saved at-bats...");
+  eq("a read in flight with a stale idle status still says Checking", d({ checked: false, status: idle }).tone, "wait");
+  eq("a failed read is an error with Retry, never All saved", [d({ checked: true, status: { ...idle, readable: false } }).tone, d({ checked: true, status: { ...idle, readable: false } }).retry], ["bad", true]);
+  eq("a failed read never equals All saved", d({ checked: true, status: { ...idle, readable: false } }).text === ALL_SAVED.text, false);
+  eq("read, empty, idle, online: All saved", d({ checked: true, status: idle }), ALL_SAVED);
+  eq("empty but offline: not All saved", d({ checked: true, status: idle, online: false }).text.startsWith("Offline."), true);
+  eq("empty but still sending: Syncing, not All saved", d({ checked: true, status: idle, flushingCount: 2 }).text, "Syncing 2 at-bats...");
+  eq("one waiting, idle: N waiting", d({ checked: true, status: { ...idle, waiting: 1 } }).text, "1 waiting to sync");
+  eq("waiting and offline says so", d({ checked: true, status: { ...idle, waiting: 3 }, online: false }).text, "3 waiting to sync (offline)");
+  eq("sending shows Syncing N (singular)", d({ checked: true, status: { ...idle, waiting: 1 }, flushingCount: 1 }).text, "Syncing 1 at-bat...");
+  eq("the syncing count can rise when a new at-bat is recorded mid-send",
+    [1, 2, 3].map((c) => d({ checked: true, status: { ...idle, waiting: c }, flushingCount: c }).text), ["Syncing 1 at-bat...", "Syncing 2 at-bats...", "Syncing 3 at-bats..."]);
+  eq("failure shows the count, the reason and Retry", (({ text, detail, retry }) => ({ text, detail, retry }))(d({ checked: true, status: { ...idle, waiting: 2, failed: 2, firstError: "Network unavailable" } })),
+    { text: "Sync failed. 2 waiting", detail: "Network unavailable", retry: true });
+  eq("a retry in progress is Syncing, not Sync failed", d({ checked: true, status: { ...idle, waiting: 2, failed: 2 }, flushingCount: 2 }).text, "Syncing 2 at-bats...");
+  eq("review stays visible and red while other writes sync", d({ checked: true, status: { ...idle, waiting: 3, review: 1 }, flushingCount: 3 }), { tone: "bad", text: "1 at-bat needs your review" });
+  eq("review wording plural", d({ checked: true, status: { ...idle, review: 2 } }).text, "2 at-bats need your review");
+  eq("another account's writes are named, not hidden", d({ checked: true, status: { ...idle, other: 2 } }).text, "2 at-bats from another account on this device");
+  eq("no wording contains a dash", ["a","b"].length && [d({ checked: false }), d({ checked: true, status: idle }), d({ checked: true, status: { ...idle, waiting: 2, failed: 1, firstError: "x" } })].some((x) => /[–—]/.test(x.text)), false);
+  eq("Finish is blocked by unreadable, review, waiting, other or unknown; allowed only when clean", [blocksFinish(null), blocksFinish({ ...idle, readable: false }), blocksFinish({ ...idle, review: 1 }), blocksFinish({ ...idle, waiting: 1 }), blocksFinish({ ...idle, other: 1 }), blocksFinish(idle)], [true, true, true, true, true, false]);
+  fs.rmSync(dir, { recursive: true, force: true });
+  console.log(`\n${n} assertions, ${bad} failed\n`); process.exit(bad ? 1 : 0);
+})();

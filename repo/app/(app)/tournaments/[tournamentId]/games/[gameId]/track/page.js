@@ -1,0 +1,64 @@
+import { utcDateIso } from "../../../../../../../lib/local-date";
+import { notFound } from "next/navigation";
+import { getContext, canWrite } from "../../../../../../../lib/context";
+import { getLineupContext, listTournamentGames } from "../../../../../../../lib/queries/lineup";
+import { listGamePlateAppearances } from "../../../../../../../lib/queries/plate-appearances";
+import { TrackerClient } from "../../../../../../../components/TrackerClient";
+import { ContextBackLink } from "../../../../../../../components/ContextBackLink";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Live QAB tracking for one game.
+ *
+ * Sits beside the lineup route so the whole flow — game, lineup, track — stays
+ * inside the tournament path. Server-rendered rows seed the client; from then
+ * on the tracker owns its state and writes through the offline queue.
+ *
+ * If QAB is disabled for the organization, RLS returns no lineup and no plate
+ * appearances, so this renders the "no batting order" state and every write is
+ * refused by the database. The gate is not re-checked here.
+ */
+export default async function TrackPage({ params, searchParams }) {
+  const { profile } = await getContext();
+  const ctx = await getLineupContext(params.gameId);
+
+  if (!ctx) notFound();
+  if (ctx.game.tournament_id !== params.tournamentId) notFound();
+
+  const rows = await listGamePlateAppearances(params.gameId);
+  const tournamentGames = await listTournamentGames(params.tournamentId);
+
+  const seeded = rows.map((r) => ({
+    ...r,
+    localSeq: new Date(r.created_at ?? 0).getTime(),
+  }));
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <ContextBackLink
+          from={searchParams?.from}
+          tournamentId={params.tournamentId}
+          player={searchParams?.player}
+          scope={searchParams?.scope}
+          fallbackHref={`/tournaments/${params.tournamentId}/games/${params.gameId}/lineup`}
+          fallbackLabel="← Lineup"
+        />
+      </div>
+
+      <TrackerClient
+        game={ctx.game}
+        lineup={ctx.lineup}
+        substitutes={ctx.substitutes}
+        initialRows={seeded}
+        canWrite={canWrite(profile)}
+        // The signed-in user (ST-022): queued writes are tagged with it and
+        // only ever replayed for the same user.
+        userId={profile?.id ?? null}
+        serverToday={utcDateIso()}
+        tournamentGames={tournamentGames}
+      />
+    </div>
+  );
+}
