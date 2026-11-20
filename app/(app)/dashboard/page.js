@@ -14,6 +14,7 @@ import {
   duesSummary,
 } from "../../../lib/queries/finance";
 import { dashboardActions, nextUpTournament } from "../../../lib/readiness/dashboard";
+import { utcDateIso } from "../../../lib/local-date";
 import { DashboardClient } from "../../../components/DashboardClient";
 import { GettingStarted } from "../../../components/GettingStarted";
 import { gettingStartedSteps, setupComplete } from "../../../lib/onboarding";
@@ -115,7 +116,8 @@ export default async function DashboardPage() {
       budgetLines={budgetLines}
       owing={owing}
       canWrite={canWrite(profile)}
-      todayLabel={new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+      todayLabel={new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}
+      serverToday={utcDateIso()}
       />
     </>
   );

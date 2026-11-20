@@ -244,6 +244,7 @@ export function PlayerRecruiting({ playerId, links = [], interests = [], contact
             </>
           )}
           createLabel="+ New contact"
+          createWithQuery={(q) => `Add “${q}” as new contact`}
           onSelect={(c) => {
             const fd = new FormData();
             fd.set("id", pickingContact.id);

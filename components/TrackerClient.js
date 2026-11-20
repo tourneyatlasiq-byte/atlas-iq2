@@ -25,7 +25,8 @@ import {
 import { savedInSlot } from "../lib/queue-recovery";
 import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 import { substitutePlayer } from "../lib/actions/lineup";
-import { resumePosition } from "../lib/tracker-cursor";
+import { resumePosition, defaultTrackerMode } from "../lib/tracker-cursor";
+import { localDateIso, utcDateIso } from "../lib/local-date";
 
 /**
  * Live QAB tracker.
@@ -54,7 +55,7 @@ function ordinal(n) {
   return `${n}${suffix}`;
 }
 
-export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite, userId = null }) {
+export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite, userId = null, serverToday }) {
   const [rows, setRows] = useState(initialRows ?? []);
   /**
    * Where the order resumes.
@@ -88,10 +89,19 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   // Presentation only. Switching modes never creates, edits, voids or
   // renumbers a plate appearance — it changes what is rendered and whether
   // advancing the batting order implicitly creates a PA.
+  // The first render uses the server's date so it matches the HTML the server
+  // sent; once mounted, the device's own date decides the default tab (a game
+  // today must open live in the evening too). Only a tab nobody has touched
+  // is changed.
+  const firstMode = useRef(null);
   const [mode, setMode] = useState(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return game.game_date && game.game_date < today ? "review" : "live";
+    firstMode.current = defaultTrackerMode(game.game_date, serverToday ?? utcDateIso());
+    return firstMode.current;
   });
+  useEffect(() => {
+    const local = defaultTrackerMode(game.game_date, localDateIso());
+    setMode((cur) => (cur === firstMode.current ? local : cur));
+  }, [game.game_date]);
   const [correcting, setCorrecting] = useState(null);
   const [confirmVoid, setConfirmVoid] = useState(null);
   const [completedAt, setCompletedAt] = useState(game.qab_completed_at ?? null);

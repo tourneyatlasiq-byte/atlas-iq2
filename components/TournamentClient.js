@@ -8,7 +8,9 @@ import { DrawerShell, DrawerSection as Section, DrawerRow as Row } from "./Drawe
 import { typeLabel, RESOURCE_TYPES } from "../lib/facility-fields";
 import { linkTournamentResource, unlinkTournamentResource } from "../lib/actions/facilities";
 import { PageHelp } from "./PageHelp";
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, useMemo } from "react";
+import { useLocalToday } from "./useLocalToday";
+import { featuredTournament } from "../lib/featured-tournament";
 import { useOpenParam } from "./useOpenParam";
 import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
@@ -100,7 +102,10 @@ const paidClass = (s) =>
   : s === "Waitlisted" ? "pill-waitlisted"
   : "pill-unregistered";
 
-export function TournamentClient({ qabEnabled = false, tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {}, season = null, transactions = [], nextUp = null, seasonAvailable = null, initialView = "plan" }) {
+export function TournamentClient({ qabEnabled = false, tournaments, actions, summary, record, providers, facilities, canWrite, isAdmin = false, documentTargets, seasonName, autoOpen = false, participants = {}, seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], budgetLines = [], arrivalNotes = {}, season = null, transactions = [], nextUp: serverNextUp = null, serverToday, seasonAvailable = null, initialView = "plan" }) {
+  // Same featured-tournament rule as Home, on the device date (2026-11).
+  const todayLocal = useLocalToday(serverToday);
+  const nextUp = useMemo(() => (todayLocal ? featuredTournament(tournaments, todayLocal) : serverNextUp), [todayLocal, tournaments, serverNextUp]);
   const router = useRouter();
   // Season plan (every tournament, quick status) or Next tournament (run the day).
   const [view, setViewState] = useState(initialView);
@@ -283,20 +288,20 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       </div>
 
       {tournaments.length > 0 && (
-        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} />
+        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} today={todayLocal} />
       )}
 
       {tournaments.length > 0 && (
         <div className="st-views" role="group" aria-label="View">
           <button type="button" aria-pressed={view === "plan"} onClick={() => setView("plan")}>Season plan</button>
           <button type="button" aria-pressed={view === "weekend"} onClick={() => setView("weekend")} disabled={!nextT}>
-            Next tournament{nextT && <small>{nextUp.daysAway <= 0 ? "now" : `in ${nextUp.daysAway} ${nextUp.daysAway === 1 ? "day" : "days"}`}</small>}
+            Next tournament{nextT && <small>{nextUp.state === "upcoming" ? `in ${nextUp.daysAway} ${nextUp.daysAway === 1 ? "day" : "days"}` : "now"}</small>}
           </button>
         </div>
       )}
 
       {view === "weekend" && nextT && (
-        <WeekendView t={nextT} daysAway={nextUp.daysAway} transactions={transactions} canWrite={canWrite} quick={quick}
+        <WeekendView t={nextT} featured={nextUp} transactions={transactions} canWrite={canWrite} quick={quick}
           notes={arrivalNotes?.[nextT.facility?.id]} onOpen={() => openDetail(nextT)} />
       )}
 
@@ -1045,6 +1050,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               )}
               emptyHint="Start typing to search your expense budget lines."
               createLabel="Not linked"
+              createQuiet
               onSelect={(b) => {
                 setPickingLine(false);
                 linkBudget(b.id);
@@ -1251,6 +1257,7 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
                 )}
                 emptyHint="Start typing to search the facility directory."
                 createLabel="+ Add facility"
+                createWithQuery={(q) => `Add “${q}” as new facility`}
                 onSelect={(f) => {
                   setFacilityId(f.id);
                   setPickingFacility(false);
@@ -1546,7 +1553,7 @@ function SeasonStats({ summary, record, tournaments }) {
   );
 }
 
-function WeekendView({ t, daysAway, transactions, canWrite, quick, notes, onOpen }) {
+function WeekendView({ t, featured, transactions, canWrite, quick, notes, onOpen }) {
   const f = t.facility;
   const dir = weekendDirections(f);
   const address = f ? [f.street_address, f.city, f.state, f.zip].filter(Boolean).join(", ") : t.location;
@@ -1556,7 +1563,7 @@ function WeekendView({ t, daysAway, transactions, canWrite, quick, notes, onOpen
   const day = (s) => s === "No date" ? s : new Date(s + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   return (
     <div className="st-wkv">
-      <WeekendCard t={t} daysAway={daysAway} transactions={transactions} canWrite={canWrite} quick={quick} full />
+      <WeekendCard t={t} featured={featured} transactions={transactions} canWrite={canWrite} quick={quick} full />
       <div className="st-wkv-side">
         <section className="card st-loc">
           <span className="st-eyebrow">Where</span>

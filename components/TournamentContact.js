@@ -107,6 +107,7 @@ export function TournamentContact({ tournament, contacts, providerContactIds = [
           )}
           emptyHint="Start typing a name, or add someone new."
           createLabel="+ New contact"
+          createWithQuery={(q) => `Add “${q}” as new contact`}
           onSelect={(c) => { setPicking(false); link(c.id); }}
           onCreate={(typed) => { setPicking(false); setCreating(typed || ""); }}
           onCancel={() => setPicking(false)}

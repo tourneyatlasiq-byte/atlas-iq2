@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { money } from "../lib/finance-rules";
 import { plainLanguage } from "../lib/readiness/dashboard";
 import { PageHelp } from "./PageHelp";
@@ -10,6 +10,9 @@ import { WeekendCard } from "./WeekendCard";
 import { useQuickStatus, QuickButton } from "./QuickStatus";
 import { RecordPaymentSheet } from "./RecordPaymentSheet";
 import { CountUp } from "./CountUp";
+import { useLocalToday } from "./useLocalToday";
+import { featuredTournament } from "../lib/featured-tournament";
+import { longDayLabel } from "../lib/local-date";
 
 /**
  * Home: what a coach needs right now.
@@ -30,8 +33,13 @@ const ACTION_LIMIT = 6;
 
 export function DashboardClient({
   nextUp, actions, finance, dues, team, seasonSummary, seasonPhase = "current", setupComplete = true,
-  season = null, tournaments = [], transactions = [], budgetLines = [], owing = [], canWrite = false, todayLabel = "",
+  season = null, tournaments = [], transactions = [], budgetLines = [], owing = [], canWrite = false, todayLabel = "", serverToday,
 }) {
+  // Today on this device, not UTC (2026-11). The server sends its own date for
+  // the first paint; the browser swaps in the device date on mount.
+  const today = useLocalToday(serverToday);
+  const featured = useMemo(() => (today ? featuredTournament(tournaments, today) : nextUp), [today, tournaments, nextUp]);
+  const dayLabel = today ? longDayLabel(today) : todayLabel;
   const quick = useQuickStatus({ transactions, budgetLines, seasonAvailable: finance?.availableBudget ?? null });
   const [paying, setPaying] = useState(null);
   // The player just paid stays first, so the updated balance is visible
@@ -42,7 +50,7 @@ export function DashboardClient({
   const hasTournaments = (tournaments ?? []).length > 0;
   const hasRoster = (team?.playerCount ?? 0) > 0 || (team?.inactivePlayerCount ?? 0) > 0;
   const hasFinance = (finance?.budgetedExpenses ?? 0) > 0 || (dues?.expected ?? 0) > 0;
-  const next = nextUp?.tournament ?? null;
+  const next = featured?.tournament ?? null;
 
   // The next weekend's own tasks are on its card. Tournament rules keep every
   // other tournament; a rule left with nothing to say is dropped.
@@ -61,18 +69,18 @@ export function DashboardClient({
       <div className="page-head page-head-tight st-home-head">
         <div>
           <h1>Home</h1>
-          {todayLabel && <div className="page-sub">{todayLabel}</div>}
+          {dayLabel && <div className="page-sub">{dayLabel}</div>}
         </div>
         <PageHelp />
       </div>
 
       {(hasTournaments || setupComplete) && (
-        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={next?.id ?? null} />
+        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={next?.id ?? null} today={today} />
       )}
 
       <div className={`st-home-grid${next ? "" : " is-single"}`}>
         {next ? (
-          <WeekendCard t={next} daysAway={nextUp.daysAway} transactions={transactions} canWrite={canWrite} quick={quick} />
+          <WeekendCard t={next} featured={featured} transactions={transactions} canWrite={canWrite} quick={quick} />
         ) : (
           (setupComplete || hasTournaments) && (
             <section className="st-empty card">

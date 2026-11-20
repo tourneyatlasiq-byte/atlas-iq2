@@ -13,6 +13,7 @@ import { listContacts } from "../../../lib/queries/contacts";
 import { arrivalNotesByFacility } from "../../../lib/queries/facilities";
 import { listBudgetItems, listTransactions, buildBudget, financeSummary } from "../../../lib/queries/finance";
 import { nextUpTournament } from "../../../lib/readiness/dashboard";
+import { utcDateIso } from "../../../lib/local-date";
 import { tournamentBudgetLines } from "../../../lib/finance-rules";
 import { TournamentClient } from "../../../components/TournamentClient";
 
@@ -95,6 +96,7 @@ export default async function TournamentsPage({ searchParams }) {
       season={season}
       transactions={budgetTxns}
       nextUp={nextUpTournament(withDocs)}
+      serverToday={utcDateIso()}
       seasonAvailable={seasonAvailable}
       initialView={params?.view === "weekend" ? "weekend" : "plan"}
     />

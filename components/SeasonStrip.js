@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { statusLine } from "../lib/tournament-status";
 import { fmtDateRange } from "../lib/dates";
+import { localDateIso } from "../lib/local-date";
 
 /**
  * The season tempo: every tournament of the selected season as a beat on one line.
@@ -20,7 +21,7 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 
 const fmtRange = fmtDateRange;
 
-export function SeasonStrip({ season, tournaments = [], transactions = [], nextId = null, today = iso(new Date()), compact = false }) {
+export function SeasonStrip({ season, tournaments = [], transactions = [], nextId = null, today = localDateIso(), compact = false }) {
   const [sel, setSel] = useState(null);
   const beats = useMemo(
     () => (tournaments ?? []).filter((t) => t.start_date && t.decision !== "Declined").sort((a, b) => a.start_date.localeCompare(b.start_date)),

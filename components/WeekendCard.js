@@ -5,6 +5,7 @@ import { money } from "../lib/finance-rules";
 import { fmtDateRange, fmtDayRange } from "../lib/dates";
 import { registrationState, tournamentPayments } from "../lib/tournament-status";
 import { QuickButton } from "./QuickStatus";
+import { localDateIso, daysBetween } from "../lib/local-date";
 
 /**
  * The next tournament: registration, payment, games and where to go.
@@ -30,14 +31,17 @@ export function directionsUrl(f) {
   return parts.length ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(parts.join(", "))}` : null;
 }
 
-export function WeekendCard({ t, daysAway, transactions = [], canWrite, quick, full = false }) {
+export function WeekendCard({ t, featured = null, daysAway, transactions = [], canWrite, quick, full = false }) {
   const r = registrationState(t);
   const pay = tournamentPayments(t, transactions);
   const games = [...(t.games ?? [])].sort((a, b) => `${a.game_date ?? ""}${a.start_time ?? ""}`.localeCompare(`${b.game_date ?? ""}${b.start_time ?? ""}`));
   const first = games[0];
   const place = t.facility?.name ? [t.facility.name, [t.facility.city, t.facility.state].filter(Boolean).join(", ")].filter(Boolean).join(", ") : t.location;
   const dir = directionsUrl(t.facility);
-  const days = daysAway ?? Math.round((at(t.start_date) - at(new Date().toISOString().slice(0, 10))) / 86400000);
+  // The count comes from the shared featured-tournament rule, which uses the
+  // device date. daysAway alone is still accepted for older callers.
+  const days = featured?.daysAway ?? daysAway ?? daysBetween(localDateIso(), t.start_date);
+  const underway = featured?.state === "in_progress";
 
   let payMain, paySub, payOk = false;
   if (t.paid_status === "Paid in Full") { payOk = true; payMain = "Paid in full"; paySub = pay.cost == null ? "" : money(pay.cost); }
@@ -51,8 +55,8 @@ export function WeekendCard({ t, daysAway, transactions = [], canWrite, quick, f
 
   return (
     <article className={`st-wk${full ? " is-full" : ""}`} aria-labelledby={`wk-${t.id}`}>
-      <div className="st-wk-eyebrow"><span className="st-chip-volt">Next up</span>{t.start_date && <span>{fmtDayRange(t.start_date, t.end_date)}</span>}</div>
-      <div className="st-wk-count">{days <= 0 ? "Today" : days === 1 ? "Tomorrow" : <>{days}<small>days away</small></>}</div>
+      <div className="st-wk-eyebrow"><span className="st-chip-volt">{underway ? "In progress" : "Next up"}</span>{t.start_date && <span>{fmtDayRange(t.start_date, t.end_date)}</span>}</div>
+      <div className="st-wk-count">{underway ? <>Day {featured.dayNumber}<small>of {featured.totalDays}</small></> : days <= 0 ? "Today" : days === 1 ? "Tomorrow" : <>{days}<small>days away</small></>}</div>
       <h2 id={`wk-${t.id}`}>{t.name}</h2>
       <p className="st-wk-meta">
         {fmtRange(t.start_date, t.end_date)}{t.provider?.name ? ` · ${t.provider.name}` : ""}

@@ -1,3 +1,4 @@
+import { utcDateIso } from "../../../../../../../lib/local-date";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext, canWrite } from "../../../../../../../lib/context";
@@ -52,6 +53,7 @@ export default async function TrackPage({ params }) {
         // The signed-in user (ST-022): queued writes are tagged with it and
         // only ever replayed for the same user.
         userId={profile?.id ?? null}
+        serverToday={utcDateIso()}
       />
     </div>
   );

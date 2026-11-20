@@ -1061,3 +1061,13 @@ html.volt .trk-finish-panel { scroll-margin-top: 90px; }
   html.volt .trk-name { font-size: 22px; }
   html.volt .trk-batter-meta { margin: 3px 0 0; font-size: 13px; gap: 6px; }
 }
+
+/* Picker: matching places come first (2026-11). While an existing record can be
+   picked, "add new" is a quiet text action, not a second button that competes
+   with the results. It turns bright (btn-primary) only when nothing matches. */
+html.volt .picker-foot .picker-add-quiet {
+  flex: 1 1 0; background: transparent; box-shadow: none; color: var(--ink);
+  text-decoration: underline; text-underline-offset: 3px; min-height: 44px; padding-inline: 12px;
+  white-space: normal; text-align: center; line-height: 1.2;
+}
+html.volt .picker-foot .picker-add-quiet:hover:not(:disabled) { background: transparent; box-shadow: none; text-decoration-thickness: 2px; }

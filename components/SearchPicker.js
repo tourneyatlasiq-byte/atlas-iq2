@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { createEmphasis } from "../lib/picker-rules";
 
 /**
  * Search-first picker.
  *
  * One interaction for every lookup in Season Tempo — contacts, facilities,
  * people. Three different picker styles would be three things to learn.
+ *
+ * Matching comes first (2026-11): while an existing record could be picked,
+ * "add new" stays in the footer but quiet, so a coach is not nudged into a
+ * duplicate. It turns into the bright main button only when nothing matches
+ * or the directory is empty (lib/picker-rules.js).
  *
  * The rule it exists to enforce: the create action is always reachable without
  * scrolling. The facility select had "+ Add a new facility…" as option 179,
@@ -36,6 +42,10 @@ export function SearchPicker({
   onSelect,
   onCreate,
   createLabel,
+  // "Add “riv” as new place": the label once something is typed. Optional.
+  createWithQuery = null,
+  // For a button that clears or skips rather than creates ("Not linked").
+  createQuiet = false,
   onCancel,
   emptyHint,
 }) {
@@ -50,6 +60,8 @@ export function SearchPicker({
   }, [query, items]);
 
   const showSuggested = !query.trim() && suggested.length > 0;
+  const typed = query.trim();
+  const emphasis = createEmphasis({ query, matchCount: matches.length, itemCount: (items ?? []).length, forceQuiet: createQuiet });
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
@@ -109,8 +121,13 @@ export function SearchPicker({
           <button type="button" className="btn btn-secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => onCreate(query.trim())}>
-            {createLabel}
+          <button
+            type="button"
+            className={`btn ${emphasis === "primary" ? "btn-primary" : "btn-secondary picker-add-quiet"}`}
+            data-emphasis={emphasis}
+            onClick={() => onCreate(typed)}
+          >
+            {typed && createWithQuery ? createWithQuery(typed) : createLabel}
           </button>
         </div>
       </div>
