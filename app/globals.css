@@ -4943,6 +4943,28 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   .trk-finish-top { width: 100%; }
 }
 
+/* Edit at-bats: the way back to the batter at the plate stays on screen while
+   the list scrolls (2026-11). Sticky directly under the phone header; the
+   tracker publishes the header's measured height as --trk-hdr. A player opened
+   from "This game" is scrolled to just below the header and this bar. */
+.trk-review-back {
+  position: sticky; top: var(--trk-hdr, 0px); z-index: 4;
+  background: var(--bg, #fff); padding: 8px 0; margin: 0 0 6px;
+}
+.trk-back-live {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  font-family: var(--font-body); font-size: 15px; font-weight: 700;
+  color: var(--navy); background: var(--surface);
+  border: 1.5px solid var(--navy); border-radius: var(--radius-control);
+  padding: 10px 14px; min-height: 44px; cursor: pointer;
+}
+.trk-back-live:hover { background: var(--bg); }
+.trk-review .trk-player:focus { outline: none; }
+@media (max-width: 720px) {
+  /* Until the tracker has measured the header: its minimum height. */
+  .trk-review-back { top: var(--trk-hdr, 62px); }
+}
+
 /* --- QAB% by game --------------------------------------------------------- */
 
 /* Zoomed trend (2026-11). The scale is stated under the chart and the

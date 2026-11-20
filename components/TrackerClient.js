@@ -122,7 +122,21 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   // (2026-11). Presentation only: {to, n} is read by one effect and nothing
   // else, so it never touches recording, lineup rules or the offline queue.
   const [scrollTo_, setScrollTo] = useState(null);
-  const goTo = (to) => setScrollTo((c) => ({ to, n: (c?.n ?? 0) + 1 }));
+  const goTo = (to, fallback) => setScrollTo((c) => ({ to, fallback, n: (c?.n ?? 0) + 1 }));
+  // Tapping a row in "This game" opens Edit at-bats at THAT player, not at the
+  // top of the list (2026-11). Presentation only: it switches the view and
+  // scrolls; the row tapped, the batting order, the batter at the plate and the
+  // offline queue are not read or changed. If the player has no card (not in
+  // the review list) it falls back to the top of the list, as before.
+  const openReviewFor = (playerId) => {
+    setMode("review");
+    goTo(`.trk-player[data-player-id="${String(playerId).replace(/["\\]/g, "")}"]`, ".trk-review");
+  };
+  // The way back from Edit at-bats. Switching the view never touches the cursor
+  // (the batter at the plate), recorded rows or the queue, so all three are
+  // exactly as they were; it only shows Live Tracking from the top, where
+  // "Now batting" is.
+  const backToLive = () => { setMode("live"); goTo("top"); };
   const [finishBlock, setFinishBlock] = useState(null);
   // Queued writes the database will never accept, awaiting the coach (ST-022).
   const [review, setReview] = useState([]);
@@ -147,6 +161,27 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const scoreAllowed = !game.game_date || game.game_date <= new Date().toISOString().slice(0, 10);
   // What the coach has typed in the finish panel: blank | partial | invalid | complete.
   const entry = scoreEntry(ourScore, oppScore);
+  // Edit at-bats: the Back bar is pinned directly under the phone header, so it
+  // needs the header's real height, which is not a fixed number (it wraps to
+  // two rows on some phones and fonts). Published as --trk-hdr for CSS only;
+  // 0 on a desktop, where the header is a side rail. Declared before the
+  // scroll effect below so a jump measures against the updated value.
+  useEffect(() => {
+    if (mode !== "review") return undefined;
+    const aside = document.querySelector(".sidebar");
+    const phone = window.matchMedia("(max-width: 720px)");
+    const root = document.documentElement;
+    const apply = () => root.style.setProperty("--trk-hdr", phone.matches && aside ? `${Math.round(aside.getBoundingClientRect().height)}px` : "0px");
+    apply();
+    const ro = typeof ResizeObserver !== "undefined" && aside ? new ResizeObserver(apply) : null;
+    if (ro) ro.observe(aside);
+    window.addEventListener("resize", apply);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", apply);
+      root.style.removeProperty("--trk-hdr");
+    };
+  }, [mode]);
   useEffect(() => {
     if (!scrollTo_) return;
     const { to } = scrollTo_;
@@ -154,9 +189,19 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       window.scrollTo(0, 0);
       return;
     }
-    const el = document.querySelector(to);
+    const el = document.querySelector(to) ?? (scrollTo_.fallback ? document.querySelector(scrollTo_.fallback) : null);
     if (!el) return;
     el.scrollIntoView({ block: "start" });
+    if (el.classList.contains("trk-player")) {
+      // Leave the player's heading just clear of what covers the top: the
+      // phone header and the Back bar pinned under it. Measured, as the finish
+      // form does below, because their height changes with the phone.
+      const bar = document.querySelector(".trk-review-back");
+      const covered = bar ? bar.getBoundingClientRect().bottom : 0;
+      const gap = el.getBoundingClientRect().top - (covered + 8);
+      if (Math.abs(gap) > 1) window.scrollBy(0, gap);
+      el.focus({ preventScroll: true });
+    }
     if (to === ".trk-finish-panel") {
       // The page header and the pinned Now batting card both sit over the top
       // of the screen, and their height changes with the phone, the batter's
@@ -1145,6 +1190,14 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 
       {mode === "review" ? (
         <section className="trk-review">
+          {/* Stays under the page header while the list scrolls, so the way
+              back to the batter at the plate is always on screen. It is not a
+              tab and not Finish: it only changes the view. */}
+          <div className="trk-review-back">
+            <button type="button" className="trk-back-live" onClick={backToLive}>
+              <span aria-hidden="true">&larr;</span> Back to live tracking
+            </button>
+          </div>
           <h2 className="trk-history-h">
             Recorded plate appearances <span>({live.length})</span>
           </h2>
@@ -1169,7 +1222,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
               .sort((a, b) => a.pa_number - b.pa_number);
 
             return (
-              <div className="trk-player" key={slot.player_id}>
+              <div className="trk-player" key={slot.player_id} data-player-id={slot.player_id} tabIndex={-1}>
                 <div className="trk-player-head">
                   <span className="trk-player-slot">{slot.batting_order ?? i + 1}</span>
                   <span className="trk-player-name">{slot.full_name}</span>
@@ -1300,7 +1353,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                   <button
                     type="button"
                     className="trk-hist"
-                    onClick={() => { setMode("review"); goTo(".trk-review"); }}
+                    onClick={() => openReviewFor(r.player_id)}
                     disabled={!canWrite}
                   >
                     <span className="trk-hist-top">

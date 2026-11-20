@@ -29,3 +29,5 @@ export async function restorePlateAppearance(p) { await gate("restore", p); cons
 export async function finishGameTracking() { return later({ ok: true }); }
 export async function resumeGameTracking() { return later({ ok: true }); }
 export async function substitutePlayer() { return later({ ok: false, error: "Not available in this preview." }); }
+export async function viewSeason() { return later({ ok: true }); }
+export async function returnToCurrentSeason() { return later({ ok: true }); }
