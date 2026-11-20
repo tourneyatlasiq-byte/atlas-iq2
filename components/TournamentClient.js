@@ -1179,6 +1179,10 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
   const [gate, setGate] = useState(row?.gate_fee ?? "");
   const [facilityId, setFacilityId] = useState(row?.facility?.id ?? "");
   const [pickingFacility, setPickingFacility] = useState(Boolean(openVenuePicker));
+  // True only while the picker is the one a Locations link opened. Cancelling it
+  // then ends the whole task (one Cancel). Any picker the coach opens from the
+  // form later behaves as before: Cancel closes just the picker.
+  const entryPicker = useRef(Boolean(openVenuePicker));
   const chosenFacility = facilities.find((f) => f.id === facilityId) ?? null;
 
   // Create-and-link: a facility created from inside this tournament is
@@ -1294,14 +1298,21 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
                 createLabel="+ Add facility"
                 createWithQuery={(q) => `Add “${q}” as new facility`}
                 onSelect={(f) => {
+                  entryPicker.current = false;
                   setFacilityId(f.id);
                   setPickingFacility(false);
                 }}
                 onCreate={() => {
+                  entryPicker.current = false;
                   setPickingFacility(false);
                   onAddFacility?.();
                 }}
-                onCancel={() => setPickingFacility(false)}
+                onCancel={() => {
+                  const fromEntry = entryPicker.current;
+                  entryPicker.current = false;
+                  setPickingFacility(false);
+                  if (fromEntry) onCancel?.();
+                }}
               />
             )}
 

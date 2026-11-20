@@ -114,7 +114,7 @@ export default async function ReviewPage() {
   const partialPayment = payments.find((p) => p.balance > 0 && p.totalPaid > 0);
   const sampleDoc = documents[0] ?? null;
 
-  const tActions = tournamentActions(tournamentsWithDocs);
+  const tActions = tournamentActions(tournamentsWithDocs, new Date(), transactions);
   const teamActs = teamActions(rosterWithDocs);
   const finActions = financeActions(payments);
 
@@ -162,7 +162,7 @@ export default async function ReviewPage() {
         <DashboardClient
           context={{ organization: organization.name, team: team?.name ?? "—", season: season.name }}
           nextUp={nextUpTournament(tournamentsWithDocs)}
-          actions={dashboardActions({ roster: rosterWithDocs, tournaments: tournamentsWithDocs, payments })}
+          actions={dashboardActions({ roster: rosterWithDocs, tournaments: tournamentsWithDocs, payments, transactions })}
           finance={finance}
           funds={funds}
           dues={dues}

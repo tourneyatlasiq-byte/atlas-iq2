@@ -101,7 +101,7 @@ export default async function DashboardPage() {
       // outstanding, and a planning season has not started.
       actions={
         seasonPhase === "current"
-          ? dashboardActions({ roster, tournaments, payments })
+          ? dashboardActions({ roster, tournaments, payments, transactions })
           : { visible: [], total: 0, hidden: 0, overflowModules: [] }
       }
       seasonPhase={seasonPhase}

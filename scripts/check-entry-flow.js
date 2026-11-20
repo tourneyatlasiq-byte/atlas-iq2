@@ -79,8 +79,8 @@ const click = async (el) => { await act(async () => { el.dispatchEvent(new windo
   ok("the task is dropped from the address, ?open kept", nav.replaces.some((u) => /open=t1/.test(u) && !/action=/.test(u) && !/return=/.test(u)), JSON.stringify(nav.replaces));
   const cancel = [...document.querySelectorAll("button")].filter((b) => /^Cancel$/.test(b.textContent.trim()));
   ok("a Cancel exists", cancel.length > 0);
-  await click(cancel[cancel.length - 1]); // picker cancel first
-  if (/Choose a facility/.test(txt())) await click([...document.querySelectorAll("button")].filter((b) => /^Cancel$/.test(b.textContent.trim())).pop());
+  await click(cancel[cancel.length - 1]); // ONE Cancel, on the picker
+  ok("one Cancel closes the picker and the form", !/Choose a facility/.test(txt()) && !/Edit tournament|Save changes/.test(txt()), txt().slice(0, 120));
   ok("cancelling returns to Locations with the starting query", nav.pushes.includes("/facilities?q=park"), JSON.stringify(nav.pushes));
   await unmount(r);
 

@@ -171,6 +171,14 @@ const voidedPa = (g, playerNo, slot) => sql(`insert into plate_appearances (orga
   ok("an inactive attendee that is included in the submission stays, and an add alongside it works", r.ok === true && attending() === [PL(3), PL(4), PL(6)].map((p) => p.slice(-3)).sort().join(","), attending());
   ok("pickups are never removed by a roster save", (addRow(PICK, "pickup"), (await PART.setEventRoster(roster(PL(3), PL(4), PL(6)))).ok) && rowId(PICK) !== "");
 
+  section("A historical mismatch does not block an unrelated save (NORTH-001)");
+  addPa(G(1), 9, 8, 1); // a live at-bat for a player who is NOT an attendee of this tournament
+  ok("precondition: that player is not attending", rowId(PL(9)) === "");
+  r = await PART.setEventRoster(roster(PL(3), PL(4), PL(6)));
+  ok("saving the roster without touching them succeeds", r.ok === true, r);
+  ok("...and their at-bat is left alone", sql(`select count(*) from plate_appearances where game_id='${G(1)}' and player_id='${PL(9)}' and voided_at is null`) === "1");
+  sql(`delete from plate_appearances where game_id='${G(1)}' and player_id='${PL(9)}'`);
+
   section("A voided at-bat does not block removal");
   addRow(PL(7)); voidedPa(G(1), 7, 9);
   r = await PART.removeParticipant(fd({ id: rowId(PL(7)) }));
