@@ -96,6 +96,11 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const [confirmVoid, setConfirmVoid] = useState(null);
   const [completedAt, setCompletedAt] = useState(game.qab_completed_at ?? null);
   const [finishing, setFinishing] = useState(null); // null | "checking" | "confirm" | "blocked"
+  // Where to bring the coach after a tap that changes what is on screen
+  // (2026-11). Presentation only: {to, n} is read by one effect and nothing
+  // else, so it never touches recording, lineup rules or the offline queue.
+  const [scrollTo_, setScrollTo] = useState(null);
+  const goTo = (to) => setScrollTo((c) => ({ to, n: (c?.n ?? 0) + 1 }));
   const [finishBlock, setFinishBlock] = useState(null);
   // Queued writes the database will never accept, awaiting the coach (ST-022).
   const [review, setReview] = useState([]);
@@ -120,6 +125,28 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const scoreAllowed = !game.game_date || game.game_date <= new Date().toISOString().slice(0, 10);
   // What the coach has typed in the finish panel: blank | partial | invalid | complete.
   const entry = scoreEntry(ourScore, oppScore);
+  useEffect(() => {
+    if (!scrollTo_) return;
+    const { to } = scrollTo_;
+    if (to === "top") {
+      window.scrollTo(0, 0);
+      return;
+    }
+    const el = document.querySelector(to);
+    if (!el) return;
+    el.scrollIntoView({ block: "start" });
+    if (to === ".trk-finish-panel") {
+      // The page header and the pinned Now batting card both sit over the top
+      // of the screen, and their height changes with the phone, the batter's
+      // name and the safe area. Measure what is actually covering the top
+      // and leave the form's heading clear of it.
+      const card = document.querySelector(".trk-batter");
+      const covered = card ? card.getBoundingClientRect().bottom : 0;
+      const gap = el.getBoundingClientRect().top - (covered + 12);
+      if (gap < 0) window.scrollBy(0, gap);
+      el.focus({ preventScroll: true });
+    }
+  }, [scrollTo_]);
   const busy = useRef(false);
   // Brief "your tap registered" state after a record. Presentation only: the
   // ref also holds the buttons for that moment so a second tap on the same
@@ -287,6 +314,9 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
    */
   const startFinish = async () => {
     if (!canWrite || busy.current) return;
+    // The confirmation lives in Live Tracking; from Edit at-bats there would
+    // be nothing to see, so the screen switches first.
+    setMode("live");
     setFinishing("checking");
     setFinishBlock(null);
     await flushQueue(send, { gameId: game.id, userId, savedRows, force: true });
@@ -298,9 +328,11 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     if (s.review > 0 || s.waiting > 0 || s.other > 0) {
       setFinishBlock(s);
       setFinishing("blocked");
+      goTo(".trk-finish-panel");
       return;
     }
     setFinishing("confirm");
+    goTo(".trk-finish-panel");
   };
 
   /**
@@ -329,6 +361,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         setFinishing(null);
         setFinishError(null);
         setScoreNote(result.scoreNote ?? null);
+        // The results card is at the top; the button that was tapped is not.
+        goTo("top");
       } else {
         setFinishError(result.error);
       }
@@ -379,7 +413,12 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     busy.current = true;
     try {
       const result = await resumeGameTracking(game.id);
-      if (result.ok) setCompletedAt(null);
+      if (result.ok) {
+        setCompletedAt(null);
+        // Resume means live entry, with the current batter in view.
+        setMode("live");
+        goTo("top");
+      }
     } finally {
       busy.current = false;
     }
@@ -654,7 +693,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             role="tab"
             aria-selected={mode === "live"}
             className={mode === "live" ? "on" : ""}
-            onClick={() => setMode("live")}
+            onClick={() => { setMode("live"); goTo("top"); }}
           >
             Live Tracking
           </button>
@@ -663,13 +702,13 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             role="tab"
             aria-selected={mode === "review"}
             className={mode === "review" ? "on" : ""}
-            onClick={() => setMode("review")}
+            onClick={() => { setMode("review"); goTo(".trk-review"); }}
           >
             Edit at-bats
           </button>
         </div>
 
-        {!completedAt && live.length > 0 && canWrite && finishing !== "confirm" && (
+        {!completedAt && live.length > 0 && canWrite && !(mode === "live" && finishing === "confirm") && (
           <button
             type="button"
             className="trk-finish-top"
@@ -718,7 +757,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             <a className="btn btn-primary" href={`/performance?tournament=${encodeURIComponent(game.tournament_id)}`}>
               Back to Performance
             </a>
-            <button type="button" className="btn" onClick={() => setMode("review")}>
+            <button type="button" className="btn" onClick={() => { setMode("review"); goTo(".trk-review"); }}>
               Edit at-bats
             </button>
             <button type="button" className="btn" onClick={resume} disabled={!canWrite}>
@@ -934,8 +973,8 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         </div>
       )}
 
-      {!completedAt && live.length > 0 && canWrite && (
-        <div className="trk-finish">
+      {mode === "live" && !completedAt && live.length > 0 && canWrite && (
+        <div className="trk-finish trk-finish-panel" tabIndex={-1}>
           {finishing === "confirm" ? (
             <div className="trk-finish-confirm">
               <p className="trk-finish-q">Finish QAB tracking?</p>
@@ -1201,7 +1240,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                   <button
                     type="button"
                     className="trk-hist"
-                    onClick={() => setMode("review")}
+                    onClick={() => { setMode("review"); goTo(".trk-review"); }}
                     disabled={!canWrite}
                   >
                     <span className="trk-hist-top">
@@ -1366,6 +1405,17 @@ function QueueReview({ groups, rows, nameOf, canWrite, onKeepSaved, onUseUnsynce
  * opened, so it stays secondary to the reason. Context only: nothing that
  * counts QABs, results or records reads it.
  */
+/**
+ * Opening the on-screen keyboard shrinks the page above it. The Record and No
+ * QAB buttons sit under the note, so once the keyboard has settled they are
+ * brought back above the bottom navigation. Scrolling only; nothing recorded.
+ */
+function keepRecordInView() {
+  setTimeout(() => {
+    document.querySelector(".trk-commit")?.scrollIntoView({ block: "nearest" });
+  }, 350);
+}
+
 function NoteField({ id, value, open, onOpen, onChange, disabled = false }) {
   if (!open) {
     return (
@@ -1387,6 +1437,7 @@ function NoteField({ id, value, open, onOpen, onChange, disabled = false }) {
         rows={2}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={id === "trk-note-live" ? keepRecordInView : undefined}
         disabled={disabled}
         aria-describedby={`${id}-count`}
         aria-invalid={over || undefined}

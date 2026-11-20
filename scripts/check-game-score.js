@@ -133,9 +133,17 @@ const withExt = (src) => src.replace(/(from\s+["'])(\.{1,2}\/[^"']+?)(["'])/g, (
     /Final score <strong>\{formatFinalScore\(finalScore\.runsFor, finalScore\.runsAgainst, finalScore\.result\)\}<\/strong>/.test(trk), true);
   assertEq("finishing without a score never clears an existing one",
     /if \(result\.runsFor != null && result\.runsAgainst != null\) \{\s*setFinalScore/.test(trk), true);
-  // 2026-11: the button was renamed "Corrections" -> "Edit at-bats" (same action).
+  // 2026-11: the button now also scrolls to the editor (goTo). It was renamed "Corrections" -> "Edit at-bats" (same action).
   assertEq("Edit at-bats and Resume tracking remain on the completed state",
-    [/onClick=\{\(\) => setMode\("review"\)\}>\s*Edit at-bats/.test(trk), /onClick=\{resume\}/.test(trk)], [true, true]);
+    [/onClick=\{\(\) => \{ setMode\("review"\); goTo\("\.trk-review"\); \}\}>\s*Edit at-bats/.test(trk), /onClick=\{resume\}/.test(trk)], [true, true]);
+
+  // 2026-11 tracker flow: the screen follows the tap.
+  assertEq("Finish tracking brings the coach to the finish form, from either tab",
+    [/setMode\("live"\);\s*setFinishing\("checking"\)/.test(trk), /setFinishing\("confirm"\);\s*goTo\("\.trk-finish-panel"\)/.test(trk)], [true, true]);
+  assertEq("a finished game scrolls to the results at the top",
+    /goTo\("top"\);\s*\} else \{\s*setFinishError/.test(trk) || /\/\/ The results card is at the top[\s\S]{0,80}goTo\("top"\)/.test(trk), true);
+  assertEq("Resume tracking returns to Live Tracking",
+    /setCompletedAt\(null\);[\s\S]{0,160}setMode\("live"\);\s*goTo\("top"\)/.test(trk), true);
 
   /* 5. Performance follow-up. */
   const page = read("app/(app)/performance/page.js");

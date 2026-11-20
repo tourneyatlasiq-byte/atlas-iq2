@@ -1044,3 +1044,20 @@ html.volt .trk-hist-top .trk-badge { margin-left: 0; justify-self: start; width:
   html.volt .slot-controls button { min-width: 44px; }
   html.volt .lineup-bar { bottom: calc(66px + var(--nav-safe)); }
 }
+
+/* Tracker: Now batting stays on screen (2026-11). It sits under the phone
+   header, which is sticky at the top, and is kept compact so the note field
+   and the Record buttons keep room above the keyboard. The card is a sibling
+   of everything it must stay above, so no overflow rule on .trk may be added
+   without checking this. */
+html.volt .trk-batter { position: sticky; top: 0; z-index: 5; }
+html.volt .trk-note-input { scroll-margin-top: 150px; }
+html.volt .trk-commit { scroll-margin-top: 150px; scroll-margin-bottom: 84px; }
+/* Land the finish form below the sticky card, not under it. */
+html.volt .trk-finish-panel { scroll-margin-top: 90px; }
+@media (max-width: 720px) {
+  html.volt .trk-batter { top: 62px; padding: 9px 14px 10px; margin-bottom: 10px; }
+  html.volt .trk-batter-eyebrow { margin: 0 0 1px; }
+  html.volt .trk-name { font-size: 22px; }
+  html.volt .trk-batter-meta { margin: 3px 0 0; font-size: 13px; gap: 6px; }
+}
