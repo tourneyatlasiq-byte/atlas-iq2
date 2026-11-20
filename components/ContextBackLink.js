@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { backTarget } from "../lib/game-flow-rules";
-import { claimEntry, markBackTap } from "../lib/back-context";
+import { claimEntry, markBackTap, readNavigation } from "../lib/back-context";
 
 /**
  * Back link that returns to where the coach came from (2026-11). When the page
@@ -24,8 +24,7 @@ export function ContextBackLink({ from, fallbackHref, fallbackLabel, className =
     claimed.current = true; // effects can run twice in development; claim once
     try {
       const here = window.location.pathname + window.location.search;
-      const nav = performance.getEntriesByType?.("navigation")?.[0]?.type;
-      setFromHome(claimEntry(window.sessionStorage, from, here, nav));
+      setFromHome(claimEntry(window.sessionStorage, from, here, readNavigation(performance)));
     } catch { /* normal link */ }
   }, [from, target]);
 

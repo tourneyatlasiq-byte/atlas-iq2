@@ -11,25 +11,47 @@ const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.
 const boom = { getItem() { throw new Error("x"); }, setItem() { throw new Error("x"); }, removeItem() { throw new Error("x"); } };
 const href = "/tournaments/t1/games/g1/track?from=home";
 const other = "/tournaments/t1/games/g2/track?from=home";
+const unrelated = "/reports/schedule";
+// What the page reports about its own document: load type, the address the document was loaded at, and a per-document id.
+const nv = (type, docId, docUrl) => ({ type, docId, docUrl });
+const HOMEDOC = nv("navigate", 1000.5, "/dashboard");
 let s = mem();
-t("no record: a direct entry is not from Home", B.claimEntry(s, "home", href, "navigate") === false);
+t("no record: a direct entry is not from Home", B.claimEntry(s, "home", href, nv("navigate", 1, href)) === false);
 B.markEntry(s, "home", href);
-t("Home tap then the game page opens: trusted (first claim)", B.claimEntry(s, "home", href, "navigate") === true);
-t("refresh of that page keeps it trusted", B.claimEntry(s, "home", href, "reload") === true && B.claimEntry(s, "home", href, "reload") === true);
-t("a later plain load of the same page is stale and drops the record", B.claimEntry(s, "home", href, "navigate") === false && B.claimEntry(s, "home", href, "reload") === false);
+t("Home tap then the game page opens: trusted (first claim)", B.claimEntry(s, "home", href, HOMEDOC) === true);
+t("refresh of that page is trusted, and so is a second refresh (each is a new document)", B.claimEntry(s, "home", href, nv("reload", 2000.5, href)) === true && B.claimEntry(s, "home", href, nv("reload", 3000.5, href)) === true);
+t("a later plain load of the same page is stale and drops the record", B.claimEntry(s, "home", href, nv("navigate", 4000.5, href)) === false && B.claimEntry(s, "home", href, nv("reload", 5000.5, href)) === false);
 // bookmark reopened after an earlier Home visit
-s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, "navigate");
-t("bookmark of the same game reopened later (record already claimed): not trusted", B.claimEntry(s, "home", href, "navigate") === false);
+s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, HOMEDOC);
+t("bookmark of the same game reopened later (record already claimed): not trusted", B.claimEntry(s, "home", href, nv("navigate", 2000.5, href)) === false);
 // unrelated navigation in the same tab
 s = mem(); B.markEntry(s, "home", href);
-t("a different game page does not claim the record", B.claimEntry(s, "home", other, "navigate") === false);
-t("and the record is still there for the page it belongs to", B.claimEntry(s, "home", href, "navigate") === true);
+t("a different game page does not claim the record", B.claimEntry(s, "home", other, HOMEDOC) === false);
+t("and the record is still there for the page it belongs to", B.claimEntry(s, "home", href, HOMEDOC) === true);
 s = mem(); B.markEntry(s, "home", href);
-t("a different origin name is not trusted", B.claimEntry(s, "other", href, "navigate") === false);
+t("a different origin name is not trusted", B.claimEntry(s, "other", href, HOMEDOC) === false);
 B.clearEntry(s);
-t("cleared when Home is shown again", B.claimEntry(s, "home", href, "navigate") === false);
-t("storage that throws never crashes and is not trusted", B.claimEntry(boom, "home", href, "navigate") === false && (() => { try { B.markEntry(boom, "home", href); B.clearEntry(boom); B.markBackTap(boom); return B.takeBackScroll(boom) === null; } catch { return false; } })());
-t("no storage: not trusted", B.claimEntry(null, "home", href, "navigate") === false);
+t("cleared when Home is shown again", B.claimEntry(s, "home", href, HOMEDOC) === false);
+t("storage that throws never crashes and is not trusted", B.claimEntry(boom, "home", href, HOMEDOC) === false && (() => { try { B.markEntry(boom, "home", href); B.clearEntry(boom); B.markBackTap(boom); return B.takeBackScroll(boom) === null; } catch { return false; } })());
+t("no storage: not trusted", B.claimEntry(null, "home", href, HOMEDOC) === false);
+// The load type stays "reload" for the whole life of a document, through every in-app navigation.
+// A refresh is therefore trusted once per document, and only for the page that document was loaded at.
+s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, HOMEDOC);
+const R1 = nv("reload", 2000.5, href);
+t("refresh of the game page: trusted", B.claimEntry(s, "home", href, R1) === true);
+t("same document, after an unrelated page, back to the same game: NOT trusted", B.claimEntry(s, "home", href, R1) === false);
+t("and the stale record is gone", B.claimEntry(s, "home", href, R1) === false && B.claimEntry(s, "home", href, nv("reload", 9000.5, href)) === false);
+s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, HOMEDOC);
+t("refresh on an unrelated page, then into the game: NOT trusted", B.claimEntry(s, "home", href, nv("reload", 2000.5, unrelated)) === false);
+s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, HOMEDOC);
+t("a refresh whose document address is unknown is not trusted", B.claimEntry(s, "home", href, nv("reload", 2000.5, null)) === false);
+s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, HOMEDOC);
+t("a refresh with no document id is not trusted", B.claimEntry(s, "home", href, nv("reload", undefined, href)) === false);
+s = mem(); B.markEntry(s, "home", href); B.claimEntry(s, "home", href, HOMEDOC);
+t("no navigation info at all is not trusted after the first claim", B.claimEntry(s, "home", href, undefined) === false);
+const perf = (type, name, origin) => ({ timeOrigin: origin, getEntriesByType: () => [{ type, name }] });
+t("readNavigation: type, path and query of the loaded address, and the document id", JSON.stringify(B.readNavigation(perf("reload", "https://seasontempo.com" + href, 77.25))) === JSON.stringify({ type: "reload", docUrl: href, docId: 77.25 }));
+t("readNavigation never throws on missing or odd performance data", (() => { try { return typeof B.readNavigation(undefined) === "object" && typeof B.readNavigation({ getEntriesByType: () => { throw new Error("x"); } }) === "object" && B.readNavigation(perf("reload", "not a url", 1)).docUrl === null; } catch { return false; } })());
 const s2 = mem();
 t("no saved scroll: null", B.takeScroll(s2) === null);
 B.saveScroll(s2, 312.6);
