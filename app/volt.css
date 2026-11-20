@@ -589,6 +589,7 @@ html.volt .st-radio input { width: 22px; height: 22px; margin: 0; accent-color: 
 html.volt .st-radio span { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 html.volt .st-radio small { font-size: 13px; color: var(--muted); }
 html.volt .st-gap-edit { width: 100%; justify-content: center; min-height: 44px; }
+html.volt .st-nocost { display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
 html.volt .st-balance { display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 14px; background: var(--sunk); }
 html.volt .st-balance-fig { font-family: var(--font-display); font-weight: 800; font-size: 30px; color: var(--ink); letter-spacing: -.03em; }
 html.volt .st-balance-sub { font-size: 13px; color: var(--muted); }
@@ -675,6 +676,9 @@ html.volt .st-more summary { min-height: 44px; display: flex; align-items: cente
   html.volt .st-fcard-big { font-size: 46px; }
   html.volt .st-sheet-foot .btn { flex: 1; }
   html.volt .st-sheet-foot .st-grow { display: none; }
+  /* A long primary label gets its own full-width row, Cancel beneath, so the two never differ in height. */
+  html.volt .st-sheet-foot:has(.st-status-only) { flex-direction: column-reverse; align-items: stretch; }
+  html.volt .st-sheet-foot:has(.st-status-only) .btn { flex: none; width: 100%; min-height: 48px; }
   html.volt .st-review li { grid-template-columns: 90px minmax(0, 1fr) auto; }
 }
 @media (max-width: 380px) {

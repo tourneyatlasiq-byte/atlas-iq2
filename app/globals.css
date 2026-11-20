@@ -7294,3 +7294,19 @@ div.gm-row { cursor: pointer; }
   }
   .sheet-close svg { width: 16px; height: 16px; }
 }
+
+/* Attendance sheet: attendees who are not active players, and the reason a removal was refused (2026-11) */
+.er-outside { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+.er-outside-head { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--slate); }
+.er-selected-of { font-weight: 400; color: var(--slate); }
+.er-refusal-links { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.er-refusal-links .btn { padding-left: 0; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Season Performance: inactive players listed apart, collapsed (2026-11) */
+.season-inactive { margin-top: 6px; border-top: 1px solid var(--border); }
+.season-inactive-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 10px 8px;
+  background: none; border: 0; font: inherit; font-weight: 600; color: var(--slate); text-align: left; cursor: pointer;
+}
+.season-inactive-toggle:hover { color: var(--ink, inherit); }
+.season-inactive .season-plist > li:first-child { border-top: 1px solid var(--border); }

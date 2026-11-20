@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { gameLinkLabelFor } from "../lib/performance-links";
+import { splitByActivity } from "../lib/performance-groups";
 
 import {
   indexAtX,
@@ -103,6 +104,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
   const [openGame, setOpenGame] = useState(null);
   const [openPlayer, setOpenPlayer] = useState(null);
   const [sort, setSort] = useState("qabPct");
+  const [showInactive, setShowInactive] = useState(false);
 
   /**
    * Sorting is presentation only — no statistic is recalculated here.
@@ -129,6 +131,36 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
         (b.qabPct ?? -1) - (a.qabPct ?? -1) || b.pa - a.pa || a.name.localeCompare(b.name)
     );
   }, [players, sort]);
+
+  const groups = useMemo(() => splitByActivity(sortedPlayers), [sortedPlayers]);
+
+  function renderPlayer(p) {
+    const open = openPlayer === p.playerId;
+    return (
+      <li key={p.playerId} className={open ? "open" : ""}>
+        <button
+          type="button"
+          className="season-prow"
+          aria-expanded={open}
+          onClick={() => setOpenPlayer(open ? null : p.playerId)}
+        >
+          <span className="season-pcaret" aria-hidden="true">
+            {open ? "▾" : "▸"}
+          </span>
+          <span className="season-pname">{p.name}</span>
+          {/* Three aligned numeric columns. The note above the table carries
+              the small-sample caution once. */}
+          <span className="season-pnum">{p.qab}</span>
+          <span className="season-pnum">{p.pa}</span>
+          <span className="season-pnum season-pnum-pct">
+            {p.qabPct == null ? "—" : `${p.qabPct}%`}
+          </span>
+        </button>
+
+        {open && <PlayerDetail player={p} />}
+      </li>
+    );
+  }
 
   if (team.pa === 0) {
     return (
@@ -423,38 +455,25 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
             <span className="season-pcol-num">QAB%</span>
           </div>
 
-          <ul className="season-plist">
-            {sortedPlayers.map((p) => {
-              const open = openPlayer === p.playerId;
-              return (
-                <li key={p.playerId} className={open ? "open" : ""}>
-                  <button
-                    type="button"
-                    className="season-prow"
-                    aria-expanded={open}
-                    onClick={() => setOpenPlayer(open ? null : p.playerId)}
-                  >
-                    <span className="season-pcaret" aria-hidden="true">
-                      {open ? "▾" : "▸"}
-                    </span>
-                    <span className="season-pname">{p.name}</span>
-                    {/* Three aligned numeric columns. The Early badge is gone:
-                        with a 10-PA threshold it appeared on nearly every
-                        player early in a season, so it marked the norm rather
-                        than the exception. The note above the table carries
-                        the same caution once. */}
-                    <span className="season-pnum">{p.qab}</span>
-                    <span className="season-pnum">{p.pa}</span>
-                    <span className="season-pnum season-pnum-pct">
-                      {p.qabPct == null ? "—" : `${p.qabPct}%`}
-                    </span>
-                  </button>
+          <ul className="season-plist">{groups.active.map(renderPlayer)}</ul>
 
-                  {open && <PlayerDetail player={p} />}
-                </li>
-              );
-            })}
-          </ul>
+          {/* Inactive players keep every at-bat and total; they are only
+              listed apart, collapsed, with the count always visible. */}
+          {groups.inactive.length > 0 && (
+            <div className="season-inactive">
+              <button
+                type="button"
+                className="season-inactive-toggle"
+                aria-expanded={showInactive}
+                aria-controls="season-inactive-list"
+                onClick={() => setShowInactive((v) => !v)}
+              >
+                <span className="season-pcaret" aria-hidden="true">{showInactive ? "▾" : "▸"}</span>
+                Inactive players ({groups.inactive.length})
+              </button>
+              {showInactive && <ul className="season-plist" id="season-inactive-list">{groups.inactive.map(renderPlayer)}</ul>}
+            </div>
+          )}
         </div>
       )}
     </section>

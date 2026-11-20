@@ -508,6 +508,27 @@ const add = (n, amount, status, extra = {}) => sql(`insert into budget_transacti
   ok("nothing was saved", paidState(17) === "Registered" && entryRow(17) === "To Pay:400.00" && cost(17) === "450.00");
   await unmount();
 
+  section("No cost set: the dialog says so, offers Add the cost first, and the status-only path says no Finance transaction was recorded");
+  as("owner");
+  sql(`insert into tournaments (id, organization_id, season_id, name, entry_fee, gate_fee, decision, paid_status) values ('${T(30)}','${A}','${SEASON_A}','T30 No Cost',null,null,'Committed','Registered')`);
+  editCalls.length = 0;
+  await mountQuick(30);
+  await click(quickBtn());
+  ok("dialog opens and states there is no cost", !!dlg() && /no cost is set/i.test(dlg().textContent), dlg()?.textContent);
+  ok("it says No Finance transaction recorded", /No Finance transaction recorded/.test(dlg().textContent), dlg()?.textContent);
+  const addCostBtn = byText(".st-sheet button", /^Add the cost first$/);
+  ok("offers Add the cost first", !!addCostBtn);
+  ok("the primary button is explicit that it is status only", /status only/i.test(dlgPrimary().textContent), dlgPrimary().textContent);
+  await click(addCostBtn);
+  ok("Add the cost first closes the dialog and hands the tournament to Edit details", !dlg() && editCalls.includes(T(30)), editCalls);
+  ok("...and changes nothing", money2(`select paid_status from tournaments where id='${T(30)}'`) === "Registered" && money2(`select count(*) from budget_transactions where tournament_id='${T(30)}'`) === "0");
+  await click(quickBtn());
+  await click(dlgPrimary());
+  ok("status-only save works with no cost", await until(() => money2(`select paid_status from tournaments where id='${T(30)}'`) === "Paid in Full", "no-cost status only"));
+  ok("the toast says no Finance transaction was recorded", await until(() => /No Finance transaction recorded/.test(toastText()), "toast"), toastText());
+  ok("no Finance transaction exists", money2(`select count(*) from budget_transactions where tournament_id='${T(30)}'`) === "0");
+  await unmount();
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(2); });

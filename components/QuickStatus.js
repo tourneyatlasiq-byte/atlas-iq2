@@ -59,7 +59,7 @@ export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvai
         onClose={() => setDialog(null)}
         onDone={(res) => {
           const t = dialog.t;
-          refreshThen(() => { setDialog(null); toast(`${t.name} is paid in full${res.recorded_amount != null ? ` and ${money(res.recorded_amount)} ${res.touched_txn_id ? "is marked paid" : "is recorded"} in Finance` : ""}.`, {
+          refreshThen(() => { setDialog(null); toast(`${t.name} is paid in full${res.recorded_amount != null ? ` and ${money(res.recorded_amount)} ${res.touched_txn_id ? "is marked paid" : "is recorded"} in Finance.` : ". No Finance transaction recorded."}`, {
             // The database decides: it refuses unless the tournament and its payments are exactly as this save left them.
             undo: async () => {
               const r = await callAction(undoMarkTournamentPaidInFull, { operation_id: res.operation_id });
@@ -125,6 +125,8 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetai
   const [entryId, setEntryId] = useState(first.toPayEntries[0]?.id ?? null);
   const entry = live.entries.find((x) => x.id === entryId) ?? live.entries[0] ?? null;
   const nothing = !entry && (live.remaining == null || live.remaining <= 0);
+  // No cost at all: there is nothing Finance could record. Said plainly, with a way to set the cost first.
+  const noCost = first.cost == null && live.cost === 0;
   const [also, setAlso] = useState(!nothing);
   const [amount, setAmount] = useState(String(entry ? entry.amount : live.remaining ?? ""));
   const [date, setDate] = useState(entry?.txn_date ?? todayIso());
@@ -198,8 +200,8 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetai
     <StSheet eyebrow="Payment" title={`Mark ${t.name} paid in full?`} onClose={onClose} busy={saving} size="sm"
       foot={<>
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-        <button type="button" className="btn btn-primary" onClick={save} disabled={saving} data-autofocus>
-          {saving ? <><span className="st-spin" aria-hidden="true" />Saving</> : err ? "Try again" : "Mark paid in full"}
+        <button type="button" className={`btn btn-primary${nothing && noCost ? " st-status-only" : ""}`} onClick={save} disabled={saving} data-autofocus>
+          {saving ? <><span className="st-spin" aria-hidden="true" />Saving</> : err ? "Try again" : nothing && noCost ? "Mark paid, status only" : "Mark paid in full"}
         </button>
       </>}>
       <div className="st-change"><span>{live.status}</span><span aria-hidden="true">→</span><b>Paid in full</b></div>
@@ -210,15 +212,20 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetai
       </dl>
       {notice && <p className="st-note" role="alert">{notice}</p>}
 
-      {nothing ? (
-        <p className="st-note">{first.cost == null ? "This tournament has no cost set, so there\u2019s nothing to record in Finance. " : "Finance already shows the full cost as paid. "}This only changes the registration status.</p>
+      {nothing && noCost ? (
+        <div className="st-nocost">
+          <p className="st-note"><b>No cost is set for this tournament.</b> Marking it paid changes the status only. No Finance transaction recorded.</p>
+          <button type="button" className="btn btn-secondary st-gap-edit" onClick={() => { onClose(); onEditDetails?.(t); }}>Add the cost first</button>
+        </div>
+      ) : nothing ? (
+        <p className="st-note">Finance already shows the full cost as paid. This only changes the registration status.</p>
       ) : (
         <>
           <label className="st-check">
             <input type="checkbox" checked={also} onChange={(e) => setAlso(e.target.checked)} />
             <span>{entry ? "Also mark the unpaid Finance entry paid" : <>Also record the <b>{money(Number(amount) || 0)}</b> payment in Finance</>}</span>
           </label>
-          {!also && <p className="st-note">Only the tournament status will change.</p>}
+          {!also && <p className="st-note">Only the tournament status will change. No Finance transaction recorded.</p>}
           {also && entry && <p className="st-note">This marks the existing unpaid entry as paid. No second record is created.</p>}
           {also && (
             <>

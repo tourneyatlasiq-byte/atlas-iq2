@@ -12,6 +12,7 @@ import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { useLocalToday } from "./useLocalToday";
 import { featuredTournament } from "../lib/featured-tournament";
 import { useOpenParam } from "./useOpenParam";
+import { parseEntry } from "../lib/entry-links";
 import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -133,6 +134,35 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const openSections = useRef({ id: null, open: null }); // drawer section state, per tournament
+  // Arrived from another screen to do one task (venue, resource, contact). Read
+  // once; the picker opens, and finishing or cancelling goes back where they came from.
+  const entryParams = useSearchParams();
+  const entryRouter = useRouter();
+  const [entryTask, setEntryTask] = useState(() => parseEntry(entryParams));
+  const entryDone = useRef(false);
+  const entryKind = useRef(null);
+  const [openVenue, setOpenVenue] = useState(false);
+  useEffect(() => {
+    if (entryDone.current || !entryTask.action || !detail) return;
+    entryDone.current = true;
+    entryKind.current = entryTask.action;
+    if (entryTask.action === "venue" && canWrite) { setOpenVenue(true); setEditing(detail); }
+    else if (entryTask.action === "resource" && canWrite) setLinkingResource(true);
+    else if (entryTask.action === "contact") openSections.current = { id: detail.id, open: { ...(openSections.current.open || {}), contact: true } };
+    // Drop the task from the address so a refresh does not reopen it; keep ?open.
+    const next = new URLSearchParams(entryParams.toString());
+    next.delete("action"); next.delete("return");
+    entryRouter.replace(`/tournaments?${next.toString()}`, { scroll: false });
+  }, [entryTask, detail, canWrite]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** After the task ends: back to the starting screen if there was one, else stay. */
+  function finishEntry() {
+    const back = entryTask.returnTo;
+    if (!back) return false;
+    setEntryTask({ action: null, returnTo: null });
+    entryKind.current = null;
+    entryRouter.push(back);
+    return true;
+  }
   useEffect(() => { if (!detail) openSections.current = { id: null, open: null }; }, [detail]);
   const [error, setError] = useState(null);
   // A drawer action's failure belongs in the drawer; the page alert stays for
@@ -202,6 +232,8 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     runMutation(action, formData, {
       onSuccess: (result) => {
         setEditing(null);
+        setOpenVenue(false);
+        if (!isNew && finishEntry()) return;
         // The param is set now and resolves once the refreshed rows land, so
         // the coach lands in the drawer for what they just created.
         if (isNew && result?.id) openDetail({ id: result.id });
@@ -240,7 +272,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     fd.set("context", context);
     setDrawerError(null);
     runMutation(linkTournamentResource, fd, {
-      onSuccess: () => setLinkingResource(false),
+      onSuccess: () => { setLinkingResource(false); finishEntry(); },
       onError: (message) => setDrawerError(message),
     });
   }
@@ -462,7 +494,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       {detail && !editing && (
         <TournamentDetail
           key={detail.id}
-          savedOpen={openSections.current.id === detail.id ? openSections.current.open : null}
+          savedOpen={openSections.current.id === detail.id ? openSections.current.open : (entryTask.action === "contact" && !entryDone.current ? { contact: true } : null)}
           onOpenChange={(o) => { openSections.current = { id: detail.id, open: o }; }}
           qabEnabled={qabEnabled}
           t={detail}
@@ -487,7 +519,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           seasonRoster={seasonRoster}
           pickupCandidates={pickupCandidates}
           pending={pending}
-          onClose={() => { closeDetail(); }}
+          onClose={() => { if (entryKind.current === "contact" && finishEntry()) return; closeDetail(); }}
           onEdit={() => setEditing(detail)}
           onDelete={() => askRemove(detail)}
           onConfirmDelete={() => doRemove(detail)}
@@ -513,9 +545,12 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           onSubmit={submit}
           onAddFacility={() => setAddingFacility(true)}
           justCreatedFacilityId={justCreatedFacilityId}
+          openVenuePicker={openVenue}
           onCancel={() => {
             setEditing(null);
             setError(null);
+            setOpenVenue(false);
+            finishEntry();
           }}
         />
       )}
@@ -558,7 +593,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
             </span>
           }
           onSelect={(f) => linkResource(f.id, linkContext)}
-          onCancel={() => setLinkingResource(false)}
+          onCancel={() => { setLinkingResource(false); finishEntry(); }}
         />
       )}
 
@@ -1138,12 +1173,12 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   );
 }
 
-export function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility, justCreatedFacilityId }) {
+export function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility, justCreatedFacilityId, openVenuePicker = false }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
   const [gate, setGate] = useState(row?.gate_fee ?? "");
   const [facilityId, setFacilityId] = useState(row?.facility?.id ?? "");
-  const [pickingFacility, setPickingFacility] = useState(false);
+  const [pickingFacility, setPickingFacility] = useState(Boolean(openVenuePicker));
   const chosenFacility = facilities.find((f) => f.id === facilityId) ?? null;
 
   // Create-and-link: a facility created from inside this tournament is

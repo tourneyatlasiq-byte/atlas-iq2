@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { entryHref } from "../lib/entry-links";
 import { featuredLabel } from "../lib/featured-tournament";
 import { fmtDayRange } from "../lib/dates";
 import { typeLabel } from "../lib/facility-fields";
@@ -32,6 +33,8 @@ export function LocationsNextTournament({
   onOpenPlace,
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
   const [menu, setMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(null);
@@ -47,7 +50,12 @@ export function LocationsNextTournament({
     notes?.entry_notes ? ["Entry", notes.entry_notes] : null,
   ].filter(Boolean);
   const dir = directionsUrl(venue);
+  // Each action lands on the task itself and comes back here when it is done.
+  const here = `${pathname}${search?.toString() ? `?${search.toString()}` : ""}`;
   const tournamentHref = `/tournaments?open=${t.id}`;
+  const venueHref = entryHref(t.id, "venue", here);
+  const resourceHref = entryHref(t.id, "resource", here);
+  const contactHref = entryHref(t.id, "contact", here);
   const place = venue ? [venue.city, venue.state].filter(Boolean).join(", ") : "";
 
   return (
@@ -73,7 +81,7 @@ export function LocationsNextTournament({
             Directions
           </a>
         )}
-        <Link className="btn btn-secondary lr-next-btn" href={tournamentHref}>
+        <Link className="btn btn-secondary lr-next-btn" href={venue ? tournamentHref : venueHref}>
           {venue ? "Open tournament" : "Link a venue"}
         </Link>
         {canWrite && (
@@ -93,8 +101,8 @@ export function LocationsNextTournament({
           <button type="button" onClick={() => { setMenu(false); setUploading(true); }}>
             Upload a file to this tournament
           </button>
-          <Link href={tournamentHref}>Link a hotel or restaurant</Link>
-          <Link href={tournamentHref}>Change the tournament contact</Link>
+          <Link href={resourceHref}>Link a hotel or restaurant</Link>
+          <Link href={contactHref}>Change the tournament contact</Link>
         </div>
       )}
 

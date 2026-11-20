@@ -33,6 +33,8 @@ function filters(url, params, startAt = 1) {
   const where = []; const values = [];
   for (const [k, v] of url.searchParams) {
     if (["select", "order", "limit", "offset", "columns"].includes(k)) continue;
+    const mi = /^in\.\((.*)\)$/.exec(v);
+    if (mi) { values.push(mi[1].split(",")); where.push(`${q(k)}::text = any($${startAt + values.length - 1}::text[])`); continue; }
     const m = /^(eq|is|neq)\.(.*)$/.exec(v);
     if (!m) throw Object.assign(new Error(`Unsupported filter ${k}=${v}`), { code: "PGRST100", status: 400 });
     if (m[1] === "is") { where.push(`${q(k)} is ${m[2] === "null" ? "null" : m[2]}`); continue; }

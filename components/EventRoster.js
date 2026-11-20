@@ -2,7 +2,9 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { useMutation } from "./useMutation";
+import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
+import { rosterSheetModel, submissionEntries } from "../lib/event-roster-selection";
 import {
   setEventRoster,
   addPickup,
@@ -33,6 +35,9 @@ export function EventRoster({
   // coach returns to the same editing session.
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState(null);
+  // When a removal is refused because the player is in a batting order or has
+  // at-bats, the refusal carries where, so the coach can go straight there.
+  const [blockers, setBlockers] = useState(null);
   const { run: runMutation, pending: pending } = useMutation();
 
   // The drawer's next-step button bumps openSignal to open the roster sheet.
@@ -50,9 +55,10 @@ export function EventRoster({
   // handling stay here, where they differ per section.
   function run(action, fd, onDone) {
     setError(null);
+    setBlockers(null);
     runMutation(action, fd, {
       onSuccess: () => onDone?.(),
-      onError: (message) => setError(message),
+      onError: (message, result) => { setError(message); setBlockers(result?.blockers ?? null); },
     });
   }
 
@@ -72,7 +78,7 @@ export function EventRoster({
         )}
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && editing !== "roster" && <RefusalNotice error={error} blockers={blockers} tournamentId={tournament.id} />}
 
       {rows.length === 0 ? (
         <div className="er-empty">
@@ -165,6 +171,8 @@ export function EventRoster({
           seasonName={seasonName}
           pending={pending}
           draft={draft}
+          error={error}
+          blockers={blockers}
           onSubmit={(fd) => run(setEventRoster, fd, () => { setEditing(null); setDraft(null); })}
           onCancel={() => { setEditing(null); setDraft(null); }}
           onAddPickup={(current) => { setDraft(current); setEditing("pickup"); }}
@@ -195,22 +203,17 @@ export function EventRoster({
  * something.
  */
 function SetEventRosterSheet({
-  tournament, seasonRoster, participants, seasonName, pending, draft, onSubmit, onCancel, onAddPickup,
+  tournament, seasonRoster, participants, seasonName, pending, draft, error, blockers, onSubmit, onCancel, onAddPickup,
 }) {
-  const existing = useMemo(
-    () => new Map(participants.filter((p) => p.participation === "roster").map((p) => [p.player_id, p])),
-    [participants]
-  );
+  // Players only (coaches and staff never attend as participants). Everyone
+  // already attending stays listed and selected, even if no longer active, so
+  // saving can never drop an attendee the coach did not uncheck.
+  const model = useMemo(() => rosterSheetModel(participants, seasonRoster), [participants, seasonRoster]);
+  const players = model.active;
 
   // Keyed on the persistent player id — r.player.id, not r.player_id, which
   // this query does not return.
-  const [selected, setSelected] = useState(() => draft ?? new Set(existing.keys()));
-
-  // Players only. Coaches and staff never attend as participants, and
-  // including them made the denominator wrong as well as the list.
-  const players = (seasonRoster ?? []).filter(
-    (r) => r.is_active && r.player?.person_type === "player" && r.player?.id
-  );
+  const [selected, setSelected] = useState(() => draft ?? new Set(model.initialSelected));
 
   const toggle = (playerId) => {
     if (!playerId) return;
@@ -224,15 +227,9 @@ function SetEventRosterSheet({
 
   function submit(formData) {
     formData.set("tournament_id", tournament.id);
-    for (const r of players) {
-      if (!selected.has(r.player.id)) continue;
-      const prior = existing.get(r.player.id);
-      // Event values default from the season roster but are stored separately —
-      // changing one here never writes back.
-      const jersey = prior?.jersey_number ?? r.jersey_number ?? "";
-      const positions = (prior?.positions ?? r.positions ?? []).join(",");
-      formData.append("participant", `${r.player.id}|roster|${jersey}|${positions}`);
-    }
+    // Event values default from the season roster but are stored separately —
+    // changing one here never writes back.
+    for (const entry of submissionEntries({ selected, model, participants })) formData.append("participant", entry);
     onSubmit(formData);
   }
 
@@ -250,15 +247,16 @@ function SetEventRosterSheet({
           <div className="modal-body">
             <div className="er-select-bar">
               <span className="er-selected-count">
-                {selected.size} of {players.length} attending
+                {selected.size} attending
+                <span className="er-selected-of"> · {players.length} active players</span>
               </span>
               <span className="er-select-actions">
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  onClick={() => setSelected(new Set(players.map((r) => r.player.id)))}
+                  onClick={() => setSelected(model.selectAllActive(selected))}
                 >
-                  Select active roster
+                  Select all active players
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={() => setSelected(new Set())}>
                   Clear
@@ -284,12 +282,30 @@ function SetEventRosterSheet({
                 </label>
               ))}
 
-              {players.length === 0 && (
+              {players.length === 0 && model.outside.length === 0 && (
                 <p className="field-note">
                   No active players on the {seasonName} roster yet.
                 </p>
               )}
             </div>
+
+            {model.outside.length > 0 && (
+              <div className="er-outside">
+                <p className="er-outside-head">Already attending, not an active player</p>
+                <div className="er-pick-list">
+                  {model.outside.map((o) => (
+                    <label key={o.player_id} className="er-pick">
+                      <input type="checkbox" checked={selected.has(o.player_id)} onChange={() => toggle(o.player_id)} />
+                      <span className="er-pick-jersey">{o.jersey_number != null ? `#${o.jersey_number}` : "—"}</span>
+                      <span className="er-pick-name">{o.name}</span>
+                      <span className="er-pick-pos">{o.note}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {error && <RefusalNotice error={error} blockers={blockers} tournamentId={tournament.id} />}
 
             <button
               type="button"
@@ -310,6 +326,28 @@ function SetEventRosterSheet({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** The reason a removal was refused, with a direct route to the lineup or tracker. */
+function RefusalNotice({ error, blockers, tournamentId }) {
+  return (
+    <div className="alert alert-error" role="alert">
+      <p>{error}</p>
+      {blockers?.length > 0 && (
+        <ul className="er-refusal-links">
+          {blockers.slice(0, 3).map((b) => (
+            <li key={b.player_id}>
+              {b.games.slice(0, 2).map((g) => (
+                <Link key={g.id} className="btn btn-ghost" target="_blank" rel="noopener" href={`/tournaments/${tournamentId}/games/${g.id}/${b.kind === "has_at_bats" ? "track" : "lineup"}`}>
+                  {b.kind === "has_at_bats" ? "Open tracker" : "Open lineup"}{g.opponent ? ` · ${g.opponent}` : ""}
+                </Link>
+              ))}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

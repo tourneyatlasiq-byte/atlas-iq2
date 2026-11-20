@@ -47,6 +47,7 @@ function writeTree(files) {
     "lib/queue-recovery.js": read("lib/queue-recovery.js"),
     "lib/schedule-rules.js": read("lib/schedule-rules.js"),
     "lib/performance-tournament.js": read("lib/performance-tournament.js"), // imported by queries/performance (2026-11)
+    "lib/performance-groups.js": read("lib/performance-groups.js"),
     "lib/queries/performance.js": withExt(read("lib/queries/performance.js")),
     "lib/queries/reports/qab-performance.js": withExt(read("lib/queries/reports/qab-performance.js")),
     "lib/queries/reports/qab-tournament.js": withExt(read("lib/queries/reports/qab-tournament.js")),

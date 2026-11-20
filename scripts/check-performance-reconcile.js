@@ -50,7 +50,16 @@ for (const g of GAMES) {
     rows.push({ id: `${g.id}-${i}`, season_id: "s1", game_id: g.id, player_id: PLAYERS[i].id, batting_order: i + 1, qab_reasons: reason ? [reason] : [], voided_at: null });
   }
 }
-const db = { games: GAMES, tournaments: [TOURNAMENT], plate_appearances: rows };
+// Two players are inactive this season; one has no season row at all (a pickup). Their at-bats stay in every total.
+const db = { games: GAMES, tournaments: [TOURNAMENT], plate_appearances: rows,
+  seasons: [{ id: "s1", team_id: "T1" }, { id: "s2", team_id: "T2" }],
+  team_season_players: [
+    ...PLAYERS.slice(0, 7).map((p, i) => ({ season_id: "s1", team_id: "T1", player_id: p.id, is_active: i !== 2 && i !== 5 })),
+    // Inactive on this team but ACTIVE on another team's season: must still list as inactive here.
+    { season_id: "s1", team_id: "T2", player_id: PLAYERS[2].id, is_active: true },
+    // A pickup on this team (no T1 row) who is INACTIVE on another team: must not be hidden or demoted here.
+    { season_id: "s1", team_id: "T2", player_id: PLAYERS[8].id, is_active: false },
+  ] };
 
 function fakeClient() {
   return {
@@ -62,6 +71,7 @@ function fakeClient() {
         is(c, v) { f.push(["is", c, v]); return api; },
         in(c, v) { f.push(["in", c, v]); return api; },
         order() { return api; },
+        maybeSingle() { return Promise.resolve({ data: api.rows()[0] ?? null, error: null }); },
         rows() {
           return (db[table] ?? []).filter((r) => f.every(([op, c, v]) =>
             op === "eq" ? r[c] === v : op === "is" ? (r[c] ?? null) === v : v.includes(r[c]))).map((r) => {
@@ -80,7 +90,7 @@ function fakeClient() {
 (async () => {
   console.log("\nPerformance reconciliation\n");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "perf-r-"));
-  for (const rel of ["lib/qab-rules.js", "lib/performance-tournament.js", "lib/queries/performance.js"]) {
+  for (const rel of ["lib/qab-rules.js", "lib/performance-tournament.js", "lib/performance-groups.js", "lib/queries/performance.js"]) {
     const out = path.join(root, rel);
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, fs.readFileSync(rel, "utf8").replace(/(from\s+["'])(\.{1,2}\/[^"']+?)(["'])/g, (m, a, s, b) => a + (s.endsWith(".js") ? s : s + ".js") + b));
@@ -97,6 +107,11 @@ function fakeClient() {
   assertEq("games: per-game QAB and PA are 5/9, 4/9, 4/9", s.games.map((g) => [g.qab, g.pa]), [[5, 9], [4, 9], [4, 9]]);
   assertEq("games add up to the season (PA and QAB)", [sum(s.games, "pa"), sum(s.games, "qab")], [s.team.pa, s.team.qab]);
   assertEq("players add up to the season (PA and QAB)", [sum(s.players, "pa"), sum(s.players, "qab")], [s.team.pa, s.team.qab]);
+  assertEq("inactive players are flagged, everyone else (including a player with no season row) is active",
+    s.players.filter((p) => p.isActive === false).map((p) => p.playerId).sort(), [PLAYERS[2].id, PLAYERS[5].id].sort());
+  assertEq("a pickup who is inactive on another team is still listed as active here",
+    s.players.find((p) => p.playerId === PLAYERS[8].id)?.isActive, true);
+  assertEq("being inactive changes no totals: all nine players still counted", s.players.length, 9);
   assertEq("reason counts add up to season QAB", sum(s.reasons, "count"), s.team.qab);
   assertEq("reasonsCited equals season QAB under the one-reason rule (so no \"Counts total\" note)", s.reasonsCited, s.team.qab);
   assertEq("every player's reasons add up to that player's QAB", s.players.every((p) => sum(p.reasons, "count") === p.qab), true);
