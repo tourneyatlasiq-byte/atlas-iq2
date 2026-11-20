@@ -4,6 +4,8 @@ import "./player.css";
 import Link from "next/link";
 import { getContext, canWrite } from "../../../lib/context";
 import { qabPlayerReport } from "../../../lib/queries/reports/qab-player";
+import { qabPlayerChoices } from "../../../lib/queries/reports/qab-player-choices";
+import { QabPlayerPicker } from "../../../components/reports/QabPlayerPicker";
 import { QabPlayerReport } from "../../../components/reports/QabPlayerReport";
 import { QabScopeControl } from "../../../components/reports/QabScopeControl";
 import { fromParam, withFrom } from "../../../lib/report-back";
@@ -106,11 +108,10 @@ export default async function QabPlayerPage({ searchParams } = {}) {
   const backToPerformance = withFrom("/performance", from);
 
   if (!playerId) {
-    return (
-      <Blocked title="Choose a player" back="/performance" backLabel="Back to Performance">
-        <p>Open a player from Performance and choose Player report.</p>
-      </Blocked>
-    );
+    // Reached from the Reports hub (or a link with no player). Every gate above
+    // has already passed, so the roster is read only for a coach of a QAB team.
+    const choices = await qabPlayerChoices(season.id);
+    return <QabPlayerPicker choices={choices} from={from} />;
   }
 
   const res = await qabPlayerReport(season.id, playerId, { tournamentId });

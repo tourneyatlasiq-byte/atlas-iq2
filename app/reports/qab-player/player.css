@@ -124,3 +124,26 @@
   .qp-tbl:has(tbody tr:nth-child(-n+8):last-child) { break-inside: avoid; }
   .qp-pct { font-size: 40px; }
 }
+
+/* Player picker (Reports entry, 2026-11). Screen only; reuses the shared toolbar shell.
+   Search box with an inline list: nothing floats, so it cannot cover Open report
+   or leave a phone screen. */
+.qp-picker { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.qp-picker-find { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 6px; }
+.qp-picker-input { min-height: 44px; width: 100%; box-sizing: border-box; }
+.qp-picker-list {
+  max-height: 280px; overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid #d3d8df; border-radius: 12px; background: #fff; padding: 4px 0;
+}
+.qp-picker-group { margin: 0; padding: 8px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #626b79; }
+.qp-picker-opt { display: flex; align-items: center; min-height: 44px; padding: 0 12px; font-size: 14.5px; color: #0c0f14; cursor: pointer; }
+.qp-picker-opt.is-active { background: #eef0f3; }
+.qp-picker-opt.is-selected { font-weight: 700; }
+.qp-picker-none { margin: 0; padding: 12px; font-size: 13.5px; color: #626b79; }
+.qp-picker-go { min-height: 44px; }
+.qp-picker-go[disabled] { opacity: .5; cursor: not-allowed; }
+.qp-picker-hint, .qp-picker-empty { margin: 0; font-size: 13px; line-height: 1.5; color: #626b79; max-width: 62ch; }
+@media (max-width: 640px) {
+  .qp-picker-find { max-width: none; }
+  .qp-picker-go { width: 100%; }
+}

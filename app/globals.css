@@ -4439,7 +4439,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .season-prow,
 .season-phead-cols {
   width: 100%; display: grid; align-items: baseline; gap: 10px;
-  grid-template-columns: 14px minmax(0, 1fr) 58px 58px 68px;
+  grid-template-columns: 20px minmax(0, 1fr) 58px 58px 68px;
   padding: 10px 8px; text-align: left;
 }
 .season-prow {
@@ -4464,10 +4464,14 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    one grid definition above, so they cannot drift apart. */
 @media (max-width: 560px) {
   .season-prow,
-  .season-phead-cols { grid-template-columns: 14px minmax(0, 1fr) 42px 42px 54px; gap: 6px; }
+  .season-phead-cols { grid-template-columns: 20px minmax(0, 1fr) 42px 42px 54px; gap: 6px; }
   .season-pnum { font-size: 12.5px; }
 }
-.season-pcaret { color: var(--slate); font-size: 10px; }
+.season-pcaret { align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; color: var(--slate); }
+.season-pcaret svg { display: block; transition: transform .15s ease; }
+.season-prow[aria-expanded="true"] .season-pcaret { color: var(--navy); }
+.season-prow[aria-expanded="true"] .season-pcaret svg { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .season-pcaret svg { transition: none; } }
 /* Two columns on desktop: performance and trend beside how the QABs were
    earned. The reasons list previously ran full width as a two-column text
    list, which left most of the row empty and made the panel taller than it
@@ -4491,7 +4495,13 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .pd-stat strong { font-size: 14px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
 
 /* A fact, not a verdict. No wording here implies a direction. */
-.pd-report { margin: 10px 0 0; }
+/* One compact secondary action under the player's row, above the figures.
+   Right-aligned; on a phone it keeps a 44px tap target without a tall header. */
+.pex-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; margin: 0 0 4px; }
+.pex-report { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding-top: 6px; padding-bottom: 6px; font-size: 13px; }
+@media (max-width: 720px) {
+  .pex-report { min-height: 44px; }
+}
 .pd-recent {
   margin: 0 0 8px; font-size: 12.5px; color: var(--slate);
   padding-bottom: 8px; border-bottom: 1px solid var(--border);

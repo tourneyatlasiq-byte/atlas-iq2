@@ -1,6 +1,6 @@
 import "./reports.css";
 import Link from "next/link";
-import { getContext } from "../../../lib/context";
+import { getContext, canWrite } from "../../../lib/context";
 import { HelpMenu } from "../../../components/HelpMenu";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +25,9 @@ export const metadata = { title: "Reports — Season Tempo" };
  * through a hub. This is the second door, not a replacement for the first.
  */
 export default async function ReportsPage() {
-  const { season, features } = await getContext();
+  const { season, features, profile } = await getContext();
   const qab = Boolean(features?.qab);
+  const coachSide = canWrite(profile);
 
   const groups = [
     {
@@ -67,6 +68,17 @@ export default async function ReportsPage() {
           href: qab ? "/reports/qab-performance" : undefined,
           status: qab ? undefined : "Premium",
           audience: qab ? "For coaches" : undefined,
+        },
+        {
+          name: "Individual Player QAB Report",
+          description:
+            "One player's quality at-bats for the season or a single tournament. Choose any player, including inactive and pickup players.",
+          // Same entitlement and coach-only rule as the report itself. The
+          // route enforces both; the hub only avoids offering a door that
+          // would say no.
+          href: qab && coachSide ? "/reports/qab-player" : undefined,
+          status: qab ? (coachSide ? undefined : "Coaches") : "Premium",
+          audience: qab && coachSide ? "For coaches" : undefined,
         },
       ],
     },

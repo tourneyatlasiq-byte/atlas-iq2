@@ -145,7 +145,9 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
           onClick={() => setOpenPlayer(open ? null : p.playerId)}
         >
           <span className="season-pcaret" aria-hidden="true">
-            {open ? "▾" : "▸"}
+            <svg viewBox="0 0 16 16" width="16" height="16" focusable="false">
+              <path d="M5.5 3.5 10.5 8l-5 4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </span>
           <span className="season-pname">{p.name}</span>
           {/* Three aligned numeric columns. The note above the table carries
@@ -781,9 +783,22 @@ function PlayerDetail({ player, canOpenPlayerReport = false }) {
 
   return (
     <div className="pex">
+      {/* The player's row above is the panel's header, so the name is not
+          repeated. One compact, secondary action sits below it and above the
+          figures, right-aligned on a wide screen. Never the screen's one
+          primary action. Offered only to roles allowed to open the report,
+          and only once the player has at-bats. */}
+      {canOpenPlayerReport && player.pa > 0 && (
+        <div className="pex-actions">
+          <Link
+            className="btn btn-secondary pex-report"
+            href={`/reports/qab-player?player=${encodeURIComponent(player.playerId)}&from=performance`}
+          >
+            View player report
+          </Link>
+        </div>
+      )}
       <div className="pex-main">
-        {/* The player's name is already on the row above, so it is not
-            repeated here. */}
         <div className="pd-summary">
           <span className="pd-stat">
             <strong>{player.qabPct == null ? "—" : `${player.qabPct}%`}</strong> QAB
@@ -795,16 +810,6 @@ function PlayerDetail({ player, canOpenPlayerReport = false }) {
             <strong>{history.length}</strong> {history.length === 1 ? "game" : "games"} with a PA
           </span>
         </div>
-
-        {/* Coach-facing report for this player. A secondary link, never the
-            screen's one primary action. Offered only to roles allowed to open it. */}
-        {canOpenPlayerReport && player.pa > 0 && (
-          <p className="pd-report">
-            <Link className="btn btn-secondary" href={`/reports/qab-player?player=${encodeURIComponent(player.playerId)}&from=performance`}>
-              Player report
-            </Link>
-          </p>
-        )}
 
         {recent && (
           <p className="pd-recent">

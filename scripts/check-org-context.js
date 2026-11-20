@@ -86,7 +86,9 @@ const EXPECTED = {
     "app/(app)/facilities/page.js": 1, "app/(app)/files/page.js": 1,
     "app/(app)/finance/page.js": 1, "app/(app)/help/access.js": 1, "app/(app)/layout.js": 1,
     // RPT-002 (2026-11): Performance offers "Player report" only to roles allowed to open it (+2); the coach-only player report page refuses other roles (2).
-    "app/(app)/performance/page.js": 3, "app/(app)/team/page.js": 1,
+    "app/(app)/performance/page.js": 3,
+    // Reports hub (2026-11): the Individual Player QAB Report entry is shown only to roles the report itself allows (+1; the route still enforces it).
+    "app/(app)/reports/page.js": 1, "app/(app)/team/page.js": 1,
     "app/(app)/tournaments/[tournamentId]/games/[gameId]/lineup/page.js": 1,
     "app/(app)/tournaments/[tournamentId]/games/[gameId]/track/page.js": 1,
     "app/(app)/tournaments/page.js": 1, "app/reports/qab-player/page.js": 2, "app/review/page.js": 1, "lib/actions/contacts.js": 1,

@@ -27,7 +27,7 @@ function ok(label, actual, expected = true) {
 const R = (rel) => path.join(ROOT, rel);
 
 /* ---- stand-ins: request context, the data function (a spy), and Next ---- */
-const state = { ctx: null, calls: [] };
+const state = { ctx: null, calls: [], choiceCalls: [] };
 const SECRET = "Ava Secretname";
 const mocks = new Map();
 mocks.set(R("lib/context.js"), {
@@ -45,6 +45,14 @@ mocks.set(R("lib/queries/reports/qab-player.js"), {
       tournaments: [],
       report: { organization: { name: "Org" }, team: { name: "16U" }, season: { name: "2026-27" }, scope: { kind: "season" }, player: { name: SECRET, tag: null }, empty: false, summary: { qabPct: 50, qab: 1, pa: 2, games: 1 }, reasons: [], groups: [], games: [], notes: [], generatedAt: "2026-11-20T12:00:00Z" },
     };
+  },
+});
+const CHOICE_NAME = "Ava Secretname";
+mocks.set(R("lib/queries/reports/qab-player-choices.js"), {
+  __esModule: true,
+  qabPlayerChoices: async (...args) => {
+    state.choiceCalls.push(args);
+    return { active: [{ id: "child-1", name: CHOICE_NAME, pa: 2 }], inactive: [], pickup: [] };
   },
 });
 mocks.set("next/navigation", { useRouter: () => ({ push() {} }) });
@@ -76,10 +84,11 @@ const ctxFor = (role, { qab = true, season = true } = {}) => ({
   profile: { role }, features: qab ? { qab: true } : {}, season: season ? { id: "s1" } : null,
 });
 async function visit(role, search, opts) {
-  state.ctx = ctxFor(role, opts); state.calls = [];
+  state.ctx = ctxFor(role, opts); state.calls = []; state.choiceCalls = [];
   const el = await route.default({ searchParams: search });
-  return { el, calls: state.calls.length, out: text(el) };
+  return { el, calls: state.calls.length, choiceCalls: state.choiceCalls.length, out: text(el) };
 }
+const visitChoice = (r) => r.choiceCalls;
 const OWN_CHILD = { player: "child-1" };
 const TOURNAMENT = { player: "child-1", scope: "tournament", tournament: "t1" };
 
@@ -91,6 +100,7 @@ const TOURNAMENT = { player: "child-1", scope: "tournament", tournament: "t1" };
     const r = await visit("parent", search);
     ok(`parent, ${label}: told this report is for coaches`, r.out.includes("This report is for coaches"), true);
     ok(`parent, ${label}: the data function was never called`, r.calls, 0);
+    ok(`parent, ${label}: the player list was never read either`, [visitChoice(r)], [0]);
     ok(`parent, ${label}: no player data in the response`, [r.out.includes(SECRET), /QAB \/ PA|Quality at-bat rate/.test(r.out)], [false, false]);
   }
   state.ctx = ctxFor("parent"); state.calls = [];
@@ -121,10 +131,20 @@ const TOURNAMENT = { player: "child-1", scope: "tournament", tournament: "t1" };
   console.log("E. Other gates still hold");
   const noSeason = await visit("coach", OWN_CHILD, { season: false });
   ok("no season: told so, no data read", [noSeason.out.includes("No season selected"), noSeason.calls], [true, 0]);
-  const noPlayer = await visit("coach", {});
-  ok("no player in the address: asked to choose one, no data read", [noPlayer.out.includes("Choose a player"), noPlayer.calls], [true, 0]);
+  console.log("F. The player picker (Reports entry) sits behind the same gates");
+  for (const role of ["parent", "viewer", undefined]) {
+    const r = await visit(role, {});
+    ok(`${role}, no player in the address: refused, player list never read`, [r.out.includes("This report is for coaches"), r.choiceCalls, r.out.includes(CHOICE_NAME)], [true, 0, false]);
+  }
+  const noQab = await visit("owner", {}, { qab: false });
+  ok("QAB not enabled, no player: Premium notice, player list never read", [noQab.out.includes("Premium feature"), noQab.choiceCalls], [true, 0]);
+  const noSeasonPicker = await visit("coach", {}, { season: false });
+  ok("no season, no player: told so, player list never read", [noSeasonPicker.out.includes("No season selected"), noSeasonPicker.choiceCalls], [true, 0]);
+  const picker = await visit("coach", {});
+  ok("a coach with no player in the address gets the picker with the list read once for this season", [picker.out.includes("Individual Player QAB Report"), JSON.stringify(picker.el.props.choices).includes(CHOICE_NAME), picker.choiceCalls, JSON.stringify(state.choiceCalls[0]), picker.calls], [true, true, 1, JSON.stringify(["s1"]), 0]);
+  ok("the picker does not read any report data", picker.calls, 0);
   const longId = await visit("coach", { player: "x".repeat(200) });
-  ok("an oversized id is treated as missing, no data read", [longId.out.includes("Choose a player"), longId.calls], [true, 0]);
+  ok("an oversized id is treated as missing: the picker, no report data read", [longId.out.includes("Individual Player QAB Report"), longId.calls], [true, 0]);
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed ? 1 : 0);
