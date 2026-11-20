@@ -1071,3 +1071,42 @@ html.volt .picker-foot .picker-add-quiet {
   white-space: normal; text-align: center; line-height: 1.2;
 }
 html.volt .picker-foot .picker-add-quiet:hover:not(:disabled) { background: transparent; box-shadow: none; text-decoration-thickness: 2px; }
+
+/* Locations & Resources: search first, then the trip you are about to take (2026-11-19).
+   One white card; Directions is the single Volt action on the page. */
+html.volt .lr-search { margin: 0 0 14px; }
+html.volt .lr-search .lr-search-input { width: 100%; max-width: none; min-height: 44px; }
+html.volt .lr-next { background: #fff; border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--raise); padding: 20px 22px 18px; margin: 0 0 18px; min-width: 0; }
+html.volt .lr-next-top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-family: var(--font-volt-mono); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+html.volt .lr-next-name { margin: 10px 0 4px; font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.1; letter-spacing: -.03em; color: var(--ink); overflow-wrap: anywhere; text-wrap: balance; }
+html.volt .lr-next-venue { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 0; margin: 0; cursor: pointer; color: var(--ink); font: inherit; min-height: 44px; }
+html.volt .lr-next-venue-name { display: block; font-weight: 600; font-size: 15px; overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+html.volt .lr-next-venue-meta { display: block; font-size: 13.5px; color: var(--muted); }
+html.volt .lr-next-venue-none, html.volt .lr-next-none, html.volt .lr-next-quiet { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+html.volt .lr-next-quiet { margin: 0 0 18px; }
+html.volt .lr-next-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+html.volt .lr-next-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding-inline: 18px; text-decoration: none; }
+html.volt .lr-next-menu { display: flex; flex-direction: column; margin-top: 8px; border: 1px solid var(--line-strong); border-radius: 14px; overflow: hidden; }
+html.volt .lr-next-menu > button, html.volt .lr-next-menu > a { display: flex; align-items: center; min-height: 44px; padding: 0 16px; background: #fff; border: 0; border-top: 1px solid var(--line); font: inherit; font-size: 14.5px; font-weight: 600; color: var(--ink); text-align: left; text-decoration: none; cursor: pointer; }
+html.volt .lr-next-menu > :first-child { border-top: 0; }
+html.volt .lr-next-menu > :hover { background: var(--sunk); }
+html.volt .lr-next-block { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+html.volt .lr-next-h3 { margin: 0 0 8px; font-family: var(--font-volt-mono); font-weight: 500; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+html.volt .lr-next-notes { margin: 0; display: grid; gap: 8px; }
+html.volt .lr-next-notes dt { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+html.volt .lr-next-notes dd { margin: 0; font-size: 14.5px; color: var(--body); overflow-wrap: anywhere; }
+html.volt .lr-next-link { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 44px; }
+html.volt .lr-next-list { list-style: none; margin: 0; padding: 0; }
+html.volt .lr-next-list > li > button { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 10px 0; min-height: 44px; font: inherit; color: var(--ink); cursor: pointer; }
+html.volt .lr-next-list > li:first-child > button, html.volt .lr-next-list > li.lr-next-file:first-child { border-top: 0; }
+html.volt .lr-next-file { padding: 10px 0; border-top: 1px solid var(--line); }
+html.volt .lr-next-item-name { display: block; font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere; }
+html.volt .lr-next-item-meta { display: block; font-size: 13px; color: var(--muted); }
+html.volt .lr-next-confirm { margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: var(--paid-t); color: var(--paid); font-weight: 600; font-size: 14px; }
+@media (max-width: 720px) {
+  html.volt .lr-next { padding: 16px 16px 14px; border-radius: 18px; }
+  html.volt .lr-next-name { font-size: 22px; }
+  html.volt .lr-next-btn { flex: 1 1 calc(50% - 5px); }
+  html.volt .lr-next-btn:first-child { flex-basis: 100%; }
+  html.volt .lr-views .segment, html.volt .lr-types .segment { min-height: 44px; }
+}

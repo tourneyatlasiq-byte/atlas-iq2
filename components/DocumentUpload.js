@@ -163,12 +163,6 @@ export function UploadForm({ targets, isAdmin, seasonName, lockTo = null, onClos
           <div className="modal-body">
             {fileError && <div className="alert alert-error">{fileError}</div>}
 
-            <div className="sensitive-warning">
-              <strong>Don&rsquo;t upload highly sensitive information.</strong> Season Tempo
-              isn&rsquo;t designed to store Social Security numbers, birth certificates,
-              passports or other government ID, medical records, or card and bank details.
-            </div>
-
             <div className="field">
               <label htmlFor="up-file">File</label>
               <input id="up-file" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={pick} />

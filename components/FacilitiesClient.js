@@ -15,6 +15,10 @@ import { AddressLookup } from "./AddressLookup";
 import { searchExternalPlaces, fetchExternalPlaceDetails } from "../lib/actions/places";
 import { FacilityImport } from "./FacilityImport";
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
+import { LocationsNextTournament, WaitlistedLine } from "./LocationsNextTournament";
+import { useLocalToday } from "./useLocalToday";
+import { featuredTournament, isFeaturable } from "../lib/featured-tournament";
+import { isWaitlisted } from "../lib/tournament-status";
 import { HelpTip } from "./HelpTip";
 import {
   createFacility,
@@ -132,18 +136,18 @@ function cityState(f) {
 const surfaceClass = (s) =>
   s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
 
-export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = new Map(), documentTargets, seasonName }) {
-  const [query, setQuery] = useState("");
-  const [stateFilter, setStateFilter] = useState("all");
+export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = new Map(), documentTargets, seasonName, tournaments = [], tournamentDocs = {}, serverToday, initialFilters = {} }) {
+  const [query, setQuery] = useState(initialFilters.q ?? "");
+  const [stateFilter, setStateFilter] = useState(initialFilters.st ?? "all");
   // All | Facilities | Hotels | Dining. A type chip and the existing filters
   // combine rather than replace each other, so "lodging in Colorado" works.
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState(initialFilters.type ?? "all");
   // Preselects the create form's Type. Set by a type-aware empty state so the
   // coach does not re-express a choice they made by picking the tab.
   const [createType, setCreateType] = useState("facility");
-  const [surfaceFilter, setSurfaceFilter] = useState("all");
-  const [amenityFilter, setAmenityFilter] = useState("all");
-  const [countyFilter, setCountyFilter] = useState("all");
+  const [surfaceFilter, setSurfaceFilter] = useState(initialFilters.surface ?? "all");
+  const [amenityFilter, setAmenityFilter] = useState(initialFilters.amenity ?? "all");
+  const [countyFilter, setCountyFilter] = useState(initialFilters.county ?? "all");
   /**
    * Column sort, per view. Null means the established default order — the
    * directory does not start out sorted by a column nobody picked.
@@ -159,7 +163,11 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
   // Default to whichever view actually has something in it. A new organization
   // has no facilities yet, and an empty tab makes the directory look empty too.
   const hasOwnVenues = facilities.some((f) => f.isOurs);
-  const [view, setView] = useState(forceAllView || !hasOwnVenues ? "all" : "ours");
+  const [view, setView] = useState(
+    initialFilters.view === "all" || initialFilters.view === "ours"
+      ? initialFilters.view
+      : forceAllView || !hasOwnVenues ? "all" : "ours"
+  );
   const [openGroups, setOpenGroups] = useState({});
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
@@ -174,6 +182,40 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
   const [drawerError, setDrawerError] = useState(null);
   const confirm = useConfirm();
   const { run: runMutation, pending } = useMutation();
+
+  // The trip block follows the shared featured-tournament rule on the device's
+  // calendar date, the same one Home uses.
+  const today = useLocalToday(serverToday);
+  const featured = useMemo(
+    () => (today ? featuredTournament(tournaments, today) : null),
+    [tournaments, today]
+  );
+  const waitlistedOnly = useMemo(
+    () => (featured ? null : tournaments.find((t) => t.decision === "Committed" && isWaitlisted(t.paid_status) && t.start_date)),
+    [featured, tournaments]
+  );
+
+  // Search and filters live in the URL (replaceState, no server round trip), so
+  // opening a place or a tournament and coming Back returns to the same results.
+  // Only non-default values are written, so a clean visit keeps a clean URL.
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search);
+    const put = (k, v, d) => (v && v !== d ? next.set(k, v) : next.delete(k));
+    put("q", query.trim(), "");
+    put("view", view, hasOwnVenues ? "ours" : "all");
+    put("type", typeFilter, "all");
+    put("st", stateFilter, "all");
+    put("county", countyFilter, "all");
+    put("surface", surfaceFilter, "all");
+    put("amenity", amenityFilter, "all");
+    const qs = next.toString();
+    const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+    if (url !== `${window.location.pathname}${window.location.search}`) {
+      window.history.replaceState(window.history.state, "", url);
+    }
+  // detail?.id: opening or closing a place rewrites the URL from the router's
+  // copy of it, so the filters are written back afterwards.
+  }, [query, view, typeFilter, stateFilter, countyFilter, surfaceFilter, amenityFilter, hasOwnVenues, detail?.id]);
 
   const overlayOpen = Boolean(detail || editing || editingNotes || importing || suggesting);
   useEffect(() => {
@@ -416,7 +458,9 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
             {/* ONE button, not three. It opens the create form with Type as
                 the first field, so the choice is made inside the flow rather
                 than by picking the right button beforehand. */}
-            <button className="btn btn-primary"
+            {/* Volt is reserved for the single most important action. With a trip
+                featured, that is Directions, so Add location steps back. */}
+            <button className={`btn ${featured ? "btn-secondary" : "btn-primary"}`}
                     onClick={() => { setCreateType("facility"); setEditing("new"); }}>
               Add location
             </button>
@@ -424,6 +468,33 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
         )}
         <PageHelp />
       </div>
+
+      {/* Search is the first thing under the title: the most common visit is
+          "find that hotel", and it should never sit below a block or a list. */}
+      <div className="lr-search">
+        <input
+          className="toolbar-search lr-search-input"
+          type="search"
+          placeholder="Search by name, city, county, or address"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search locations and resources"
+        />
+      </div>
+
+      {query.trim() === "" && featured && (
+        <LocationsNextTournament
+          featured={featured}
+          facilities={facilities}
+          docs={tournamentDocs[featured.tournament.id] ?? []}
+          documentTargets={documentTargets}
+          canWrite={canWrite}
+          isAdmin={isAdmin}
+          seasonName={seasonName}
+          onOpenPlace={openFacility}
+        />
+      )}
+      {query.trim() === "" && !featured && waitlistedOnly && <WaitlistedLine name={waitlistedOnly.name} />}
 
       {ourCount === 0 && (
         <div className="card facility-prompt">
@@ -449,7 +520,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
 
 
       <div className="view-toggle-row">
-      <div className="segmented view-toggle" role="group" aria-label="Which places to show">
+      <div className="segmented view-toggle lr-views" role="group" aria-label="Which places to show">
         <button
           className={`segment${view === "ours" ? " on" : ""}`}
           onClick={() => { setView("ours"); setSort(null); }}
@@ -518,15 +589,8 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
         ))}
       </div>
 
+      {view === "all" && (
       <div className="toolbar">
-        <input
-          className="toolbar-search"
-          type="search"
-          placeholder="Search by name, city, county, or address"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search locations and resources"
-        />
         {/* Discovery filters belong with the 178-record directory, not with
             seven facilities you already know. */}
         {view === "all" && (
@@ -583,6 +647,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           </>
         )}
       </div>
+      )}
 
       <div className="card card-flush">
         {visible.length === 0 ? (
@@ -963,7 +1028,7 @@ function ResourceCards({ rows, onOpen }) {
     <div className="lr-cards">
       {rows.map((f) => {
         const type = f.type ?? "facility";
-        const wua = f.orgNotes?.would_use_again;
+        const wua = ["yes", "no"].includes(f.orgNotes?.would_use_again) ? f.orgNotes.would_use_again : null;
         return (
           <button type="button" key={f.id} className="lr-card" onClick={() => onOpen(f)}>
             <span className="lr-card-name">{f.name}</span>
@@ -1233,14 +1298,17 @@ export function FacilityDetail({ f, historyTarget, canWrite, canEditShared, canR
                     organization_facilities; the label says so once, quietly,
                     rather than repeating a paragraph of reassurance. */}
                 <p className="lr-private-note">Only your organization can see this.</p>
-                <Row
-                  label="Would use again"
-                  value={
-                    <span className={`lr-wua lr-wua-${n.would_use_again ?? "none"}`}>
-                      {wouldUseAgainLabel(n.would_use_again)}
-                    </span>
-                  }
-                />
+                {/* Only a real answer. "Not rated" on every unrated place was noise. */}
+                {(n.would_use_again === "yes" || n.would_use_again === "no") && (
+                  <Row
+                    label="Would use again"
+                    value={
+                      <span className={`lr-wua lr-wua-${n.would_use_again}`}>
+                        {wouldUseAgainLabel(n.would_use_again)}
+                      </span>
+                    }
+                  />
+                )}
                 {/* Only categories this organization has actually filled in.
                     An empty category is not information about the facility.
                     The ballpark-specific ones are skipped for a hotel. */}
