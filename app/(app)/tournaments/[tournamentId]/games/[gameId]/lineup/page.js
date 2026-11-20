@@ -4,6 +4,7 @@ import { getContext, canWrite } from "../../../../../../../lib/context";
 import { getLineupContext, lineupCopySources } from "../../../../../../../lib/queries/lineup";
 import { LineupClient } from "../../../../../../../components/LineupClient";
 import { LineupUnavailable } from "../../../../../../../components/LineupUnavailable";
+import { ContextBackLink } from "../../../../../../../components/ContextBackLink";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
  * This order is read later by both QAB entry paths, live and retrospective.
  * Nothing about it assumes which one.
  */
-export default async function LineupPage({ params }) {
+export default async function LineupPage({ params, searchParams }) {
   const { profile, features } = await getContext();
   const ctx = await getLineupContext(params.gameId);
 
@@ -47,9 +48,7 @@ export default async function LineupPage({ params }) {
   return (
     <div className="page">
       <div className="page-head">
-        <Link href="/tournaments" className="back-link">
-          ← Tournaments
-        </Link>
+        <ContextBackLink from={searchParams?.from} fallbackHref="/tournaments" fallbackLabel="← Tournaments" />
       </div>
 
       <LineupClient

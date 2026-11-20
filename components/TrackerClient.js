@@ -27,6 +27,9 @@ import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 import { substitutePlayer } from "../lib/actions/lineup";
 import { resumePosition, defaultTrackerMode } from "../lib/tracker-cursor";
 import { localDateIso, utcDateIso } from "../lib/local-date";
+import { GameLink } from "./GameLink";
+import { useSessionDismiss } from "../lib/useSessionDismiss";
+import { nextGameAfter, gameNumber, nextGameLabel, gameStep, gameHref } from "../lib/game-flow-rules";
 
 /**
  * Live QAB tracker.
@@ -55,8 +58,11 @@ function ordinal(n) {
   return `${n}${suffix}`;
 }
 
-export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite, userId = null, serverToday }) {
+export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite, userId = null, serverToday, tournamentGames = [] }) {
   const [rows, setRows] = useState(initialRows ?? []);
+  // "Next game" offer after finishing (Release 2). "Not now" lasts for the
+  // browser session. The offer never navigates by itself.
+  const [nextDismissed, dismissNext, nextReady] = useSessionDismiss("next", game.id);
   /**
    * Where the order resumes.
    *
@@ -762,6 +768,32 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
             You can edit or remove recorded at-bats anytime. To add a missed at-bat, resume
             tracking first.
           </p>
+          {(() => {
+            // Computed here, after finishing, from the device date. Only the
+            // coaches who can act on it see it.
+            const next = canWrite && nextReady && !nextDismissed ? nextGameAfter(tournamentGames, game.id, localDateIso()) : null;
+            const step = next ? gameStep(next) : null;
+            if (!next || !step) return null;
+            return (
+              <div className="trk-next" role="region" aria-label="Next game">
+                <div className="trk-next-body">
+                  <p className="trk-next-k">Next game</p>
+                  <p className="trk-next-t">
+                    {nextGameLabel(next, gameNumber(tournamentGames, next.id), localDateIso())}
+                    {next.opponent_name ? ` vs ${next.opponent_name}` : ""}
+                  </p>
+                </div>
+                <div className="trk-next-acts">
+                  <GameLink className="btn btn-secondary" href={gameHref(game.tournament_id, next.id, step.route)}>
+                    {step.label}
+                  </GameLink>
+                  <button type="button" className="btn btn-ghost" onClick={dismissNext}>
+                    Not now
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
           <div className="trk-done-actions">
             {/* Returns to the same tournament on Performance (2026-11). */}
             <a className="btn btn-primary" href={`/performance?tournament=${encodeURIComponent(game.tournament_id)}`}>

@@ -1114,3 +1114,58 @@ html.volt .lr-next-confirm { margin: 0 0 8px; padding: 10px 12px; border-radius:
   html.volt .lr-next-btn:first-child { flex-basis: 100%; }
   html.volt .lr-views .segment, html.volt .lr-types .segment { min-height: 44px; }
 }
+
+/* ---------- Game flow (Release 2, 2026-11) ----------
+   One quiet pattern for every optional suggestion: a bordered row, one plain
+   line, one secondary action and a ghost "Not now". Volt is reserved for the
+   single most important action on the screen (Home's game button). */
+
+/* Shared tap feedback: anything pressable in these flows darkens or presses on
+   touch, and a link that is opening says so. */
+html.volt .is-pending { opacity: 0.72; pointer-events: none; }
+html.volt .st-gf-older-link:active, html.volt .st-gf-older-x:active { opacity: 0.6; }
+html.volt .btn.is-pending { transform: none; }
+
+/* Home card (dark): today's game */
+html.volt .st-gf { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+html.volt .st-gf-body { min-width: 0; }
+html.volt .st-gf-k { margin: 0 0 2px; color: #9aa2ae; font-family: var(--font-volt-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+html.volt .st-gf-t { margin: 0; color: #fff; font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+html.volt .st-gf .btn { flex: none; white-space: nowrap; }
+
+/* Home card: older unfinished games stay secondary */
+html.volt .st-gf-older { margin-top: 12px; padding: 0 2px; color: #9aa2ae; font-size: 13px; }
+html.volt .st-gf-older-k { margin: 0 0 4px; font-family: var(--font-volt-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+html.volt .st-gf-older ul { list-style: none; margin: 0; padding: 0; }
+html.volt .st-gf-older li { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 6px 0; min-height: 40px; }
+html.volt .st-gf-older-link { color: #fff; text-decoration: underline; text-underline-offset: 3px; font-weight: 600; white-space: nowrap; }
+html.volt .st-gf-older-x { background: none; border: 0; padding: 8px 0; min-height: 40px; color: #9aa2ae; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Lineup: previous-lineup suggestion and the draft marker */
+html.volt .lineup-suggest { background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--raise); padding: 14px 16px; margin-bottom: 14px; }
+html.volt .lineup-suggest-t { margin: 0 0 2px; font-weight: 700; color: var(--ink); }
+html.volt .lineup-suggest-s { margin: 0 0 10px; color: var(--muted); font-size: 13.5px; }
+html.volt .lineup-suggest-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+html.volt .lineup-suggest-acts .btn, html.volt .trk-next-acts .btn, html.volt .st-gf .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+html.volt .lineup-draft { display: block; margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: var(--due-t); color: var(--ink); box-shadow: inset 0 0 0 1px #f2cf9f; font-size: 14.5px; }
+html.volt .lineup-draft strong { color: var(--due); }
+html.volt .lineup-draft-x { display: inline; min-height: 0; padding: 0 4px; text-decoration: underline; font-weight: 600; }
+
+/* Tracker: next game after finishing */
+html.volt .trk-next { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+html.volt .trk-next-body { min-width: 0; }
+html.volt .trk-next-k { margin: 0 0 2px; color: var(--muted); font-family: var(--font-volt-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+html.volt .trk-next-t { margin: 0; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+html.volt .trk-next-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 520px) {
+  html.volt .st-gf { flex-direction: column; align-items: stretch; }
+  html.volt .st-gf .btn { width: 100%; min-height: 48px; justify-content: center; }
+  html.volt .trk-next-acts { width: 100%; }
+  html.volt .trk-next-acts .btn { flex: 1 1 0; }
+}
+
+/* Lineup: while the suggestion is visible the Copy panel is just a quiet link */
+html.volt .lineup-copy.is-quiet { background: none; border: 0; box-shadow: none; padding: 0; margin: 0 0 12px; }
+html.volt .lineup-copy-quiet { min-height: 44px; padding-left: 4px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+html.volt .st-wk .st-gf { margin-top: 18px; margin-bottom: 4px; }

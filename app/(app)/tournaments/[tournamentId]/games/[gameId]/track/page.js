@@ -1,10 +1,10 @@
 import { utcDateIso } from "../../../../../../../lib/local-date";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext, canWrite } from "../../../../../../../lib/context";
-import { getLineupContext } from "../../../../../../../lib/queries/lineup";
+import { getLineupContext, listTournamentGames } from "../../../../../../../lib/queries/lineup";
 import { listGamePlateAppearances } from "../../../../../../../lib/queries/plate-appearances";
 import { TrackerClient } from "../../../../../../../components/TrackerClient";
+import { ContextBackLink } from "../../../../../../../components/ContextBackLink";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * appearances, so this renders the "no batting order" state and every write is
  * refused by the database. The gate is not re-checked here.
  */
-export default async function TrackPage({ params }) {
+export default async function TrackPage({ params, searchParams }) {
   const { profile } = await getContext();
   const ctx = await getLineupContext(params.gameId);
 
@@ -27,6 +27,7 @@ export default async function TrackPage({ params }) {
   if (ctx.game.tournament_id !== params.tournamentId) notFound();
 
   const rows = await listGamePlateAppearances(params.gameId);
+  const tournamentGames = await listTournamentGames(params.tournamentId);
 
   const seeded = rows.map((r) => ({
     ...r,
@@ -36,12 +37,11 @@ export default async function TrackPage({ params }) {
   return (
     <div className="page">
       <div className="page-head">
-        <Link
-          href={`/tournaments/${params.tournamentId}/games/${params.gameId}/lineup`}
-          className="back-link"
-        >
-          ← Lineup
-        </Link>
+        <ContextBackLink
+          from={searchParams?.from}
+          fallbackHref={`/tournaments/${params.tournamentId}/games/${params.gameId}/lineup`}
+          fallbackLabel="← Lineup"
+        />
       </div>
 
       <TrackerClient
@@ -54,6 +54,7 @@ export default async function TrackPage({ params }) {
         // only ever replayed for the same user.
         userId={profile?.id ?? null}
         serverToday={utcDateIso()}
+        tournamentGames={tournamentGames}
       />
     </div>
   );

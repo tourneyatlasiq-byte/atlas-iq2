@@ -1,0 +1,31 @@
+/* Back from a game page opened from Home: history Back only when the previous
+   entry really is Home inside this app; otherwise a normal link to Home. */
+const path = require("path"), fs = require("fs"), Module = require("module");
+const swc = require("next/dist/build/swc");
+const OPTS = { jsc: { parser: { syntax: "ecmascript", jsx: true }, target: "es2020" }, module: { type: "commonjs" } };
+const orig = Module._extensions[".js"];
+Module._extensions[".js"] = function (m, f) { if (f.includes(`${path.sep}node_modules${path.sep}`)) return orig(m, f); m._compile(swc.transformSync(fs.readFileSync(f, "utf8"), { ...OPTS, filename: f }).code, f); };
+const B = require("../lib/back-context");
+let bad = 0; const t = (n, c) => { console.log((c ? "ok  " : "FAIL") + "  " + n); if (!c) bad++; };
+const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
+const boom = { getItem() { throw new Error("x"); }, setItem() { throw new Error("x"); }, removeItem() { throw new Error("x"); } };
+const href = "/tournaments/t1/games/g1/track?from=home";
+const s = mem();
+t("no marker: direct entry, use the link", B.cameFromApp(s, "home", href) === false);
+B.markEntry(s, "home", href);
+t("marker for this exact page: history Back is safe", B.cameFromApp(s, "home", href) === true);
+t("marker for a different page: not trusted", B.cameFromApp(s, "home", "/tournaments/t1/games/g2/track?from=home") === false);
+t("marker for a different origin page name: not trusted", B.cameFromApp(s, "other", href) === false);
+B.clearEntry(s);
+t("cleared when Home is shown again", B.cameFromApp(s, "home", href) === false);
+t("storage that throws: falls back to the link, never crashes", B.cameFromApp(boom, "home", href) === false && (() => { try { B.markEntry(boom, "home", href); B.clearEntry(boom); return true; } catch { return false; } })());
+t("no storage: falls back to the link", B.cameFromApp(null, "home", href) === false);
+const s2 = mem();
+t("no saved scroll: null", B.takeScroll(s2) === null);
+B.saveScroll(s2, 312.6);
+t("saved scroll is returned once, rounded", B.takeScroll(s2) === 313 && B.takeScroll(s2) === null);
+B.saveScroll(s2, 0); t("zero or negative is not worth restoring", B.takeScroll(s2) === null);
+B.saveScroll(s2, -5); t("negative ignored", B.takeScroll(s2) === null);
+s2.setItem("st-home-scroll", "abc"); t("garbage ignored", B.takeScroll(s2) === null);
+t("scroll helpers never throw on bad storage", (() => { try { B.saveScroll(boom, 10); return B.takeScroll(boom) === null; } catch { return false; } })());
+process.exit(bad ? 1 : 0);

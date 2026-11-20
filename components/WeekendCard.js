@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { GameLink } from "./GameLink";
+import { gameStep, gameHref } from "../lib/game-flow-rules";
+import { useSessionDismiss } from "../lib/useSessionDismiss";
 import { money } from "../lib/finance-rules";
 import { fmtDateRange, fmtDayRange } from "../lib/dates";
 import { registrationState, tournamentPayments } from "../lib/tournament-status";
@@ -31,7 +34,9 @@ export function directionsUrl(f) {
   return parts.length ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(parts.join(", "))}` : null;
 }
 
-export function WeekendCard({ t, featured = null, daysAway, transactions = [], canWrite, quick, full = false }) {
+export function WeekendCard({ t, featured = null, daysAway, transactions = [], canWrite, quick, full = false, gameFlow = null }) {
+  // "Not now" on the older-games note lasts for the browser session.
+  const [olderHidden, hideOlder, olderReady] = useSessionDismiss("older", t.id);
   const r = registrationState(t);
   const pay = tournamentPayments(t, transactions);
   const games = [...(t.games ?? [])].sort((a, b) => `${a.game_date ?? ""}${a.start_time ?? ""}`.localeCompare(`${b.game_date ?? ""}${b.start_time ?? ""}`));
@@ -62,6 +67,38 @@ export function WeekendCard({ t, featured = null, daysAway, transactions = [], c
         {fmtRange(t.start_date, t.end_date)}{t.provider?.name ? ` · ${t.provider.name}` : ""}
         {place && <><br />{dir ? <a href={dir} target="_blank" rel="noreferrer">{place}</a> : place}</>}
       </p>
+
+      {!full && gameFlow?.today && (() => {
+        const g = gameFlow.today;
+        const step = gameStep(g);
+        if (!step) return null;
+        return (
+          <div className="st-gf" role="region" aria-label="Today's game">
+            <div className="st-gf-body">
+              <p className="st-gf-k">{g.plateAppearances > 0 ? "Game in progress" : "Today's game"}</p>
+              <p className="st-gf-t">{fmtTime(g.start_time)}{g.opponent_name ? ` vs ${g.opponent_name}` : ""}</p>
+            </div>
+            <GameLink markFrom="home" className="btn btn-primary" href={gameHref(t.id, g.id, step.route, "home")}>
+              {step.label} <span aria-hidden="true">→</span>
+            </GameLink>
+          </div>
+        );
+      })()}
+
+      {!full && gameFlow?.older?.length > 0 && olderReady && !olderHidden && (
+        <div className="st-gf-older" role="region" aria-label="Earlier games not finished">
+          <p className="st-gf-older-k">Not finished</p>
+          <ul>
+            {gameFlow.older.slice(0, 2).map((g) => (
+              <li key={g.id}>
+                <span>{g.opponent_name ? `vs ${g.opponent_name}` : "Game"}, {dayName(g.game_date)} {fmtTime(g.start_time)}</span>
+                <GameLink markFrom="home" className="st-gf-older-link" href={gameHref(t.id, g.id, "track", "home")}>Continue tracking</GameLink>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="st-gf-older-x" onClick={hideOlder}>Not now</button>
+        </div>
+      )}
 
       <ul className="st-ready">
         <li>
@@ -98,7 +135,7 @@ export function WeekendCard({ t, featured = null, daysAway, transactions = [], c
 
       {!full && (
         <div className="st-wk-acts">
-          <Link className="btn btn-primary" href="/tournaments?view=weekend">Open next tournament <span aria-hidden="true">→</span></Link>
+          <Link className={`btn ${gameFlow?.today && gameStep(gameFlow.today) ? "st-btn-dline" : "btn-primary"}`} href="/tournaments?view=weekend">Open next tournament <span aria-hidden="true">→</span></Link>
           {dir && <a className="btn st-btn-dline" href={dir} target="_blank" rel="noreferrer">Directions</a>}
         </div>
       )}

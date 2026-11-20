@@ -234,6 +234,41 @@ const addPa = (g, playerNo, slot, paNo) => sql(`insert into plate_appearances (o
   sql(`delete from plate_appearances`);
   for (const g of [1, 2, 3, 4, 6]) sql(`delete from game_lineup_slots where game_id='${G(g)}'`);
 
+  /* ===================== previewLineupFrom (Release 2) ===================== */
+  section("previewLineupFrom: an unsaved draft; it never writes");
+  as("coach");
+  await L.saveLineup(G(1), ids(1, 2, 3, 4, 5, 6));
+  r = await L.previewLineupFrom(G(2), G(1));
+  ok("returns the order renumbered 1..6 with names", r.ok === true && r.order.length === 6 && r.order.map((x) => x.batting_order).join() === "1,2,3,4,5,6" && r.order[0].full_name && r.skipped === 0, r);
+  ok("writes nothing: the destination still has no lineup, the source is untouched", count(G(2)) === 0 && names(G(1)) === "p01 p02 p03 p04 p05 p06");
+  sql(`update game_lineup_slots set player_id='${PL(11)}' where game_id='${G(1)}' and batting_order=3`);
+  r = await L.previewLineupFrom(G(2), G(1));
+  ok("an archived player is left out and counted, with no gap in numbering", r.ok === true && r.order.length === 5 && r.skipped === 1 && r.order.map((x) => x.batting_order).join() === "1,2,3,4,5", r);
+  ok("still writes nothing", count(G(2)) === 0);
+  await L.saveLineup(G(3), ids(7, 8));
+  r = await L.previewLineupFrom(G(3), G(1));
+  ok("a destination with a saved lineup is refused and left alone", r.ok === false && /already has a saved lineup/.test(r.error) && names(G(3)) === "p07 p08", r);
+  sql(`delete from game_lineup_slots where game_id='${G(3)}'`);
+  r = await L.previewLineupFrom(G(2), G(2));
+  ok("the same game as source is refused", r.ok === false, r);
+  r = await L.previewLineupFrom(G(2), "");
+  ok("no source chosen is refused", r.ok === false && /Choose a game/.test(r.error), r);
+  r = await L.previewLineupFrom(G(2), G(8));
+  ok("a source with no lineup is refused", r.ok === false, r);
+  as("coachB");
+  r = await L.previewLineupFrom(GB, G(1));
+  ok("another organization cannot preview this organization's lineup", r.ok === false, r);
+  as("parent");
+  r = await L.previewLineupFrom(G(2), G(1));
+  ok("a parent cannot preview", r.ok === false, r);
+  as("coach");
+  await L.saveLineup(G(4), ids(1, 2, 3));
+  addPa(G(4), 1, 1, 1);
+  r = await L.previewLineupFrom(G(4), G(1));
+  ok("a destination with recorded at-bats is refused", r.ok === false && /already being tracked/.test(r.error), r);
+  sql(`delete from plate_appearances`);
+  for (const g of [1, 2, 3, 4]) sql(`delete from game_lineup_slots where game_id='${G(g)}'`);
+
   /* ===================== substitutePlayer ===================== */
   section("substitutePlayer: one slot changes, recorded at-bats stay with who batted");
   const G9 = G(9);

@@ -1,0 +1,22 @@
+/* "Not now" lasts for the browser session (sessionStorage), never the database. */
+const path = require("path"), fs = require("fs"), Module = require("module");
+const swc = require("next/dist/build/swc");
+const OPTS = { jsc: { parser: { syntax: "ecmascript", jsx: true }, target: "es2020" }, module: { type: "commonjs" } };
+const orig = Module._extensions[".js"];
+Module._extensions[".js"] = function (m, f) { if (f.includes(`${path.sep}node_modules${path.sep}`)) return orig(m, f); m._compile(swc.transformSync(fs.readFileSync(f, "utf8"), { ...OPTS, filename: f }).code, f); };
+const D = require("../lib/session-dismiss");
+let bad = 0; const t = (n, c) => { console.log((c ? "ok  " : "FAIL") + "  " + n); if (!c) bad++; };
+const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), _m: m }; };
+const boom = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("denied"); } };
+t("key names the kind and the id", D.dismissKey("lineup", "g1") === "st-notnow:lineup:g1");
+t("different ids and kinds never share a key", D.dismissKey("lineup", "g1") !== D.dismissKey("lineup", "g2") && D.dismissKey("lineup", "g1") !== D.dismissKey("next", "g1"));
+const s = mem();
+t("not dismissed at first", D.isDismissed(s, D.dismissKey("lineup", "g1")) === false);
+D.dismiss(s, D.dismissKey("lineup", "g1"));
+t("dismissed afterwards (survives a reload: same storage)", D.isDismissed(s, D.dismissKey("lineup", "g1")) === true);
+t("another game is unaffected", D.isDismissed(s, D.dismissKey("lineup", "g2")) === false);
+t("storage that throws reads as not dismissed, never crashes", D.isDismissed(boom, "k") === false);
+t("storage that throws on write never crashes", (() => { try { D.dismiss(boom, "k"); return true; } catch { return false; } })());
+t("no storage (server render) reads as not dismissed", D.isDismissed(null, "k") === false && (() => { try { D.dismiss(null, "k"); return true; } catch { return false; } })());
+t("only the flag is stored, no personal data", [...s._m.values()].every((v) => v === "1"));
+process.exit(bad ? 1 : 0);

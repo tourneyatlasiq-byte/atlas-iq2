@@ -175,7 +175,7 @@ Module._extensions[".js"] = function (m, filename) {
   ok("the pin header name appears only in lib/supabase/server.js and the preview-only gate route", files.filter((f) => /x-season-tempo-org/.test(src(f))).filter((f) => !f.startsWith("app/api/preview-gate/")), ["lib/supabase/server.js"]);
   ok("the bootstrap is used only by lib/context.js", files.filter((f) => /active-membership/.test(src(f))), ["lib/context.js"]);
   const outside = files.filter((f) => !["lib/supabase/server.js", "lib/context.js", "lib/auth/active-membership.js"].includes(f));
-  ok("unmigrated code still builds an unpinned client at 142 sites in 53 files, exactly as before (3B no-pin compatibility; moved in 3C-2)", [outside.reduce((n, f) => n + (src(f).match(/\bcreateClient\(\)/g) ?? []).length, 0), outside.filter((f) => /\bcreateClient\(\)/.test(src(f))).length], [142, 53]);
+  ok("unmigrated code still builds an unpinned client at 144 sites in 53 files (142 plus Release 2 previewLineupFrom and listTournamentGames, same pattern) (3B no-pin compatibility; moved in 3C-2)", [outside.reduce((n, f) => n + (src(f).match(/\bcreateClient\(\)/g) ?? []).length, 0), outside.filter((f) => /\bcreateClient\(\)/.test(src(f))).length], [144, 53]);
   ok("lib/context.js no longer builds an unpinned client itself", /\bcreateClient\(/.test(src("lib/context.js")), false);
   ok("the Settings People list is still on profiles (kept through 3C by decision)", /\.from\("profiles"\)\s*\.select\("id, full_name, role"\)/.test(src("app/(app)/settings/page.js")), true);
   ok("/review is still present (removal scheduled for 3C-4)", fs.existsSync(path.join(ROOT, "app/review/page.js")), true);

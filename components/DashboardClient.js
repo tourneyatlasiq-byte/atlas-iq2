@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { clearEntry, takeScroll } from "../lib/back-context";
 import { money } from "../lib/finance-rules";
 import { plainLanguage } from "../lib/readiness/dashboard";
 import { PageHelp } from "./PageHelp";
@@ -12,6 +13,7 @@ import { RecordPaymentSheet } from "./RecordPaymentSheet";
 import { CountUp } from "./CountUp";
 import { useLocalToday } from "./useLocalToday";
 import { featuredTournament } from "../lib/featured-tournament";
+import { todaysGame, olderUnfinished } from "../lib/game-flow-rules";
 import { longDayLabel } from "../lib/local-date";
 
 /**
@@ -33,10 +35,24 @@ const ACTION_LIMIT = 6;
 
 export function DashboardClient({
   nextUp, actions, finance, dues, team, seasonSummary, seasonPhase = "current", setupComplete = true,
-  season = null, tournaments = [], transactions = [], budgetLines = [], owing = [], canWrite = false, todayLabel = "", serverToday,
+  season = null, tournaments = [], transactions = [], budgetLines = [], owing = [], canWrite = false, qabEnabled = false, todayLabel = "", serverToday,
 }) {
   // Today on this device, not UTC (2026-11). The server sends its own date for
   // the first paint; the browser swaps in the device date on mount.
+  // Home is showing, so any "came from Home" record is spent.
+  // A saved scroll position (set when a game was opened from here) is put back
+  // after the page has laid out, so Back and refresh both land where the coach was.
+  useEffect(() => {
+    try {
+      clearEntry(window.sessionStorage);
+      const y = takeScroll(window.sessionStorage);
+      if (y) {
+        let tries = 0;
+        const apply = () => { window.scrollTo(0, y); if (++tries < 6 && Math.abs(window.scrollY - y) > 4) setTimeout(apply, 120); };
+        requestAnimationFrame(apply);
+      }
+    } catch { /* ignore */ }
+  }, []);
   const today = useLocalToday(serverToday);
   const featured = useMemo(() => (today ? featuredTournament(tournaments, today) : nextUp), [today, tournaments, nextUp]);
   const dayLabel = today ? longDayLabel(today) : todayLabel;
@@ -51,6 +67,16 @@ export function DashboardClient({
   const hasRoster = (team?.playerCount ?? 0) > 0 || (team?.inactivePlayerCount ?? 0) > 0;
   const hasFinance = (finance?.budgetedExpenses ?? 0) > 0 || (dues?.expected ?? 0) > 0;
   const next = featured?.tournament ?? null;
+  // Game flow on the card (Release 2): today's game inside the featured
+  // tournament, and older started games that were never finished. Only for
+  // an organization with QAB and a role that can write.
+  const gameFlow = useMemo(() => {
+    if (!today || !next || !qabEnabled || !canWrite) return null;
+    const games = next.games ?? [];
+    const todayGame = todaysGame(games, today);
+    const older = olderUnfinished(games, today);
+    return todayGame || older.length ? { today: todayGame, older } : null;
+  }, [today, next, qabEnabled, canWrite]);
 
   // The next weekend's own tasks are on its card. Tournament rules keep every
   // other tournament; a rule left with nothing to say is dropped.
@@ -80,7 +106,7 @@ export function DashboardClient({
 
       <div className={`st-home-grid${next ? "" : " is-single"}`}>
         {next ? (
-          <WeekendCard t={next} featured={featured} transactions={transactions} canWrite={canWrite} quick={quick} />
+          <WeekendCard t={next} featured={featured} transactions={transactions} canWrite={canWrite} quick={quick} gameFlow={gameFlow} />
         ) : (
           (setupComplete || hasTournaments) && (
             <section className="st-empty card">

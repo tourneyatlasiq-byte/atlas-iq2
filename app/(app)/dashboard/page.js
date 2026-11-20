@@ -36,7 +36,7 @@ export const dynamic = "force-dynamic";
  * every query below already resolves through auth_season_ids().
  */
 export default async function DashboardPage() {
-  const { profile, organization, team, season, seasonPhase } = await getContext();
+  const { profile, organization, team, season, seasonPhase, features } = await getContext();
 
   if (!season) {
     return (
@@ -116,6 +116,7 @@ export default async function DashboardPage() {
       budgetLines={budgetLines}
       owing={owing}
       canWrite={canWrite(profile)}
+      qabEnabled={Boolean(features?.qab)}
       todayLabel={new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}
       serverToday={utcDateIso()}
       />

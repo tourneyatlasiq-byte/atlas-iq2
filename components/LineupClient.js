@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { ContextHelp } from "./ContextHelp";
 import { useActionFeedback } from "../lib/useActionFeedback";
-import { saveLineup, copyLineupFrom } from "../lib/actions/lineup";
+import { saveLineup, copyLineupFrom, previewLineupFrom } from "../lib/actions/lineup";
 import { ConfirmDialog } from "./ConfirmAction";
 import { useUnsavedGuard } from "../lib/useUnsavedGuard";
 import { lateArrivalTiming, lateArrivalMessage } from "../lib/lineup-rules";
+import { lineupSuggestion, lineupSuggestionLabel } from "../lib/game-flow-rules";
+import { useSessionDismiss } from "../lib/useSessionDismiss";
 
 /**
  * QAB batting order editor.
@@ -59,6 +61,11 @@ export function LineupClient({
   const [copyFrom, setCopyFrom] = useState("");
   const [confirmReplace, setConfirmReplace] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  // Previous-lineup suggestion (Release 2). "Not now" lasts for the browser
+  // session (leave, return, refresh), never the database. draftFrom names the
+  // game an unsaved draft came from, so the screen can say it is not saved yet.
+  const [suggestDismissed, dismissSuggest, suggestReady] = useSessionDismiss("lineup", game.id);
+  const [draftFrom, setDraftFrom] = useState(null);
   const { error, notice, pending, run, setError } = useActionFeedback();
   const guard = useUnsavedGuard(dirty);
 
@@ -81,6 +88,41 @@ export function LineupClient({
       )
     : null;
   const addedCount = inGame && !recovery ? Math.max(0, order.length - lockedCount) : 0;
+
+  const suggestion = lineupSuggestion({
+    destination: {
+      id: game.id,
+      game_date: game.game_date,
+      start_time: game.start_time,
+      batters: initialLineup.length,
+      plateAppearances: inGame ? 1 : 0,
+    },
+    sources: copySources,
+    canWrite,
+    hasDraft: dirty || order.length > 0,
+    dismissed: suggestDismissed || !suggestReady,
+    recovery,
+  });
+
+  // Loads the earlier order as a DRAFT: nothing is written. Save stays the
+  // coach's explicit action, through the same saveLineup as any other order.
+  const useSuggestion = () => {
+    if (!suggestion) return;
+    run(() => previewLineupFrom(game.id, suggestion.id), null, {
+      onDone: (r) => {
+        setCopiedMeta(r.order ?? []);
+        setOrder((r.order ?? []).map((x) => x.player_id));
+        setDirty(true);
+        setDraftFrom({ label: lineupSuggestionLabel(suggestion), skipped: r.skipped ?? 0 });
+        setCopyOpen(false);
+      },
+    });
+  };
+  const discardDraft = () => {
+    setOrder([]);
+    setDirty(false);
+    setDraftFrom(null);
+  };
 
   const byId = new Map(availablePlayers.map((p) => [p.player_id, p]));
   for (const s of copiedMeta) {
@@ -124,6 +166,7 @@ export function LineupClient({
     run(() => saveLineup(game.id, order, recovery ? { rebuild: true } : {}), null, {
       onDone: () => {
         setDirty(false);
+        setDraftFrom(null);
         setConfirmRebuild(false);
         if (inGame) setLockedCount(order.length);
         setRecovery(false);
@@ -252,16 +295,40 @@ export function LineupClient({
         </div>
       )}
 
+      {suggestion && (
+        <section className="lineup-suggest" aria-label="Previous lineup suggestion">
+          <p className="lineup-suggest-t">Use the order from {lineupSuggestionLabel(suggestion)}?</p>
+          <p className="lineup-suggest-s">It opens as a draft. Nothing is saved until you tap Save.</p>
+          <div className="lineup-suggest-acts">
+            <button type="button" className="btn btn-secondary" onClick={useSuggestion} disabled={pending} aria-busy={pending || undefined}>
+              {pending ? "Loading..." : "Use as draft"}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={dismissSuggest} disabled={pending}>
+              Not now
+            </button>
+          </div>
+        </section>
+      )}
+
+      {draftFrom && dirty && (
+        <div className="lineup-draft" role="status">
+          <strong>Draft, not saved yet.</strong> From {draftFrom.label}.
+          {draftFrom.skipped > 0 && ` ${draftFrom.skipped} ${draftFrom.skipped === 1 ? "player is" : "players are"} not available for this game and left out.`}{" "}
+          Review the order, then Save.{" "}
+          <button type="button" className="btn btn-ghost lineup-draft-x" onClick={discardDraft} disabled={pending}>Discard draft</button>
+        </div>
+      )}
+
       {copySources.length > 0 && canWrite && !inGame && (
-        <div className="lineup-copy">
+        <div className={`lineup-copy${suggestion && !copyOpen ? " is-quiet" : ""}`}>
           {!copyOpen ? (
             <button
               type="button"
-              className={order.length === 0 ? "btn-primary btn-lg" : "btn btn-secondary"}
+              className={suggestion ? "btn btn-ghost lineup-copy-quiet" : order.length === 0 ? "btn-primary btn-lg" : "btn btn-secondary"}
               onClick={() => { setCopyOpen(true); setConfirmReplace(null); }}
               disabled={pending}
             >
-              Copy lineup from…
+              {suggestion ? "Choose a different game…" : "Copy lineup from…"}
             </button>
           ) : (
             <>
