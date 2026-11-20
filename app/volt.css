@@ -920,3 +920,127 @@ html.volt .trk-save-hint { margin: 10px 2px 0; min-height: 1.45em; font-size: 13
 html.volt .trk-manage { margin: 20px 0 26px; padding-top: 18px; border-top-color: var(--line); }
 html.volt .trk-manage-btn { min-height: 48px; }
 html.volt .trk-history-h { font-family: var(--font-volt-mono); font-weight: 500; letter-spacing: 0.04em; color: var(--muted); margin-top: 0; }
+
+/* =========================================================================
+   Lineup editor on Volt (2026-11-19). Presentation only: the order, locking,
+   late-arrival and save rules live in LineupClient and the server actions and
+   are untouched. 44px+ targets and the sticky save bar come from globals.css.
+   ========================================================================= */
+html.volt .lineup-head h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 6px; }
+html.volt .lineup-eyebrow { font-family: var(--font-volt-mono); font-weight: 500; font-size: 11.5px; letter-spacing: 0.06em; color: var(--muted); }
+html.volt .lineup-context { color: var(--body); }
+html.volt .lineup-intro { color: var(--body); }
+
+html.volt .lineup-copy { background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--raise); }
+html.volt .lineup-copy-h { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
+html.volt .lineup-hint { color: var(--muted); }
+
+html.volt .lineup-panel { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px 10px; box-shadow: var(--raise); }
+html.volt .lineup-h2 { font-family: var(--font-volt-mono); font-weight: 500; font-size: 12px; letter-spacing: 0.05em; color: var(--muted); border-bottom-color: var(--line); }
+html.volt .lineup-h2 span { background: var(--sunk); color: var(--ink); font-weight: 600; font-family: var(--font-volt-mono); }
+html.volt .lineup-empty { color: var(--muted); }
+
+/* Batting order rows: slot number tile, name, then the move controls. */
+html.volt .slot { border-bottom-color: var(--line); padding: 7px 0; }
+html.volt .slot-num { background: var(--ink); color: #fff; border-radius: 10px; font-family: var(--font-volt-mono); font-weight: 600; font-size: 15px; }
+html.volt .slot.is-locked { background: transparent; }
+html.volt .slot.is-locked .slot-num { background: var(--sunk); color: var(--muted); }
+html.volt .slot.is-late .slot-num { background: var(--volt); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+html.volt .slot-name { color: var(--ink); font-weight: 600; }
+html.volt .slot-jersey { font-family: var(--font-volt-mono); font-weight: 500; color: var(--muted); }
+html.volt .slot-controls button { background: #fff; color: var(--ink); border-color: var(--line-strong); }
+html.volt .slot-controls button:hover:not(:disabled) { border-color: var(--ink); background: #fff; z-index: 1; }
+html.volt .slot-controls button:disabled { opacity: 0.35; }
+html.volt .slot-lock { font-family: var(--font-volt-mono); color: var(--muted); }
+html.volt .tag-pickup { background: var(--due-t); color: var(--due); }
+html.volt .tag-late { background: var(--paid-t); color: var(--paid); }
+
+/* Available players: a white tap row; the plus becomes a small ink circle. */
+html.volt .bench-add { background: #fff; border-color: var(--line-strong); border-radius: 12px; color: var(--ink); }
+html.volt .bench-add:hover:not(:disabled) { border-color: var(--ink); background: #fff; }
+html.volt .bench-plus { width: 28px; height: 28px; border-radius: 999px; background: var(--ink); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1; }
+
+/* Notices keep their meaning (info, warning) in Volt colours. */
+html.volt .lineup-ingame { background: var(--info-t); color: var(--ink-2); }
+html.volt .lineup-ingame a { color: var(--info); }
+html.volt .lineup-recovery { background: var(--due-t); color: #5c3200; box-shadow: inset 4px 0 0 var(--due-dot); }
+html.volt .lineup-late-note { background: var(--info-t); color: var(--ink-2); border-radius: 12px; }
+
+/* Save bar: the one volt action on the screen. Unsaved state is amber text,
+   saved state is green text, both with words. */
+html.volt .lineup-bar { background: #fff; border-color: var(--line-strong); border-radius: 16px; box-shadow: var(--float); }
+html.volt .lineup-bar-state { font-weight: 700; color: var(--paid); }
+html.volt .lineup-bar.is-dirty .lineup-bar-state { color: var(--due); }
+html.volt .lineup-bar-action { background: var(--volt); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink), inset 0 -2px 0 rgba(12, 15, 20, 0.12); }
+html.volt .lineup-bar-action:hover:not(:disabled) { background: var(--volt-hover); }
+html.volt .lineup-bar.is-dirty .lineup-bar-action { background: var(--volt); }
+html.volt .lineup-bar-action:disabled { background: var(--sunk); color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--line-strong); opacity: 1; cursor: not-allowed; }
+
+/* =========================================================================
+   Tracker feedback and at-bat history (2026-11-19). Presentation only: QAB
+   calculation, the queue and the tracking rules are untouched.
+   ========================================================================= */
+
+/* No QAB: an immediate "your tap registered" state. Muted rose, never the
+   strong red and wording of a failed save (that stays in the status strip).
+   The label is kept; a check mark is added. Motion is optional. */
+html.volt .trk-noqab:active:not(:disabled) { background: #fbeef0; border-color: #d9a0ab; }
+html.volt .trk-noqab.is-recorded,
+html.volt .trk-noqab.is-recorded:hover:not(:disabled) {
+  background: #fbe4e8; border-color: #cf8e9b; color: #7d2a3b; cursor: default;
+}
+html.volt .trk-noqab-check { margin-right: 7px; font-weight: 800; }
+@media (prefers-reduced-motion: no-preference) {
+  html.volt .trk-noqab { transition: transform 0.12s ease-out, background-color 0.12s ease-out; }
+  html.volt .trk-noqab.is-recorded { transform: scale(0.97); }
+}
+
+/* At-bat history: one grid, Player | PA | QAB result. The PA and result
+   columns are fixed width, so a long name wraps inside its own column and
+   every label lines up row to row. No sideways scrolling. */
+html.volt .trk-hist-cols,
+html.volt .trk-hist-top {
+  display: grid; grid-template-columns: minmax(0, 1fr) 44px 76px; column-gap: 10px; align-items: center;
+}
+html.volt .trk-hist-cols {
+  padding: 0 15px 6px; font-family: var(--font-volt-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+}
+html.volt .trk-hist-name { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+html.volt .trk-hist-pa { white-space: nowrap; }
+html.volt .trk-hist-top .trk-badge { margin-left: 0; justify-self: start; width: 100%; text-align: center; padding-left: 0; padding-right: 0; white-space: nowrap; }
+
+/* Game rows on phones (2026-11-19). One grid: opponent and QAB% first, date and
+   tournament second, score and QAB / PA third, then status and the review link
+   as one compact final row. The caret, the stretched link and the 44px targets
+   keep working as before. Presentation only. */
+@media (max-width: 860px) {
+  html.volt .gm-line:has(> div.gm-row) {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-areas: "caret id pct" ". outcome figs" ". status edit";
+    column-gap: 8px; row-gap: 8px; padding: 14px 8px 4px; align-items: center;
+  }
+  html.volt .gm-line > div.gm-row { display: contents; }
+  html.volt .gm-line:has(> div.gm-row):hover { background: var(--bg); border-radius: 10px; }
+  html.volt .gm-line:has(> div.gm-row) > .gm-edit { grid-area: edit; justify-self: end; margin: 0; padding: 0; min-height: 44px; }
+  html.volt .gm-line:has(> div.gm-row) .gm-id { grid-area: id; }
+  html.volt .gm-line:has(> div.gm-row) .gm-opp { overflow-wrap: anywhere; line-height: 1.2; }
+  html.volt .gm-line:has(> div.gm-row) .gm-meta { overflow-wrap: anywhere; line-height: 1.3; }
+  html.volt .gm-line:has(> div.gm-row) .gm-pct { grid-area: pct; align-self: start; }
+  html.volt .gm-line:has(> div.gm-row) .gm-outcome { grid-area: outcome; white-space: normal; flex-wrap: wrap; }
+  html.volt .gm-line:has(> div.gm-row) .gm-figs { grid-area: figs; justify-content: flex-end; text-align: right; flex-wrap: nowrap; white-space: nowrap; }
+  html.volt .gm-line:has(> div.gm-row) .gm-status { grid-area: status; justify-self: start; }
+}
+
+/* Lineup on phones: long names wrap inside their column instead of cutting off,
+   the move buttons are 44px wide (still 44px tall, with the larger hit area from
+   globals.css), and the sticky save bar rests above the bottom navigation, not
+   behind it. Presentation only. */
+@media (max-width: 720px) {
+  html.volt .slot-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+  html.volt .slot-id { align-items: center; flex-wrap: wrap; row-gap: 4px; }
+  html.volt .slot-name { flex: 1 1 7em; min-width: 7em; }
+  html.volt .slot-jersey { min-width: 2.4em; }
+  html.volt .slot-controls button { min-width: 44px; }
+  html.volt .lineup-bar { bottom: calc(66px + var(--nav-safe)); }
+}

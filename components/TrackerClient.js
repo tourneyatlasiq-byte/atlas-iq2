@@ -121,6 +121,13 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   // What the coach has typed in the finish panel: blank | partial | invalid | complete.
   const entry = scoreEntry(ourScore, oppScore);
   const busy = useRef(false);
+  // Brief "your tap registered" state after a record. Presentation only: the
+  // ref also holds the buttons for that moment so a second tap on the same
+  // batter cannot record twice. It never touches the queue or the payload.
+  const settling = useRef(false);
+  const settleTimer = useRef(null);
+  const [justRecorded, setJustRecorded] = useState(null); // "noqab" | "qab" | null
+  useEffect(() => () => clearTimeout(settleTimer.current), []);
 
   // Local so a substitution updates the order on the field without a page
   // reload. Seeded from the server and only ever changed by a substitution.
@@ -381,8 +388,15 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const advance = () => setCursor((c) => (order.length ? (c + 1) % order.length : 0));
 
   const commit = async (reasons) => {
-    if (!batter || !canWrite || busy.current || noteTooLong) return;
+    if (!batter || !canWrite || busy.current || settling.current || noteTooLong) return;
     busy.current = true;
+    settling.current = true;
+    setJustRecorded(reasons.length === 0 ? "noqab" : "qab");
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      settling.current = false;
+      setJustRecorded(null);
+    }, 800);
     try {
       const id = newPaId();
       const paNumber = paNumberFor(batter.player_id);
@@ -803,12 +817,17 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           </button>
           <button
             type="button"
-            className="trk-noqab"
+            className={`trk-noqab${justRecorded === "noqab" ? " is-recorded" : ""}`}
             onClick={() => commit([])}
             disabled={!canWrite || noteTooLong}
+            aria-disabled={justRecorded ? "true" : undefined}
           >
+            {justRecorded === "noqab" && <span className="trk-noqab-check" aria-hidden="true">✓</span>}
             No QAB
           </button>
+          <span className="visually-hidden" role="status">
+            {justRecorded === "noqab" ? "No QAB recorded" : ""}
+          </span>
         </div>
         {/* The line keeps its space once a reason is chosen, so nothing below
             it moves in the middle of a game. */}
@@ -1165,6 +1184,15 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         {live.length === 0 ? (
           <p className="trk-none">No plate appearances recorded yet.</p>
         ) : (
+          <>
+          {/* One grid for every row: Player | PA | QAB result. The PA and result
+              columns are fixed, so a long name wraps inside its own column and
+              never moves the labels beside it. */}
+          <div className="trk-hist-cols" aria-hidden="true">
+            <span>Player</span>
+            <span>PA</span>
+            <span>QAB result</span>
+          </div>
           <ul>
             {[...live]
               .sort((a, b) => (b.localSeq ?? 0) - (a.localSeq ?? 0))
@@ -1193,6 +1221,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
                 </li>
               ))}
           </ul>
+          </>
         )}
       </section>
       )}
