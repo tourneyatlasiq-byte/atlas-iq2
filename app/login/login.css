@@ -1,0 +1,95 @@
+/* Sign-in screen, Volt treatment (2026-11).
+   The login page sits outside the app shell, so it does not receive html.volt.
+   Everything here is scoped under .lg and uses literal Volt values, the same
+   ones as app/volt.css: ink on a light base, Schibsted Grotesk for the title,
+   Inter Tight for body, the lime accent on the one primary action only.
+   Presentation only: the sign-in method, redirects and access rules are in page.js
+   and lib/auth-redirect.js and are unchanged. */
+
+.lg {
+  --lg-ink: #0c0f14; --lg-body: #3b4350; --lg-muted: #626b79; --lg-line: #e4e7ec; --lg-strong: #d3d8df;
+  --lg-bg: #f6f7f9; --lg-volt: #d2ff3d; --lg-volt-hover: #c3f52a;
+  --lg-err: #c21b3a; --lg-err-t: #ffe8ec; --lg-ok: #067a4b; --lg-ok-t: #e5f8ee;
+  min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px; background: var(--lg-bg); color: var(--lg-body);
+  font-family: var(--font-inter-tight), "Inter Tight", "Helvetica Neue", Arial, sans-serif;
+}
+.lg :focus-visible { outline: 2.5px solid var(--lg-ink); outline-offset: 2px; }
+.lg .login-box { max-width: 420px; width: 100%; }
+
+.lg-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 22px; color: var(--lg-ink); }
+.lg-brand svg { display: block; width: 40px; height: 40px; }
+.lg-brand svg rect, .lg-brand svg circle { fill: var(--lg-ink); }
+.lg-brand svg circle:last-of-type { fill: var(--lg-volt); stroke: var(--lg-ink); stroke-width: 3; }
+.lg-word { font: 800 24px/1 var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif; letter-spacing: -0.02em; color: var(--lg-ink); }
+
+.lg .login-title {
+  margin: 0 0 8px; text-align: center; color: var(--lg-ink);
+  font: 800 30px/1.08 var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif; letter-spacing: -0.035em;
+}
+.lg .login-tag { margin: 0 0 22px; text-align: center; font-size: 15px; line-height: 1.55; color: var(--lg-muted); }
+
+.lg .card {
+  border: 0; border-radius: 20px; background: #fff; padding: 22px 20px;
+  box-shadow: 0 1px 2px rgba(12, 15, 20, 0.06), 0 8px 24px -12px rgba(12, 15, 20, 0.14);
+}
+
+.lg .field { margin: 0; }
+.lg .field label { display: block; margin: 0 0 6px; font-size: 13.5px; font-weight: 600; color: var(--lg-ink); }
+.lg .field input {
+  width: 100%; box-sizing: border-box; min-height: 48px; padding: 10px 14px; font: inherit; font-size: 16px;
+  color: var(--lg-ink); background: #fff; border: 0; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--lg-strong);
+}
+.lg .field input::placeholder { color: #8a93a1; }
+.lg .field input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--lg-ink); }
+.lg .field input[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--lg-err); }
+.lg .field-error { margin: 6px 0 0; font-size: 13.5px; font-weight: 500; color: var(--lg-err); }
+.lg .field-note { margin: 6px 0 0; font-size: 13px; color: var(--lg-muted); }
+
+.lg .btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 18px;
+  border-radius: 12px; border: 0; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer;
+  transition: background 120ms, box-shadow 120ms, transform 80ms;
+}
+.lg .btn:active:not(:disabled) { transform: scale(0.98); }
+.lg .btn:disabled { cursor: default; opacity: 0.6; }
+.lg .btn-primary { background: var(--lg-volt); color: var(--lg-ink); box-shadow: inset 0 -2px 0 rgba(12, 15, 20, 0.12); }
+.lg .btn-primary:hover:not(:disabled) { background: var(--lg-volt-hover); }
+.lg .btn-secondary { background: #fff; color: var(--lg-ink); box-shadow: inset 0 0 0 1px var(--lg-strong); }
+.lg .btn-secondary:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--lg-ink); }
+.lg .btn-ghost { background: transparent; color: var(--lg-ink); text-decoration: underline; text-decoration-color: var(--lg-strong); text-underline-offset: 4px; }
+.lg .btn-ghost:hover:not(:disabled) { text-decoration-color: var(--lg-ink); }
+
+/* Feedback. Colour always comes with words, and screen readers are told. */
+.lg .alert { margin: 0 0 14px; padding: 12px 14px; border: 0; border-radius: 12px; font-size: 14px; line-height: 1.5; font-weight: 500; }
+.lg .alert-error { background: var(--lg-err-t); color: var(--lg-err); }
+.lg .login-note { margin: 12px 0 0; padding: 0; font-size: 13.5px; font-weight: 600; color: var(--lg-ok); text-align: center; }
+.lg .login-hint { margin: 12px 0 0; font-size: 13px; color: var(--lg-muted); text-align: center; }
+
+.lg .login-sent-title { margin: 0 0 6px; font: 800 22px/1.15 var(--font-schibsted), "Schibsted Grotesk", Arial, sans-serif; letter-spacing: -0.025em; color: var(--lg-ink); }
+.lg .login-sent-body { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--lg-body); }
+.lg .login-sent-body strong { color: var(--lg-ink); overflow-wrap: anywhere; }
+.lg .login-code { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--lg-line); }
+.lg .login-code input { letter-spacing: 0.18em; font-variant-numeric: tabular-nums; }
+.lg .login-code .btn { width: 100%; margin-top: 12px; }
+.lg .login-sent-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.lg .login-resent { margin: 14px 0 0; font-size: 13.5px; font-weight: 600; line-height: 1.5; color: var(--lg-ok); }
+.lg .login-sent-actions + .alert, .lg #resend-error { margin-top: 14px; margin-bottom: 0; }
+.lg .login-sent-actions .btn { flex: 1 1 auto; }
+
+.lg .login-legal { margin: 16px 0 0; text-align: center; font-size: 13px; line-height: 1.65; color: var(--lg-muted); }
+.lg .login-legal a, .lg .login-alt a {
+  color: var(--lg-ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--lg-strong); text-underline-offset: 4px;
+}
+.lg .login-legal a:hover, .lg .login-alt a:hover { text-decoration-color: var(--lg-ink); }
+.lg .login-alt { margin: 14px 0 0; text-align: center; font-size: 14px; color: var(--lg-body); }
+
+@media (max-width: 420px) {
+  .lg { align-items: flex-start; padding-top: 28px; }
+  .lg .login-title { font-size: 27px; }
+  .lg .card { padding: 18px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg .btn { transition: none; }
+  .lg .btn:active:not(:disabled) { transform: none; }
+}

@@ -55,7 +55,7 @@ export function QabPerformanceReport({ report, scopeControl = null, from = null 
           (RPT-04) sits here; the Season document below is unchanged. */}
       <ReportToolbar name="QAB Performance" from={from} controls={scopeControl} notes={legacyReasonNote(reasonsCited, summary.qab)} />
 
-      <article className="rpt-page">
+      <article className="rpt-page qab-volt">
         <header className="rpt-head">
           <div className="rpt-head-row">
             <div className="rpt-head-identity">

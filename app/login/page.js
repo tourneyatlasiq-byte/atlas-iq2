@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
-import { LogoLockup } from "../../components/SeasonTempoLogo";
+import { LogoMark } from "../../components/SeasonTempoLogo";
+import "./login.css";
 import { SUPPORT_EMAIL } from "../../lib/legal";
 import {
   safeNext,
@@ -54,6 +55,9 @@ const COPY = {
   },
 };
 
+// A shape check only (something@something.tld); Supabase decides whether the address can sign in.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function LoginForm() {
   const searchParams = useSearchParams();
   // Only a same-site path is ever carried through the link (see auth-redirect).
@@ -70,9 +74,17 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
+  // Only a malformed address marks the email field. A failed or expired link is a page-level message.
+  const [emailError, setEmailError] = useState(null);
   const [code, setCode] = useState("");
   const [codeStatus, setCodeStatus] = useState("idle");
   const [codeError, setCodeError] = useState(null);
+  // Resend lives on the "Check your email" screen and has its own state, so
+  // the screen never disappears while a new email is being requested. The ref
+  // blocks a second request on a fast double click before React re-renders.
+  const [resendStatus, setResendStatus] = useState("idle");
+  const [resendError, setResendError] = useState(null);
+  const resendLock = useRef(false);
 
   /**
    * The sign-in code in the same email (2026-11). Unlike the link, a code is
@@ -102,13 +114,10 @@ function LoginForm() {
     window.location.assign(next ?? "/dashboard");
   }
 
-  async function sendLink(e) {
-    e.preventDefault();
-    setStatus("sending");
-    setError(null);
-
+  /** The one place a sign-in email is requested. Same call for first send and resend. */
+  function requestSignInEmail() {
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
+    return supabase.auth.signInWithOtp({
       email,
       options: {
         // Carries the intended destination through the link. Without it an
@@ -119,20 +128,60 @@ function LoginForm() {
           (next ? `?next=${encodeURIComponent(next)}` : ""),
       },
     });
+  }
+
+  async function sendLink(e) {
+    e.preventDefault();
+    setError(null);
+    if (!EMAIL_SHAPE.test(email.trim())) {
+      setEmailError("Enter a valid email address, like coach@example.com.");
+      return;
+    }
+    setEmailError(null);
+    setStatus("sending");
+
+    const { error } = await requestSignInEmail();
 
     if (error) {
       setError(error.message);
       setStatus("idle");
     } else {
+      setResendError(null);
+      setResendStatus("idle");
       setStatus("sent");
     }
   }
 
+  async function resend() {
+    if (resendLock.current) return;
+    resendLock.current = true;
+    setResendStatus("sending");
+    setResendError(null);
+
+    const { error } = await requestSignInEmail();
+
+    resendLock.current = false;
+    if (error) {
+      // Stay on this screen. Whatever the person already typed is kept.
+      setResendError(error.message);
+      setResendStatus("idle");
+      return;
+    }
+    // A new email carries a new code, so the old entry can no longer be right.
+    setCode("");
+    setCodeError(null);
+    setCodeStatus("idle");
+    setResendStatus("resent");
+  }
+
   return (
-    <div className="login-wrap">
+    <div className="login-wrap lg">
       <div className="login-box">
         <div className="login-brand">
-          <LogoLockup size={44} tone="navy" />
+          <span className="lg-brand">
+            <LogoMark size={40} tone="mono" />
+            <span className="lg-word">Season Tempo</span>
+          </span>
         </div>
 
         <h1 className="login-title">{copy.title}</h1>
@@ -140,7 +189,7 @@ function LoginForm() {
 
         <div className="card">
           {status === "sent" ? (
-            <div>
+            <div role="status" aria-live="polite">
               {/* A new sending domain means links can be slow or spam-filed.
                   Saying so up front costs nothing and prevents the coach
                   concluding the product is broken. */}
@@ -165,6 +214,7 @@ function LoginForm() {
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
+                    aria-invalid={codeError ? "true" : undefined}
                     pattern="[0-9]*"
                     maxLength={12}
                     value={code}
@@ -184,20 +234,37 @@ function LoginForm() {
                 </button>
               </form>
 
+              {resendError && (
+                <div className="alert alert-error" role="alert" id="resend-error">
+                  {resendError}
+                </div>
+              )}
+              {resendStatus === "resent" && (
+                <p className="login-resent">
+                  A new link and code are on the way. The earlier ones no longer work.
+                </p>
+              )}
+
               <div className="login-sent-actions">
                 <button
+                  type="button"
                   className="btn btn-secondary"
-                  disabled={status === "sending"}
-                  onClick={() => sendLink({ preventDefault() {} })}
+                  disabled={resendStatus === "sending"}
+                  aria-busy={resendStatus === "sending" ? "true" : undefined}
+                  aria-describedby={resendError ? "resend-error" : undefined}
+                  onClick={resend}
                 >
-                  Resend link
+                  {resendStatus === "sending" ? "Sending…" : "Resend link"}
                 </button>
                 <button
+                  type="button"
                   className="btn btn-ghost"
                   onClick={() => {
                     setStatus("idle");
                     setCode("");
                     setCodeError(null);
+                    setResendError(null);
+                    setResendStatus("idle");
                   }}
                 >
                   Use a different email
@@ -205,9 +272,9 @@ function LoginForm() {
               </div>
             </div>
           ) : (
-            <form onSubmit={sendLink}>
+            <form onSubmit={sendLink} noValidate>
               {error ? (
-                <div className="alert alert-error">{error}</div>
+                <div className="alert alert-error" role="alert">{error}</div>
               ) : (
                 linkError && <div className="alert alert-error" role="alert">{linkError}</div>
               )}
@@ -220,10 +287,18 @@ function LoginForm() {
                   required
                   autoFocus
                   autoComplete="email"
+                  aria-invalid={emailError ? "true" : undefined}
+                  aria-describedby={emailError ? "email-error" : undefined}
                   placeholder="coach@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(null);
+                  }}
                 />
+                {emailError && (
+                  <p id="email-error" className="field-error" role="alert">{emailError}</p>
+                )}
               </div>
 
               <button

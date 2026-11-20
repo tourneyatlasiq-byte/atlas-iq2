@@ -70,6 +70,7 @@ Module._load = function (request, parent, ...rest) {
 };
 const swc = require("next/dist/build/swc");
 const OPTS = { jsc: { parser: { syntax: "ecmascript", jsx: true }, transform: { react: { runtime: "automatic" } }, target: "es2020" }, module: { type: "commonjs" } };
+Module._extensions[".css"] = () => {}; // the login page now imports its stylesheet; node needs no CSS
 const origJs = Module._extensions[".js"];
 Module._extensions[".js"] = function (m, filename) {
   if (filename.includes(`${path.sep}node_modules${path.sep}`)) return origJs(m, filename);

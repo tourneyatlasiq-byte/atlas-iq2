@@ -44,7 +44,9 @@ const cellClass = (c) => (c == null ? "qab-gbg-none" : "");
 const EN = "\u2013";
 // Reason mix segment colours, in legend order. The legend (label, count, share)
 // carries every reading; colour only repeats it.
-const MIX_COLORS = ["#0b2341", "#2f80ed", "#8fb8f5", "#1b8a8f", "#475569", "#a9bfd6", "#7fc8c4", "#8a5a00"];
+// Ink ramp (dark to light): every step stays distinguishable in a grayscale print, and the legend still carries
+// label, count and share on every row, so no reading depends on shade.
+const MIX_COLORS = ["#0c0f14", "#343b47", "#5b6472", "#818997", "#a6adb8", "#c6cbd3", "#dde0e5", "#eef0f3"];
 
 const recordText = (r) => `${r.w}${EN}${r.l}${r.t > 0 ? `${EN}${r.t}` : ""}`;
 
@@ -96,7 +98,7 @@ export function QabTournamentReport({ report, scopeControl = null, from = null }
         notes={[...(notes ?? []), ...legacyReasonNote(reasonsCited, summary.qab)]}
       />
 
-      <article className="rpt-page qab-tournament">
+      <article className="rpt-page qab-tournament qab-volt">
         <header className="rpt-head">
           <div className="rpt-head-row">
             <div className="rpt-head-identity">
@@ -272,6 +274,11 @@ export function QabTournamentReport({ report, scopeControl = null, from = null }
                 </tbody>
               </table>
             </section>
+
+            {/* Print only. The player tables start page two on purpose; this line says whose report it is. */}
+            <p className="qab-cont" aria-hidden="true">
+              {[team.name ?? organization.name, tournament.name, "QAB Performance, continued"].filter(Boolean).join(" \u00b7 ")}
+            </p>
 
             <section className="rpt-section">
               <p className="rpt-h">Player tournament totals</p>

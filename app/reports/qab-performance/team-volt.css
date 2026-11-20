@@ -1,0 +1,108 @@
+/* --- Volt treatment for the Team reports (2026-11) ---------------------------
+   Season and Tournament only (.qab-volt). Season Budget and Tournament Schedule
+   share report.css and are untouched. Same language as the Individual Player
+   report: Schibsted Grotesk for title and figures, Inter Tight for body, ink on
+   white, plain sentence-case headings, no colour emphasis. Type sizes are never
+   reduced; print space comes from margins and row padding only. */
+
+.qab-volt {
+  --qv-ink: #0c0f14; --qv-body: #262b34; --qv-muted: #626b79;
+  --qv-line: #e4e7ec; --qv-strong: #d3d8df; --qv-sunk: #eef0f3; --qv-band: #f6f7f9;
+  color: var(--qv-body);
+  font-family: var(--font-inter-tight), "Inter Tight", "Helvetica Neue", Arial, sans-serif;
+}
+.qab-volt .rpt-head { border-bottom: 1px solid var(--qv-strong); padding-bottom: 14px; margin-bottom: 20px; }
+.qab-volt .rpt-org { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--qv-muted); }
+.qab-volt .rpt-team { font-size: 15px; color: var(--qv-body); }
+.qab-volt .rpt-doc-title {
+  margin: 10px 0 0; font: 800 30px/1.05 var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.03em; color: var(--qv-ink);
+}
+.qab-volt .rpt-doc-meta { margin: 6px 0 0; font-size: 13.5px; color: var(--qv-muted); }
+.qab-volt .rpt-h {
+  margin: 0 0 6px; font: 800 17px/1.2 var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.02em; text-transform: none; color: var(--qv-ink);
+}
+.qab-volt .rpt-card .rpt-h, .qab-volt .qab-ts-grid .rpt-h { font-size: 13px; font-weight: 700; letter-spacing: 0; color: var(--qv-muted); }
+
+.qab-volt .qab-hero, .qab-volt .qab-ts-fig {
+  font-variant-numeric: normal;
+  font-family: var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.035em; color: var(--qv-ink);
+}
+.qab-volt .qab-facts li { color: var(--qv-muted); }
+.qab-volt .qab-facts strong, .qab-volt .qab-ts-cmp-val, .qab-volt .qab-ts-hl strong { color: var(--qv-ink); }
+.qab-volt .qab-ts-sub, .qab-volt .qab-ts-cmp-val span, .qab-volt .qab-note, .qab-volt .qab-ts-scope { color: var(--qv-muted); }
+.qab-volt .qab-ts-cmp { background: #fff; border-color: var(--qv-line); border-radius: 12px; }
+.qab-volt .rpt-card { border-color: var(--qv-line); border-radius: 12px; background: #fff; }
+.qab-volt .qab-ts-days .d, .qab-volt .qab-ts-days .n, .qab-volt .qab-ts-cmp-row, .qab-volt .qab-ts-hl { color: var(--qv-body); }
+.qab-volt .qab-ts-days .n { color: var(--qv-muted); }
+.qab-volt .qab-ts-days li + li, .qab-volt .qab-ts-cmp-row + .qab-ts-cmp-row { border-top-color: var(--qv-line); }
+
+/* Tables: quiet ink headings, a hairline under every row, light banding that survives a print. */
+.qab-volt .qab-table { border-collapse: collapse; }
+.qab-volt .qab-table th {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .06em; color: var(--qv-muted);
+  padding: 0 10px 8px; border-bottom: 1px solid var(--qv-strong);
+}
+.qab-volt .qab-table td { padding: 8px 10px; font-size: 13.5px; color: var(--qv-ink); border-bottom: 1px solid var(--qv-line); }
+.qab-volt .qab-table th:last-child, .qab-volt .qab-table td:last-child { padding-right: 10px; }
+.qab-volt .qab-table tbody tr:nth-child(even) td { background: var(--qv-band); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.qab-volt .qab-table .qab-c-date, .qab-volt .qab-table td.qab-c-gn, .qab-volt .qab-time { color: var(--qv-muted); }
+.qab-volt .qab-strong { font-weight: 800; }
+.qab-volt .qab-gbg-matrix td.qab-gbg-none { color: #8a93a1; }
+
+/* Win / Loss: ink outline and weight, no colour. The word carries it, so a grayscale print reads the same. */
+.qab-volt .qab-res { font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #fff; color: var(--qv-ink); border: 1px solid var(--qv-strong); }
+.qab-volt .qab-res-w { background: var(--qv-ink); border-color: var(--qv-ink); color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.qab-volt .qab-score { color: var(--qv-muted); }
+
+/* Ink bars. The track is a light gray and the fill is solid ink, so length reads in grayscale. */
+.qab-volt .qab-reason-bar { background: var(--qv-sunk); height: 10px; }
+.qab-volt .qab-reason-bar > span { background: var(--qv-ink); }
+.qab-volt .qab-reasons li { font-size: 13.5px; color: var(--qv-ink); padding: 4px 0; }
+.qab-volt .qab-reason-pct, .qab-volt .qab-mix-p { color: var(--qv-muted); }
+.qab-volt .qab-mix-bar { background: var(--qv-sunk); height: 14px; }
+.qab-volt .qab-mix-legend li { font-size: 13.5px; color: var(--qv-ink); }
+.qab-volt .qab-mix-sw { border: 1px solid rgba(12,15,20,.15); }
+
+.qab-volt .rpt-foot { border-top-color: var(--qv-line); color: var(--qv-muted); font-size: 12px; }
+.qab-volt .qab-none { color: var(--qv-body); }
+
+/* Print-only identification at the top of page two. */
+.qab-cont { display: none; }
+
+@media print {
+  /* Space only, never type: page margins, rules between blocks and row padding. */
+  .rpt-page.qab-volt { padding: 0.42in 0.55in 0.4in; }
+  .qab-volt .rpt-head { margin-bottom: 12px; padding-bottom: 8px; }
+  .qab-volt .rpt-doc-title { margin-top: 6px; }
+  .qab-volt .rpt-doc-meta { margin-top: 4px; }
+  .qab-volt .rpt-section { margin-bottom: 10px; }
+  .qab-volt .rpt-h { margin-bottom: 4px; }
+  .qab-volt .qab-table td { padding: 4px 10px; }
+  .qab-volt .qab-table th { padding: 0 10px 5px; }
+  .qab-volt .qab-reasons li { padding: 1px 0; }
+  .qab-volt .qab-note { margin-bottom: 6px; }
+  .qab-volt .qab-reason-bar, .qab-volt .qab-reason-bar > span, .qab-volt .qab-mix-bar, .qab-volt .qab-mix-seg, .qab-volt .qab-mix-sw {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .qab-volt .rpt-foot { margin-top: 10px; padding-top: 8px; }
+
+  /* Tournament: the summary and QAB% by game are page one; the player tables are page two on purpose,
+     with a line saying whose report it is. Longer rosters carry on to further pages with repeated headings. */
+  .qab-cont {
+    display: block; break-before: page; margin: 0 0 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--qv-strong); font-size: 12.5px; font-weight: 700; color: var(--qv-muted);
+  }
+}
+
+/* Phone: the 10px side padding that suits a page is too wide for a 390px screen, so tables give the room
+   back (space only; type is unchanged) and nothing scrolls sideways. */
+@media screen and (max-width: 560px) {
+  .qab-volt .qab-table th, .qab-volt .qab-table td { padding-left: 4px; padding-right: 6px; }
+  .qab-volt .qab-table th:first-child, .qab-volt .qab-table td:first-child { padding-left: 2px; }
+  .qab-volt .qab-table th:last-child, .qab-volt .qab-table td:last-child { padding-right: 2px; }
+  .qab-volt .qab-t-games th, .qab-volt .qab-t-games td { padding-right: 4px; }
+  .qab-volt .rpt-doc-title { font-size: 26px; }
+}

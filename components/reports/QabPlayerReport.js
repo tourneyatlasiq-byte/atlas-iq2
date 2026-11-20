@@ -1,6 +1,7 @@
 "use client";
 
 import { ReportToolbar } from "./ReportToolbar";
+import { PrintTips } from "./PrintTips";
 import { formatQabPct } from "../../lib/qab-rules";
 import { cssString } from "../../lib/qab-player-rules";
 
@@ -24,15 +25,9 @@ import { cssString } from "../../lib/qab-player-rules";
 // formatQabPct already carries the % sign and prints a dash for no plate appearances.
 const pct = formatQabPct;
 const sharePct = (v) => (v == null ? "" : formatQabPct(v));
-const COVERAGE =
-  "Recorded plate appearances only; untracked games are not treated as zero. Games where this player did not bat are not listed.";
+const COVERAGE = "Recorded plate appearances only; untracked games are excluded.";
 const OUTSIDE_NOTE =
   "A game marked outside tournament dates is linked to this tournament but dated outside its dates. It is included because of that link.";
-const FOOTER =
-  "Quality at-bat (QAB) figures come from plate appearances recorded in Season Tempo; each QAB is counted under one primary reason.";
-const PRINT_HELP =
-  "For best results, use Chrome, choose Save as PDF or your printer, set Margins to Default, and leave Headers and footers off. Page numbers and the running header are designed for the Default margin setting.";
-
 function fmtGenerated(iso) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -53,10 +48,7 @@ export function QabPlayerReport({ report, scopeControl = null, from = null }) {
     <div className="rpt-shell">
       <ReportToolbar from={from} name="QAB Player Report" controls={scopeControl} notes={notes}>
         {/* Collapsed so the player's information starts sooner on a phone. Screen only: it sits in the toolbar. */}
-        <details className="qp-tips">
-          <summary>Print tips</summary>
-          <p className="qp-help">{PRINT_HELP}</p>
-        </details>
+        <PrintTips />
       </ReportToolbar>
 
       {/* The running header cannot read the page, so it is written here with the
@@ -171,8 +163,6 @@ export function QabPlayerReport({ report, scopeControl = null, from = null }) {
             </section>
           </>
         )}
-
-        <p className="qp-foot">{FOOTER}</p>
       </article>
     </div>
   );
