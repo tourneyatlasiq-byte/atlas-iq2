@@ -145,11 +145,11 @@ export default async function PerformancePage({ searchParams } = {}) {
             )}
           </section>
 
-          <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} />
+          <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} canOpenPlayerReport={canWrite(profile)} />
         </>
       )}
 
-      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} />}
+      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} canOpenPlayerReport={canWrite(profile)} />}
     </div>
   );
 }

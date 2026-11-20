@@ -85,10 +85,11 @@ const EXPECTED = {
     "app/(app)/dashboard/page.js": 1,
     "app/(app)/facilities/page.js": 1, "app/(app)/files/page.js": 1,
     "app/(app)/finance/page.js": 1, "app/(app)/help/access.js": 1, "app/(app)/layout.js": 1,
-    "app/(app)/performance/page.js": 1, "app/(app)/team/page.js": 1,
+    // RPT-002 (2026-11): Performance offers "Player report" only to roles allowed to open it (+2); the coach-only player report page refuses other roles (2).
+    "app/(app)/performance/page.js": 3, "app/(app)/team/page.js": 1,
     "app/(app)/tournaments/[tournamentId]/games/[gameId]/lineup/page.js": 1,
     "app/(app)/tournaments/[tournamentId]/games/[gameId]/track/page.js": 1,
-    "app/(app)/tournaments/page.js": 1, "app/review/page.js": 1, "lib/actions/contacts.js": 1,
+    "app/(app)/tournaments/page.js": 1, "app/reports/qab-player/page.js": 2, "app/review/page.js": 1, "lib/actions/contacts.js": 1,
     "lib/actions/documents.js": 1, "lib/actions/facilities.js": 2, "lib/actions/finance.js": 1,
     "lib/actions/games.js": 1, "lib/actions/intake.js": 1, "lib/actions/lineup.js": 1,
     "lib/actions/participants.js": 1, "lib/actions/places.js": 1, "lib/actions/plate-appearances.js": 1,

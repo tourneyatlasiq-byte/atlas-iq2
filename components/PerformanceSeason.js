@@ -98,7 +98,7 @@ function LineupContribution({ game }) {
   );
 }
 
-export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record, gameLinkLabel = null }) {
+export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record, gameLinkLabel = null, canOpenPlayerReport = false }) {
   const [view, setView] = useState("team");
   const [allReasons, setAllReasons] = useState(false);
   const [openGame, setOpenGame] = useState(null);
@@ -157,7 +157,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
           </span>
         </button>
 
-        {open && <PlayerDetail player={p} />}
+        {open && <PlayerDetail player={p} canOpenPlayerReport={canOpenPlayerReport} />}
       </li>
     );
   }
@@ -771,7 +771,7 @@ export function QabTrend({ games, seasonPct }) {
  * three to six games and single-figure plate appearances, any such label would
  * be an interpretation the data cannot carry. The panel states the numbers.
  */
-function PlayerDetail({ player }) {
+function PlayerDetail({ player, canOpenPlayerReport = false }) {
   // Already derived by getSeasonPerformance. This component renders; it does
   // not recompute business figures.
   const history = player.history ?? [];
@@ -795,6 +795,16 @@ function PlayerDetail({ player }) {
             <strong>{history.length}</strong> {history.length === 1 ? "game" : "games"} with a PA
           </span>
         </div>
+
+        {/* Coach-facing report for this player. A secondary link, never the
+            screen's one primary action. Offered only to roles allowed to open it. */}
+        {canOpenPlayerReport && player.pa > 0 && (
+          <p className="pd-report">
+            <Link className="btn btn-secondary" href={`/reports/qab-player?player=${encodeURIComponent(player.playerId)}&from=performance`}>
+              Player report
+            </Link>
+          </p>
+        )}
 
         {recent && (
           <p className="pd-recent">

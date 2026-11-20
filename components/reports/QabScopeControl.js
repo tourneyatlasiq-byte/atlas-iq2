@@ -7,11 +7,15 @@ import { withFrom } from "../../lib/report-back";
 export const QAB_REPORT_PATH = "/reports/qab-performance";
 
 /** The address of a scope. Season is the report's plain address. Keeps the screen the report was opened from. */
-export function qabScopeHref(tournamentId, from = null) {
+export function qabScopeHref(tournamentId, from = null, base = null) {
+  // The individual player report is the same control over its own address,
+  // with its player kept in the query. Plain strings, so it crosses from the
+  // server page to this client component.
+  const path = base?.path ?? QAB_REPORT_PATH;
+  const lead = base?.player ? `${path}?player=${encodeURIComponent(base.player)}` : path;
+  const join = lead.includes("?") ? "&" : "?";
   return withFrom(
-    tournamentId
-      ? `${QAB_REPORT_PATH}?scope=tournament&tournament=${encodeURIComponent(tournamentId)}`
-      : QAB_REPORT_PATH,
+    tournamentId ? `${lead}${join}scope=tournament&tournament=${encodeURIComponent(tournamentId)}` : lead,
     from
   );
 }
@@ -27,13 +31,14 @@ export function qabScopeHref(tournamentId, from = null) {
  * report, so a refresh, a bookmark or Back shows the same document. Only
  * tournaments with tracked plate appearances are offered.
  */
-export function QabScopeControl({ tournaments = [], selectedId = null, from = null }) {
+export function QabScopeControl({ tournaments = [], selectedId = null, from = null, base = null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   if (tournaments.length === 0) return null;
 
   const isTournament = Boolean(selectedId);
   const go = (href) => startTransition(() => router.push(href, { scroll: false }));
+  const href = (id) => qabScopeHref(id, from, base);
 
   return (
     <div className="rpt-detail qab-scope" aria-busy={pending || undefined}>
@@ -44,7 +49,7 @@ export function QabScopeControl({ tournaments = [], selectedId = null, from = nu
             type="button"
             className={`rpt-seg-btn${!isTournament ? " on" : ""}`}
             aria-pressed={!isTournament}
-            onClick={() => isTournament && go(qabScopeHref(null, from))}
+            onClick={() => isTournament && go(href(null))}
           >
             Season
           </button>
@@ -52,7 +57,7 @@ export function QabScopeControl({ tournaments = [], selectedId = null, from = nu
             type="button"
             className={`rpt-seg-btn${isTournament ? " on" : ""}`}
             aria-pressed={isTournament}
-            onClick={() => !isTournament && go(qabScopeHref(tournaments[0].id, from))}
+            onClick={() => !isTournament && go(href(tournaments[0].id))}
           >
             Tournament
           </button>
@@ -64,7 +69,7 @@ export function QabScopeControl({ tournaments = [], selectedId = null, from = nu
           <select
             className="qab-scope-select"
             value={selectedId}
-            onChange={(e) => go(qabScopeHref(e.target.value, from))}
+            onChange={(e) => go(href(e.target.value))}
           >
             {tournaments.map((t) => (
               <option key={t.id} value={t.id}>

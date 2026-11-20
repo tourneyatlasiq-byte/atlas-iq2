@@ -4491,6 +4491,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .pd-stat strong { font-size: 14px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
 
 /* A fact, not a verdict. No wording here implies a direction. */
+.pd-report { margin: 10px 0 0; }
 .pd-recent {
   margin: 0 0 8px; font-size: 12.5px; color: var(--slate);
   padding-bottom: 8px; border-bottom: 1px solid var(--border);

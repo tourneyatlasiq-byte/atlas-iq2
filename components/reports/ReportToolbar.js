@@ -55,6 +55,13 @@ export function ReportToolbar({ name, from = null, notes = [], controls = null, 
               <li key={i} className={n.action ? "rpt-note-item action" : "rpt-note-item"}>
                 {n.title && <strong>{n.title}. </strong>}
                 {n.message}
+                {/* Optional, only for a note that points at one record to fix. A normal link. */}
+                {n.href && n.linkLabel && (
+                  <>
+                    {" "}
+                    <Link href={n.href} className="rpt-note-link">{n.linkLabel}</Link>
+                  </>
+                )}
               </li>
             ))}
           </ul>
