@@ -63,12 +63,13 @@ ok("the hint reads 'Choose a reason first' while nothing is chosen, and keeps it
 ok("Record QAB points at the hint", tc.includes('aria-describedby={canWrite && selected.length === 0 ? "trk-save-hint" : undefined}'), true);
 
 section("D. sync status");
-ok("saved stays 'All saved'", tc.includes('const SYNCED = { tone: "ok", text: "All saved" };'), true);
+const ss = fs.readFileSync("lib/sync-status.js", "utf8");
+ok("saved stays 'All saved' (now defined in the one tested status module, never the starting value)", ss.includes('export const ALL_SAVED = { tone: "ok", text: "All saved" };') && !tc.includes("useState(SYNCED)"), true);
 ok("the queue states are unchanged (review, other account, failed, waiting)",
-  ["needs your review", "from another account on this device", "Sync failed", "waiting to sync"].every((t) => tc.includes(t)), true);
+  ["needs", "from another account on this device", "Sync failed", "waiting to sync"].every((t) => ss.includes(t)), true);
 ok("failed saves are announced as alerts, others as status", tc.includes('role={shownSync.tone === "bad" ? "alert" : "status"}'), true);
-ok("offline: an idle offline phone is not shown as 'All saved'", /!online && sync\.tone === "ok"/.test(tc) && tc.includes("Offline. At-bats you record are kept on this phone"), true);
-ok("offline never hides a failure or a review prompt (only ok and wait are rewritten)", /!online && sync\.tone === "wait"/.test(tc) && !/!online && sync\.tone === "bad"/.test(tc), true);
+ok("offline: an idle offline phone is not shown as 'All saved'", /online \? ALL_SAVED : \{/.test(ss) && ss.includes("Offline. At-bats you record are kept on this phone"), true);
+ok("offline never hides a failure or a review prompt (review and failure are decided before the offline wording)", ss.indexOf("status.review > 0") < ss.indexOf("Offline.") && ss.indexOf("status.failed > 0") < ss.indexOf("(offline)"), true);
 ok("the status strip keeps its Retry button for failed saves", /sync\.retry && \(\s*<button type="button" onClick=\{\(\) => sync_\(true\)\}>/.test(tc), true);
 ok("quiet saved style: no background; waiting and failed keep a tinted bar",
   /html\.volt \.trk-sync-ok \{[^}]*background: transparent/.test(css) && /html\.volt \.trk-sync-wait \{[^}]*background: var\(--due-t\)/.test(css) && /html\.volt \.trk-sync-bad \{[^}]*background: var\(--owed-t\)/.test(css), true);

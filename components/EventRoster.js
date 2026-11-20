@@ -2,6 +2,8 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { useMutation } from "./useMutation";
+import { SheetError } from "./StSheet";
+import { useToast } from "./Toaster";
 import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
 import { rosterSheetModel, submissionEntries } from "../lib/event-roster-selection";
@@ -39,6 +41,7 @@ export function EventRoster({
   // at-bats, the refusal carries where, so the coach can go straight there.
   const [blockers, setBlockers] = useState(null);
   const { run: runMutation, pending: pending } = useMutation();
+  const toast = useToast();
 
   // The drawer's next-step button bumps openSignal to open the roster sheet.
   useEffect(() => {
@@ -78,7 +81,7 @@ export function EventRoster({
         )}
       </div>
 
-      {error && editing !== "roster" && <RefusalNotice error={error} blockers={blockers} tournamentId={tournament.id} />}
+      {error && !editing && <RefusalNotice error={error} blockers={blockers} tournamentId={tournament.id} />}
 
       {rows.length === 0 ? (
         <div className="er-empty">
@@ -173,7 +176,11 @@ export function EventRoster({
           draft={draft}
           error={error}
           blockers={blockers}
-          onSubmit={(fd) => run(setEventRoster, fd, () => { setEditing(null); setDraft(null); })}
+          onSubmit={(fd) => run(setEventRoster, fd, () => {
+            setEditing(null);
+            setDraft(null);
+            toast(`Saved the roster for ${tournament.name}.`);
+          })}
           onCancel={() => { setEditing(null); setDraft(null); }}
           onAddPickup={(current) => { setDraft(current); setEditing("pickup"); }}
         />
@@ -187,7 +194,12 @@ export function EventRoster({
           seasonName={seasonName}
           pending={pending}
           // Returns to the roster sheet with the in-progress selection intact.
-          onSubmit={(fd) => run(addPickup, fd, () => setEditing(draft ? "roster" : null))}
+          error={error}
+          blockers={blockers}
+          onSubmit={(fd) => run(addPickup, fd, () => {
+            setEditing(draft ? "roster" : null);
+            toast(`Added a pickup player to ${tournament.name}.`);
+          })}
           onCancel={() => setEditing(draft ? "roster" : null)}
         />
       )}
@@ -320,7 +332,7 @@ function SetEventRosterSheet({
             <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
+            <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending || undefined}>
               {pending ? "Saving…" : "Save tournament roster"}
             </button>
           </div>
@@ -356,7 +368,7 @@ function RefusalNotice({ error, blockers, tournamentId }) {
  * Search-first, across every player in the organization rather than this
  * season's roster — reusing a returning pickup is the whole point.
  */
-function AddPickupSheet({ tournament, candidates, alreadyIn, seasonName, pending, onSubmit, onCancel }) {
+function AddPickupSheet({ tournament, candidates, alreadyIn, seasonName, pending, error = null, blockers = null, onSubmit, onCancel }) {
   const [query, setQuery] = useState("");
   const [chosen, setChosen] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -469,13 +481,14 @@ function AddPickupSheet({ tournament, candidates, alreadyIn, seasonName, pending
                   <input id="pk-pos" name="positions" placeholder="Optional" />
                 </div>
               </div>
+              <SheetError>{error && `${error} Everything you entered is still here.`}</SheetError>
             </div>
 
             <div className="modal-foot modal-foot-sticky">
               <button type="button" className="btn btn-secondary" onClick={() => setChosen(null)} disabled={pending}>
                 Back
               </button>
-              <button type="submit" className="btn btn-primary" disabled={pending}>
+              <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending || undefined}>
                 {pending ? "Adding…" : "Add pickup"}
               </button>
             </div>
@@ -503,13 +516,14 @@ function AddPickupSheet({ tournament, candidates, alreadyIn, seasonName, pending
                   <input id="pk-jersey2" name="jersey_number" type="number" min="0" placeholder="Optional" />
                 </div>
               </div>
+              <SheetError>{error && `${error} Everything you entered is still here.`}</SheetError>
             </div>
 
             <div className="modal-foot modal-foot-sticky">
               <button type="button" className="btn btn-secondary" onClick={() => setCreating(false)} disabled={pending}>
                 Back
               </button>
-              <button type="submit" className="btn btn-primary" disabled={pending}>
+              <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending || undefined}>
                 {pending ? "Adding…" : "Add pickup"}
               </button>
             </div>

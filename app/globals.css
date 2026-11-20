@@ -3329,6 +3329,9 @@ td.committed { color: var(--status-wait); font-weight: 600; }
   border-radius: var(--radius-control);
   font-size: 13px; color: #2f7d59;
 }
+/* An error shown in a notice must not look like a confirmation. Until Release 3 this
+   modifier had no rule, so every .notice-error rendered green. */
+.notice.notice-error { background: rgba(194, 27, 58, 0.08); border-color: rgba(194, 27, 58, 0.24); color: #b0182f; }
 
 /* ===== Player Payments on a phone =====
    The desktop row already carries the name, a paid-of-total sub-line and the

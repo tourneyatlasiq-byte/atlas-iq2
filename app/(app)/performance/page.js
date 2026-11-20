@@ -3,6 +3,7 @@ import { getContext } from "../../../lib/context";
 import { seasonGameLinkLabel } from "../../../lib/performance-links";
 import { getPerformanceOverview, getSeasonPerformance } from "../../../lib/queries/performance";
 import { HelpMenu } from "../../../components/HelpMenu";
+import { gameHref } from "../../../lib/game-flow-rules";
 import { PerformanceSeason } from "../../../components/PerformanceSeason";
 import { PerformanceTournamentPicker } from "../../../components/PerformanceTournamentPicker";
 import { FinalScoreFollowUp } from "../../../components/FinalScoreFollowUp";
@@ -145,11 +146,11 @@ export default async function PerformancePage({ searchParams } = {}) {
             )}
           </section>
 
-          <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} canOpenPlayerReport={canWrite(profile)} />
+          <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} canOpenPlayerReport={canWrite(profile)} scopeTournamentId={tournament?.id ?? null} />
         </>
       )}
 
-      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} canOpenPlayerReport={canWrite(profile)} />}
+      {!tournament && season.team.pa > 0 && <PerformanceSeason {...season} gameLinkLabel={gameLinkLabel} canOpenPlayerReport={canWrite(profile)} scopeTournamentId={tournament?.id ?? null} />}
     </div>
   );
 }
@@ -180,7 +181,10 @@ function QabGuide({ firstTime }) {
  * no basis for it, and a wrong label is worse than none.
  */
 function GameRow({ game, tournamentId }) {
-  const base = `/tournaments/${tournamentId}/games/${game.id}`;
+  // Opened from here, the tracker's Back returns here with this tournament
+  // still selected (Release 3).
+  const track = gameHref(tournamentId, game.id, "track", "performance", { scope: tournamentId });
+  const lineup = gameHref(tournamentId, game.id, "lineup");
 
   // Same three states as before. Nothing new is derived or invented — only the
   // wording and the rail tone change.
@@ -193,19 +197,19 @@ function GameRow({ game, tournamentId }) {
   if (game.completed) {
     ready = true;
     state = `✓ Tracking complete · ${game.plateAppearances} PA recorded`;
-    action = { href: `${base}/track`, label: "Review & Edit →" };
+    action = { href: track, label: "Review & Edit →" };
   } else if (game.plateAppearances > 0) {
     ready = true;
     state = `Batting order set · ${game.plateAppearances} PA recorded`;
-    action = { href: `${base}/track`, label: "Continue tracking →" };
+    action = { href: track, label: "Continue tracking →" };
   } else if (game.batters > 0) {
     ready = true;
     state = `Batting order set · ${game.batters} batting`;
-    action = { href: `${base}/track`, label: "Start QAB tracking →" };
+    action = { href: track, label: "Start QAB tracking →" };
   } else {
     ready = false;
     state = "Batting order needed";
-    action = { href: `${base}/lineup`, label: "Set batting order →" };
+    action = { href: lineup, label: "Set batting order →" };
   }
 
   return (

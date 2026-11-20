@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 /**
@@ -22,11 +22,34 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
  * stale, from another season, or blocked by RLS — a shared link degrades to the
  * normal page rather than erroring or hinting the record exists.
  */
-export function useOpenParam(rows) {
+/**
+ * Opt-in history hygiene (Release 3, BACK-002): `{ ownEntry: true }`.
+ *
+ *   - Opening a drawer adds one history entry; switching to another record
+ *     while one is open replaces it rather than stacking another.
+ *   - Closing a drawer this page opened goes BACK one step, so the entry it
+ *     added is removed and no duplicate same-address entry is left (the first
+ *     Back after X used to appear to do nothing).
+ *   - A drawer that arrived with ?open in the address (a link, a refresh) was
+ *     not opened here, so closing it replaces the address as before.
+ *
+ * Screens that manage their own history (Finance) do not pass it and behave
+ * exactly as before.
+ */
+export function useOpenParam(rows, { ownEntry = false } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const openId = params.get("open");
+  // True between "this page added (or re-pointed) the drawer's entry" and the
+  // moment the entry is marked. The mark lives on the history entry itself, so
+  // it survives a refresh and is never carried to an entry we did not add.
+  const justOpened = useRef(false);
+  useEffect(() => {
+    if (!ownEntry || !openId || !justOpened.current || typeof window === "undefined") return;
+    justOpened.current = false;
+    window.history.replaceState({ ...(window.history.state ?? {}), stOwn: true }, "", window.location.href);
+  }, [ownEntry, openId]);
 
   const detail = useMemo(() => {
     if (!openId) return null;
@@ -49,15 +72,28 @@ export function useOpenParam(rows) {
   const openDetail = useCallback(
     (row) => {
       if (!row?.id) return;
-      router.push(withOpen(row.id), { scroll: false });
+      const url = withOpen(row.id);
+      if (ownEntry && openId) {
+        // Switching records inside an open drawer: one entry for the drawer.
+        const wasOurs = typeof window !== "undefined" && Boolean(window.history.state?.stOwn);
+        router.replace(url, { scroll: false });
+        if (wasOurs) justOpened.current = true;
+        return;
+      }
+      router.push(url, { scroll: false });
+      if (ownEntry) justOpened.current = true;
     },
-    [router, withOpen]
+    [router, withOpen, ownEntry, openId]
   );
 
   // replace, so closing doesn't add a second history entry to step back through.
   const closeDetail = useCallback(() => {
+    if (ownEntry && typeof window !== "undefined" && window.history.state?.stOwn) {
+      router.back();
+      return;
+    }
     router.replace(withOpen(null), { scroll: false });
-  }, [router, withOpen]);
+  }, [router, withOpen, ownEntry]);
 
   return { detail, openDetail, closeDetail };
 }

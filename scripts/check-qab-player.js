@@ -147,7 +147,7 @@ console.log("F. Grouping and the outside-dates note");
   ok("tournament scope: one group titled by the tournament, scope line carries dates", [rt.groups.length, rt.groups[0].title, rt.scope.kind, rt.scope.tournament.name], [1, T2.name, "tournament", T2.name]);
   ok("a linked game dated outside the tournament is included and noted", [rt.games.map((g) => g.id), rt.notes.map((n) => /dated outside/.test(n.message))], [["g4"], [true]]);
   ok("the game itself is flagged so the printed report can say so; others are not", [rt.games.map((g) => g.outside), build(SEASON, "a").games.some((g) => g.outside)], [[true], false]);
-  ok("the outside-dates note links to that game once, as a normal link", [rt.notes[0].href, rt.notes[0].linkLabel], ["/tournaments/t2/games/g4/track", "Review game \u2192"]);
+  ok("the outside-dates note links to that game once, as a normal link that remembers the player report and its scope for Back (Release 3)", [rt.notes[0].href, rt.notes[0].linkLabel], ["/tournaments/t2/games/g4/track?from=player-report&player=a&scope=t2", "Review game \u2192"]);
   ok("no note when every game is inside the dates", build(T1_SCOPE, "a", { tournament: T1 }).notes.length, 0);
   ok("season scope does not raise the outside-dates note", r.notes.some((n) => /dated outside/.test(n.message)), false);
 }

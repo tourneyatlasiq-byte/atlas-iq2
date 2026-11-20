@@ -56,6 +56,14 @@ export function ReportToolbar({ name, from = null, notes = [], controls = null, 
                 {n.title && <strong>{n.title}. </strong>}
                 {n.message}
                 {/* Optional, only for a note that points at one record to fix. A normal link. */}
+                {/* Several records to review: one plain link each. */}
+                {Array.isArray(n.links) && n.links.length > 0 && (
+                  <span className="rpt-note-links">
+                    {n.links.map((l) => (
+                      <Link key={l.href} href={l.href} className="rpt-note-link">{l.label} &rarr;</Link>
+                    ))}
+                  </span>
+                )}
                 {n.href && n.linkLabel && (
                   <>
                     {" "}

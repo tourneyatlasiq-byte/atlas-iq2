@@ -15,12 +15,13 @@ import { claimEntry, markBackTap, readNavigation } from "../lib/back-context";
  * link. Never follows an arbitrary address: only the names in BACK_TARGETS are
  * accepted.
  */
-export function ContextBackLink({ from, fallbackHref, fallbackLabel, className = "back-link" }) {
-  const target = backTarget(from);
+export function ContextBackLink({ from, tournamentId = null, player = null, scope = null, fallbackHref, fallbackLabel, className = "back-link" }) {
+  const target = backTarget(from, { tournamentId, player, scope });
   const [fromHome, setFromHome] = useState(false);
   const claimed = useRef(false);
   useEffect(() => {
-    if (!target || claimed.current) return;
+    // Only Home keeps a scroll-restore record (BACK-001); the other names are plain links.
+    if (from !== "home" || !target || claimed.current) return;
     claimed.current = true; // effects can run twice in development; claim once
     try {
       const here = window.location.pathname + window.location.search;

@@ -82,7 +82,7 @@ console.log("C. Tournament scope and the note");
 const TS = { id: "t2", name: "Bash at the Lake", start_date: "2026-11-10", end_date: "2026-11-12" };
 const tr = render(mk({ tournament: TS }, { games: games.filter((g) => g.tournamentId === "t2"), players: [{ playerId: "a", name: "Ava", qab: 3, pa: 3, qabPct: 100, history: hist.filter((h) => h.gameId === "g4"), reasons: [{ label: "Walk", count: 3 }] }] }));
 ok("scope line carries the tournament and dates; one heading table", [text(tr).includes("QAB Player Report · Bash at the Lake · Nov 10"), (tr.match(/class="qp-tbl"/g) ?? []).length], [true, 1]);
-ok("the outside-dates note renders inside the toolbar with a Review game link", [/Game date to review/.test(tr), /href="\/tournaments\/t2\/games\/g4\/track"/.test(tr)], [true, true]);
+ok("the outside-dates note renders inside the toolbar with a Review game link", [/Game date to review/.test(tr), /href="\/tournaments\/t2\/games\/g4\/track\?from=player-report&amp;player=a&amp;scope=t2"/.test(tr)], [true, true]);
 
 {
   const printed = tr.slice(tr.indexOf("<article"));

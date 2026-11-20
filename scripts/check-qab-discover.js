@@ -163,9 +163,9 @@ Module._extensions[".css"] = () => {};
   ];
   const gs = renderToStaticMarkup(h(GamesSection, { tournament: t, games, canWrite: true, qabEnabled: true }));
   ok("a completed game says Review & Edit QABs and opens its tracker",
-    /href="\/tournaments\/t-fall\/games\/g-done\/track"[^>]*>Review &amp; Edit QABs</.test(gs), true);
+    /href="\/tournaments\/t-fall\/games\/g-done\/track(?:\?[^"]*)?"[^>]*>Review &amp; Edit QABs</.test(gs), true);
   ok("'View QABs' is gone", gs.includes("View QABs"), false);
-  ok("an in-progress game still says Continue QABs", /href="\/tournaments\/t-fall\/games\/g-live\/track"[^>]*>Continue QABs</.test(gs), true);
+  ok("an in-progress game still says Continue QABs", /href="\/tournaments\/t-fall\/games\/g-live\/track(?:\?[^"]*)?"[^>]*>Continue QABs</.test(gs), true);
   ok("a game with no lineup still goes to Set lineup", /href="\/tournaments\/t-fall\/games\/g-new\/lineup"[^>]*>Set lineup</.test(gs), true);
 
   section("C. Performance → Season games (the important one)");
@@ -180,12 +180,12 @@ Module._extensions[".css"] = () => {};
   const props = { team: { pa: 54, qab: 30, qabPct: 56, games: 3, players: 12, tournaments: 2 }, reasons: [], reasonsCited: 0, players: [], games: seasonGames, gamesCompleted: 2, record: { w: 1, l: 1, t: 0, winPct: 50, played: 2, total: 3 } };
   const ps = renderToStaticMarkup(h(PerformanceSeason, { ...props, gameLinkLabel: "Review & Edit →" }));
   ok("every tracked game in the season has its own Review & Edit link",
-    ["t-fall/games/g-old-1", "t-fall/games/g-old-2", "t-peach/games/g-now"].map((p) => ps.includes(`href="/tournaments/${p}/track"`)), [true, true, true]);
-  ok("…including last weekend's games when a newer tournament exists", ps.includes('href="/tournaments/t-fall/games/g-old-1/track"') && ps.includes("Peach State Showdown"), true);
+    ["t-fall/games/g-old-1", "t-fall/games/g-old-2", "t-peach/games/g-now"].map((p) => new RegExp(`href="/tournaments/${p}/track(\\?[^"]*)?"`).test(ps)), [true, true, true]);
+  ok("…including last weekend's games when a newer tournament exists", /href="\/tournaments\/t-fall\/games\/g-old-1\/track(\?[^"]*)?"/.test(ps) && ps.includes("Peach State Showdown"), true);
   ok("completed games say Review & Edit; the game still being tracked says Open tracker",
     [(ps.match(/Review &amp; Edit →/g) ?? []).length, (ps.match(/Open tracker →/g) ?? []).length], [2, 1]);
   ok("…and the in-progress label is on the in-progress game's own link",
-    /href="\/tournaments\/t-peach\/games\/g-now\/track"[^>]*>Open tracker →</.test(ps), true);
+    /href="\/tournaments\/t-peach\/games\/g-now\/track(?:\?[^"]*)?"[^>]*>Open tracker →</.test(ps), true);
   ok("each link's accessible name carries the label and the opponent",
     [ps.includes('aria-label="Open tracker: Peachtree Force"'), ps.includes('aria-label="Review &amp; Edit: Northside Thunder"')], [true, true]);
   ok("the header gets a matching empty column, so figures stay aligned", ps.includes('class="gm-head gm-head-link"'), true);

@@ -19,7 +19,7 @@ import { StSheet, SheetError, callAction, todayIso, useRefreshThen } from "./StS
  *
  * Callers pass canWrite; without it no action renders at all.
  */
-export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvailable = null, onEditDetails = null }) {
+export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvailable = null, onEditDetails = null, backClosesSheet = false }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(null);
@@ -54,7 +54,7 @@ export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvai
 
   const element = dialog ? (
     dialog.kind === "paid" ? (
-      <PaidDialog t={dialog.t} transactions={transactions} budgetLines={budgetLines}
+      <PaidDialog backClosesSheet={backClosesSheet} t={dialog.t} transactions={transactions} budgetLines={budgetLines}
         onEditDetails={(t) => (onEditDetails ? onEditDetails(t) : router.push(`/tournaments?open=${t.id}`))}
         onClose={() => setDialog(null)}
         onDone={(res) => {
@@ -70,7 +70,7 @@ export function useQuickStatus({ transactions = [], budgetLines = [], seasonAvai
           }); });
         }} />
     ) : (
-      <CommitDialog t={dialog.t} budgetLines={budgetLines} seasonAvailable={seasonAvailable}
+      <CommitDialog backClosesSheet={backClosesSheet} t={dialog.t} budgetLines={budgetLines} seasonAvailable={seasonAvailable}
         onClose={() => setDialog(null)}
         onDone={(res) => {
           const t = dialog.t;
@@ -117,7 +117,7 @@ function newKey() {
  * twice. If an unpaid (To Pay) entry exists, that entry is marked Paid, so the
  * money is never recorded a second time.
  */
-function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetails }) {
+function PaidDialog({ backClosesSheet = false, t, transactions, budgetLines, onClose, onDone, onEditDetails }) {
   const first = tournamentPayments(t, transactions);
   const expenseLines = budgetLines.filter((l) => !l.is_income);
   const key = useRef(newKey());
@@ -197,7 +197,7 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetai
   }
 
   return (
-    <StSheet eyebrow="Payment" title={`Mark ${t.name} paid in full?`} onClose={onClose} busy={saving} size="sm"
+    <StSheet eyebrow="Payment" title={`Mark ${t.name} paid in full?`} onClose={onClose} busy={saving} size="sm" closeWithBack={backClosesSheet}
       foot={<>
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
         <button type="button" className={`btn btn-primary${nothing && noCost ? " st-status-only" : ""}`} onClick={save} disabled={saving} data-autofocus>
@@ -279,7 +279,7 @@ function PaidDialog({ t, transactions, budgetLines, onClose, onDone, onEditDetai
   );
 }
 
-function CommitDialog({ t, budgetLines, seasonAvailable, onClose, onDone }) {
+function CommitDialog({ backClosesSheet = false, t, budgetLines, seasonAvailable, onClose, onDone }) {
   const line = budgetLines.find((l) => l.id === t.budget_item_id) ?? null;
   const cost = Number(t.total_cost ?? 0);
   const [err, setErr] = useState(null);
@@ -292,7 +292,7 @@ function CommitDialog({ t, budgetLines, seasonAvailable, onClose, onDone }) {
     setErr(res?.error ?? "Couldn't save. Nothing was changed.");
   }
   return (
-    <StSheet eyebrow="Decision" title={`Commit to ${t.name}?`} onClose={onClose} busy={saving} size="sm"
+    <StSheet eyebrow="Decision" title={`Commit to ${t.name}?`} onClose={onClose} busy={saving} size="sm" closeWithBack={backClosesSheet}
       foot={<>
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
         <button type="button" className="btn btn-primary" onClick={save} disabled={saving} data-autofocus>

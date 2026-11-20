@@ -3,6 +3,7 @@
 import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useGuardedOverlay } from "./useGuardedOverlay";
 
 /**
  * The sheet every Group 1 interaction opens in.
@@ -16,15 +17,22 @@ import { useRouter } from "next/navigation";
  * it is open and restored afterwards. Focus moves into the sheet on open and
  * back to whatever opened it on close.
  */
-export function StSheet({ eyebrow, title, onClose, back, children, foot, size = "md", busy = false, labelledBy = "st-sheet-title" }) {
+export function StSheet({ eyebrow, title, onClose, back, children, foot, size = "md", busy = false, labelledBy = "st-sheet-title", closeWithBack = false }) {
   const ref = useRef(null);
+  // Opt in (Tournaments and Team only): Back closes this sheet first, Close,
+  // Escape and the backdrop go through one door, and a sheet whose values
+  // differ from how it opened asks before discarding. Finance keeps its own
+  // history handling and does not pass this.
+  const guard = useGuardedOverlay({ onClose, enabled: closeWithBack, busy });
+  const close = closeWithBack ? guard.requestClose : onClose;
   const opener = useRef(null);
   useEffect(() => {
     opener.current = document.activeElement;
     const unlock = lockPageScroll();
     const f = ref.current?.querySelector("[data-autofocus]") ?? ref.current?.querySelector("h2");
     f?.focus?.({ preventScroll: true });
-    const onKey = (e) => { if (e.key === "Escape" && !busy) onClose?.(); };
+    // With closeWithBack the guard owns Escape (it may need to ask first).
+    const onKey = (e) => { if (e.key === "Escape" && !busy && !closeWithBack) onClose?.(); };
     document.addEventListener("keydown", onKey);
     return () => {
       unlock();
@@ -36,8 +44,8 @@ export function StSheet({ eyebrow, title, onClose, back, children, foot, size = 
   }, []);
 
   return (
-    <div className="modal-backdrop st-sheet-backdrop" role="presentation" onClick={busy ? undefined : onClose}>
-      <div ref={ref} className={`modal modal-sheet st-sheet st-sheet-${size}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop st-sheet-backdrop" role="presentation" onClick={busy ? undefined : close}>
+      <div ref={(el) => { ref.current = el; guard.ref.current = el; }} className={`modal modal-sheet st-sheet st-sheet-${size}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head st-sheet-head">
           <div className="st-sheet-titles">
             {back && (
@@ -49,12 +57,13 @@ export function StSheet({ eyebrow, title, onClose, back, children, foot, size = 
             {eyebrow && <span className="st-eyebrow">{eyebrow}</span>}
             <h2 id={labelledBy} tabIndex={-1}>{title}</h2>
           </div>
-          <button type="button" className="st-sheet-close" onClick={onClose} disabled={busy}>
+          <button type="button" className="st-sheet-close" onClick={close} disabled={busy}>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
             Close
           </button>
         </div>
         <div className="modal-body st-sheet-body">{children}</div>
+        {closeWithBack && guard.prompt}
         {foot && <div className="modal-foot modal-foot-sticky st-sheet-foot">{foot}</div>}
       </div>
     </div>

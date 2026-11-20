@@ -2,7 +2,7 @@ import "../season-budget/report.css";
 import "./schedule.css";
 import Link from "next/link";
 import { fromParam } from "../../../lib/report-back";
-import { getContext } from "../../../lib/context";
+import { getContext, canWrite } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
 import { tournamentScheduleReport } from "../../../lib/queries/reports/tournament-schedule";
 import { TournamentScheduleReport } from "../../../components/reports/TournamentScheduleReport";
@@ -49,7 +49,7 @@ export async function generateMetadata() {
  * note, contact or result can be printed by accident.
  */
 export default async function TournamentSchedulePage({ searchParams }) {
-  const { season } = await getContext();
+  const { season, profile } = await getContext();
 
   if (!season) {
     return (
@@ -63,7 +63,7 @@ export default async function TournamentSchedulePage({ searchParams }) {
     );
   }
 
-  const report = await tournamentScheduleReport(season.id);
+  const report = await tournamentScheduleReport(season.id, { reviewLinks: canWrite(profile) });
 
   if (!report) {
     return (

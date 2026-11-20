@@ -4,6 +4,9 @@ import { lockScroll as lockPageScroll } from "../lib/scrollLock";
 import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import { PageHelp } from "./PageHelp";
 import { useOpenParam } from "./useOpenParam";
+import { useGuardedOverlay } from "./useGuardedOverlay";
+import { SheetError } from "./StSheet";
+import { useToast } from "./Toaster";
 import { RelatedLink } from "./RelatedLink";
 import { addPickupToRoster } from "../lib/actions/participants";
 import { RosterImport } from "./RosterImport";
@@ -128,7 +131,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     [rows, pickups]
   );
 
-  const { detail, openDetail, closeDetail } = useOpenParam(openable);
+  const { detail, openDetail, closeDetail } = useOpenParam(openable, { ownEntry: true });
   useEffect(() => { if (!detail) openSections.current = { id: null, open: null }; }, [detail]);
 
   /**
@@ -210,8 +213,8 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     if (!overlayOpen) return;
     function onKey(e) {
       if (e.key !== "Escape") return;
-      if (editing) setEditing(null);
-      else if (adding) setAdding(false);
+      // The edit form and the add flow handle their own Escape (the form may need to ask first).
+      if (editing || adding) { /* their own Escape */ }
       else if (intaking) setIntaking(false);
       else closeDetail();
     }
@@ -269,9 +272,14 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   // drawer it is invisible on a phone, which is how a failed removal looked
   // identical to a successful one.
   const [drawerError, setDrawerError] = useState(null);
+  // Errors from the open add/edit form belong INSIDE it: the page alert and the
+  // drawer foot both sit under the overlay, where a failed save cannot be seen.
+  const [formError, setFormError] = useState(null);
+  const toast = useToast();
   const { run: runMutation, pending } = useMutation({
     onError: (message) => {
-      if (detail) setDrawerError(message);
+      if (editing) setFormError(message);
+      else if (detail) setDrawerError(message);
       else setError(message);
     },
   });
@@ -283,10 +291,14 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
   }
 
   function submitEdit(formData) {
-    const action = editing === "new" ? addRosterMember : updateRosterMember;
+    const isNew = editing === "new";
+    const action = isNew ? addRosterMember : updateRosterMember;
+    const savedName = String(formData.get("full_name") ?? "").trim();
+    setFormError(null);
     run(action, formData, () => {
       setEditing(null);
       closeDetail();
+      toast(isNew ? `Added ${savedName || "the person"} to the roster.` : `Saved changes to ${savedName || "the player"}.`);
     });
   }
 
@@ -805,10 +817,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
         <PlayerForm
           row={editing === "new" ? null : editing}
           pending={pending}
+          error={formError}
           onSubmit={submitEdit}
           onCancel={() => {
             setEditing(null);
             setError(null);
+            setFormError(null);
           }}
         />
       )}
@@ -1143,6 +1157,8 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
 
 function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, onAssign, onCreateNew, onCancel }) {
   const [query, setQuery] = useState("");
+  // Back closes this first. Its only field is a search box, which is never "unsaved work".
+  const { ref: addRef, requestClose } = useGuardedOverlay({ onClose: onCancel, busy: pending });
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1157,8 +1173,8 @@ function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, on
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-title" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="add-title" onClick={pending ? undefined : requestClose}>
+      <div className="modal" ref={addRef} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2 id="add-title">Add to the {seasonName} roster</h2>
           <div className="page-sub">
@@ -1214,7 +1230,7 @@ function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, on
         </div>
 
         <div className="modal-foot modal-foot-split">
-          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={pending}>
+          <button type="button" className="btn btn-ghost" onClick={requestClose} disabled={pending}>
             Cancel
           </button>
           <button type="button" className="btn btn-primary" onClick={onCreateNew} disabled={pending}>
@@ -1228,7 +1244,10 @@ function AddPersonFlow({ assignable, orgPlayerCount = 0, seasonName, pending, on
 
 /* ---------------- Create / edit form ---------------- */
 
-export function PlayerForm({ row, pending, onSubmit, onCancel }) {
+export function PlayerForm({ row, pending, error = null, onSubmit, onCancel }) {
+  // Release 3: Back, Close, Escape and the backdrop close this form first; a
+  // form whose values differ from how it opened asks before discarding.
+  const { ref: formRef, requestClose, prompt: leavePrompt } = useGuardedOverlay({ onClose: onCancel, busy: pending });
   const p = row?.player ?? {};
   const isNew = !row;
   const [type, setType] = useState((p.person_type ?? "player") === "player" ? "player" : "staff");
@@ -1275,8 +1294,8 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="player-form-title" onClick={onCancel}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="player-form-title" onClick={pending ? undefined : requestClose}>
+      <div className="modal modal-wide" ref={formRef} onClick={(e) => e.stopPropagation()}>
         <form action={onSubmit}>
           {row && <input type="hidden" name="assignment_id" value={row.id} />}
           {p.id && <input type="hidden" name="player_id" value={p.id} />}
@@ -1615,11 +1634,13 @@ export function PlayerForm({ row, pending, onSubmit, onCancel }) {
             </Disclose>
           </div>
 
+          <SheetError>{error && `${error} Everything you entered is still here.`}</SheetError>
+          {leavePrompt}
           <div className="modal-foot">
-            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
+            <button type="button" className="btn btn-secondary" onClick={requestClose} disabled={pending}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
+            <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending || undefined}>
               {pending ? "Saving…" : isNew ? "Add player or coach" : "Save changes"}
             </button>
           </div>

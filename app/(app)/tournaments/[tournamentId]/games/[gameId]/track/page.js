@@ -39,6 +39,9 @@ export default async function TrackPage({ params, searchParams }) {
       <div className="page-head">
         <ContextBackLink
           from={searchParams?.from}
+          tournamentId={params.tournamentId}
+          player={searchParams?.player}
+          scope={searchParams?.scope}
           fallbackHref={`/tournaments/${params.tournamentId}/games/${params.gameId}/lineup`}
           fallbackLabel="← Lineup"
         />

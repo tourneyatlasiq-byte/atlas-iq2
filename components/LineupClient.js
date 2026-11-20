@@ -255,7 +255,7 @@ export function LineupClient({
         />
       </header>
 
-      {error && <div className="notice notice-error">{error}</div>}
+      {error && <div className="notice notice-error" role="alert">{error}</div>}
       {notice && <div className="notice notice-ok">{notice}</div>}
 
       {playerSource === "season_roster" && (
@@ -535,7 +535,9 @@ export function LineupClient({
           {dirty ? (
             <>
               <span className="lineup-bar-state">
-                {inGame
+                {error
+                  ? "Not saved. Your order is still here. Tap Save to try again."
+                  : inGame
                   ? recovery
                     ? `Unsaved rebuild · ${order.length} ${order.length === 1 ? "batter" : "batters"}`
                     : `Unsaved changes · ${addedCount} late ${addedCount === 1 ? "batter" : "batters"}`

@@ -12,6 +12,9 @@ import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { useLocalToday } from "./useLocalToday";
 import { featuredTournament } from "../lib/featured-tournament";
 import { useOpenParam } from "./useOpenParam";
+import { useGuardedOverlay } from "./useGuardedOverlay";
+import { useToast } from "./Toaster";
+import { SheetError } from "./StSheet";
 import { parseEntry } from "../lib/entry-links";
 import Link from "next/link";
 import { RelatedLink } from "./RelatedLink";
@@ -117,7 +120,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     window.history.replaceState(null, "", url);
   }
   // "Correct the cost in Edit details" from Mark paid in full opens this screen's own edit form.
-  const quick = useQuickStatus({ transactions, budgetLines, seasonAvailable, onEditDetails: (t) => setEditing(t) });
+  const quick = useQuickStatus({ backClosesSheet: true, transactions, budgetLines, seasonAvailable, onEditDetails: (t) => setEditing(t) });
   const nextT = nextUp?.tournament ?? null;
   const [actionId, setActionId] = useState(null);
   const [addingFacility, setAddingFacility] = useState(false);
@@ -130,7 +133,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const [justCreatedFacilityId, setJustCreatedFacilityId] = useState(null);
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
-  const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments);
+  const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments, { ownEntry: true });
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
   const openSections = useRef({ id: null, open: null }); // drawer section state, per tournament
@@ -165,6 +168,9 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   }
   useEffect(() => { if (!detail) openSections.current = { id: null, open: null }; }, [detail]);
   const [error, setError] = useState(null);
+  // Errors from the open edit form belong INSIDE the form (the page-level alert sits under the overlay).
+  const [formError, setFormError] = useState(null);
+  const toast = useToast();
   // A drawer action's failure belongs in the drawer; the page alert stays for
   // page-level actions.
   const [drawerError, setDrawerError] = useState(null);
@@ -188,8 +194,9 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
 
     function onKey(e) {
       if (e.key !== "Escape") return;
-      if (editing) setEditing(null);
-      else closeDetail();
+      // The edit form handles its own Escape (it may need to ask first).
+      if (editing) return;
+      closeDetail();
     }
 
     const unlock = lockPageScroll();
@@ -226,20 +233,24 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
    */
   function submit(formData) {
     setError(null);
+    setFormError(null);
     const isNew = editing === "new";
     const action = isNew ? addTournament : updateTournament;
+    const savedName = String(formData.get("name") ?? "").trim();
 
     runMutation(action, formData, {
       onSuccess: (result) => {
         setEditing(null);
         setOpenVenue(false);
+        // Say what changed. The form is gone by now; without this the only sign is the list.
+        toast(isNew ? `Added ${savedName || "the tournament"}.` : `Saved changes to ${savedName || "the tournament"}.`);
         if (!isNew && finishEntry()) return;
         // The param is set now and resolves once the refreshed rows land, so
         // the coach lands in the drawer for what they just created.
         if (isNew && result?.id) openDetail({ id: result.id });
         else closeDetail();
       },
-      onError: (message) => setError(message),
+      onError: (message) => setFormError(message),
     });
   }
 
@@ -543,12 +554,14 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           facilities={facilities}
           pending={pending}
           onSubmit={submit}
+          error={formError}
           onAddFacility={() => setAddingFacility(true)}
           justCreatedFacilityId={justCreatedFacilityId}
           openVenuePicker={openVenue}
           onCancel={() => {
             setEditing(null);
             setError(null);
+            setFormError(null);
             setOpenVenue(false);
             finishEntry();
           }}
@@ -731,7 +744,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   // Which sections are open survives the Edit form (the drawer unmounts while
   // it is open): the parent remembers the state per tournament.
   const [open, setOpen] = useState(() => ({
-    games: phase === "during",
+    games: phase === "during" || searchParams.get("section") === "games",
     costs: searchParams.get("section") === "costs",
     ...(savedOpen || {}),
   }));
@@ -856,7 +869,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
 
           <Collapsible id="section-games" title="Games" summary={gamesSummary}
             open={isOpen("games")} onToggle={() => toggle("games")}>
-            <GamesSection tournament={t} games={games} canWrite={canWrite} qabEnabled={qabEnabled} openSignal={addGameSignal} bare />
+            <GamesSection tournament={t} games={games} canWrite={canWrite} qabEnabled={qabEnabled} openSignal={addGameSignal} reviewGameId={searchParams.get("section") === "games" ? searchParams.get("game") : null} bare />
           </Collapsible>
 
           {/* PLACES REMEMBERED WITH THIS TRIP: the hotel, the restaurant.
@@ -1173,7 +1186,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   );
 }
 
-export function TournamentForm({ row, providers, facilities, pending, onSubmit, onCancel, onAddFacility, justCreatedFacilityId, openVenuePicker = false }) {
+export function TournamentForm({ row, providers, facilities, pending, error = null, onSubmit, onCancel, onAddFacility, justCreatedFacilityId, openVenuePicker = false }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
   const [gate, setGate] = useState(row?.gate_fee ?? "");
@@ -1191,6 +1204,10 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
     if (justCreatedFacilityId) setFacilityId(justCreatedFacilityId);
   }, [justCreatedFacilityId]);
 
+  // Release 3: Back, Close, Escape and the backdrop close this form first; a
+  // form whose values differ from how it opened asks before discarding.
+  const { ref: formRef, requestClose, prompt: leavePrompt } = useGuardedOverlay({ onClose: onCancel, busy: pending });
+
   const total = (Number(entry) || 0) + (Number(gate) || 0);
 
   // A linked facility is canonical, so its city/state are used and the manual
@@ -1204,9 +1221,9 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
       role="dialog"
       aria-modal="true"
       aria-labelledby="t-form-title"
-      onClick={onCancel}
+      onClick={pending ? undefined : requestClose}
     >
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-wide" ref={formRef} onClick={(e) => e.stopPropagation()}>
         <form action={onSubmit}>
           {row && <input type="hidden" name="id" value={row.id} />}
 
@@ -1463,11 +1480,13 @@ export function TournamentForm({ row, providers, facilities, pending, onSubmit, 
             )}
           </div>
 
+          <SheetError>{error && `${error} Everything you entered is still here.`}</SheetError>
+          {leavePrompt}
           <div className="modal-foot">
-            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
+            <button type="button" className="btn btn-secondary" onClick={requestClose} disabled={pending}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
+            <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending || undefined}>
               {pending ? "Saving…" : isNew ? "Add tournament" : "Save changes"}
             </button>
           </div>

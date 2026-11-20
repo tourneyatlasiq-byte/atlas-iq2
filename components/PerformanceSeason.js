@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { gameLinkLabelFor } from "../lib/performance-links";
 import { splitByActivity } from "../lib/performance-groups";
+import { gameHref } from "../lib/game-flow-rules";
 
 import {
   indexAtX,
@@ -98,7 +99,7 @@ function LineupContribution({ game }) {
   );
 }
 
-export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record, gameLinkLabel = null, canOpenPlayerReport = false }) {
+export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record, gameLinkLabel = null, canOpenPlayerReport = false, scopeTournamentId = null }) {
   const [view, setView] = useState("team");
   const [allReasons, setAllReasons] = useState(false);
   const [openGame, setOpenGame] = useState(null);
@@ -355,7 +356,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
                           </div>
                           <Link
                             className="btn btn-ghost gm-edit"
-                            href={`/tournaments/${g.tournamentId}/games/${g.gameId}/track`}
+                            href={gameHref(g.tournamentId, g.gameId, "track", "performance", { scope: scopeTournamentId })}
                             aria-label={`${linkLabel.replace(/\s*→\s*$/, "")}: ${g.opponent}`}
                           >
                             {linkLabel}

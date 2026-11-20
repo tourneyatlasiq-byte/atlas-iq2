@@ -40,7 +40,8 @@ const DRAWER_MODULES = [
 for (const [file, source, name] of DRAWER_MODULES) {
   const s = read(file);
 
-  if (!s.includes(`useOpenParam(${source})`)) {
+  // Release 3: Tournaments and Team opt in to history hygiene (`{ ownEntry: true }`).
+  if (!s.includes(`useOpenParam(${source})`) && !s.includes(`useOpenParam(${source}, { ownEntry: true })`)) {
     failures.push(`${file}: useOpenParam is not called with \`${source}\``);
   }
 

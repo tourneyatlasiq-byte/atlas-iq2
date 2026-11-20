@@ -222,7 +222,7 @@ Module._extensions[".css"] = () => {};
   ok("an upcoming tournament with no games links to adding games", /href=\{`\/tournaments\?open=\$\{tournament\.id\}`\}>Add games in Tournaments →/.test(page), true);
   ok("returning from QAB tracking lands on the same tournament", /href=\{`\/performance\?tournament=\$\{encodeURIComponent\(game\.tournament_id\)\}`\}/.test(read("components/TrackerClient.js")), true);
   // RPT-002 (2026-11) adds one prop: whether this role may open the coach-facing Player report link. The data props are unchanged.
-  ok("season reporting below is unchanged (same component, same data props; one role prop for the Player report link)", (page.match(/<PerformanceSeason \{\.\.\.season\} gameLinkLabel=\{gameLinkLabel\} canOpenPlayerReport=\{canWrite\(profile\)\} \/>/g) ?? []).length, 2);
+  ok("season reporting below is unchanged (same component, same data props; one role prop for the Player report link, one scope prop so a game's Back returns to the same tournament)", (page.match(/<PerformanceSeason \{\.\.\.season\} gameLinkLabel=\{gameLinkLabel\} canOpenPlayerReport=\{canWrite\(profile\)\}( scopeTournamentId=\{tournament\?\.id \?\? null\})? \/>/g) ?? []).length, 2);
   ok("game rows keep their four existing actions", ["Review & Edit →", "Continue tracking →", "Start QAB tracking →", "Set batting order →"].every((x) => page.includes(x)), true);
 
   section("E. the rendered page: selector, header, games and contextual guidance");

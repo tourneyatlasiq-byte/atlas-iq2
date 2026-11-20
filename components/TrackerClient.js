@@ -17,12 +17,15 @@ import {
   enqueue,
   flushQueue,
   queueStatus,
+  isFlushing,
+  clearBackoff,
   newPaId,
   reviewGroups,
   discardEntries,
   adoptForRetry,
 } from "../lib/offline-queue";
 import { savedInSlot } from "../lib/queue-recovery";
+import { syncDisplay, blocksFinish } from "../lib/sync-status";
 import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 import { substitutePlayer } from "../lib/actions/lineup";
 import { resumePosition, defaultTrackerMode } from "../lib/tracker-cursor";
@@ -47,8 +50,6 @@ import { nextGameAfter, gameNumber, nextGameLabel, gameStep, gameHref } from "..
  * Undo voids rather than deletes — the row survives, leaves every count, and
  * frees its pa_number so the batter can be re-recorded.
  */
-
-const SYNCED = { tone: "ok", text: "All saved" };
 
 /** 1st, 2nd, 3rd… for the batting position line. */
 function ordinal(n) {
@@ -87,7 +88,12 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   const [note, setNote] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const noteTooLong = noteLength(note.trim()) > MAX_NOTE_LENGTH;
-  const [sync, setSync] = useState(SYNCED);
+  // IMP-001: the status line is derived, never stored. "checked" flips only
+  // after a successful read of the queue, so a phone that has not looked yet
+  // (or could not look) never says "All saved".
+  const [queueState, setQueueState] = useState(null);
+  const [checked, setChecked] = useState(false);
+  const [flushing, setFlushing] = useState(false);
   // Browser-reported connection (2026-11-19). It only changes what the status
   // line says; recording, the queue and syncing do not read it. A phone can
   // report online with no signal, so queue failures still show as they did.
@@ -256,47 +262,56 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 
   const refreshStatus = useCallback(async () => {
     const s = await queueStatus(game.id, userId);
-    setReview(await reviewGroups(game.id, userId));
-    if (s.review > 0) {
-      return setSync({
-        tone: "bad",
-        text: `${s.review} at-${s.review === 1 ? "bat needs" : "bats need"} your review`,
-      });
+    setQueueState(s);
+    if (s.readable) {
+      setChecked(true);
+      try { setReview(await reviewGroups(game.id, userId)); } catch { /* the status line already says what it can */ }
     }
-    if (s.waiting === 0 && s.other === 0) return setSync(SYNCED);
-    if (s.waiting === 0) {
-      return setSync({
-        tone: "wait",
-        text: `${s.other} at-${s.other === 1 ? "bat" : "bats"} from another account on this device`,
-      });
-    }
-    if (s.failed > 0) {
-      return setSync({
-        tone: "bad",
-        text: `Sync failed — ${s.waiting} waiting`,
-        detail: s.firstError,
-        retry: true,
-      });
-    }
-    setSync({ tone: "wait", text: `${s.waiting} waiting to sync` });
+    return s;
   }, [game.id, userId]);
 
   const sync_ = useCallback(async (force = false) => {
-    await flushQueue(send, { gameId: game.id, userId, savedRows, force: force === true });
+    // Show "Syncing N" only while a pass is really sending something.
+    const before = await queueStatus(game.id, userId);
+    if (before.readable && before.waiting > 0) setFlushing(true);
+    try {
+      // An at-bat recorded while a pass is sending is queued behind it. When a
+      // pass made progress and finished cleanly, look again, so that at-bat is
+      // sent now rather than waiting for the next tap. Stops as soon as a pass
+      // sends nothing (held for review, backing off, or nothing left).
+      let result = null;
+      for (let again = 0; again < 10; again += 1) {
+        result = await flushQueue(send, { gameId: game.id, userId, savedRows, force: force === true && again === 0, onProgress: refreshStatus });
+        if (!result || result.skipped || !(result.sent > 0) || result.stoppedAt || result.waiting) break;
+        const left = await queueStatus(game.id, userId);
+        if (!left.readable || left.waiting === 0) break;
+      }
+    } finally {
+      setFlushing(isFlushing());
+    }
     await refreshStatus();
   }, [send, game.id, userId, savedRows, refreshStatus]);
 
   useEffect(() => {
     refreshStatus();
     sync_();
-    const on = () => sync_();
-    window.addEventListener("online", on);
+    // Reconnecting, or coming back to the app, drops the wait that was earned
+    // while there was no signal and sends now (IMP-001). Still one pass at a
+    // time, still in order; attempt counts are kept.
+    const resumeNow = async () => {
+      await clearBackoff(game.id);
+      sync_();
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") resumeNow(); };
+    window.addEventListener("online", resumeNow);
+    document.addEventListener("visibilitychange", onVisible);
     const t = setInterval(sync_, 20000);
     return () => {
-      window.removeEventListener("online", on);
+      window.removeEventListener("online", resumeNow);
+      document.removeEventListener("visibilitychange", onVisible);
       clearInterval(t);
     };
-  }, [sync_, refreshStatus]);
+  }, [sync_, refreshStatus, game.id]);
 
   useEffect(() => {
     setOnline(typeof navigator === "undefined" ? true : navigator.onLine !== false);
@@ -310,13 +325,14 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     };
   }, []);
 
-  // What the status line shows. "All saved" is only true while connected; an
-  // offline phone keeps every tap, so say that instead of looking idle.
-  const shownSync = !online && sync.tone === "ok"
-    ? { tone: "wait", text: "Offline. At-bats you record are kept on this phone and sync when you reconnect." }
-    : !online && sync.tone === "wait"
-      ? { ...sync, text: `${sync.text} (offline)` }
-      : sync;
+  // What the status line shows: one tested definition (lib/sync-status.js).
+  const shownSync = syncDisplay({
+    checked,
+    status: queueState,
+    flushingCount: flushing && queueState?.readable ? queueState.waiting : 0,
+    online,
+  });
+  const sync = shownSync;
 
   /**
    * Finishing is gated on an empty queue.
@@ -335,13 +351,13 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     setMode("live");
     setFinishing("checking");
     setFinishBlock(null);
-    await flushQueue(send, { gameId: game.id, userId, savedRows, force: true });
+    await flushQueue(send, { gameId: game.id, userId, savedRows, force: true, onProgress: refreshStatus });
     const s = await queueStatus(game.id, userId);
     await refreshStatus();
     // Nothing finishes while QAB data is unsynced or unresolved — but the
     // coach is told which, because "waiting to sync" is the wrong advice for
     // a write that needs a decision.
-    if (s.review > 0 || s.waiting > 0 || s.other > 0) {
+    if (blocksFinish(s)) {
       setFinishBlock(s);
       setFinishing("blocked");
       goTo(".trk-finish-panel");
@@ -736,7 +752,9 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
         )}
       </div>
 
-      {mode === "live" && live.length > 0 && (
+      {/* Only while tracking is open (Release 3): a completed game says it is
+          complete below, and the two must never contradict each other. */}
+      {mode === "live" && !completedAt && live.length > 0 && (
         <p className="trk-continuing">
           This game already has {live.length} plate {live.length === 1 ? "appearance" : "appearances"}.
           Tracking continues from where each batter left off.
@@ -1315,6 +1333,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 /** Finish-gate message for what is still outstanding (ST-022). */
 function finishBlockText(s) {
   if (!s) return "Couldn't finish tracking just now. Check your connection and try again.";
+  if (s.readable === false) return "This phone could not confirm what is saved, so tracking can't be finished yet. Try again in a moment.";
   if (s.review > 0) {
     return `${s.review} at-${s.review === 1 ? "bat needs" : "bats need"} your review before tracking can finish. Choose what to keep above.`;
   }

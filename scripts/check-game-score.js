@@ -128,7 +128,7 @@ const withExt = (src) => src.replace(/(from\s+["'])(\.{1,2}\/[^"']+?)(["'])/g, (
   // ST-022 extends the gate (ownership, review); it still flushes first and
   // still refuses to finish while anything is outstanding.
   assertEq("the queue gate before finishing is kept",
-    [/await flushQueue\(send, \{ gameId: game\.id, userId, savedRows, force: true \}\);/.test(trk), /setFinishing\("blocked"\)/.test(trk)], [true, true]);
+    [/await flushQueue\(send, \{ gameId: game\.id, userId, savedRows, force: true, onProgress: refreshStatus \}\);/.test(trk), /setFinishing\("blocked"\)/.test(trk)], [true, true]);
   assertEq("completed state shows the saved final score with W/L/T",
     /Final score <strong>\{formatFinalScore\(finalScore\.runsFor, finalScore\.runsAgainst, finalScore\.result\)\}<\/strong>/.test(trk), true);
   assertEq("finishing without a score never clears an existing one",

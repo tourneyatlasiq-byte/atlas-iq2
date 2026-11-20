@@ -38,13 +38,18 @@ export function RecordPaymentSheet({ p, onClose, onSaved }) {
   const dup = valid && (p.log ?? []).find((l) => Math.round(Number(l.amount) * 100) === Math.round(a * 100) && l.paid_date === date);
   const over = valid && balance > 0 && a > balance;
 
+  // A second tap in the same instant as the first, before the button is disabled, must not write twice.
+  const inFlight = useRef(false);
+
   async function save() {
-    if (!valid) return;
+    if (!valid || inFlight.current) return;
     if (dup && !confirmDup) { setConfirmDup(true); return; }
+    inFlight.current = true;
     setSaving(true); setErr(null);
     // expected_paid: what this sheet showed. If another screen recorded a payment first, the database refuses and nothing is double counted.
     const res = await callAction(recordPayment, { payment_id: p.id, request_key: key.current, expected_paid: p.totalPaid, amount: a, paid_date: date, month_label: label || null });
     if (!res?.ok) {
+      inFlight.current = false;
       setSaving(false);
       if (res?.code === "changed") { router.refresh(); setErr(`${res.error} The balance shown here is being refreshed. Check it and save again.`); return; }
       setErr(res?.error ?? "Couldn't save the payment.");

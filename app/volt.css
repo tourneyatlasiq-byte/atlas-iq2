@@ -144,6 +144,7 @@ html.volt .help-trigger:hover { border-color: var(--ink); background: #fff; }
 /* ---------- Surfaces ---------- */
 html.volt .card { border: 0; border-radius: 20px; box-shadow: var(--raise); }
 html.volt .notice { background: var(--paid-t); border-color: transparent; color: var(--paid); border-radius: 14px; }
+html.volt .notice.notice-error { background: var(--owed-t); color: var(--owed); }
 html.volt .alert { border-radius: 14px; }
 html.volt .alert-error { background: var(--owed-t); border-color: transparent; color: var(--owed); }
 html.volt .alert-info { background: var(--info-t); border-color: transparent; color: var(--info); }
@@ -1169,3 +1170,37 @@ html.volt .trk-next-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 html.volt .lineup-copy.is-quiet { background: none; border: 0; box-shadow: none; padding: 0; margin: 0 0 12px; }
 html.volt .lineup-copy-quiet { min-height: 44px; padding-left: 4px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
 html.volt .st-wk .st-gf { margin-top: 18px; margin-bottom: 4px; }
+
+/* ---------- Pressed feedback for tappable controls that are not .btn (Release 3) ----------
+   .btn already presses in (scale 0.98). These are the controls on the lineup
+   editor and the tournament roster and pickup sheets that did nothing on tap,
+   which on a phone reads as a missed tap and invites a second one. Same scale
+   as .btn, plus a tint for rows. Disabled controls do not press. */
+html.volt .bench-add,
+html.volt .lineup-bar-action,
+html.volt .lineup-panel ol button,
+html.volt .er-remove,
+html.volt .er-add-pickup { transition: transform 80ms, background 120ms; }
+html.volt .bench-add:active:not(:disabled),
+html.volt .lineup-bar-action:active:not(:disabled),
+html.volt .lineup-panel ol button:active:not(:disabled),
+html.volt .er-remove:active:not(:disabled),
+html.volt .er-add-pickup:active:not(:disabled) { transform: scale(0.98); }
+html.volt .bench-add:active:not(:disabled),
+html.volt .lineup-panel ol button:active:not(:disabled),
+html.volt .er-remove:active:not(:disabled),
+html.volt .er-match:active:not(:disabled) { background: var(--sunk); }
+html.volt .er-pick:active { background: var(--line); }
+html.volt .er-add-pickup:active:not(:disabled) { background: var(--sunk); }
+@media (prefers-reduced-motion: reduce) {
+  html.volt .bench-add,
+  html.volt .lineup-bar-action,
+  html.volt .lineup-panel ol button,
+  html.volt .er-remove,
+  html.volt .er-add-pickup { transition: none; }
+  html.volt .bench-add:active:not(:disabled),
+  html.volt .lineup-bar-action:active:not(:disabled),
+  html.volt .lineup-panel ol button:active:not(:disabled),
+  html.volt .er-remove:active:not(:disabled),
+  html.volt .er-add-pickup:active:not(:disabled) { transform: none; }
+}

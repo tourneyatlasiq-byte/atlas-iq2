@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
+import { useGuardedOverlay } from "./useGuardedOverlay";
+import { SheetError } from "./StSheet";
+import { useToast } from "./Toaster";
 import { ConfirmAction, useConfirm } from "./ConfirmAction";
 import Link from "next/link";
 import { saveGame, deleteGame } from "../lib/actions/games";
 import { GAME_TYPES, isFutureGame, recordFrom } from "../lib/game-rules";
+import { gameHref } from "../lib/game-flow-rules";
 
 /**
  * Games inside the Tournament IQ drawer.
@@ -44,23 +48,23 @@ const resultClass = (r) =>
  * refuses a NEW plate appearance until tracking is resumed.
  */
 function QabAction({ tournament, game }) {
-  const base = `/tournaments/${tournament.id}/games/${game.id}`;
   const batters = game.batters ?? 0;
   const pas = game.plateAppearances ?? 0;
 
-  let href = `${base}/lineup`;
+  // Opened from the tournament drawer, the tracker's Back returns to this tournament (Release 3).
+  let href = gameHref(tournament.id, game.id, "lineup");
   let label = "Set lineup";
 
   if (game.qabCompleted) {
-    href = `${base}/track`;
+    href = gameHref(tournament.id, game.id, "track", "tournament");
     // Opens the same tracker where recorded at-bats are edited (2026-11):
     // "View" read as read-only, which hid the corrections that already exist.
     label = "Review & Edit QABs";
   } else if (pas > 0) {
-    href = `${base}/track`;
+    href = gameHref(tournament.id, game.id, "track", "tournament");
     label = "Continue QABs";
   } else if (batters > 0) {
-    href = `${base}/lineup`;
+    href = gameHref(tournament.id, game.id, "lineup");
     label = `Lineup · ${batters}`;
   }
 
@@ -71,7 +75,7 @@ function QabAction({ tournament, game }) {
   );
 }
 
-export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0, bare = false }) {
+export function GamesSection({ tournament, games, canWrite, qabEnabled = false, onChanged, openSignal = 0, reviewGameId = null, bare = false }) {
   const [editing, setEditing] = useState(null); // game | "new" | null
   const [error, setError] = useState(null);
   const confirmDelete = useConfirm();
@@ -83,6 +87,25 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
     if (openSignal > 0) setEditing("new");
   }, [openSignal]);
 
+  // "Review game" from the Schedule report (RPT-001, Release 3) arrives with
+  // ?section=games&game=<id>: open that game's own form once, scroll to this
+  // section, then drop the two parameters so a refresh or Back does not reopen
+  // it. The address is replaced, never pushed, so no history entry is added.
+  // A game that is not in this tournament (deleted, or a stale link) opens
+  // nothing and says nothing.
+  useEffect(() => {
+    if (!reviewGameId) return;
+    const g = games.find((x) => x.id === reviewGameId);
+    if (g && canWrite) setEditing(g);
+    requestAnimationFrame(() => document.getElementById("section-games")?.scrollIntoView({ block: "start" }));
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("section");
+      url.searchParams.delete("game");
+      window.history.replaceState(window.history.state, "", url);
+    } catch { /* the form is open either way */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const record = recordFrom(games);
 
   const ordered = [...games].sort(
@@ -91,14 +114,29 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
       (a.start_time ?? "").localeCompare(b.start_time ?? "")
   );
 
+  // A second tap on Save while the first is still going is dropped (Release 3).
+  const saving = useRef(false);
+  const toast = useToast();
+
   function submit(formData) {
+    if (saving.current) return;
+    saving.current = true;
     setError(null);
+    const opponent = String(formData.get("opponent_name") ?? "").trim();
+    const isNew = editing === "new";
     startTransition(async () => {
-      const result = await saveGame(formData);
-      if (result?.ok) {
-        setEditing(null);
-        onChanged?.();
-      } else setError(result?.error ?? "Something went wrong.");
+      try {
+        const result = await saveGame(formData);
+        if (result?.ok) {
+          setEditing(null);
+          onChanged?.();
+          toast(isNew ? `Added the game${opponent ? ` against ${opponent}` : ""}.` : `Saved changes to the game${opponent ? ` against ${opponent}` : ""}.`);
+        } else setError(result?.error ?? "Something went wrong.");
+      } catch {
+        setError("Couldn't reach Season Tempo. Nothing you entered was lost. Check your connection and try again.");
+      } finally {
+        saving.current = false;
+      }
     });
   }
 
@@ -150,7 +188,7 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
         )}
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && !editing && <div className="alert alert-error">{error}</div>}
 
       {ordered.length === 0 ? (
         <p className="section-body muted games-empty">
@@ -224,6 +262,7 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
           tournament={tournament}
           pending={pending}
           onSubmit={submit}
+          error={error}
           onCancel={() => {
             setEditing(null);
             setError(null);
@@ -234,7 +273,10 @@ export function GamesSection({ tournament, games, canWrite, qabEnabled = false, 
   );
 }
 
-function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
+function GameForm({ game, tournament, pending, error = null, onSubmit, onCancel }) {
+  // Release 3: Back, Close, Escape and the backdrop close this form first; a
+  // form whose values differ from how it opened asks before discarding.
+  const { ref: formRef, requestClose, prompt: leavePrompt } = useGuardedOverlay({ onClose: onCancel, busy: pending });
   const isNew = !game;
   const [date, setDate] = useState(game?.game_date ?? tournament.start_date ?? "");
 
@@ -274,8 +316,8 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
   const scoresDisabled = isFutureGame(date);
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={pending ? undefined : requestClose}>
+      <div className="modal" ref={formRef} onClick={(e) => e.stopPropagation()}>
         {pendingSubmit && (
           <ConfirmAction
             message={`Moving this game to a future date will remove the recorded ${recordedScore} result.`}
@@ -379,11 +421,13 @@ function GameForm({ game, tournament, pending, onSubmit, onCancel }) {
             </div>
           </div>
 
+          <SheetError>{error && `${error} Everything you entered is still here.`}</SheetError>
+          {leavePrompt}
           <div className="modal-foot">
-            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={pending}>
+            <button type="button" className="btn btn-secondary" onClick={requestClose} disabled={pending}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
+            <button type="submit" className="btn btn-primary" disabled={pending} aria-busy={pending || undefined}>
               {pending ? "Saving…" : isNew ? "Add game" : "Save changes"}
             </button>
           </div>

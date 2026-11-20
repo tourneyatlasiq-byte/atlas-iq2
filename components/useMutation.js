@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -31,6 +31,11 @@ export function useMutation({ onError } = {}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState(null);
   const router = useRouter();
+  // One save at a time per form (Release 3). While a request from this form is
+  // still in flight, any further submit from it waits, even if the values
+  // changed: a second write racing the first is how duplicates and lost edits
+  // happen. Other forms use their own runner and stay usable.
+  const busy = useRef(false);
 
   /**
    * @param action   a server action taking FormData
@@ -45,6 +50,8 @@ export function useMutation({ onError } = {}) {
     // others just want it rendered.
     const report = (message, result) =>
       (onErrorLocal ?? onError)?.(message, result);
+    if (busy.current) return;
+    busy.current = true;
     setError(null);
     startTransition(async () => {
       let result;
@@ -53,11 +60,13 @@ export function useMutation({ onError } = {}) {
       } catch (e) {
         // A thrown action still has to say something. Silence here is the
         // exact failure this module exists to prevent.
+        busy.current = false;
         const message = e?.message ?? "Something went wrong. Try again.";
         setError(message);
         report(message, null);
         return;
       }
+      busy.current = false;
 
       if (result?.ok) {
         onSuccess?.(result);

@@ -139,7 +139,7 @@ function makeIndexedDB() {
     assertEq("Aug 28 replay: 105 stays, now Needs review (unconfirmed author), retries stopped",
       left.map((e) => [e.seq, e.state, e.code, e.attempts]), [[105, "review", "unconfirmed", 11]]);
     assertEq("Aug 28 replay: status — 1 needs review, nothing 'waiting to sync'", await Q.queueStatus(G, AUTUMN),
-      { waiting: 0, review: 1, other: 0, failed: 0, firstError: null });
+      { readable: true, waiting: 0, review: 1, other: 0, failed: 0, firstError: null });
     sends.length = 0;
     await Q.flushQueue(send, { gameId: G, userId: AUTUMN, savedRows: saved, force: true });
     assertEq("Aug 28 replay: a forced retry still sends nothing (no retry loop)", sends, []);
@@ -148,7 +148,7 @@ function makeIndexedDB() {
     await Q.discardEntries(grp.group.map((e) => e.seq), "kept_saved");
     assertEq("Aug 28: 'Keep saved' empties the queue; 105 is kept in the discarded log",
       [(await Q.pendingEntries(G)).length, discarded().find((d) => d.seq === 105)?.discardReason], [0, "kept_saved"]);
-    assertEq("Aug 28: Finish is then unblocked", await Q.queueStatus(G, AUTUMN), { waiting: 0, review: 0, other: 0, failed: 0, firstError: null });
+    assertEq("Aug 28: Finish is then unblocked", await Q.queueStatus(G, AUTUMN), { readable: true, waiting: 0, review: 0, other: 0, failed: 0, firstError: null });
   }
 
   /* 3. Owned writes: permanent rejection does not block unrelated writes. */
@@ -205,7 +205,7 @@ function makeIndexedDB() {
     globalThis.__send = async () => ({ ok: true });
     await Q.flushQueue(send, { gameId: "g", userId: "u1" });
     assertEq("another user's write is never sent under this user; this user's unrelated write is", sends, [2]);
-    assertEq("...and it blocks Finish as 'from another account'", await Q.queueStatus("g", "u1"), { waiting: 0, review: 0, other: 1, failed: 0, firstError: null });
+    assertEq("...and it blocks Finish as 'from another account'", await Q.queueStatus("g", "u1"), { readable: true, waiting: 0, review: 0, other: 1, failed: 0, firstError: null });
   }
   {
     const legacy = rec(1, "a", "p1", 3, ["walk"]); delete legacy.userId; delete legacy.state;
@@ -272,9 +272,9 @@ function makeIndexedDB() {
   assertEq("'Use' corrects the SAVED plate appearance (never a second record)",
     /op: "correct",[\s\S]{0,80}payload: \{ id: saved\.id, reasons, notes, expectedUpdatedAt: saved\.updatedAt \?\? null \}/.test(trk), true);
   assertEq("Finish says the at-bat needs review, not that the connection is the problem",
-    [/at-\$\{s\.review === 1 \? "bat needs" : "bats need"\} your review before tracking can finish/.test(trk), /if \(s\.review > 0 \|\| s\.waiting > 0 \|\| s\.other > 0\)/.test(trk)], [true, true]);
+    [/at-\$\{s\.review === 1 \? "bat needs" : "bats need"\} your review before tracking can finish/.test(trk), /if \(blocksFinish\(s\)\)/.test(trk)], [true, true]);
   assertEq("Retry is offered only for writes that can still go through, not for review",
-    [/retry: true,/.test(trk), /\{sync\.retry && \(/.test(trk), /\{sync\.tone === "bad" && \(/.test(trk)], [true, true, false]);
+    [/retry: true,/.test(read("lib/sync-status.js")), /\{sync\.retry && \(/.test(trk), /\{sync\.tone === "bad" && \(/.test(trk)], [true, true, false]);
     assertEq("no device-centric wording in the review card", /this device's|on this phone/i.test(trk.slice(trk.indexOf("function QueueReview"), trk.indexOf("const NO_QAB"))), false);
 
   fs.rmSync(root, { recursive: true, force: true });

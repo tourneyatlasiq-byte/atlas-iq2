@@ -265,7 +265,8 @@ section("Creating a tournament shows it");
   ok("the drawer still opens for what was just created",
      /if \(isNew && result\?\.id\) openDetail\(\{ id: result\.id \}\)/.test(tui));
   ok("an edit still closes instead", /else closeDetail\(\);/.test(tui));
-  ok("a failure is still reported", /onError: \(message\) => setError\(message\)/.test(tui));
+  // Release 3: the message now lands INSIDE the open form (the page alert sits under the overlay).
+  ok("a failure is still reported, inside the form", /onError: \(message\) => setFormError\(message\)/.test(tui) && /error=\{formError\}/.test(tui));
   ok("one pending source, no stale second one",
      !/const pending = mutating \|\| formPending/.test(tui));
 
@@ -273,7 +274,7 @@ section("Creating a tournament shows it");
   // tournament. That is how the duplicate arose in production, and it is why
   // the button must be dead while the request is in flight.
   ok("the submit button is disabled while saving",
-     /<button type="submit" className="btn btn-primary" disabled=\{pending\}>/.test(tui));
+     /<button type="submit" className="btn btn-primary" disabled=\{pending\} aria-busy=\{pending \|\| undefined\}>/.test(tui));
   ok("...and says so", /\{pending \? "Saving…" : isNew \? "Add tournament"/.test(tui));
   ok("...with pending coming from the shared runner",
      /const \{ run: runMutation, pending \} = useMutation\(\);/.test(tui));

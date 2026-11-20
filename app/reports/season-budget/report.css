@@ -121,6 +121,10 @@
   font-size: 13.5px; line-height: 1.5; color: var(--rv-body);
 }
 .rpt-note-item strong { color: var(--rv-ink); }
+/* One link per record to review (Release 3). 44px targets on a phone. */
+.rpt-note-links { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 8px; }
+.rpt-note-links .rpt-note-link { display: inline-flex; align-items: center; min-height: 36px; font-weight: 600; }
+@media (max-width: 640px) { .rpt-note-links .rpt-note-link { min-height: 44px; } }
 .rpt-note-item.action { border-left-color: var(--rv-due); background: var(--rv-due-t); color: #5c3200; }
 
 .rpt-pnote-line { margin: 8px 0 0; font-size: 13.5px; color: var(--rv-body); }

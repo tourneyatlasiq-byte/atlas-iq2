@@ -945,7 +945,7 @@ console.log("\nTeam dues allocation");
   assertEq("the tournament drawer reads which section to open from the URL",
     /searchParams\.get\("section"\) === "costs"/.test(tui), true);
   assertEq("...seeded once, on mount, the same way ?open= already seeds the drawer itself",
-    /const \[open, setOpen\] = useState\(\(\) => \(\{\s*\n\s*games: phase === "during",\s*\n\s*costs: searchParams\.get\("section"\) === "costs",/.test(tui),
+    /const \[open, setOpen\] = useState\(\(\) => \(\{\s*\n\s*games: phase === "during"( \|\| searchParams\.get\("section"\) === "games")?,\s*\n\s*costs: searchParams\.get\("section"\) === "costs",/.test(tui),
     true);
   assertEq("an unlinked tournament offers Choose a budget line inside that same section",
     /Choose a budget line/.test(tui), true);

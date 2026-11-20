@@ -151,7 +151,7 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
       <ReportToolbar
         name="Tournament Schedule"
         from={from}
-        notes={warnings.map((w) => ({ title: w.title, message: w.message, action: Boolean(w.action) }))}
+        notes={warnings.map((w) => ({ title: w.title, message: w.message, action: Boolean(w.action), links: w.links }))}
         controls={
           <div className="rpt-detail" role="group" aria-label="Report detail">
             <span className="rpt-detail-label">Report detail</span>
