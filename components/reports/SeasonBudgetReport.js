@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ReportToolbar, ParentNoteEditor } from "./ReportToolbar";
 import { money } from "../../lib/finance-rules";
+import { reportBack } from "../../lib/report-back";
 
 /**
  * The parent Season Budget document, plus a screen-only toolbar.
@@ -44,10 +45,8 @@ function fmtDate(iso) {
 }
 
 export function SeasonBudgetReport({ report, from = null, initialNote = "" }) {
-  // Back returns to where the coach came from: Finance when launched from its
-  // button (?from=finance), Reports otherwise. Never browser-history guesses.
-  const backHref = from === "finance" ? "/finance" : "/reports";
-  const backLabel = from === "finance" ? "Finance" : "Reports";
+  // The blocked state's Back goes where the toolbar's would: the screen it was opened from.
+  const back = reportBack(from);
   // Session only: never saved. initialNote exists for previews and tests.
   const [note, setNote] = useState(initialNote);
 
@@ -70,7 +69,7 @@ export function SeasonBudgetReport({ report, from = null, initialNote = "" }) {
             </div>
           ))}
           <p style={{ marginTop: 18 }}>
-            <Link href={backHref}>← Back to {backLabel}</Link>
+            <Link href={back.href}>← Back to {back.label}</Link>
           </p>
         </div>
       </div>
@@ -85,8 +84,7 @@ export function SeasonBudgetReport({ report, from = null, initialNote = "" }) {
       {/* Screen only. Never printed. */}
       <ReportToolbar
         name="Planned Season Budget"
-        backHref={backHref}
-        backLabel={backLabel}
+        from={from}
         notes={notices.map((w) => ({ title: w.title, message: w.message, action: Boolean(w.action) }))}
       >
         <ParentNoteEditor note={note} setNote={setNote} />

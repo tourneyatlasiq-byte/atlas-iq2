@@ -52,9 +52,21 @@ const budget = { ...ident, variant: "planned", season: { name: "2026-27" }, tota
 const schedule = { ...ident, scope: "season", season: { name: "2026-27" }, warnings: [], tournaments: [
   { id: "t1", name: "Dog Days Opener", startDate: "2026-08-08", endDate: "2026-08-09", status: "Committed", waitlisted: false, place: null,
     games: [{ id: "g1", date: "2026-08-08", startTime: "09:00:00", opponent: "Carolina Comets 14U", gameType: "Pool" }] }] };
-const qab = { ...ident, season: { name: "2026-27" }, summary: { qabPct: 46, qab: 10, pa: 22, games: 1, players: 1 },
-  games: [{ id: "g1", date: "2026-08-08", opponent: "Carolina Comets 14U", result: "W", qab: 10, pa: 22, qabPct: 45 }],
-  reasons: [{ label: "Hit", count: 6, percent: 60 }], reasonsCited: 10, players: [{ name: "Avery Rowley", games: 1, qab: 10, pa: 22, qabPct: 45 }] };
+const qab = { ...ident, season: { name: "2026-27" }, summary: { qabPct: 45.5, qab: 10, pa: 22, games: 1, players: 1 },
+  games: [{ id: "g1", date: "2026-08-08", opponent: "Carolina Comets 14U", result: "W", qab: 10, pa: 22, qabPct: 45.5 }],
+  reasons: [{ label: "Hit", count: 6, percent: 60 }], reasonsCited: 10, players: [{ name: "Avery Rowley", games: 1, qab: 10, pa: 22, qabPct: 45.5 }] };
+
+// Sample payloads must carry what the real report path produces: every percentage is qabPercent(qab, pa)
+// (one decimal), and game rows, summary and reasons reconcile. A hand-typed 46 beside 10/22 once printed
+// "46.0%" next to "45.0%" for the same ratio; the real path cannot do that, so the fixture must not either.
+{
+  const { qabPercent } = require(path.join(ROOT, "lib/qab-rules.js"));
+  const rows = [qab.summary, ...qab.games, ...qab.players];
+  assertEq("QAB sample: every percentage is the real qabPercent of its own counts",
+    rows.every((r) => r.qabPct === qabPercent(r.qab, r.pa)), true);
+  assertEq("QAB sample: game rows add up to the summary",
+    [qab.games.reduce((a, g) => a + g.qab, 0), qab.games.reduce((a, g) => a + g.pa, 0)], [qab.summary.qab, qab.summary.pa]);
+}
 
 const html = {
   budget: renderToStaticMarkup(React.createElement(SeasonBudgetReport, { report: budget })),

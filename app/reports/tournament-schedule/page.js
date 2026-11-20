@@ -1,6 +1,7 @@
 import "../season-budget/report.css";
 import "./schedule.css";
 import Link from "next/link";
+import { fromParam } from "../../../lib/report-back";
 import { getContext } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
 import { tournamentScheduleReport } from "../../../lib/queries/reports/tournament-schedule";
@@ -79,5 +80,5 @@ export default async function TournamentSchedulePage({ searchParams }) {
   // Both versions use the same report; nothing is saved.
   const initialDetail = searchParams?.detail === "games" ? "games" : "tournaments";
 
-  return <TournamentScheduleReport report={report} initialDetail={initialDetail} />;
+  return <TournamentScheduleReport report={report} initialDetail={initialDetail} from={fromParam(searchParams?.from)} />;
 }

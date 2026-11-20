@@ -68,3 +68,35 @@ a.rpthub-item:hover { border-color: var(--blue); background: #f7fafe; }
   }
   .rpthub-go { align-self: flex-end; margin-top: -22px; }
 }
+
+/* ---------- Volt (2026-11-20) ----------
+   The hub is on the Volt system, so it uses the same cards, type and quiet
+   labels as Home, Finance and Performance. Volt colour is not used here: the
+   hub has no primary action, and a status label always carries its word. */
+html.volt .rpthub-group { margin-bottom: 30px; }
+html.volt .rpthub-group-title { font-size: 19px; letter-spacing: -0.02em; color: var(--ink); }
+html.volt .rpthub-group-blurb { font-size: 14px; color: var(--muted); margin: 4px 0 12px; }
+html.volt .rpthub-premium {
+  color: var(--ink); background: var(--sunk); border: 1px solid var(--line-strong);
+  font-size: 11px; letter-spacing: .06em;
+}
+html.volt .rpthub-list { gap: 12px; }
+html.volt .rpthub-item {
+  padding: 16px 18px; min-height: 72px; border: none;
+  border-radius: var(--radius-card); box-shadow: var(--raise);
+  transition: box-shadow 120ms, transform 80ms;
+}
+html.volt a.rpthub-item:hover { background: var(--surface); box-shadow: var(--float); }
+html.volt a.rpthub-item:active { transform: translateY(1px); }
+html.volt .rpthub-item.is-unavailable { background: var(--sunk); box-shadow: none; border: 1px dashed var(--line-strong); }
+html.volt .rpthub-item-name { font-size: 16px; color: var(--ink); }
+html.volt .rpthub-item.is-unavailable .rpthub-item-name { color: var(--muted); }
+html.volt .rpthub-item-desc { font-size: 14px; color: var(--body); }
+html.volt .rpthub-audience { color: var(--body); background: var(--sunk); font-size: 11px; }
+html.volt .rpthub-go { color: var(--ink); font-size: 18px; }
+html.volt .rpthub-status { color: var(--body); background: #fff; border-color: var(--line-strong); font-size: 11.5px; }
+html.volt .rpthub-foot { color: var(--muted); font-size: 13px; border-top-color: var(--line); }
+@media (prefers-reduced-motion: reduce) {
+  html.volt .rpthub-item { transition: none; }
+  html.volt a.rpthub-item:active { transform: none; }
+}

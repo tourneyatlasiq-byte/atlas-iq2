@@ -37,7 +37,7 @@ const pct = formatQabPct;
 
 const RESULT_WORD = { W: "Win", L: "Loss", T: "Tie" };
 
-export function QabPerformanceReport({ report, scopeControl = null }) {
+export function QabPerformanceReport({ report, scopeControl = null, from = null }) {
   const { organization, team, season, summary, games, reasons, reasonsCited, players } = report;
   const generated = fmtGenerated(report.generatedAt);
   const tracked = summary.pa > 0;
@@ -53,7 +53,7 @@ export function QabPerformanceReport({ report, scopeControl = null }) {
     <div className="rpt-shell">
       {/* Screen only. Never printed. The Season | Tournament scope control
           (RPT-04) sits here; the Season document below is unchanged. */}
-      <ReportToolbar name="QAB Performance" controls={scopeControl} notes={legacyReasonNote(reasonsCited, summary.qab)} />
+      <ReportToolbar name="QAB Performance" from={from} controls={scopeControl} notes={legacyReasonNote(reasonsCited, summary.qab)} />
 
       <article className="rpt-page">
         <header className="rpt-head">
@@ -96,7 +96,7 @@ export function QabPerformanceReport({ report, scopeControl = null }) {
               </div>
             </section>
 
-            <section className="rpt-section">
+            <section className="rpt-section qab-long">
               <p className="rpt-h">QAB% by game</p>
               <table className="qab-table">
                 <thead>
@@ -158,7 +158,7 @@ export function QabPerformanceReport({ report, scopeControl = null }) {
               </section>
             )}
 
-            <section className="rpt-section">
+            <section className="rpt-section qab-long">
               <p className="rpt-h">Player QAB summary</p>
               <table className="qab-table qab-players">
                 <thead>

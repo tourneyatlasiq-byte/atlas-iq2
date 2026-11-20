@@ -7,6 +7,7 @@ import { qabPerformanceReport } from "../../../lib/queries/reports/qab-performan
 import { QabPerformanceReport } from "../../../components/reports/QabPerformanceReport";
 import { listTrackedTournaments, qabTournamentReport } from "../../../lib/queries/reports/qab-tournament";
 import { QabTournamentReport } from "../../../components/reports/QabTournamentReport";
+import { fromParam, withFrom } from "../../../lib/report-back";
 import { QabScopeControl } from "../../../components/reports/QabScopeControl";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +89,8 @@ export async function generateMetadata({ searchParams } = {}) {
  */
 export default async function QabPerformancePage({ searchParams } = {}) {
   const { season, features } = await getContext();
+  // The screen the report was opened from (checked against a fixed list).
+  const from = fromParam(searchParams?.from);
 
   if (!features?.qab) {
     return (
@@ -130,7 +133,7 @@ export default async function QabPerformancePage({ searchParams } = {}) {
           <div className="rpt-blocked">
             <h2>Tournament not found</h2>
             <p>That tournament isn&rsquo;t part of this season&rsquo;s QAB tracking.</p>
-            <p><Link href="/reports/qab-performance">← Season QAB Performance</Link></p>
+            <p><Link href={withFrom("/reports/qab-performance", from)}>← Season QAB Performance</Link></p>
           </div>
         </div>
       );
@@ -145,7 +148,8 @@ export default async function QabPerformancePage({ searchParams } = {}) {
     return (
       <QabTournamentReport
         report={report}
-        scopeControl={<QabScopeControl tournaments={options} selectedId={tournamentId} />}
+        from={from}
+        scopeControl={<QabScopeControl tournaments={options} selectedId={tournamentId} from={from} />}
       />
     );
   }
@@ -166,7 +170,8 @@ export default async function QabPerformancePage({ searchParams } = {}) {
   return (
     <QabPerformanceReport
       report={report}
-      scopeControl={<QabScopeControl tournaments={tournaments} selectedId={null} />}
+      from={from}
+      scopeControl={<QabScopeControl tournaments={tournaments} selectedId={null} from={from} />}
     />
   );
 }

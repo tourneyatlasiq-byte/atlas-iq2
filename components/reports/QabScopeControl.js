@@ -2,14 +2,18 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { withFrom } from "../../lib/report-back";
 
 export const QAB_REPORT_PATH = "/reports/qab-performance";
 
-/** The address of a scope. Season is the report's plain address. */
-export function qabScopeHref(tournamentId) {
-  return tournamentId
-    ? `${QAB_REPORT_PATH}?scope=tournament&tournament=${encodeURIComponent(tournamentId)}`
-    : QAB_REPORT_PATH;
+/** The address of a scope. Season is the report's plain address. Keeps the screen the report was opened from. */
+export function qabScopeHref(tournamentId, from = null) {
+  return withFrom(
+    tournamentId
+      ? `${QAB_REPORT_PATH}?scope=tournament&tournament=${encodeURIComponent(tournamentId)}`
+      : QAB_REPORT_PATH,
+    from
+  );
 }
 
 /**
@@ -23,7 +27,7 @@ export function qabScopeHref(tournamentId) {
  * report, so a refresh, a bookmark or Back shows the same document. Only
  * tournaments with tracked plate appearances are offered.
  */
-export function QabScopeControl({ tournaments = [], selectedId = null }) {
+export function QabScopeControl({ tournaments = [], selectedId = null, from = null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   if (tournaments.length === 0) return null;
@@ -40,7 +44,7 @@ export function QabScopeControl({ tournaments = [], selectedId = null }) {
             type="button"
             className={`rpt-seg-btn${!isTournament ? " on" : ""}`}
             aria-pressed={!isTournament}
-            onClick={() => isTournament && go(qabScopeHref(null))}
+            onClick={() => isTournament && go(qabScopeHref(null, from))}
           >
             Season
           </button>
@@ -48,7 +52,7 @@ export function QabScopeControl({ tournaments = [], selectedId = null }) {
             type="button"
             className={`rpt-seg-btn${isTournament ? " on" : ""}`}
             aria-pressed={isTournament}
-            onClick={() => !isTournament && go(qabScopeHref(tournaments[0].id))}
+            onClick={() => !isTournament && go(qabScopeHref(tournaments[0].id, from))}
           >
             Tournament
           </button>
@@ -60,7 +64,7 @@ export function QabScopeControl({ tournaments = [], selectedId = null }) {
           <select
             className="qab-scope-select"
             value={selectedId}
-            onChange={(e) => go(qabScopeHref(e.target.value))}
+            onChange={(e) => go(qabScopeHref(e.target.value, from))}
           >
             {tournaments.map((t) => (
               <option key={t.id} value={t.id}>

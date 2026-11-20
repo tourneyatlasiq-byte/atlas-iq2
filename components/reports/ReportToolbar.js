@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { reportBack } from "../../lib/report-back";
 
 /**
  * The shared, screen-only report toolbar (2026-11).
  *
- *   Back | Report name                              Print / Save as PDF
+ *   Back (to the screen it was opened from) | Report name       Print / Save as PDF
  *   (report-specific controls, only when the report has them)
  *   N report notes · View details                    (collapsed)
  *   (optional extras, e.g. the Budget's parent note)
@@ -19,14 +20,16 @@ import Link from "next/link";
  * line says how many need attention. Blocking states never come here — each
  * report keeps its full-page explanation for those.
  */
-export function ReportToolbar({ name, backHref = "/reports", backLabel = "Reports", notes = [], controls = null, children = null }) {
+export function ReportToolbar({ name, from = null, notes = [], controls = null, children = null }) {
+  // Back is checked against a fixed list; a caller cannot pass its own address.
+  const back = reportBack(from);
   const [open, setOpen] = useState(false);
   const actionCount = notes.filter((n) => n.action).length;
 
   return (
     <div className="rpt-bar rpt-no-print">
       <div className="rpt-tb-head">
-        <Link href={backHref} className="rpt-tb-back">← {backLabel}</Link>
+        <Link href={back.href} className="rpt-tb-back">← {back.label}</Link>
         <p className="rpt-tb-name">{name}</p>
         <button type="button" className="rpt-btn rpt-btn-primary rpt-tb-print" onClick={() => window.print()}>
           Print / Save as PDF

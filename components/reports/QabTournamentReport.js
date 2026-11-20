@@ -70,7 +70,7 @@ function GameHighlight({ label, g }) {
   );
 }
 
-export function QabTournamentReport({ report, scopeControl = null }) {
+export function QabTournamentReport({ report, scopeControl = null, from = null }) {
   const { organization, team, season, tournament, summary, games, reasons, reasonsCited, players, notes } = report;
   const ts = report.tournamentSummary ?? {};
   // A long name stacks above its figure on a phone (see qab.css); short names stay on one line.
@@ -90,6 +90,7 @@ export function QabTournamentReport({ report, scopeControl = null }) {
     <div className="rpt-shell">
       {/* Screen only. Never printed. */}
       <ReportToolbar
+        from={from}
         name="QAB Performance"
         controls={scopeControl}
         notes={[...(notes ?? []), ...legacyReasonNote(reasonsCited, summary.qab)]}

@@ -1,5 +1,6 @@
 import "./report.css";
 import Link from "next/link";
+import { fromParam } from "../../../lib/report-back";
 import { getContext } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";
 import { seasonBudgetReport } from "../../../lib/queries/reports/season-budget";
@@ -97,8 +98,8 @@ export default async function SeasonBudgetReportPage({ searchParams }) {
   // the product later; the budget report itself is not premium-gated.
   void features;
 
-  // Back target only (?from=finance). Nothing else reads it.
-  const from = searchParams?.from === "finance" ? "finance" : null;
+  // Back target only (?from=<screen>, checked against a fixed list). Nothing else reads it.
+  const from = fromParam(searchParams?.from);
 
   return <SeasonBudgetReport report={report} from={from} />;
 }

@@ -108,7 +108,7 @@ function TournamentBody({ t, showGames }) {
 /** The two report detail levels. Display only: both use the same records. */
 export const SCHEDULE_DETAIL = { tournaments: "tournaments", games: "games" };
 
-export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETAIL.tournaments }) {
+export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETAIL.tournaments, from = null }) {
   const { organization, team, season, tournaments, warnings } = report;
   const generated = fmtGenerated(report.generatedAt);
   const hasTentative = tournaments.some((t) => t.status === "Considering");
@@ -150,6 +150,7 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
       {/* Screen only. Never printed. */}
       <ReportToolbar
         name="Tournament Schedule"
+        from={from}
         notes={warnings.map((w) => ({ title: w.title, message: w.message, action: Boolean(w.action) }))}
         controls={
           <div className="rpt-detail" role="group" aria-label="Report detail">

@@ -29,7 +29,7 @@ const cases = [
   ["/dashboard", true], ["/tournaments", true], ["/finance", true], ["/team", true], ["/facilities", true], ["/facilities/x", false],
   ["/tournaments/t1", false], ["/tournaments/t1/games/g1/lineup", true], ["/tournaments/t1/games/g1/lineup/extra", false],
   ["/tournaments/t1/games/g1/track/extra", false], ["/tournaments/t1/games/track", false],
-  ["/settings", false], ["/reports", false], ["/performance-x", false], ["/", false],
+  ["/settings", false], ["/reports", true], ["/reports/", true], ["/reports/season-budget", false], ["/reports/qab-performance", false], ["/performance-x", false], ["/", false],
 ];
 ok("each route is Volt or not as listed", cases.map(([p]) => isVoltPath(p)), cases.map(([, v]) => v));
 const boot = (p) => {

@@ -85,12 +85,17 @@
 .qab-scope { flex-direction: column; align-items: flex-start; gap: 10px; }
 .qab-scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .qab-scope-select {
-  min-height: 40px; max-width: 100%; padding: 8px 10px;
-  border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
-  color: #0b2341; font: inherit; font-size: 13.5px; font-weight: 600;
+  min-height: 44px; max-width: 100%; padding: 8px 12px;
+  border: 1px solid #d3d8df; border-radius: 12px; background: #fff;
+  color: #0c0f14; font: inherit; font-size: 16px; font-weight: 600; /* 16px keeps phones from zooming the field */
 }
-.qab-scope-select:focus-visible { outline: 2px solid #2f80ed; outline-offset: 1px; }
+.qab-scope-select:focus-visible { outline: 2.5px solid #0c0f14; outline-offset: 2px; }
 .qab-scope[aria-busy="true"] { opacity: 0.6; }
+/* Phone: the tournament picker spans the toolbar instead of running past it. */
+@media (max-width: 560px) {
+  .qab-scope, .qab-scope-row { width: 100%; }
+  .qab-scope-select { flex: 1 1 100%; width: 100%; min-width: 0; box-sizing: border-box; }
+}
 
 /* QAB% by game: G-number column, time beside the day. */
 .qab-table th.qab-c-gn, .qab-table td.qab-c-gn { width: 2.6em; color: #64748b; }
@@ -280,6 +285,10 @@
      is shrunk. Sections avoid breaking, rows never split, and a heading is
      never left stranded at the foot of a page. */
   .qab-summary { break-after: avoid; }
+  /* A section holding a long table may split between its rows (rows never split and the
+     column headings repeat). A season of 30+ games is taller than a page, and an unsplittable
+     section moved whole to page two, leaving page one as the title alone. */
+  .rpt-section.qab-long { break-inside: auto; }
   .qab-table thead { display: table-header-group; }
   .qab-table tr { break-inside: avoid; }
   .qab-reasons li { break-inside: avoid; }
