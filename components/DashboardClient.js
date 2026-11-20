@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { clearEntry, takeScroll } from "../lib/back-context";
+import { clearEntry, takeBackScroll } from "../lib/back-context";
 import { money } from "../lib/finance-rules";
 import { plainLanguage } from "../lib/readiness/dashboard";
 import { PageHelp } from "./PageHelp";
@@ -41,11 +41,12 @@ export function DashboardClient({
   // the first paint; the browser swaps in the device date on mount.
   // Home is showing, so any "came from Home" record is spent.
   // A saved scroll position (set when a game was opened from here) is put back
-  // after the page has laid out, so Back and refresh both land where the coach was.
+  // after the page has laid out, but only when the Back link asked for it, so a later
+  // visit to Home never jumps to an old position.
   useEffect(() => {
     try {
       clearEntry(window.sessionStorage);
-      const y = takeScroll(window.sessionStorage);
+      const y = takeBackScroll(window.sessionStorage);
       if (y) {
         let tries = 0;
         const apply = () => { window.scrollTo(0, y); if (++tries < 6 && Math.abs(window.scrollY - y) > 4) setTimeout(apply, 120); };
