@@ -87,7 +87,13 @@ const ok = (l, c, d) => { c ? pass++ : fail++; console.log(`  ${c ? "ok  " : "FA
   const b2 = await R(".trk-back-live");
   await page.touchscreen.tap(Math.round((b2.left + b2.right) / 2), Math.round((b2.top + b2.bottom) / 2)); await page.waitForTimeout(400);
   const back = await st(), batterTop = await R(".trk-batter");
-  ok("a touch on the button returns to Live Tracking at the top", back.tab === "Live Tracking" && back.scrollY === 0, back);
+  ok("a touch on the button returns to Live Tracking", back.tab === "Live Tracking", back);
+  const lr = await R(".trk-reason", 0), ls = await R(".trk-save"), ln = await R(".trk-noqab"), lb = await R(".navbar-mobile");
+  ok(`it lands with Now batting pinned under the header (top ${batterTop.top} = header bottom ${hdr.bottom}), no further scroll needed`, Math.abs(batterTop.top - hdr.bottom) <= 1, { batterTop, hdr });
+  ok("the reason choices start right below it and Record QAB and No QAB are fully above the bottom bar", lr.top >= batterTop.bottom && ls.bottom <= lb.top && ln.bottom <= lb.top, { lr, batterTop, ls, ln, lb });
+  const tiles = await page.evaluate(() => [...document.querySelectorAll(".trk-reason")].map((e) => Math.round(e.getBoundingClientRect().height)));
+  const fonts = await page.evaluate(() => [...document.querySelectorAll(".trk-reason-label, .trk-save, .trk-noqab")].map((e) => parseFloat(getComputedStyle(e).fontSize)));
+  ok(`tap targets stay large (every reason tile ${Math.min(...tiles)}px tall or more, Record and No QAB ${ls.h}px) and text stays readable (smallest ${Math.min(...fonts)}px)`, Math.min(...tiles) >= 56 && ls.h >= 56 && ln.h >= 56 && Math.min(...fonts) >= 15, { tiles, fonts, ls, ln });
   ok("same batter, same totals, nothing recorded", back.batter === before.batter && back.tally === before.tally && back.calls === before.calls, { back, before });
   ok("the Now batting card is on screen under the header", batterTop && batterTop.top >= hdr.bottom - 1 && batterTop.bottom < VH, batterTop);
   await page.evaluate(() => { window.__offline = true; });

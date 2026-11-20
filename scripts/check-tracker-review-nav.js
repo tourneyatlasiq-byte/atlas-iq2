@@ -19,8 +19,8 @@ ok("opening a player expands nothing (no correction or confirmation is opened by
 
 console.log("\nThe way back");
 ok("Edit at-bats has a Back to live tracking button", /<button type="button" className="trk-back-live" onClick=\{backToLive\}>[\s\S]{0,120}Back to live tracking/.test(src));
-ok("it only switches the view: live mode, from the top", /const backToLive = \(\) => \{ setMode\("live"\); goTo\("top"\); \};/.test(src));
-ok("it does not touch the batter, the rows or the queue", !/const backToLive[^\n]*(setCursor|setRows|queue|flush|record|correct|void)/i.test(src));
+ok("it only switches the view: live mode, landing at the recording position", /const backToLive = \(\) => \{ setMode\("live"\); goTo\("recording"\); \};/.test(src));
+ok("it does not touch the batter, the rows or the queue", !/const backToLive[^\n]*(setCursor|setRows|queue|flush|record|correct|void)/i.test(src.replace(/goTo\("recording"\)/g, "goTo(SCROLL_TARGET)")));
 ok("Finish tracking is still a separate control, outside the tab list", /className="trk-finish-top"\s+onClick=\{startFinish\}/.test(src) && !/trk-back-live[^>]*startFinish/.test(src));
 ok("the bar stays on screen, pinned to the header's measured height", /\.trk-review-back \{[^}]*position: sticky; top: var\(--trk-hdr, 0px\)/.test(css) && /@media \(max-width: 720px\) \{[^}]*\.trk-review-back \{ top: var\(--trk-hdr, 62px\); \}/.test(css) && /--trk-hdr/.test(src) && /querySelector\("\.sidebar"\)/.test(src));
 ok("the button is at least 44px tall", /\.trk-back-live \{[^}]*min-height: 44px/.test(css));

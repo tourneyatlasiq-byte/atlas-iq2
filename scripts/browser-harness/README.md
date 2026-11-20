@@ -23,7 +23,12 @@ export PLAYWRIGHT=<TOOLS_DIR>/node_modules/playwright
 export CHROME=/path/to/chrome          # default /usr/bin/google-chrome
 OUT=/tmp/rbi-shots     node scripts/verify-qab-rbi-browser.js        # current version: 21 checks
 OUT=/tmp/rbi-old-shots node scripts/verify-qab-rbi-old-tracker.js    # previous version tab: 7 checks
+OUT=/tmp/restore-shots node scripts/verify-tracker-queue-restore.js  # leave/return, reload, reconnect, conflicts, unreadable queue: 43 checks
+W=375 VH=812 OUT=/tmp/nav-shots node scripts/verify-tracker-review-nav.js   # Back to live landing and tap targets, run at 375x812, 390x844, 430x932
 ```
+`entry-shell.jsx` also exposes `window.__remount("stale" | "fresh")`, which re-renders the tracker the way a full page navigation does
+("stale" = the first server snapshot, "fresh" = the current stand-in rows). `sessionStorage.__off` starts a page offline and
+`sessionStorage.__srvRows` seeds the stand-in rows. Harness-only created_at times must be in the past, because the stand-in stamps new rows with the real clock.
 Resolution order for each tool: its env var, then `node_modules/` in the repo, then `/opt/npm-tools/node_modules/`
 (the path this sandbox happens to use; not a requirement). If none resolves the script prints these instructions.
 Optional for nicer screenshots: Inter Tight and Schibsted Grotesk woff2 files at `/tmp/inter-tight-latin-<w>-normal.woff2`

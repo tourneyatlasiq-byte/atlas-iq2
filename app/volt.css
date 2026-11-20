@@ -1065,6 +1065,16 @@ html.volt .trk-finish-panel { scroll-margin-top: 90px; }
   html.volt .trk-batter-eyebrow { margin: 0 0 1px; }
   html.volt .trk-name { font-size: 22px; }
   html.volt .trk-batter-meta { margin: 3px 0 0; font-size: 13px; gap: 6px; }
+  /* Less scrolling to reach the reasons and the Record buttons (2026-11-20). Same 15px labels; every tile stays 56px or
+     taller (the Record buttons stay 56px). About 55px shorter from the pinned batter card to the bottom of Record QAB. */
+  html.volt .trk-sync { margin-bottom: 8px; }
+  html.volt .trk-head { margin-bottom: 8px; }
+  html.volt .trk-card { padding: 12px 14px; margin-bottom: 10px; }
+  html.volt .trk-card-s { margin: 2px 0 10px; }
+  html.volt .trk-reasons { gap: 8px; margin-bottom: 12px; }
+  html.volt .trk-reason { min-height: 56px; padding: 6px 10px; }
+  html.volt .trk-commit { gap: 8px; }
+  html.volt .trk-save-hint { margin: 6px 2px 0; }
 }
 
 /* Picker: matching places come first (2026-11). While an existing record can be

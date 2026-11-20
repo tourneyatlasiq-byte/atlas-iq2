@@ -7346,3 +7346,8 @@ div.gm-row { cursor: pointer; }
 }
 .season-inactive-toggle:hover { color: var(--ink, inherit); }
 .season-inactive .season-plist > li:first-child { border-top: 1px solid var(--border); }
+
+/* Tracker: shown instead of the batter and the buttons until the phone's waiting at-bats have been read (2026-11-20). */
+.trk-restore { padding: 18px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--slate); font-size: 15px; line-height: 1.5; }
+.trk-restore p { margin: 0; }
+.trk-restore-h { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: var(--navy); }

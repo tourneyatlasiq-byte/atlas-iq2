@@ -15,6 +15,7 @@ import {
 } from "../lib/actions/plate-appearances";
 import {
   enqueue,
+  pendingEntries,
   flushQueue,
   queueStatus,
   isFlushing,
@@ -29,6 +30,7 @@ import { syncDisplay, blocksFinish } from "../lib/sync-status";
 import { finishGameTracking, resumeGameTracking } from "../lib/actions/games";
 import { substitutePlayer } from "../lib/actions/lineup";
 import { resumePosition, defaultTrackerMode } from "../lib/tracker-cursor";
+import { restoreFromQueue, hideConflictedPending, settleGroup } from "../lib/tracker-restore";
 import { localDateIso, utcDateIso } from "../lib/local-date";
 import { GameLink } from "./GameLink";
 import { useSessionDismiss } from "../lib/useSessionDismiss";
@@ -59,8 +61,16 @@ function ordinal(n) {
   return `${n}${suffix}`;
 }
 
-export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite, userId = null, serverToday, tournamentGames = [] }) {
-  const [rows, setRows] = useState(initialRows ?? []);
+export function TrackerClient({ game, lineup, substitutes = [], initialRows, canWrite: canWriteProp, userId = null, serverToday, tournamentGames = [] }) {
+  // What this phone shows is the server's snapshot PLUS at-bats still waiting in the device queue. The snapshot alone is
+  // older than the phone, so until the queue has been read and merged (restore === "ready") nothing is recorded and no
+  // batter is shown; if the queue cannot be read, recording stays off (2026-11-20).
+  const [restore, setRestore] = useState("loading"); // "loading" | "ready" | "failed"
+  const canWrite = canWriteProp && restore === "ready";
+  // Everything this screen holds, before an at-bat that is waiting for the coach's decision is set aside (see `rows`).
+  const [rowsAll, setRows] = useState(initialRows ?? []);
+  // The last rows the server reported, to put a value back when the coach keeps what is saved.
+  const baselineRef = useRef(initialRows ?? []);
   // "Next game" offer after finishing (Release 2). "Not now" lasts for the
   // browser session. The offer never navigates by itself.
   const [nextDismissed, dismissNext, nextReady] = useSessionDismiss("next", game.id);
@@ -134,12 +144,17 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
   };
   // The way back from Edit at-bats. Switching the view never touches the cursor
   // (the batter at the plate), recorded rows or the queue, so all three are
-  // exactly as they were; it only shows Live Tracking from the top, where
-  // "Now batting" is.
-  const backToLive = () => { setMode("live"); goTo("top"); };
+  // exactly as they were; it only shows Live Tracking. On a phone it lands with
+  // "Now batting" pinned under the header and the reason choices right below it,
+  // so the next at-bat can be recorded without another scroll (2026-11-20); on a
+  // wide screen it shows the top, where "Now batting" already is.
+  const backToLive = () => { setMode("live"); goTo("recording"); };
   const [finishBlock, setFinishBlock] = useState(null);
   // Queued writes the database will never accept, awaiting the coach (ST-022).
   const [review, setReview] = useState([]);
+  const reviewKey = useRef("[]");
+  // An at-bat held for review that a saved at-bat already answers for is not counted beside it while the coach decides.
+  const rows = useMemo(() => hideConflictedPending(rowsAll, review), [rowsAll, review]);
   // Optional final score, entered in the finish confirmation.
   const [ourScore, setOurScore] = useState(game.runs_for ?? "");
   const [oppScore, setOppScore] = useState(game.runs_against ?? "");
@@ -187,6 +202,22 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     const { to } = scrollTo_;
     if (to === "top") {
       window.scrollTo(0, 0);
+      return;
+    }
+    if (to === "recording") {
+      // Phone only: leave the pinned Now batting card just under the header and the reasons card directly beneath it.
+      // Measured, because the header's height changes with the phone. Presentation only; nothing is read or written.
+      const header = document.querySelector(".sidebar");
+      const pinned = document.querySelector(".trk-batter");
+      const reasons = document.querySelector(".trk-card");
+      const phone = window.matchMedia("(max-width: 720px)").matches;
+      if (!phone || !header || !pinned || !reasons) {
+        window.scrollTo(0, 0);
+        return;
+      }
+      const space = parseFloat(getComputedStyle(pinned).marginBottom) || 0;
+      const gap = reasons.getBoundingClientRect().top - (header.getBoundingClientRect().bottom + pinned.getBoundingClientRect().height + space);
+      window.scrollBy(0, gap);
       return;
     }
     const el = document.querySelector(to) ?? (scrollTo_.fallback ? document.querySelector(scrollTo_.fallback) : null);
@@ -310,21 +341,59 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     setQueueState(s);
     if (s.readable) {
       setChecked(true);
-      try { setReview(await reviewGroups(game.id, userId)); } catch { /* the status line already says what it can */ }
+      try {
+        const next = await reviewGroups(game.id, userId);
+        // Keep the same array while nothing about the review items changed, so the list below (and the send effect that
+        // depends on it) is not rebuilt on every status refresh.
+        const key = JSON.stringify(next.map((g) => [(g.group ?? []).map((e) => e.seq), g.head?.conflict?.id ?? null, g.head?.conflict?.updatedAt ?? null, g.head?.conflict?.reasons ?? null]));
+        if (key !== reviewKey.current) { reviewKey.current = key; setReview(next); }
+      } catch { /* the status line already says what it can */ }
     }
     return s;
   }, [game.id, userId]);
 
+  // Read the device queue and merge it into the list before the first tap and before the first send (a send would empty
+  // the queue under a list that never had those at-bats). Runs once on arrival; Retry runs it again.
+  const runRestore = useCallback(async () => {
+    setRestore("loading");
+    // Someone who cannot record has nothing queued to restore and is never blocked from viewing the game.
+    if (!canWriteProp) { setRestore("ready"); return; }
+    try {
+      const s = await queueStatus(game.id, userId);
+      if (!s.readable) throw new Error("The queue could not be read.");
+      const entries = await pendingEntries(game.id);
+      const r = restoreFromQueue({ lineup: lineup ?? [], savedRows: initialRows ?? [], entries, userId });
+      if (r.applied > 0) {
+        setRows(r.rows);
+        setCursor(r.cursor.index);
+        setPickBatter(r.cursor.ambiguous);
+      }
+      setRestore("ready");
+    } catch {
+      setRestore("failed");
+    }
+  }, [game.id, userId, lineup, initialRows, canWriteProp]);
+  const restoreStarted = useRef(false);
+  useEffect(() => {
+    if (restoreStarted.current) return;
+    restoreStarted.current = true;
+    runRestore();
+  }, [runRestore]);
+
+  const skippedRetries = useRef(0);
+  const syncAgain = useRef(null);
+  const syncAgainTimer = useRef(null);
+  useEffect(() => () => clearTimeout(syncAgainTimer.current), []);
   const sync_ = useCallback(async (force = false) => {
     // Show "Syncing N" only while a pass is really sending something.
     const before = await queueStatus(game.id, userId);
     if (before.readable && before.waiting > 0) setFlushing(true);
+    let result = null;
     try {
       // An at-bat recorded while a pass is sending is queued behind it. When a
       // pass made progress and finished cleanly, look again, so that at-bat is
       // sent now rather than waiting for the next tap. Stops as soon as a pass
       // sends nothing (held for review, backing off, or nothing left).
-      let result = null;
       for (let again = 0; again < 10; again += 1) {
         result = await flushQueue(send, { gameId: game.id, userId, savedRows, force: force === true && again === 0, onProgress: refreshStatus });
         if (!result || result.skipped || !(result.sent > 0) || result.stoppedAt || result.waiting) break;
@@ -335,9 +404,20 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       setFlushing(isFlushing());
     }
     await refreshStatus();
+    // A pass that was already running elsewhere (a tracker left a moment ago) is not ours to join: look again shortly, so
+    // this screen never sits on "Syncing" until the next timer.
+    if (result?.skipped && skippedRetries.current < 6) {
+      skippedRetries.current += 1;
+      clearTimeout(syncAgainTimer.current);
+      syncAgainTimer.current = setTimeout(() => syncAgain.current?.(), 700);
+    } else if (!result?.skipped) {
+      skippedRetries.current = 0;
+    }
   }, [send, game.id, userId, savedRows, refreshStatus]);
+  syncAgain.current = () => sync_();
 
   useEffect(() => {
+    if (restore !== "ready") return undefined;
     refreshStatus();
     sync_();
     // Reconnecting, or coming back to the app, drops the wait that was earned
@@ -356,7 +436,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(t);
     };
-  }, [sync_, refreshStatus, game.id]);
+  }, [sync_, refreshStatus, game.id, restore]);
 
   useEffect(() => {
     setOnline(typeof navigator === "undefined" ? true : navigator.onLine !== false);
@@ -372,6 +452,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
 
   // What the status line shows: one tested definition (lib/sync-status.js).
   const shownSync = syncDisplay({
+    restore,
     checked,
     status: queueState,
     flushingCount: flushing && queueState?.readable ? queueState.waiting : 0,
@@ -675,21 +756,49 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
     );
   }
 
+  const syncBar = (
+    <div
+      className={`trk-sync trk-sync-${shownSync.tone}`}
+      role={shownSync.tone === "bad" ? "alert" : "status"}
+    >
+      <span>{shownSync.text}</span>
+      {/* Retry only helps a write that can still go through; an at-bat
+          awaiting review needs the decision below instead. */}
+      {sync.retry && (
+        <button type="button" onClick={() => (restore === "failed" ? runRestore() : sync_(true))}>
+          Retry
+        </button>
+      )}
+    </div>
+  );
+
+  // Not ready to record: the queue has not been read yet, or could not be. No batter, totals or buttons are shown
+  // against a list that may be older than this phone.
+  if (restore !== "ready") {
+    return (
+      <div className="trk">
+        {syncBar}
+        <section className="trk-restore" aria-live="polite">
+          {restore === "failed" ? (
+            <>
+              <h2 className="trk-restore-h">Recording is paused</h2>
+              <p>
+                At-bats you recorded earlier may be waiting on this phone, and they can&rsquo;t be read right now, so the
+                batter and totals can&rsquo;t be trusted. Nothing will be recorded until they can be read, so nothing can land
+                in the wrong place. Keep this screen open and tap Retry. If it keeps failing, reload the page.
+              </p>
+            </>
+          ) : (
+            <p>Getting this game ready...</p>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="trk">
-      <div
-        className={`trk-sync trk-sync-${shownSync.tone}`}
-        role={shownSync.tone === "bad" ? "alert" : "status"}
-      >
-        <span>{shownSync.text}</span>
-        {/* Retry only helps a write that can still go through; an at-bat
-            awaiting review needs the decision below instead. */}
-        {sync.retry && (
-          <button type="button" onClick={() => sync_(true)}>
-            Retry
-          </button>
-        )}
-      </div>
+      {syncBar}
 
       {review.length > 0 && (
         <QueueReview
@@ -699,6 +808,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           canWrite={canWrite}
           onKeepSaved={async (g) => {
             await discardEntries(g.group.map((e) => e.seq), "kept_saved");
+            setRows((r) => settleGroup(r, g, { keep: "saved", baseline: baselineRef.current }));
             await refreshStatus();
           }}
           onUseUnsynced={async (g, saved) => {
@@ -714,7 +824,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
               payload: { id: saved.id, reasons, notes, expectedUpdatedAt: saved.updatedAt ?? null },
             });
             await discardEntries(g.group.map((e) => e.seq), "used_unsynced");
-            setRows((r) => r.map((x) => (x.id === saved.id ? { ...x, qab_reasons: reasons, is_qab: reasons.length > 0, notes } : x)));
+            setRows((r) => settleGroup(r, g, { keep: "unsynced", baseline: baselineRef.current, savedId: saved.id, reasons, notes }));
             await sync_(true);
           }}
           onRetry={async (g) => {
@@ -723,6 +833,7 @@ export function TrackerClient({ game, lineup, substitutes = [], initialRows, can
           }}
           onDiscard={async (g) => {
             await discardEntries(g.group.map((e) => e.seq), "discarded");
+            setRows((r) => settleGroup(r, g, { keep: "saved", baseline: baselineRef.current }));
             await refreshStatus();
           }}
         />

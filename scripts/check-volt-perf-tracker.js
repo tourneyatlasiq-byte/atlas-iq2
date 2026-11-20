@@ -70,7 +70,7 @@ ok("the queue states are unchanged (review, other account, failed, waiting)",
 ok("failed saves are announced as alerts, others as status", tc.includes('role={shownSync.tone === "bad" ? "alert" : "status"}'), true);
 ok("offline: an idle offline phone is not shown as 'All saved'", /online \? ALL_SAVED : \{/.test(ss) && ss.includes("Offline. At-bats you record are kept on this phone"), true);
 ok("offline never hides a failure or a review prompt (review and failure are decided before the offline wording)", ss.indexOf("status.review > 0") < ss.indexOf("Offline.") && ss.indexOf("status.failed > 0") < ss.indexOf("(offline)"), true);
-ok("the status strip keeps its Retry button for failed saves", /sync\.retry && \(\s*<button type="button" onClick=\{\(\) => sync_\(true\)\}>/.test(tc), true);
+ok("the status strip keeps its Retry button for failed saves", /sync\.retry && \(\s*<button type="button" onClick=\{\(\) => \(restore === "failed" \? runRestore\(\) : sync_\(true\)\)\}>/.test(tc), true);
 ok("quiet saved style: no background; waiting and failed keep a tinted bar",
   /html\.volt \.trk-sync-ok \{[^}]*background: transparent/.test(css) && /html\.volt \.trk-sync-wait \{[^}]*background: var\(--due-t\)/.test(css) && /html\.volt \.trk-sync-bad \{[^}]*background: var\(--owed-t\)/.test(css), true);
 
