@@ -32,9 +32,11 @@ function verify(token) {
 function filters(url, params, startAt = 1) {
   const where = []; const values = [];
   for (const [k, v] of url.searchParams) {
-    if (["select", "order", "limit", "offset", "columns"].includes(k)) continue;
+    if (["select", "order", "limit", "offset", "columns", "on_conflict"].includes(k)) continue;
     const mi = /^in\.\((.*)\)$/.exec(v);
     if (mi) { values.push(mi[1].split(",")); where.push(`${q(k)}::text = any($${startAt + values.length - 1}::text[])`); continue; }
+    const mn = /^not\.is\.(null)$/.exec(v);
+    if (mn) { where.push(`${q(k)} is not null`); continue; }
     const m = /^(eq|is|neq)\.(.*)$/.exec(v);
     if (!m) throw Object.assign(new Error(`Unsupported filter ${k}=${v}`), { code: "PGRST100", status: 400 });
     if (m[1] === "is") { where.push(`${q(k)} is ${m[2] === "null" ? "null" : m[2]}`); continue; }
@@ -66,6 +68,12 @@ function selectList(sel) {
 const orderBy = (url) => {
   const o = url.searchParams.get("order"); if (!o) return "";
   return " order by " + o.split(",").map((t) => { const [c, d] = t.split("."); return `${q(c)}${d === "desc" ? " desc" : ""}`; }).join(", ");
+};
+// PostgREST upsert: ?on_conflict=col with "Prefer: resolution=ignore-duplicates" is ON CONFLICT (col) DO NOTHING.
+const upsertClause = (url, req) => {
+  const oc = url.searchParams.get("on_conflict");
+  if (!oc || !/resolution=ignore-duplicates/.test(String(req.headers.prefer ?? ""))) return "";
+  return ` on conflict (${oc.split(",").map((c) => q(c.trim())).join(", ")}) do nothing`;
 };
 const returning = (url) => {
   const sel = url.searchParams.get("select");
@@ -112,7 +120,7 @@ async function handle(req, res) {
     } else if (req.method === "POST") {
       const rows = Array.isArray(json) ? json : [json]; const cols = Object.keys(rows[0]);
       const values = []; const tuples = rows.map((r) => "(" + cols.map((c) => { values.push(r[c]); return `$${values.length}`; }).join(", ") + ")");
-      result = await client.query(`insert into ${q(table)} (${cols.map(q).join(", ")}) values ${tuples.join(", ")}${wantsRep ? returning(url) : ""}`, values);
+      result = await client.query(`insert into ${q(table)} (${cols.map(q).join(", ")}) values ${tuples.join(", ")}${upsertClause(url, req)}${wantsRep ? returning(url) : ""}`, values);
       status = 201;
     } else if (req.method === "PATCH") {
       const cols = Object.keys(json); const set = cols.map((c, i) => `${q(c)} = $${i + 1}`).join(", ");

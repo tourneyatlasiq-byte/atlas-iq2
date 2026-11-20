@@ -288,7 +288,7 @@ const strip = (r) => { const { generatedAt, ...rest } = r; return rest; };
   assertEq("the summary does not change a single QAB figure",
     [rr.summary, rr.reasons, rr.players.map((p) => p.qab + "/" + p.pa)], [r.summary, r.reasons, r.players.map((p) => p.qab + "/" + p.pa)]);
   assertEq("exact reason labels reconcile to the QAB count",
-    [rr.reasons.every((x) => ["Hit", "Walk", "HBP", "Hard hit ball", "8+ pitch", "Situational success", "Sac bunt", "Sac fly"].includes(x.label)),
+    [rr.reasons.every((x) => ["Hit", "Walk", "HBP", "Hard hit ball", "8+ pitch", "Situational success", "Sac bunt", "Sac fly", "RBI"].includes(x.label)),
      rr.reasons.reduce((n, x) => n + x.count, 0), rr.summary.qab, rr.reasonsCited], [true, 53, 53, 53]);
   assertEq("no scoreless note when every result has a score", rr.notes, []);
 

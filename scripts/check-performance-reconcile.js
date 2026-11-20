@@ -117,7 +117,7 @@ function fakeClient() {
   assertEq("every player's reasons add up to that player's QAB", s.players.every((p) => sum(p.reasons, "count") === p.qab), true);
   assertEq("every player's game history adds up to that player's totals", s.players.every((p) => sum(p.history, "pa") === p.pa && sum(p.history, "qab") === p.qab), true);
   assertEq("per-game batting-order slots add up to each game", s.games.every((g) => !g.slots || g.slots.length === 0 || (sum(g.slots, "pa") === g.pa && sum(g.slots, "qab") === g.qab)), true);
-  assertEq("reasons shown use approved labels only", s.reasons.map((r) => r.label), ["Hit", "Walk", "HBP", "Hard hit ball", "8+ pitch", "Situational success", "Sac bunt", "Sac fly"]);
+  assertEq("reasons shown use approved labels only", s.reasons.map((r) => r.label), ["Hit", "Walk", "HBP", "Hard hit ball", "8+ pitch", "Situational success", "Sac bunt", "Sac fly", "RBI"]);
   assertEq("record counts W/L from results (a game still being tracked has none yet)", [s.record.w, s.record.l, s.record.played, s.record.total], [1, 1, 2, 3]);
   assertEq("games completed counts the explicit completion mark (2 of 3)", s.gamesCompleted, 2);
   // A voided plate appearance must not leak into any total.

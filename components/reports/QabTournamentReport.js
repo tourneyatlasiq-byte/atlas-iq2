@@ -44,9 +44,9 @@ const cellClass = (c) => (c == null ? "qab-gbg-none" : "");
 const EN = "\u2013";
 // Reason mix segment colours, in legend order. The legend (label, count, share)
 // carries every reading; colour only repeats it.
-// Ink ramp (dark to light): every step stays distinguishable in a grayscale print, and the legend still carries
+// Ink ramp (dark to light), one step per QAB reason (nine): every step stays distinguishable in a grayscale print, and the legend still carries
 // label, count and share on every row, so no reading depends on shade.
-const MIX_COLORS = ["#0c0f14", "#343b47", "#5b6472", "#818997", "#a6adb8", "#c6cbd3", "#dde0e5", "#eef0f3"];
+const MIX_COLORS = ["#0c0f14", "#2b313b", "#48505c", "#656e7b", "#838b97", "#a1a8b2", "#bcc2ca", "#d3d7dd", "#e8eaee"];
 
 const recordText = (r) => `${r.w}${EN}${r.l}${r.t > 0 ? `${EN}${r.t}` : ""}`;
 

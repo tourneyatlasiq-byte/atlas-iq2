@@ -35,7 +35,7 @@ t("no blue or Volt lime in the Team treatment", !/#2f80ed|#0b2341|#c8ff|lime/i.t
 t("reason bars are solid ink on a light track and print exactly", /\.qab-volt \.qab-reason-bar > span \{ background: var\(--qv-ink\)/.test(volt) && /\.qab-volt \.qab-reason-bar, [^}]*print-color-adjust: exact/.test(print));
 const ramp = [...fs.readFileSync(path.join(ROOT, "components/reports/QabTournamentReport.js"), "utf8").matchAll(/MIX_COLORS = \[([^\]]+)\]/g)][0][1].match(/#[0-9a-f]{6}/gi);
 const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
-t("reason mix is a gray ramp: near-neutral ink, each step lighter, at least 14 grey levels apart until the last", ramp.length >= 7 && ramp.every((h) => { const n = parseInt(h.slice(1), 16); return Math.abs((n >> 16) - (n & 255)) < 24; }) && ramp.slice(1).every((h, i) => lum(h) - lum(ramp[i]) >= 14));
+t("reason mix is a gray ramp with one step per QAB reason (so no colour repeats): near-neutral ink, each step lighter, at least 14 grey levels apart", ramp.length >= (fs.readFileSync(path.join(ROOT, "lib/qab-rules.js"), "utf8").match(/^\s*\{ key: "/gm) || []).length && ramp.every((h) => { const n = parseInt(h.slice(1), 16); return Math.abs((n >> 16) - (n & 255)) < 24; }) && ramp.slice(1).every((h, i) => lum(h) - lum(ramp[i]) >= 14));
 t("Win and Loss are told apart by word and ink fill, not hue", !/qab-res-[wl][^}]*#(e8f5ec|fdeaea|1b5e34|8c1d1d)/.test(volt) && /\.qab-volt \.qab-res-w \{ background: var\(--qv-ink\)/.test(volt));
 console.log("C. Tables and pagination");
 t("banded rows print exactly", /nth-child\(even\) td \{[^}]*print-color-adjust: exact/.test(volt));
