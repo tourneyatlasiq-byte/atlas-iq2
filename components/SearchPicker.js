@@ -121,14 +121,16 @@ export function SearchPicker({
           <button type="button" className="btn btn-secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button
-            type="button"
-            className={`btn ${emphasis === "primary" ? "btn-primary" : "btn-secondary picker-add-quiet"}`}
-            data-emphasis={emphasis}
-            onClick={() => onCreate(typed)}
-          >
-            {typed && createWithQuery ? createWithQuery(typed) : createLabel}
-          </button>
+          {onCreate && (
+            <button
+              type="button"
+              className={`btn ${emphasis === "primary" ? "btn-primary" : "btn-secondary picker-add-quiet"}`}
+              data-emphasis={emphasis}
+              onClick={() => onCreate(typed)}
+            >
+              {typed && createWithQuery ? createWithQuery(typed) : createLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>
