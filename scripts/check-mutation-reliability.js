@@ -263,10 +263,10 @@ section("Creating a tournament shows it");
   ok("...and no longer hand-rolls its own transition",
      !/startTransition\(async \(\) => \{[\s\S]{0,200}?addTournament/.test(code));
   ok("the drawer still opens for what was just created",
-     /if \(isNew && result\?\.id\) openDetail\(\{ id: result\.id \}\)/.test(tui));
-  ok("an edit still closes instead", /else closeDetail\(\);/.test(tui));
+     /if \(result\?\.id\) \{[\s\S]{0,260}?openDetail\(\{ id: result\.id \}, \{ replace: true \}\)/.test(tui));
+  ok("an edit still closes instead", /\} else \{\s*closeDetail\(\);\s*\}/.test(tui));
   // Release 3: the message now lands INSIDE the open form (the page alert sits under the overlay).
-  ok("a failure is still reported, inside the form", /onError: \(message\) => setFormError\(message\)/.test(tui) && /error=\{formError\}/.test(tui));
+  ok("a failure is still reported, inside the form", /setFormError\(message\)/.test(tui) && /error=\{formError\}/.test(tui));
   ok("one pending source, no stale second one",
      !/const pending = mutating \|\| formPending/.test(tui));
 

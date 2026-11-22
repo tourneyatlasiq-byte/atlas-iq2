@@ -70,9 +70,16 @@ export function useOpenParam(rows, { ownEntry = false } = {}) {
 
   // push, so Back closes the drawer rather than leaving the page.
   const openDetail = useCallback(
-    (row) => {
+    (row, { replace = false } = {}) => {
       if (!row?.id) return;
       const url = withOpen(row.id);
+      // The caller already has an entry for this step (a form it just closed
+      // that is handing its entry over): put the drawer address on it.
+      if (replace) {
+        router.replace(url, { scroll: false });
+        if (ownEntry) justOpened.current = true;
+        return;
+      }
       if (ownEntry && openId) {
         // Switching records inside an open drawer: one entry for the drawer.
         const wasOurs = typeof window !== "undefined" && Boolean(window.history.state?.stOwn);

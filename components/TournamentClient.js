@@ -13,6 +13,7 @@ import { useLocalToday } from "./useLocalToday";
 import { featuredTournament } from "../lib/featured-tournament";
 import { useOpenParam } from "./useOpenParam";
 import { useGuardedOverlay } from "./useGuardedOverlay";
+import { keepOverlayEntry } from "../lib/overlay-history";
 import { useToast } from "./Toaster";
 import { SheetError } from "./StSheet";
 import { parseEntry } from "../lib/entry-links";
@@ -74,6 +75,24 @@ function placeLine(t) {
 }
 
 /** Whole days from today to a date. Display only; no rule depends on it. */
+/**
+ * Refreshes the page once the form that just closed has finished stepping
+ * history back (see lib/overlay-history.js). A refresh sent at the same moment
+ * is overwritten when the browser restores the older page, so the list would
+ * stay as it was. Falls back to a short wait when no history step happens.
+ */
+function refreshAfterFormCloses(router) {
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener("popstate", go);
+    router.refresh();
+  };
+  window.addEventListener("popstate", go);
+  setTimeout(go, 600);
+}
+
 function daysUntil(date) {
   if (!date) return null;
   const today = new Date().toISOString().slice(0, 10);
@@ -180,6 +199,12 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   // created tournament invisible until the page was reloaded.
   const { run: runMutation, pending } = useMutation();
   const [collapsed, setCollapsed] = useState({ Declined: true });
+  // Set after a successful Add so the coach is told where the new tournament
+  // went when a filter or the Next tournament view is keeping it off the list.
+  const [addedNote, setAddedNote] = useState(null);
+  // Set when a save got no reply at all. The server may have saved it, and the
+  // page on screen has not heard; it is refreshed when the form closes.
+  const lostReply = useRef(false);
 
   useEffect(() => {
     if (actionId && !actions.some((a) => a.id === actionId)) setActionId(null);
@@ -239,19 +264,63 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     const savedName = String(formData.get("name") ?? "").trim();
 
     runMutation(action, formData, {
+      // ONE navigation for a new tournament. Setting ?open (a push) and then
+      // refreshing the route sent two overlapping navigations, and the screen
+      // settled on the stale one: the save succeeded, the toast said so, and
+      // the list and drawer never showed the row. The push below renders the
+      // page fresh (the action already invalidated the cached copy), so it
+      // brings the new row and opens its drawer in one step. Edits keep the
+      // refresh, which is what updates the drawer that stays open.
+      refresh: !isNew,
       onSuccess: (result) => {
         setEditing(null);
         setOpenVenue(false);
         // Say what changed. The form is gone by now; without this the only sign is the list.
-        toast(isNew ? `Added ${savedName || "the tournament"}.` : `Saved changes to ${savedName || "the tournament"}.`);
+        lostReply.current = false;
+        toast(isNew ? (result?.duplicate ? `${savedName || "The tournament"} was already saved. Nothing was added twice.` : `Added ${savedName || "the tournament"}.`) : `Saved changes to ${savedName || "the tournament"}.`);
         if (!isNew && finishEntry()) return;
-        // The param is set now and resolves once the refreshed rows land, so
-        // the coach lands in the drawer for what they just created.
-        if (isNew && result?.id) openDetail({ id: result.id });
-        else closeDetail();
+        if (isNew) {
+          const decision = String(formData.get("decision") ?? "").trim() || "Considering";
+          // A collapsed group would hide the new row. Open it; nothing else changes.
+          setCollapsed((c) => (c[decision] ? { ...c, [decision]: false } : c));
+          setAddedNote({ id: result?.id ?? null, name: savedName || "The tournament", decision, byFilter: Boolean(activeAction), byView: view === "weekend" });
+          // The coach lands in the drawer for what they just created.
+          if (result?.id) {
+            // Hand the form's history entry to the drawer, so closing the form
+            // does not step history back over the fresh page (see keepOverlayEntry).
+            keepOverlayEntry();
+            openDetail({ id: result.id }, { replace: true });
+          } else {
+            router.refresh();
+          }
+        } else {
+          closeDetail();
+        }
       },
-      onError: (message) => setFormError(message),
+      onError: (message, result) => {
+        if (result == null) {
+          // No reply: it may have saved. Say so plainly, keep what was typed, and
+          // refresh the page behind the form once the coach leaves it. A refresh
+          // now could reload the page and lose the form if the connection is down.
+          lostReply.current = true;
+          setFormError(isNew
+            ? "We couldn't confirm the save, so it may have gone through. Everything you entered is still here. Tap Add tournament again to be sure: it will not create a second copy."
+            : "We couldn't confirm the save, so it may have gone through. Everything you entered is still here. Tap Save again to be sure.");
+          return;
+        }
+        setFormError(message);
+      },
     });
+  }
+
+  /** Clears whatever is hiding the tournament just added and scrolls to it. */
+  function showAdded() {
+    const note = addedNote;
+    setActionId(null);
+    if (view !== "plan") setView("plan");
+    if (note) setCollapsed((c) => ({ ...c, [note.decision]: false }));
+    setAddedNote(null);
+    if (note?.id) setTimeout(() => document.getElementById(`t-row-${note.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
   }
 
   /**
@@ -316,6 +385,16 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   return (
     <>
       {error && <div className="alert alert-error">{error}</div>}
+
+      {addedNote && ((addedNote.byFilter && activeAction) || (addedNote.byView && view === "weekend")) && (
+        <div className="alert alert-info t-added-note" role="status">
+          <span>
+            Added <strong>{addedNote.name}</strong> to {addedNote.decision}.{" "}
+            {addedNote.byFilter && activeAction ? "The filter on this page is hiding it." : "This view shows one tournament, so it is in the Season plan list."}
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={showAdded}>Show in the list</button>
+        </div>
+      )}
 
       <div className="page-head">
         <div>
@@ -452,7 +531,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
               {!isCollapsed && (
                 <div className="card card-flush">
                   {rows.map((t) => (
-                    <div key={t.id} className="t-row">
+                    <div key={t.id} id={`t-row-${t.id}`} className="t-row">
                       <button className="t-main" onClick={() => openDetail(t)}>
                         {/* Dates lead: this is the column a coach scans. */}
                         <span className="t-date">{dateRange(t.start_date, t.end_date)}</span>
@@ -563,6 +642,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
             setError(null);
             setFormError(null);
             setOpenVenue(false);
+            if (lostReply.current) { lostReply.current = false; refreshAfterFormCloses(router); }
             finishEntry();
           }}
         />
