@@ -1,16 +1,23 @@
-Season Tempo: new tournament shows up immediately after Save, and a lost reply no longer leaves a stale list or a duplicate
-(for review, NOT deployed; this ZIP replaces the earlier tournament-add-refresh ZIP, use only this one)
+Season Tempo: tournament facility carry-over fix and drawer layout cleanup
+Based on current main (9d18f16 "refresh"). Does not overwrite the tournament
+save-to-list refresh fix; that code is already on main and is kept as is.
 
-Copy these files over the same paths in your project, review in GitHub Desktop, then commit:
-  components/TournamentClient.js
-  components/useOpenParam.js
-  lib/overlay-history.js
-  lib/actions/tournaments.js                (retry guard in addTournament, no database change)
-  app/globals.css
-  package.json                              (adds one check to npm run check)
-  scripts/check-tournament-add-refresh.js   (NEW)
-  scripts/check-mutation-reliability.js     (two assertions updated to the new code shape)
-No database changes. No files to delete. No cache or global settings changed.
+HOW TO USE
+1. Open the "files" folder in this ZIP.
+2. Copy its contents over your Season Tempo project folder, letting the
+   folders merge and replacing the six files below.
+3. In GitHub Desktop, review the six changed files, commit, push.
+No database change. Nothing to delete.
 
-The one business rule in here: an identical add (same name and start date, same season) within
-30 minutes of the first is treated as a retry and returns the tournament that already exists.
+FILES (6)
+ app/volt.css                              drawer layout cleanup (CSS only)
+ components/TournamentClient.js            facility carry-over fix, add-facility flow, wording
+ components/QuickAddFacility.js            new-facility form starts with the search text
+ lib/tournament-status.js                  "Not in Budget" wording
+ package.json                              adds the new check to "npm run check"
+ scripts/check-tournament-facility-flow.js new automated check (18 assertions)
+
+SEPARATE, ALREADY KNOWN
+"npm run check" has one failure that is not from this package: components/
+reports/PrintTips.js still exists on main. Your earlier cleanup ZIP deletes it
+(delete that file by hand in your project folder if you have not yet).
