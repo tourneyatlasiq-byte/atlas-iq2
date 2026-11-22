@@ -58,12 +58,12 @@ function northgate() {
       { key: "unused", label: "Never cited", count: 0 },
     ],
     games: [
-      { gameId: "g1", gameDate: "2026-08-05", opponent: "Northside Thunder", result: "W", qab: 9, pa: 14, qabPct: 64.3 },
-      { gameId: "g2", gameDate: "2026-08-05", opponent: "Cobb Crush", result: "W", qab: 12, pa: 25, qabPct: 48 },
-      { gameId: "g3", gameDate: "2026-08-06", opponent: "Lake City Lightning", result: "L", qab: 15, pa: 25, qabPct: 60 },
-      { gameId: "g4", gameDate: "2026-10-03", opponent: "Peachtree Force", result: null, qab: 12, pa: 20, qabPct: 60 },
-      { gameId: "g5", gameDate: "2026-10-04", opponent: "Marietta Mavericks", result: null, qab: 8, pa: 13, qabPct: 61.5 },
-      { gameId: "g6", gameDate: "2026-08-04", opponent: "Test", result: "W", qab: 1, pa: 1, qabPct: 100 },
+      { gameId: "g1", tournamentId: "t-aug", tournament: "Summer Opener", completed: true, gameDate: "2026-08-05", opponent: "Northside Thunder", result: "W", qab: 9, pa: 14, qabPct: 64.3 },
+      { gameId: "g2", tournamentId: "t-aug", tournament: "Summer Opener", completed: true, gameDate: "2026-08-05", opponent: "Cobb Crush", result: "W", qab: 12, pa: 25, qabPct: 48 },
+      { gameId: "g3", tournamentId: "t-aug", tournament: "Summer Opener", completed: true, gameDate: "2026-08-06", opponent: "Lake City Lightning", result: "L", qab: 15, pa: 25, qabPct: 60 },
+      { gameId: "g4", tournamentId: "t-oct", tournament: "Fall Classic", completed: true, gameDate: "2026-10-03", opponent: "Peachtree Force", result: null, qab: 12, pa: 20, qabPct: 60 },
+      { gameId: "g5", tournamentId: "t-oct", tournament: "Fall Classic", completed: false, gameDate: "2026-10-04", opponent: "Marietta Mavericks", result: null, qab: 8, pa: 13, qabPct: 61.5 },
+      { gameId: "g6", tournamentId: null, tournament: null, completed: true, gameDate: "2026-08-04", opponent: "Test", result: "W", qab: 1, pa: 1, qabPct: 100 },
     ],
     players: [
       // Real production spread, including the small samples. history LENGTH is
@@ -90,7 +90,13 @@ async function loadWith(seasonData) {
   const src = fs
     .readFileSync(path.resolve("lib/queries/reports/qab-performance.js"), "utf8")
     .replace('import { createClient } from "../../supabase/server";\n', "")
-    .replace('import { getSeasonPerformance } from "../performance";\n', "");
+    .replace('import { getSeasonPerformance } from "../performance";\n', "")
+    .replace('import { tournamentRows } from "../../qab-tournament-rows";\n', "");
+  // The pure tournament helper is inlined, with its one import stubbed.
+  const rowsSrc = fs
+    .readFileSync(path.resolve("lib/qab-tournament-rows.js"), "utf8")
+    .replace('import { qabPercent } from "./qab-rules";\n',
+      "const qabPercent = (q, p) => (!p || p <= 0 ? null : Math.round((q / p) * 1000) / 10);\n");
 
   const stub = `
 const createClient = () => ({
@@ -111,7 +117,7 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
   // name, and Node's import cache then served the FIRST payload module to the
   // second load — an intermittent false failure.
   const out = "/tmp/qab_payload_" + Date.now() + "_" + (++loadCount) + ".mjs";
-  fs.writeFileSync(out, stub + src);
+  fs.writeFileSync(out, stub + rowsSrc + src);
   return import(pathToFileURL(out).href);
 }
 
@@ -194,7 +200,21 @@ const getSeasonPerformance = async () => (${JSON.stringify(seasonData)});
   assertEq("top-level keys are exactly the allowlist",
     Object.keys(r).sort(),
     ["games", "generatedAt", "organization", "players", "reasons", "reasonsCited",
-     "season", "summary", "team"]);
+     "season", "summary", "team", "tournaments"]);
+  assertEq("tournament rows: names and aggregate counts only, in date order with games outside a tournament last, no ids",
+    r.tournaments.map((t) => [t.name, t.games, t.qab, t.pa, t.qabPct]),
+    [["Summer Opener", 3, 36, 64, 56.3], ["Fall Classic", 2, 20, 33, 60.6], ["Not in a tournament", 1, 1, 1, 100]]);
+  assertEq("tournament row keys are exactly the allowlist",
+    Object.keys(r.tournaments[0]).sort(),
+    ["firstDate", "games", "includesUnfinished", "lastDate", "name", "pa", "qab", "qabPct", "trackingInProgress"]);
+  assertEq("Tracking in progress comes from the game's own flag, not dates",
+    r.tournaments.map((t) => [t.name, t.trackingInProgress, t.includesUnfinished]),
+    [["Summer Opener", false, false], ["Fall Classic", true, true], ["Not in a tournament", false, false]]);
+  assertEq("tournament rows carry no id of any kind",
+    JSON.stringify(r.tournaments).includes("t-aug") || JSON.stringify(r.tournaments).includes("t-oct") || /"(id|tournamentId|gameId)"/.test(JSON.stringify(r.tournaments)), false);
+  assertEq("tournament rows reconcile to the season totals",
+    [r.tournaments.reduce((n, t) => n + t.qab, 0), r.tournaments.reduce((n, t) => n + t.pa, 0)],
+    [r.games.reduce((n, g) => n + g.qab, 0), r.games.reduce((n, g) => n + g.pa, 0)]);
   assertEq("game rows carry no scores or internal ids beyond the row key",
     Object.keys(r.games[0]).sort(), ["date", "id", "opponent", "pa", "qab", "qabPct", "result"]);
   assertEq("NO playerId — the parent player report cannot be built by filtering this",

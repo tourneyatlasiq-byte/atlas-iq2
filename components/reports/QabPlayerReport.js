@@ -1,9 +1,9 @@
 "use client";
 
 import { ReportToolbar } from "./ReportToolbar";
-import { PrintTips } from "./PrintTips";
 import { formatQabPct } from "../../lib/qab-rules";
 import { cssString } from "../../lib/qab-player-rules";
+import { PlayerTournamentCard } from "../QabTournamentViews";
 
 /**
  * Individual player QAB report (RPT-002, 2026-11). COACH-FACING.
@@ -46,10 +46,7 @@ export function QabPlayerReport({ report, scopeControl = null, from = null }) {
 
   return (
     <div className="rpt-shell">
-      <ReportToolbar from={from} name="QAB Player Report" controls={scopeControl} notes={notes}>
-        {/* Collapsed so the player's information starts sooner on a phone. Screen only: it sits in the toolbar. */}
-        <PrintTips />
-      </ReportToolbar>
+      <ReportToolbar from={from} name="QAB Player Report" controls={scopeControl} notes={notes} />
 
       {/* The running header cannot read the page, so it is written here with the
           player's name escaped for a CSS string. Margin boxes only draw at Default. */}
@@ -93,6 +90,10 @@ export function QabPlayerReport({ report, scopeControl = null, from = null }) {
                 <div><b>{summary.games}</b><span>{summary.games === 1 ? "Game with a PA" : "Games with a PA"}</span></div>
               </div>
             </section>
+
+            {report.tournaments && (
+              <PlayerTournamentCard view={report.tournaments} seasonPct={summary.qabPct} headingClass="qp-h2" />
+            )}
 
             <section>
               <h2 className="qp-h2">How QABs were earned</h2>

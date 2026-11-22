@@ -1,3 +1,4 @@
+import "../../qab-tournaments.css";
 import Link from "next/link";
 import { getContext } from "../../../lib/context";
 import { seasonGameLinkLabel } from "../../../lib/performance-links";

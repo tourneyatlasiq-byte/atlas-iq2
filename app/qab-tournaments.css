@@ -1,0 +1,102 @@
+/* --- Season by tournament and Games with a QAB (2026-11) ---------------------
+   Shared by the Performance screen, the Season report and the Player report.
+   Ink on white. Every state is readable in grayscale: filled / ring / dash for
+   the dots, a stripe for provisional bars, a tick for the season reference.
+   Fonts are inherited from the surrounding screen (Inter Tight body, Schibsted
+   Grotesk figures), never set to a different family here. */
+
+.qtv {
+  --qtv-ink: var(--ink, #0c0f14); --qtv-body: var(--body, #262b34);
+  --qtv-muted: var(--muted, #626b79); --qtv-line: var(--line, #e4e7ec);
+  --qtv-strong: var(--strong, #d3d8df); --qtv-sunk: var(--sunk, #eef0f3);
+  color: var(--qtv-body); margin: 0; min-width: 0;
+}
+.qtv + .qtv { margin-top: 20px; }
+.qtv-card { margin: 14px 0 0; display: grid; gap: 20px; }
+.qtv-h {
+  margin: 0 0 8px; font: 800 17px/1.2 var(--font-schibsted), "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.02em; color: var(--qtv-ink); break-after: avoid;
+}
+
+/* Bars */
+.qtv-rows { list-style: none; margin: 0; padding: 0; }
+.qtv-row { padding: 10px 0; border-top: 1px solid var(--qtv-line); break-inside: avoid; }
+.qtv-row:first-child { border-top: 0; padding-top: 2px; }
+.qtv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.qtv-name { min-width: 0; font-weight: 700; color: var(--qtv-ink); overflow-wrap: anywhere; }
+.qtv-pct {
+  flex: none; font: 800 20px/1.1 var(--font-schibsted), "Schibsted Grotesk", Arial, sans-serif;
+  letter-spacing: -.02em; color: var(--qtv-ink);
+  font-variant-numeric: normal; /* tabular figures widen the decimal point in Schibsted Grotesk */
+}
+.qtv-sub {
+  display: flex; justify-content: space-between; gap: 4px 12px; flex-wrap: wrap;
+  margin-top: 2px; font-size: 13px; color: var(--qtv-muted);
+}
+.qtv-sub > span { min-width: 0; overflow-wrap: anywhere; }
+.qtv-counts { font-variant-numeric: tabular-nums; color: var(--qtv-body); }
+.qtv-status { font-weight: 700; color: var(--qtv-ink); }
+.qtv-bar {
+  position: relative; height: 10px; margin-top: 8px; background: var(--qtv-sunk);
+  border-radius: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.qtv-fill { position: absolute; inset: 0 auto 0 0; background: var(--qtv-ink); border-radius: 2px; }
+.qtv-fill--prov {
+  background: repeating-linear-gradient(135deg, var(--qtv-ink) 0 3px, #fff 3px 5px);
+  outline: 1px solid var(--qtv-ink); outline-offset: -1px;
+}
+.qtv-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--qtv-muted); }
+
+.qtv-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 0; font-size: 12.5px; color: var(--qtv-muted); }
+.qtv-key:empty { display: none; }
+.qtv-key-item { display: inline-flex; align-items: center; gap: 6px; }
+.qtv-key-tick { display: inline-block; width: 2px; height: 12px; background: var(--qtv-muted); }
+.qtv-key-prov {
+  display: inline-block; width: 16px; height: 8px; outline: 1px solid var(--qtv-ink); outline-offset: -1px;
+  background: repeating-linear-gradient(135deg, var(--qtv-ink) 0 3px, #fff 3px 5px);
+}
+
+/* Dots */
+.qtv-count { margin: 0 0 8px; font-weight: 700; color: var(--qtv-ink); }
+.qtv-tour + .qtv-tour { margin-top: 12px; }
+.qtv-tname { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--qtv-ink); overflow-wrap: anywhere; }
+.qtv-days { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.qtv-day { display: flex; flex-direction: column; gap: 0; break-inside: avoid; }
+.qtv-dlabel { font-size: 12px; color: var(--qtv-muted); padding-left: 15px; }
+.qtv-dots { display: inline-flex; flex-wrap: wrap; }
+.qtv-dot {
+  appearance: none; background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; color: var(--qtv-ink);
+}
+.qtv-dot:focus-visible { outline: 2px solid var(--qtv-ink); outline-offset: -2px; }
+.qtv-dot[aria-pressed="true"] { background: var(--qtv-sunk); }
+.qtv-dot-mark { display: inline-block; box-sizing: border-box; flex: none; }
+.qtv-dot--qab .qtv-dot-mark, .qtv-key-qab { width: 14px; height: 14px; border-radius: 50%; background: var(--qtv-ink); }
+.qtv-dot--noqab .qtv-dot-mark, .qtv-key-noqab { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--qtv-ink); background: #fff; }
+.qtv-dot--nopa .qtv-dot-mark, .qtv-key-nopa { width: 12px; height: 2px; background: var(--qtv-muted); }
+.qtv-dot--open .qtv-dot-mark, .qtv-key-open { outline: 1.5px dotted var(--qtv-ink); outline-offset: 3px; }
+.qtv-key-open { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--qtv-ink); background: #fff; margin: 0 3px; }
+.qtv-readout { min-height: 20px; margin: 6px 0 0; font-size: 13.5px; color: var(--qtv-body); overflow-wrap: anywhere; }
+.qtv-legend { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--qtv-muted); }
+.qtv-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.qtv-key-qab, .qtv-key-noqab { width: 12px; height: 12px; }
+.qtv-print-nopa { display: none; }
+.qtv-order { margin: 6px 0 0; font-size: 12.5px; color: var(--qtv-muted); }
+
+/* Screen-only card wrapper when used on the Performance screen */
+.qtv-screen-card { background: #fff; border: 1px solid var(--qtv-line); border-radius: 14px; padding: 16px; }
+
+@media print {
+  /* Each section is short: keep its list, key and notes on one page. */
+  .qtv { break-inside: avoid; }
+  .qtv-readout { display: none; }
+  .qtv-print-nopa { display: block; margin: 8px 0 0; font-size: 12.5px; color: var(--qtv-body); break-inside: avoid; }
+  .qtv-print-nopa-h { margin: 0 0 2px; font-weight: 700; color: var(--qtv-ink); }
+  .qtv-print-nopa ul { list-style: none; margin: 0; padding: 0; }
+  .qtv-dot { width: 24px; height: 24px; cursor: default; }
+  .qtv-dot[aria-pressed="true"] { background: none; }
+  .qtv-bar, .qtv-fill, .qtv-key-prov, .qtv-dot-mark, .qtv-tick, .qtv-key-tick { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .qtv-row { padding: 6px 0; }
+  .qtv + .qtv { margin-top: 12px; }
+}

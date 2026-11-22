@@ -278,16 +278,6 @@
   .qab-t-games th:last-child, .qab-t-games td:last-child { padding-right: 0; }
 }
 
-/* Print tip (shared by the QAB reports) */
-.qp-tips { margin-top: 4px; }
-.qp-tips summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: #0c0f14; list-style: none; width: fit-content; }
-.qp-tips summary::-webkit-details-marker { display: none; }
-.qp-tips summary::before { content: "\25B8"; margin-right: 6px; font-size: 12px; }
-.qp-tips[open] summary::before { content: "\25BE"; }
-.qp-tips summary:hover { text-decoration: underline; }
-.qp-tips summary:focus-visible { outline: 2.5px solid #0c0f14; outline-offset: 2px; border-radius: 4px; }
-.qp-help { margin: 0 0 6px; font-size: 12.5px; line-height: 1.5; color: #626b79; max-width: 62ch; }
-
 /* --- Print ---------------------------------------------------------------- */
 
 @media print {

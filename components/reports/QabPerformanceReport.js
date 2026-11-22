@@ -2,6 +2,8 @@
 
 import { ReportToolbar } from "./ReportToolbar";
 import { formatQabPct, legacyReasonNote } from "../../lib/qab-rules";
+import { showTournamentRows } from "../../lib/qab-tournament-rows";
+import { TournamentBars } from "../QabTournamentViews";
 
 /**
  * Coach-facing Team/Season QAB Performance report.
@@ -95,6 +97,12 @@ export function QabPerformanceReport({ report, scopeControl = null, from = null 
                 </ul>
               </div>
             </section>
+
+            {showTournamentRows(report.tournaments ?? []) && (
+              <section className="rpt-section qab-tournaments">
+                <TournamentBars rows={report.tournaments} seasonPct={summary.qabPct} title="Season by tournament" headingClass="rpt-h" />
+              </section>
+            )}
 
             <section className="rpt-section qab-long">
               <p className="rpt-h">QAB% by game</p>

@@ -109,6 +109,18 @@ console.log("C. Allowlist: one player, no teammates, no scores");
   ok("no teammate names", ["Dee Teammate", "Pat Pickup", "Ivy Inactive"].some((n) => text.includes(n)), false);
   ok("no player id, score, result or lineup keys", /"playerId"|"runsFor"|"runsAgainst"|"result"|"lineup"|"battingOrder"/.test(text), false);
   ok("no team comparison key", /teamQab|teamPct|vsTeam|comparison/i.test(text), false);
+  // Expanded scope (2026-11): Season scope carries the team's game dates and opponents so the dots can
+  // show games she did not bat in. Dates and opponents only: never a teammate's figures.
+  const rep = build(SEASON, "a");
+  const dots = rep.tournaments.dots.flatMap((t) => t.days.flatMap((d) => d.games));
+  const g3 = dots.find((x) => x.gameId === "g3");
+  ok("Season scope lists the team game she did not bat in, by date and opponent", [g3?.status, g3?.dayLabel, g3?.opponent], ["nopa", "Nov 14", "Hawks"]);
+  ok("...with her own zero, not the teammate's 2 QAB in 3 PA", [g3?.qab, g3?.pa, /2 QAB in 3 PA/.test(g3?.label ?? "")], [0, 0, false]);
+  ok("each dot carries exactly these fields", [...new Set(dots.map((x) => Object.keys(x).sort().join(",")))], ["dayLabel,gameId,label,opponent,pa,qab,status,unfinished"]);
+  ok("tournament rows carry exactly these fields", [...new Set(rep.tournaments.rows.map((x) => Object.keys(x).sort().join(",")))], ["firstDate,games,gamesWithPa,gamesWithQab,includesUnfinished,lastDate,name,pa,qab,qabPct,trackingInProgress"]);
+  ok("her tournament rows reconcile to her own headline", [rep.tournaments.rows.reduce((n, r) => n + r.qab, 0), rep.tournaments.rows.reduce((n, r) => n + r.pa, 0)], [rep.summary.qab, rep.summary.pa]);
+  ok("no tournament id or teammate figure anywhere in the new section", /"tournamentId"|"playerId"|"t1"|"t2"|Dee|"id"/.test(JSON.stringify(rep.tournaments)), false);
+  ok("tournament scope has no such section", build(SEASON, "a", { tournament: { id: "t1", name: T1.name, start_date: "2026-11-07", end_date: "2026-11-08" } }).tournaments, null);
   ok("generatedAt and identity pass through", [build(SEASON, "a").team.name, build(SEASON, "a").generatedAt], ["16U", "2026-11-20T12:00:00Z"]);
 }
 

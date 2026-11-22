@@ -1,6 +1,7 @@
 import "../season-budget/report.css";
 import "./qab.css";
 import "./team-volt.css";
+import "../../qab-tournaments.css";
 import Link from "next/link";
 import { getContext } from "../../../lib/context";
 import { createClient } from "../../../lib/supabase/server";

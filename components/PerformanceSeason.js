@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { gameLinkLabelFor } from "../lib/performance-links";
 import { splitByActivity } from "../lib/performance-groups";
 import { gameHref } from "../lib/game-flow-rules";
+import { tournamentRows, showTournamentRows, playerTournamentView } from "../lib/qab-tournament-rows";
+import { TournamentBars, PlayerTournamentCard } from "./QabTournamentViews";
 
 import {
   indexAtX,
@@ -100,6 +102,7 @@ function LineupContribution({ game }) {
 }
 
 export function PerformanceSeason({ team, reasons, reasonsCited, players, games, gamesCompleted, record, gameLinkLabel = null, canOpenPlayerReport = false, scopeTournamentId = null }) {
+  const tournamentTeamRows = useMemo(() => tournamentRows(games ?? []), [games]);
   const [view, setView] = useState("team");
   const [allReasons, setAllReasons] = useState(false);
   const [openGame, setOpenGame] = useState(null);
@@ -160,7 +163,7 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
           </span>
         </button>
 
-        {open && <PlayerDetail player={p} canOpenPlayerReport={canOpenPlayerReport} />}
+        {open && <PlayerDetail player={p} games={games} canOpenPlayerReport={canOpenPlayerReport} />}
       </li>
     );
   }
@@ -264,6 +267,12 @@ export function PerformanceSeason({ team, reasons, reasonsCited, players, games,
 
       {view === "team" ? (
         <>
+          {!scopeTournamentId && showTournamentRows(tournamentTeamRows) && (
+            <div className="season-card season-tournaments">
+              <TournamentBars rows={tournamentTeamRows} seasonPct={team.qabPct} title="Season by tournament" />
+            </div>
+          )}
+
           <div className="season-card season-games">
             <p className="season-label">Games</p>
             <p className="season-sub">How we did in each game we tracked.</p>
@@ -774,7 +783,7 @@ export function QabTrend({ games, seasonPct }) {
  * three to six games and single-figure plate appearances, any such label would
  * be an interpretation the data cannot carry. The panel states the numbers.
  */
-function PlayerDetail({ player, canOpenPlayerReport = false }) {
+function PlayerDetail({ player, games = [], canOpenPlayerReport = false }) {
   // Already derived by getSeasonPerformance. This component renders; it does
   // not recompute business figures.
   const history = player.history ?? [];
@@ -811,6 +820,10 @@ function PlayerDetail({ player, canOpenPlayerReport = false }) {
             <strong>{history.length}</strong> {history.length === 1 ? "game" : "games"} with a PA
           </span>
         </div>
+
+        {history.length > 0 && (
+          <PlayerTournamentCard view={playerTournamentView(games, history)} seasonPct={player.qabPct} />
+        )}
 
         {recent && (
           <p className="pd-recent">

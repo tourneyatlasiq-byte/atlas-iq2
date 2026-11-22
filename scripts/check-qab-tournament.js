@@ -122,8 +122,10 @@ function copyTree(root, files, clientExpr) {
 }
 
 function filesAt(rev) {
+  const has0 = (p) => { if (!rev) return fs.existsSync(p); try { execSync(`git cat-file -e ${rev}:${p}`, { stdio: "ignore" }); return true; } catch { return false; } };
   const read = (p) => rev ? execSync(`git show ${rev}:${p}`, { encoding: "utf8" }) : fs.readFileSync(p, "utf8");
   const list = ["lib/qab-rules.js", "lib/schedule-rules.js", "lib/performance-groups.js", "lib/queries/performance.js", "lib/queries/reports/qab-performance.js"];
+  if (!rev || has0("lib/qab-tournament-rows.js")) list.push("lib/qab-tournament-rows.js");
   if (!rev) list.push("lib/queries/reports/qab-tournament.js");
   // Performance's tournament selection (2026-11) — imported by queries/performance
   // from that version on; older revisions under comparison don't have it.
@@ -145,6 +147,10 @@ async function load(rev) {
 }
 
 const strip = (r) => { const { generatedAt, ...rest } = r; return rest; };
+// Approved addition (2026-11, "Season by tournament"): the Season payload gained `tournaments`. The original comparison is
+// kept whole and strict; only this one named field is set aside, and it is asserted explicitly further down.
+const APPROVED_ADDITIONS = ["tournaments"];
+const omitApproved = (r) => Object.fromEntries(Object.entries(r).filter(([k]) => !APPROVED_ADDITIONS.includes(k)));
 
 (async () => {
   console.log("\nRPT-04 Tournament QAB\n");
@@ -168,11 +174,34 @@ const strip = (r) => { const { generatedAt, ...rest } = r; return rest; };
     assertEq("Season derivation is identical to the accepted code", withoutLinkField(newPerf), withoutLinkField(oldPerf));
     assertEq("Every season game carries its tournament for the Review & Edit link",
       (newPerf.games ?? []).every((g) => typeof g.tournamentId === "string" && g.tournamentId.length > 0), true);
-    assertEq("Season report payload is identical to the accepted code",
-      strip(await cur.season.qabPerformanceReport("s1")), strip(await base.season.qabPerformanceReport("s1")));
+    assertEq("Season report payload is identical to the accepted code, apart from the approved tournaments field",
+      omitApproved(strip(await cur.season.qabPerformanceReport("s1"))), strip(await base.season.qabPerformanceReport("s1")));
   }
   const s = await cur.perf.getSeasonPerformance("s1");
   assertEq("Season still spans every tracked tournament (A + B)", [s.team.qab, s.team.pa, s.team.games], [55, 111, 6]);
+  /* 1b. The new Season payload field, asserted explicitly (runs whether or not the base revision is available). */
+  const sp = await cur.season.qabPerformanceReport("s1");
+  assertEq("Season payload names every tournament with aggregate QAB/PA only, in date order",
+    sp.tournaments.map((x) => [x.name, x.games, x.qab, x.pa, x.qabPct]),
+    [["Tournament B", 1, 2, 3, 66.7], ["Tournament A", 5, 53, 108, 49.1]]);
+  assertEq("tournament rows reconcile to the season totals (QAB, PA, games)",
+    [sp.tournaments.reduce((n, x) => n + x.qab, 0), sp.tournaments.reduce((n, x) => n + x.pa, 0), sp.tournaments.reduce((n, x) => n + x.games, 0)],
+    [sp.summary.qab, sp.summary.pa, sp.summary.games]);
+  assertEq("tournament rows reconcile to the Season game rows", sp.tournaments.map((x) => x.qab), [
+    sp.games.filter((g) => g.opponent === "Opponent B").reduce((n, g) => n + g.qab, 0),
+    sp.games.filter((g) => g.opponent !== "Opponent B").reduce((n, g) => n + g.qab, 0)]);
+  assertEq("tournament row fields are exactly the allowlist",
+    [...new Set(sp.tournaments.map((x) => Object.keys(x).sort().join(",")))],
+    ["firstDate,games,includesUnfinished,lastDate,name,pa,qab,qabPct,trackingInProgress"]);
+  assertEq("no tournament id or game id appears in the new field (tA, tB, tC, tX, gA..., gB...)",
+    /"tA"|"tB"|"tC"|"tX"|"gA\d|"gB\d|"id"|tournamentId|gameId/.test(JSON.stringify(sp.tournaments)), false);
+  assertEq("an untracked tournament and another season's tournament are not listed",
+    sp.tournaments.some((x) => /untracked|Other season/.test(x.name)), false);
+  const perfGames = (await cur.perf.getSeasonPerformance("s1")).games;
+  const unfinishedBy = (name) => perfGames.filter((g) => g.tournament === name && !g.completed);
+  assertEq("Tracking in progress is each game's own completion flag, read from the derivation, never from dates",
+    sp.tournaments.map((x) => [x.name, x.trackingInProgress, x.includesUnfinished]),
+    sp.tournaments.map((x) => [x.name, unfinishedBy(x.name).length > 0, unfinishedBy(x.name).some((g) => g.pa > 0)]));
   log.length = 0;
   await cur.perf.getSeasonPerformance("s1");
   assertEq("Season scope issues no tournament filter and no games pre-read",

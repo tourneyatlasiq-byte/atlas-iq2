@@ -128,7 +128,7 @@ function copyTree(root, files, clientExpr) {
 
 function filesAt(rev) {
   const read = (p) => rev ? execSync(`git show ${rev}:${p}`, { encoding: "utf8" }) : fs.readFileSync(p, "utf8");
-  const list = ["lib/qab-rules.js", "lib/schedule-rules.js", "lib/performance-groups.js", "lib/queries/performance.js", "lib/queries/reports/qab-performance.js",
+  const list = ["lib/qab-rules.js", "lib/schedule-rules.js", "lib/performance-groups.js", "lib/queries/performance.js", "lib/queries/reports/qab-performance.js", "lib/qab-tournament-rows.js",
     "lib/queries/reports/qab-tournament.js", "lib/queries/reports/qab-player.js", "lib/qab-player-rules.js", "lib/game-flow-rules.js"];
   // Performance's tournament selection (2026-11) — imported by queries/performance
   // from that version on; older revisions under comparison don't have it.

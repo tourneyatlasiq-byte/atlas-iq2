@@ -1,6 +1,7 @@
 import "../season-budget/report.css";
 import "../qab-performance/qab.css";
 import "./player.css";
+import "../../qab-tournaments.css";
 import Link from "next/link";
 import { getContext, canWrite } from "../../../lib/context";
 import { qabPlayerReport } from "../../../lib/queries/reports/qab-player";
