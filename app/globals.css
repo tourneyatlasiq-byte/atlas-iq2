@@ -3772,7 +3772,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .trk-last-text { font-size: 13px; color: var(--slate); }
 .trk-last-text strong { color: var(--navy); font-weight: 600; }
 .trk-last-undo {
-  flex: 0 0 auto; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600;
+  flex: 0 0 auto; min-height: 44px; padding: 0 16px; font-size: 14px; font-weight: 600;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   color: var(--navy); cursor: pointer;
 }

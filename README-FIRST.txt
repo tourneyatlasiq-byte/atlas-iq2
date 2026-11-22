@@ -1,16 +1,17 @@
-SEASON BY TOURNAMENT + GAME DOTS (final package)
+SMALL CLEANUP PACKAGE (built on main 78d85db). Not deployed.
 
-1. Unzip over your local atlas-iq2 folder (replace files when asked).
-2. DELETE this file, which the ZIP cannot remove for you:
-      components/reports/PrintTips.js
-   (It held the "Before you print: turn off Headers and footers" tip. Nothing uses it now.
-   If you forget, npm run check fails and names the file.)
-3. In a terminal in the project folder:  npm run check   (expect no FAIL lines)
+What changed
+  1. components/reports/PrintTips.js removed (unused). npm run check now passes with no FAIL lines.
+  2. app/icon.svg: browser tab icon now the Volt mark (ink square, white dots, volt "next" dot).
+  3. app/globals.css: the tracker Undo button is 44px tall (was 40px).
 
-THREE DIFFERENT STEPS. Only the last one changes the live site.
-  A. Local commit (GitHub Desktop > Commit to main): saves on YOUR computer only. Nothing is published.
-  B. Push (GitHub Desktop > Push origin): sends the commit to GitHub. This project has a Vercel
-     production setup tied to main, so a push to main will very likely START a production deployment.
-  C. Deployment: Vercel builds and publishes to seasontempo.com. Watch it in Vercel until READY.
-Commit freely. Push only when you want it live.
-No database changes are included, so nothing needs to run in Supabase.
+HOW TO APPLY
+  1. Unzip over your local atlas-iq2 folder (replace files when asked).
+  2. DELETE this file by hand, because a ZIP cannot remove files:
+        components/reports/PrintTips.js
+     (This ZIP does not contain it. If you leave it, npm run check fails and names it.)
+  3. In GitHub Desktop, commit to main, then push when you are ready. Pushing starts a production
+     deployment on Vercel. Nothing is published until you push.
+
+After deploy: browsers cache tab icons for a long time. Hard refresh, or reopen the site in a new
+window, before judging the new icon.
