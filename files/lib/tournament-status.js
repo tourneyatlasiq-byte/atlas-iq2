@@ -87,7 +87,11 @@ export function quickAction(t, today = localToday()) {
 
 /** One line for a row: decision, registration and payment together. */
 export function statusLine(t, transactions = []) {
-  if (t.decision === "Considering") return { main: "Considering", sub: "Not in Budget", tone: "maybe" };
+  if (t.decision === "Considering") {
+    // Registration is its own field. Showing it keeps "Considering" from hiding a Waitlisted or Registered value.
+    const reg = t.paid_status && t.paid_status !== "Not Registered" ? ` · ${t.paid_status}` : "";
+    return { main: "Considering", sub: `Not in Budget${reg}`, tone: "maybe" };
+  }
   if (t.decision === "Declined") return { main: "Declined", sub: "", tone: "none" };
   const r = registrationState(t);
   const p = tournamentPayments(t, transactions);

@@ -1,23 +1,24 @@
-Season Tempo: tournament facility carry-over fix and drawer layout cleanup
-Based on current main (9d18f16 "refresh"). Does not overwrite the tournament
-save-to-list refresh fix; that code is already on main and is kept as is.
+Season Tempo: compact timeline, Commit button, status text, player QAB report (2026-11-22)
 
-HOW TO USE
-1. Open the "files" folder in this ZIP.
-2. Copy its contents over your Season Tempo project folder, letting the
-   folders merge and replacing the six files below.
-3. In GitHub Desktop, review the six changed files, commit, push.
-No database change. Nothing to delete.
+This ZIP is the COMPLETE set of changed files since main 9d18f16. It includes the
+earlier facility carry-over and drawer cleanup files, so you only need this ZIP.
+Copy everything inside "files" into the repo folder, replacing files when asked.
 
-FILES (6)
- app/volt.css                              drawer layout cleanup (CSS only)
- components/TournamentClient.js            facility carry-over fix, add-facility flow, wording
- components/QuickAddFacility.js            new-facility form starts with the search text
- lib/tournament-status.js                  "Not in Budget" wording
- package.json                              adds the new check to "npm run check"
- scripts/check-tournament-facility-flow.js new automated check (18 assertions)
+What changed
+1. Timeline (components/SeasonStrip.js, app/volt.css): compact by default, Expand/Compact
+   button (remembered on that device), hover/tap details, click opens the tournament,
+   dots that would touch merge into one numbered dot, range snapped to whole months,
+   the "no start and end dates" note is gone.
+2. Commit button: Commit and Register are always green; only the Paid action is white.
+3. Considering rows and the timeline now also show registration (for example
+   "Considering, Not in Budget, Waitlisted"). No data was changed.
+4. Individual Player QAB report: the per-game dots are removed (the Game by game
+   list already shows each game). Tournament bars stay. Data and calculations untouched.
+   The Performance screen still shows the dots (not changed, your decision).
+5. Checks: new scripts/check-season-strip.js, one assertion updated in
+   scripts/check-qab-tournament-views-render.js, package.json "check" updated.
 
-SEPARATE, ALREADY KNOWN
-"npm run check" has one failure that is not from this package: components/
-reports/PrintTips.js still exists on main. Your earlier cleanup ZIP deletes it
-(delete that file by hand in your project folder if you have not yet).
+Known, not mine: components/reports/PrintTips.js still exists on main and fails one
+check. The earlier cleanup ZIP deletes it; delete it in GitHub Desktop if not yet done.
+
+Do not deploy until you have reviewed it on a preview.

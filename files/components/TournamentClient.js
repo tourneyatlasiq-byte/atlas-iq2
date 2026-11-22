@@ -40,7 +40,7 @@ import {
   deleteTournament,
 } from "../lib/actions/tournaments";
 
-import { DECISIONS, PAID_STATUSES, statusLine, registrationState, tournamentPayments } from "../lib/tournament-status";
+import { DECISIONS, PAID_STATUSES, statusLine, registrationState, quickAction, tournamentPayments } from "../lib/tournament-status";
 import { nextStep } from "../lib/tournament-next-step";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { SeasonStrip } from "./SeasonStrip";
@@ -416,7 +416,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       </div>
 
       {tournaments.length > 0 && (
-        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} today={todayLocal} />
+        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} today={todayLocal} onOpen={(t) => openDetail(t)} />
       )}
 
       {tournaments.length > 0 && (
@@ -571,7 +571,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
 
                       <span className="t-cost">{money(t.total_cost)}</span>
                       <span className="t-quick">
-                        <QuickButton t={t} quick={quick} canWrite={canWrite} variant={registrationState(t).registered ? "secondary" : "primary"} />
+                        <QuickButton t={t} quick={quick} canWrite={canWrite} variant={quickAction(t)?.kind === "paid" ? "secondary" : "primary"} />
                       </span>
                     </div>
                   ))}

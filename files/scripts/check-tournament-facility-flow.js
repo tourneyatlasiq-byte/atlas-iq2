@@ -36,7 +36,7 @@ eq("a saved facility is selected in the open form and the search closes", /setFa
 eq("Cancel only closes the new-facility form", /onClose=\{\(\) => setAddingFacility\(null\)\}/.test(tc));
 
 console.log("\nBudget wording is consistent\n");
-eq("Considering rows say Not in Budget", /sub: "Not in Budget"/.test(status) && !/not in budget/.test(status));
+eq("Considering rows say Not in Budget", /sub: `Not in Budget\$\{reg\}`/.test(status) && !/not in budget/.test(status));
 eq("the Costs summary says Budget not linked", /"Budget not linked"/.test(tc) && !/"budget not linked"/.test(tc));
 
 console.log("\nDrawer layout guards\n");
