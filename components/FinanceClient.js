@@ -194,6 +194,7 @@ export function FinanceClient({
   const deviceToday = useDeviceToday();
   const [teamScheduleOpen, setTeamScheduleOpen] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [applyJustSaved, setApplyJustSaved] = useState(false);
   const [scheduleFor, setScheduleFor] = useState(null);
 
   /*
@@ -830,7 +831,7 @@ export function FinanceClient({
           schedules={duesSchedules}
           today={deviceToday}
           onTeamSchedule={() => setTeamScheduleOpen(true)}
-          onApplySchedule={() => setApplyOpen(true)}
+          onApplySchedule={() => { setApplyJustSaved(false); setApplyOpen(true); }}
           pending={pending}
           filtered={Boolean(activeAction)}
           filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
@@ -970,8 +971,9 @@ export function FinanceClient({
       {teamScheduleOpen && duesSchedules.available && (
         <TeamScheduleSheet
           template={duesSchedules.template}
+          payments={payments}
           onClose={() => setTeamScheduleOpen(false)}
-          onSavedChoosePlayers={() => setApplyOpen(true)}
+          onSavedChoosePlayers={() => { setApplyJustSaved(true); setApplyOpen(true); }}
         />
       )}
       {applyOpen && duesSchedules.available && duesSchedules.template && (
@@ -980,6 +982,8 @@ export function FinanceClient({
           payments={payments}
           byPayment={duesSchedules.byPayment}
           today={deviceToday}
+          justSaved={applyJustSaved}
+          onEditSchedule={() => { setApplyOpen(false); setTeamScheduleOpen(true); }}
           onClose={() => setApplyOpen(false)}
         />
       )}

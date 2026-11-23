@@ -160,9 +160,19 @@ function RowsEditor({ rows, setRows, disabled }) {
         </div>
       ))}
       <button type="button" className="btn btn-ghost ds-add" disabled={disabled || rows.length >= MAX_INSTALLMENTS}
-        onClick={() => setRows([...rows, { dueDate: "", amount: "" }])}>+ Add installment</button>
+        onClick={() => setRows([...rows, { dueDate: nextDueDate(rows), amount: "" }])}>+ Add installment</button>
     </div>
   );
+}
+
+/** A new installment starts one month after the last dated one (or today), so a date is always showing. */
+function nextDueDate(rows) {
+  const last = [...rows].reverse().find((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.dueDate ?? ""))?.dueDate;
+  const [y, m, d] = last ? last.split("-").map(Number) : (() => { const t = new Date(); return [t.getFullYear(), t.getMonth() + 1, t.getDate()]; })();
+  const base = last ? new Date(y, m, 1) : new Date(y, m - 1, d); // last: first of the next month's slot, then clamp the day
+  if (last) base.setDate(Math.min(d, new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()));
+  const p2 = (n) => String(n).padStart(2, "0");
+  return `${base.getFullYear()}-${p2(base.getMonth() + 1)}-${p2(base.getDate())}`;
 }
 
 const rowsFromItems = (items) => (items ?? []).map((i) => ({ dueDate: i.dueDate, amount: (i.amountCents / 100).toFixed(2) }));
@@ -179,7 +189,7 @@ const firstError = (errors) => errors.map((e) => ERRORS[e]).find(Boolean) ?? nul
 /* Team schedule                                                        */
 /* ------------------------------------------------------------------ */
 
-export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
+export function TeamScheduleSheet({ template, payments, onClose, onSavedChoosePlayers }) {
   const router = useRouter();
   const toast = useToast();
   const [rows, setRows] = useState(template ? rowsFromItems(template.items) : [{ dueDate: "", amount: "" }]);
@@ -188,6 +198,7 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
   const [saving, setSaving] = useState(false);
   const [, refreshThen] = useRefreshThen();
   const inFlight = useRef(false);
+  const common = useMemo(() => commonPlayerTotalCents(payments), [payments]);
 
   const sum = rows.reduce((s, r) => s + (parseDollarsToCents(r.amount) ?? 0), 0);
   const check = validateScheduleDraft({ totalCents: sum, paidCents: 0, rows });
@@ -210,8 +221,8 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
     }
     refreshThen(() => {
       onClose();
-      toast(thenChoose ? "Team schedule saved." : "Team schedule saved. Choose players from the Apply schedule button.");
       if (thenChoose) onSavedChoosePlayers?.();
+      else toast("Team schedule saved. Choose players from the Apply schedule button.");
     });
   }
 
@@ -221,7 +232,7 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
         <button type="button" className="btn btn-secondary" onClick={() => save(false)} disabled={!valid || saving}>Save</button>
         <button type="button" className="btn btn-primary" onClick={() => save(true)} disabled={!valid || saving}>
-          {saving ? "Saving" : "Save, then choose players"}
+          {saving ? "Saving" : "Save and continue"}
         </button>
       </>}>
       <p className="ds-lead">
@@ -237,6 +248,7 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
         <span>Schedule total</span><b>{$(sum)}</b>
       </div>
       <p className="ds-note">It fits any player whose total dues equal {$(sum)}. Anyone else needs their own schedule.</p>
+      {common != null && sum !== common && <p className="st-warn">Most players on this team owe {$(common)}, but this schedule totals {$(sum)}. It will not fit them until the payments add up to {$(common)}.</p>}
       {problem && <p className="st-warn">{problem}</p>}
       <SheetError>{err}</SheetError>
     </StSheet>
@@ -247,6 +259,19 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
 /* Apply the team schedule: choose players, then review the coverage    */
 /* ------------------------------------------------------------------ */
 
+/** The total most players on the team owe (cents), or null when nobody owes dues. Used to catch a schedule that fits no one. */
+export function commonPlayerTotalCents(payments) {
+  const counts = new Map();
+  for (const p of payments ?? []) {
+    const c = cents(p.totalDue);
+    if (p.exempt || c <= 0) continue;
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  let best = null;
+  for (const [c, n] of counts) if (!best || n > best.n || (n === best.n && c > best.c)) best = { c, n };
+  return best?.c ?? null;
+}
+
 const BLOCK_REASON = {
   exempt: "Owes no dues",
   no_dues: "Owes no dues",
@@ -254,7 +279,7 @@ const BLOCK_REASON = {
   has_schedule: "Already has a schedule",
 };
 
-export function ApplyScheduleSheet({ template, payments, byPayment, today, onClose }) {
+export function ApplyScheduleSheet({ template, payments, byPayment, today, onClose, onEditSchedule, justSaved = false }) {
   const router = useRouter();
   const toast = useToast();
   const [, refreshThen] = useRefreshThen();
@@ -351,34 +376,45 @@ export function ApplyScheduleSheet({ template, payments, byPayment, today, onClo
       </>}>
       {stage === "select" ? (
         <>
+          {justSaved && <p className="ds-saved" role="status">Team schedule saved. Nothing has been applied yet.</p>}
           <div className="ds-sched-sum">
             <span className="st-eyebrow">{template.name}</span>
             <b>{$(tplTotal)}</b>
-            <span>{template.items.length} payments, {fmtDay(template.items[0].dueDate)} to {fmtDay(template.items.at(-1).dueDate)}</span>
+            <span>{template.items.length} {template.items.length === 1 ? "payment" : "payments"}, {fmtDay(template.items[0].dueDate)} to {fmtDay(template.items.at(-1).dueDate)}</span>
           </div>
           <p className="ds-lead">
             Choose who gets this schedule. It adds the dates only. Payments already recorded are never re-entered or
             changed; they are counted against the oldest installments for you to review next.
           </p>
+          {eligible.length === 0 && (
+            <div className="ds-nofit" role="alert">
+              <b>No player can take this schedule.</b>
+              <span>
+                It totals {$(tplTotal)}
+                {commonPlayerTotalCents(payments) != null ? <>, but most players owe {$(commonPlayerTotalCents(payments))}</> : null}.
+                A team schedule only fits players whose total dues equal its total. Check that every payment is entered.
+              </span>
+              {onEditSchedule && <button type="button" className="btn btn-secondary" onClick={onEditSchedule}>Edit team schedule</button>}
+            </div>
+          )}
           <div className="ds-pick-head">
             <span>{chosen.length} selected · {eligible.length} of {candidates.length} can take this schedule</span>
             <span className="ds-pick-bulk">
-              <button type="button" className="ds-link" onClick={() => setPicked(new Set(eligible.filter((c) => !c.has).map((c) => c.p.id)))}>Select all</button>
+              <button type="button" className="ds-link" onClick={() => setPicked((cur) => new Set([...cur, ...eligible.filter((c) => !c.has).map((c) => c.p.id)]))}>Select all</button>
               <button type="button" className="ds-link" disabled={picked.size === 0} onClick={() => { setPicked(new Set()); setReplace(new Set()); }}>Clear</button>
             </span>
           </div>
           <ul className="ds-pick">
-            {candidates.map(({ p, fits, has, why }) => {
+            {candidates.map(({ p, fits, has, why, noDues }) => {
               const on = picked.has(p.id);
               return (
                 <li key={p.id} className={fits ? "" : "ds-pick-off"}>
                   <label>
                     <input type="checkbox" checked={on && fits} disabled={!fits} onChange={() => toggle(picked, setPicked, p.id)} />
                     <span className="ds-pick-name">{p.displayName}</span>
-                    <span className="ds-pick-sub">
-                      Owes {money(p.totalDue)} · {money(p.totalPaid)} recorded
-                      {!fits ? ` · ${why}` : has ? ` · ${BLOCK_REASON.has_schedule}` : ""}
-                    </span>
+                    <span className="ds-pick-sub">Owes {money(p.totalDue)} · {money(p.totalPaid)} recorded</span>
+                    {!fits && <span className={noDues ? "ds-pick-why ds-pick-why-neutral" : "ds-pick-why"}>{noDues ? "Skipped" : "Not selectable"}: {why}</span>}
+                    {fits && has && <span className="ds-pick-has">{BLOCK_REASON.has_schedule}</span>}
                   </label>
                   {fits && has && on && (
                     <label className="ds-replace">

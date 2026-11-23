@@ -12,10 +12,11 @@ function ok(label, cond) { ran += 1; if (!cond) { failed += 1; console.log(`  FA
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const ui = strip(read("components/DuesSchedule.js"));
 const fin = strip(read("components/FinanceClient.js"));
+const css = read("app/volt.css");
 const apply = ui.slice(ui.indexOf("export function ApplyScheduleSheet"), ui.indexOf("export function ", ui.indexOf("export function ApplyScheduleSheet") + 10));
 
 ok("Finance has an Apply button of its own when a team schedule exists", /onApplySchedule/.test(fin) && /Apply schedule to players/.test(fin));
-ok("that button opens the apply sheet directly", /onApplySchedule=\{\(\) => setApplyOpen\(true\)\}/.test(fin));
+ok("that button opens the apply sheet directly", /onApplySchedule=\{\(\) => \{ setApplyJustSaved\(false\); setApplyOpen\(true\); \}\}/.test(fin));
 ok("plain save says where to go next", /Choose players from the Apply schedule button/.test(ui));
 ok("the apply sheet is labeled Step 1 of 2", /Step 1 of 2/.test(apply) && /Choose players/.test(apply));
 ok("the review is labeled Step 2 of 2", /Step 2 of 2/.test(apply));
@@ -31,5 +32,12 @@ ok("existing payments are read only and counted automatically", /Existing paymen
 ok("past due line says Past due", /Past due: <b>/.test(ui) && !/Past due today:/.test(ui));
 ok("Save stays disabled for a new empty schedule", /\(exempt \|\| hadSchedule \|\| rows\.length > 0\)/.test(ui));
 ok("installment fields use the rounded field style", /\.ds-edit-row input \{ border: 0; border-radius: 11px/.test(read("app/volt.css")));
+ok("Select all keeps what is already selected", /setPicked\(\(cur\) => new Set\(\[\.\.\.cur,/.test(apply));
+ok("going straight to choosing shows a banner in the sheet, not a toast over the list", /Team schedule saved\. Nothing has been applied yet\./.test(apply) && /if \(thenChoose\) onSavedChoosePlayers/.test(ui) && !/toast\(thenChoose/.test(ui));
+ok("a schedule that fits no player says so and offers Edit team schedule", /No player can take this schedule\./.test(apply) && /Edit team schedule/.test(apply) && /onEditSchedule/.test(fin));
+ok("saving a team schedule that does not match what most players owe warns", /Most players on this team owe/.test(ui) && /payments=\{payments\}/.test(fin));
+ok("exempt and $0 skips use a neutral style, not the red owed colour", /ds-pick-why-neutral/.test(apply) && /ds-pick-why-neutral\s*\{\s*color:\s*var\(--muted\)/.test(css));
+ok("every disabled player has a visible Not selectable reason", /Not selectable/.test(apply) && /"Skipped"/.test(apply));
+ok("a new installment starts with a date", /nextDueDate\(rows\)/.test(ui) && !/\{ dueDate: "", amount: "" \}\]\)\}>\+ Add installment/.test(ui));
 console.log(`${ran - failed}/${ran} checks passed`);
 process.exit(failed ? 1 : 0);
