@@ -822,7 +822,7 @@ function PlayerDetail({ player, games = [], canOpenPlayerReport = false }) {
         </div>
 
         {history.length > 0 && (
-          <PlayerTournamentCard view={playerTournamentView(games, history)} seasonPct={player.qabPct} />
+          <PlayerTournamentCard view={playerTournamentView(games, history)} seasonPct={player.qabPct} showDots={false} />
         )}
 
         {recent && (

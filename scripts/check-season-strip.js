@@ -20,6 +20,8 @@ eq("Tournaments page opens the drawer in place; Home falls back to a link", /onO
 eq("Commit and Register share the primary style; only Paid is secondary", /quickAction\(t\)\?\.kind === "paid" \? "secondary" : "primary"/.test(tc));
 eq("a Considering tournament's status text includes its registration", /Not in Budget\$\{reg\}/.test(st));
 eq("timeline styles live in volt.css and keep 40px tap targets", /html\.volt \.st-beat \{[^}]*width: 40px; height: 40px/.test(volt) && /html\.volt \.st-tempo-toggle \{[^}]*min-height: 40px/.test(volt));
+eq("Performance screen also leaves out the per-game dots", /showDots=\{false\}/.test(r("components/PerformanceSeason.js")));
+eq("one shared status mapping: Decision, Registration, Payment", /export function statusFacets/.test(st) && /statusWords/.test(strip) && /StatusFacets/.test(tc) && /Payment/.test(r("components\/StatusFacets.js".replace("\\",""))));
 eq("player QAB report leaves out the per-game dots", /showDots=\{false\}/.test(r("components/reports/QabPlayerReport.js")));
 
 console.log(`\n${n - bad}/${n} passed${bad ? `, ${bad} FAILED` : ""}\n`);

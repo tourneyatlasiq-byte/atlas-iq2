@@ -21,11 +21,14 @@ import { createFacility } from "../lib/actions/facilities";
  * tournament without writing anything — or explicitly confirms it is a
  * different place, which resubmits acknowledging only the ids they were shown.
  *
+ * `initialName` is what the coach had typed into the facility search before choosing
+ * "Add". The name field starts with it so nothing is retyped; the cursor goes to City.
+ *
  * The form stays mounted throughout. Its inputs are uncontrolled, so the values
  * the coach typed survive the round trip without being lifted into state, and
  * TournamentForm behind this modal never unmounts.
  */
-export function QuickAddFacility({ onClose, onFacilityReady }) {
+export function QuickAddFacility({ onClose, onFacilityReady, initialName = "" }) {
   const [error, setError] = useState(null);
   const [duplicates, setDuplicates] = useState(null);
   const [lastForm, setLastForm] = useState(null);
@@ -158,13 +161,13 @@ export function QuickAddFacility({ onClose, onFacilityReady }) {
 
             <div className="field">
               <label htmlFor="qa-name">Facility name</label>
-              <input id="qa-name" name="name" required autoFocus placeholder="e.g. Hobgood Park" />
+              <input id="qa-name" name="name" required autoFocus={!initialName} defaultValue={initialName} placeholder="e.g. Hobgood Park" />
             </div>
 
             <div className="field-row">
               <div className="field">
                 <label htmlFor="qa-city">City</label>
-                <input id="qa-city" name="city" required value={city} onChange={(e) => setCity(e.target.value)} />
+                <input id="qa-city" name="city" required autoFocus={Boolean(initialName)} value={city} onChange={(e) => setCity(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="qa-state">State</label>

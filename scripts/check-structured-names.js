@@ -964,8 +964,8 @@ section("Tournament drawer body");
     !/<h3 className="detail-section-title">Status<\/h3>/.test(t) && /className="field-row t-status"/.test(t));
   ok("...keeping both controls",
     /id="d-decision"/.test(t) && /id="d-paid"/.test(t));
-  ok("read-only users still get the pills",
-    /decision-pill/.test(t) && /paidClass\(t\.paid_status\)/.test(t));
+  ok("read-only users still see their status, now as labeled Decision / Registration / Payment",
+    /drawer-head-pills/.test(t) && /<StatusFacets t=\{t\} transactions=\{transactions\} \/>/.test(t));
 
   ok("the contact section keeps its title+action pattern",
     /section-head/.test(read("components/TournamentContact.js")));

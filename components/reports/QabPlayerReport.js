@@ -92,7 +92,7 @@ export function QabPlayerReport({ report, scopeControl = null, from = null }) {
             </section>
 
             {report.tournaments && (
-              <PlayerTournamentCard view={report.tournaments} seasonPct={summary.qabPct} headingClass="qp-h2" />
+              <PlayerTournamentCard view={report.tournaments} seasonPct={summary.qabPct} headingClass="qp-h2" showDots={false} />
             )}
 
             <section>

@@ -175,7 +175,9 @@ console.log("\nF. Everything else is unchanged");
   if (baseComp == null || baseCss == null) console.log(`  note  ${rev} is not available here; the unchanged-elsewhere comparison is skipped`);
   else {
     const cut = (s, a, b) => s.slice(0, s.indexOf(a)) + s.slice(s.indexOf(b));
-    const trimComp = (s) => cut(s, "/**\n * Team QAB% per game, in date order", "/**\n * The expanded player panel.").replace(/import \{ use[A-Za-z, ]+ \} from "react";[\s\S]*?(?=\n\/\*\*)/, "");
+    const trimComp = (s) => cut(s, "/**\n * Team QAB% per game, in date order", "/**\n * The expanded player panel.").replace(/import \{ use[A-Za-z, ]+ \} from "react";[\s\S]*?(?=\n\/\*\*)/, "")
+      // 2026-11-22: the one approved change, the Performance player card no longer draws per-game dots.
+      .replace(" showDots={false}", "");
     // Both revisions may already carry the redesigned chart (the comparison base can be a later commit),
     // so compare with the chart function and the import preamble removed from each side.
     assertEq("PerformanceSeason.js is identical outside QabTrend and its imports", trimComp(comp), trimComp(baseComp));

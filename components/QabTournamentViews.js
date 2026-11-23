@@ -171,14 +171,19 @@ export function GameDots({ view, headingClass = "qtv-h", title = "Games with a Q
   );
 }
 
-/** The player card: tournament bars (from two tournaments) and the dots. */
-export function PlayerTournamentCard({ view, seasonPct = null, headingClass = "qtv-h" }) {
+/**
+ * The player card: tournament bars (from two tournaments) and the dots.
+ * `showDots={false}` leaves the dots out where the game-by-game list already
+ * gives each game's QAB and PA (the printed player report).
+ */
+export function PlayerTournamentCard({ view, seasonPct = null, headingClass = "qtv-h", showDots = true }) {
   if (!view || view.dots.length === 0) return null;
   const showRows = view.rows.length >= 2;
+  if (!showDots && !showRows) return null;
   return (
     <div className="qtv-card">
       {showRows && <TournamentBars rows={view.rows} seasonPct={seasonPct} tickLabel="Player season QAB%" player headingClass={headingClass} />}
-      <GameDots view={view} headingClass={headingClass} />
+      {showDots && <GameDots view={view} headingClass={headingClass} />}
     </div>
   );
 }

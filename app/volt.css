@@ -395,40 +395,63 @@ html.volt .st-bar-volt { background: var(--volt); box-shadow: inset 0 0 0 1px rg
   .st-toasts { left: 12px; right: 12px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); align-items: stretch; }
 }
 
-/* Season tempo */
-html.volt .st-tempo { padding: 18px 22px 14px; margin-bottom: 18px; }
-html.volt .st-tempo-h { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; }
-html.volt .st-tempo-h b { font-size: 15px; color: var(--ink); font-weight: 750; }
-html.volt .st-tempo-h span { font-size: 13.5px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
-html.volt .st-track { position: relative; height: 54px; margin: 8px 14px 0; }
-html.volt .st-track-line { position: absolute; left: 0; right: 0; top: 26px; height: 2px; background: var(--line); border-radius: 2px; }
-html.volt .st-track-done { position: absolute; left: 0; top: 26px; height: 2px; background: var(--ink); border-radius: 2px; }
-html.volt .st-today { position: absolute; top: 0; bottom: 4px; width: 0; border-left: 2px dotted var(--ink); }
+/* Season tempo: compact by default, expandable. Dots merge when they would touch. */
+html.volt .st-tempo { padding: 8px 18px 8px; margin-bottom: 14px; }
+html.volt .st-tempo-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+html.volt .st-tempo-title { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 10px; line-height: 1.3; }
+html.volt .st-tempo-title b { font-size: 14.5px; color: var(--ink); font-weight: 750; }
+html.volt .st-tempo-title span { font-size: 13px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+html.volt .st-tempo-toggle { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin-top: -2px; margin-bottom: -4px; padding: 0 10px; margin-right: -8px; border: 0; background: transparent; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 650; color: var(--ink); cursor: pointer; }
+html.volt .st-tempo-toggle:hover { background: var(--sunk); }
+html.volt .st-track-wrap { position: relative; margin: 0 12px; }
+html.volt .st-track { position: relative; height: 30px; }
+html.volt .st-tempo.is-expanded .st-track { height: 52px; }
+html.volt .st-track-line { position: absolute; left: 0; right: 0; top: 15px; height: 2px; background: var(--line); border-radius: 2px; }
+html.volt .st-tempo.is-expanded .st-track-line, html.volt .st-tempo.is-expanded .st-track-done { top: 28px; }
+html.volt .st-track-done { position: absolute; left: 0; top: 15px; height: 2px; background: var(--ink); border-radius: 2px; }
+html.volt .st-today { position: absolute; top: 4px; bottom: 4px; width: 0; border-left: 2px dotted var(--ink); }
+html.volt .st-tempo.is-expanded .st-today { top: 0; bottom: 4px; }
 html.volt .st-today span { position: absolute; top: -3px; left: 5px; font-family: var(--font-volt-mono); font-size: 10.5px; color: var(--ink); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
-html.volt .st-beat { position: absolute; top: 27px; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; background: transparent; border-radius: 50%; cursor: pointer; }
-html.volt .st-beat::before { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2.5px var(--ink); transition: transform .16s cubic-bezier(.2,.8,.2,1); }
-html.volt .st-beat:hover::before, html.volt .st-beat.is-on::before { transform: translate(-50%, -50%) scale(1.3); }
+html.volt .st-beat { position: absolute; top: 16px; width: 40px; height: 40px; margin: -20px 0 0 -20px; padding: 0; border: 0; background: transparent; border-radius: 50%; cursor: pointer; }
+html.volt .st-tempo.is-expanded .st-beat { top: 29px; }
+html.volt .st-beat::before { content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; transform: translate(-50%, -50%); border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2.5px var(--ink); transition: transform .16s cubic-bezier(.2,.8,.2,1); }
+html.volt .st-beat:hover::before, html.volt .st-beat.is-on::before { transform: translate(-50%, -50%) scale(1.25); }
+html.volt .st-beat:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
 html.volt .st-beat.is-played::before { background: var(--ink); }
 html.volt .st-beat.is-unreg::before { box-shadow: inset 0 0 0 2.5px var(--due, #a64b00); }
 html.volt .st-beat.is-wait::before { box-shadow: inset 0 0 0 2.5px var(--due, #a64b00); background: repeating-linear-gradient(135deg, #fff1df 0 2px, #fff 2px 4px); }
 html.volt .st-beat.is-maybe::before { box-shadow: none; border: 2px dashed #8a93a0; background: transparent; }
-html.volt .st-beat.is-next::before { width: 26px; height: 26px; background: var(--volt); box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 6px rgba(210,255,61,.35); }
-html.volt .st-beat.is-on::before { outline: 2px solid var(--ink); outline-offset: 3px; }
-html.volt .st-months { position: relative; height: 16px; margin: 0 14px; font-family: var(--font-volt-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+html.volt .st-beat.is-next::before { width: 22px; height: 22px; background: var(--volt); box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 5px rgba(210,255,61,.35); }
+html.volt .st-beat.is-on::before { outline: 2px solid var(--ink); outline-offset: 2px; }
+html.volt .st-beat.is-cluster::before, html.volt .st-key i.is-group { background: var(--ink); box-shadow: none; }
+html.volt .st-beat.is-cluster::before { width: 22px; height: 22px; }
+html.volt .st-beat.is-cluster.is-next::before { background: var(--volt); box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 5px rgba(210,255,61,.35); }
+html.volt .st-cluster-n { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--font-volt-mono); font-size: 11px; font-weight: 700; line-height: 1; color: #fff; pointer-events: none; }
+html.volt .st-beat.is-cluster.is-next .st-cluster-n { color: var(--ink); }
+html.volt .st-months { position: relative; height: 16px; font-family: var(--font-volt-mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 html.volt .st-months span { position: absolute; top: 0; transform: translateX(-2px); white-space: nowrap; }
-html.volt .st-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+html.volt .st-tip { position: absolute; z-index: 5; top: 34px; transform: translateX(-50%); width: max-content; max-width: min(300px, 86vw); padding: 10px 12px; border-radius: 12px; background: var(--ink); color: #fff; box-shadow: 0 8px 24px rgba(10,20,40,.22); pointer-events: none; display: grid; gap: 8px; }
+html.volt .st-tempo.is-expanded .st-tip { top: 50px; }
+html.volt .st-tip-row { display: grid; gap: 1px; }
+html.volt .st-tip-row b { font-size: 13.5px; overflow-wrap: anywhere; }
+html.volt .st-tip-row span { font-size: 12.5px; color: rgba(255,255,255,.78); overflow-wrap: anywhere; }
+html.volt .st-tip-row .st-tip-status { color: var(--volt); font-weight: 650; }
+html.volt .st-tip-more, html.volt .st-tip-hint { font-size: 11.5px; color: rgba(255,255,255,.6); }
+html.volt .st-key { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
 html.volt .st-key span { display: inline-flex; align-items: center; gap: 6px; }
-html.volt .st-key i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 2px var(--ink); }
+html.volt .st-key i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 2px var(--ink); font-style: normal; }
 html.volt .st-key i.is-played { background: var(--ink); } html.volt .st-key i.is-next { background: var(--volt); }
 html.volt .st-key i.is-unreg { box-shadow: inset 0 0 0 2px var(--due, #a64b00); } html.volt .st-key i.is-wait { box-shadow: inset 0 0 0 2px var(--due, #a64b00); background: #fff1df; }
 html.volt .st-key i.is-maybe { box-shadow: none; border: 1.5px dashed #8a93a0; }
-html.volt .st-callout { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px 10px 10px 14px; border-radius: 14px; background: var(--sunk); animation: st-tin .2s ease; }
-html.volt .st-callout > div { flex: 1; }
+html.volt .st-key i.is-group { width: 14px; height: 14px; font-size: 9px; font-weight: 700; color: #fff; display: inline-grid; place-items: center; }
+html.volt .st-callout { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; padding: 8px 6px 8px 12px; border-radius: 14px; background: var(--sunk); animation: st-tin .2s ease; }
+html.volt .st-callout-list { flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; max-height: min(260px, 38vh); overflow-y: auto; overscroll-behavior: contain; }
+html.volt .st-callout-list li { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+html.volt .st-callout-list li > div { min-width: 0; }
 html.volt .st-callout b { display: block; color: var(--ink); font-size: 14.5px; overflow-wrap: anywhere; }
-html.volt .st-callout span { display: block; font-size: 13px; color: var(--muted); }
+html.volt .st-callout span { display: block; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+html.volt .st-callout .btn { flex: none; min-height: 40px; }
 html.volt .st-callout-x { width: 40px; height: 40px; border: 0; background: transparent; border-radius: 10px; display: grid; place-items: center; cursor: pointer; color: var(--ink); flex: none; }
-html.volt .st-tempo-note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
-@media (max-width: 520px) { html.volt .st-months span.is-odd { display: none; } }
 
 /* Home */
 html.volt .st-home-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 18px; align-items: start; }
@@ -652,9 +675,8 @@ html.volt .st-more summary { min-height: 44px; display: flex; align-items: cente
   html.volt .st-ready .btn { margin-top: 0; }
 }
 @media (max-width: 720px) {
-  html.volt .st-tempo { padding: 14px 14px 12px; margin-bottom: 14px; }
-  html.volt .st-track { margin: 8px 10px 0; }
-  html.volt .st-months { margin: 0 10px; }
+  html.volt .st-tempo { padding: 6px 12px 8px; margin-bottom: 12px; }
+  html.volt .st-track-wrap { margin: 0 10px; }
   html.volt .st-home-grid { gap: 14px; }
   html.volt .st-wk { padding: 20px 18px 18px; border-radius: 22px; }
   html.volt .st-wk::after { width: 140px; height: 140px; right: -56px; top: -56px; }
@@ -1214,3 +1236,139 @@ html.volt .er-add-pickup:active:not(:disabled) { background: var(--sunk); }
   html.volt .er-remove:active:not(:disabled),
   html.volt .er-add-pickup:active:not(:disabled) { transform: none; }
 }
+
+/* =========================================================================
+   Tournament drawer alignment pass (2026-11-22). Layout only: no behavior,
+   data or money logic changes. Every rule here is scoped to the tournament
+   drawer pieces (status selects, summary tiles, games rows, drawer footer)
+   or is a harmless fixed-box fix on the shared section caret.
+   ========================================================================= */
+
+/* Header: the menu and close buttons share one 44px box and line up with the
+   title instead of hanging below it. */
+html.volt .drawer-head:has(.t-status) {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0; align-items: start;
+}
+html.volt .drawer-head:has(.t-status) .drawer-head-text { display: contents; }
+html.volt .drawer-head:has(.t-status) h2 { grid-column: 1; grid-row: 1; }
+html.volt .drawer-head:has(.t-status) .drawer-head-meta { grid-column: 1; grid-row: 2; }
+html.volt .drawer-head:has(.t-status) .t-status { grid-column: 1 / -1; grid-row: 3; }
+html.volt .drawer-head:has(.t-status) .drawer-head-actions { grid-column: 2; grid-row: 1; margin-bottom: -18px; }
+html.volt .drawer-head-actions { gap: 0; margin: -8px -6px 0 0; align-self: flex-start; }
+html.volt .drawer-head-actions .drawer-close {
+  width: 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Are we going? / Registration & payment: one label row and one select row
+   shared by both fields, so labels, help icon and controls line up even when
+   a label wraps on a narrow phone. */
+html.volt .drawer-head .t-status { row-gap: 0; align-items: end; }
+html.volt .drawer-head .t-status label {
+  min-height: 22px; margin-bottom: 6px; line-height: 1.2; align-items: center; letter-spacing: .06em;
+}
+html.volt .drawer-head .t-status .helptip { margin-left: 0; flex-shrink: 0; }
+html.volt .drawer-head .t-status select { width: 100%; height: 44px; min-height: 44px; }
+@supports (grid-template-rows: subgrid) {
+  html.volt .drawer-head .t-status { grid-template-rows: auto auto; align-items: stretch; }
+  html.volt .drawer-head .t-status .field { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 0; }
+}
+
+/* Summary tiles: label, value and caption each sit on the same row in all
+   three, and a long amount shrinks to fit instead of clipping. */
+html.volt .t-metric, html.volt .t-metric.is-open { border-width: 1.5px; padding: 10px 11px; }
+html.volt .t-metric {
+  display: grid; grid-template-rows: 14px 30px auto; align-content: start; row-gap: 2px;
+  min-height: 100px; container-type: inline-size; text-align: left;
+}
+html.volt .t-metric-label { line-height: 14px; }
+html.volt .t-metric-value {
+  display: block; height: 30px; line-height: 30px; font-size: clamp(15px, 21cqw, 24px);
+  overflow: visible; text-overflow: clip; white-space: nowrap; min-width: 0;
+}
+html.volt .t-metric-value.is-long { font-size: clamp(13px, 15cqw, 22px); }
+html.volt .t-metric-value.is-xlong { font-size: clamp(12px, 12.5cqw, 20px); }
+html.volt .t-metric-caption {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  text-wrap: balance; min-width: 0;
+}
+
+/* Section headings (Games, Locations, ...): the summary and the arrow share
+   one baseline and the arrow sits in a fixed box, so it lines up in every
+   section whether open or closed. */
+html.volt .collapsible-head { align-items: center; }
+/* In the tournament drawer a closed row is inset the same 14px an open panel
+   is, so titles and arrows stay in one column whether a section is open or
+   not. Long summaries wrap instead of being cut off with an ellipsis. */
+html.volt .drawer-body:has(.t-metrics) .collapsible-head { padding: 0 14px; }
+html.volt .drawer-body:has(.t-metrics) .collapsible.is-open .collapsible-head { padding: 0; }
+html.volt .drawer-body:has(.t-metrics) .collapsible-summary {
+  white-space: normal; overflow: visible; text-overflow: clip; text-wrap: balance; max-width: 55%;
+}
+html.volt .collapsible-summary { line-height: 1.2; text-align: right; font-variant-numeric: tabular-nums; }
+html.volt .collapsible-caret {
+  width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+}
+
+/* Games: details on the left, score on the right, then one action row. */
+html.volt .game-row { padding: 10px 12px; }
+html.volt .game-actions { padding-left: 37px; gap: 2px 6px; }
+html.volt .game-actions .btn {
+  min-height: 44px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1.2; white-space: nowrap; font-size: 14px;
+}
+html.volt .game-actions .btn-danger-ghost { margin-left: auto; }
+@media (max-width: 480px) {
+  html.volt .game-actions { padding-left: 0; justify-content: space-between; }
+  html.volt .game-actions .btn { padding: 0 6px; }
+  html.volt .game-actions .btn-danger-ghost { margin-left: 0; }
+}
+@media (max-width: 400px) {
+  html.volt .game-row { padding: 10px 8px; }
+  html.volt .game-actions { gap: 0 2px; }
+  html.volt .game-actions .btn { font-size: 13.5px; padding: 0 5px; }
+}
+@media (min-width: 721px) {
+  html.volt .game-actions .btn { min-height: 38px; }
+}
+
+/* Footer: both buttons are the same box. The outlined one carries the same
+   bottom edge the volt one has, so heights and baselines match exactly. */
+html.volt .drawer-foot { align-items: stretch; }
+html.volt .drawer-foot .btn {
+  min-height: 48px; height: 48px; padding-top: 0; padding-bottom: 0;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+}
+
+@media (max-width: 400px) {
+  html.volt .drawer-head .t-status label { font-size: 10px; letter-spacing: .03em; gap: 3px; }
+}
+
+/* Tournament list row on phones: status, the quick action and the amount
+   share one vertical center instead of hanging at different heights. */
+@media (max-width: 720px) {
+  html.volt .t-row { align-items: center; }
+  html.volt .t-row .t-cost, html.volt .t-row .t-quick { align-self: center; }
+}
+
+/* Games: details left, score right, then one action row. (Kept here with the
+   other drawer rules; the base game-row rules in globals.css are unchanged.) */
+html.volt .game-row {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; column-gap: 11px; row-gap: 6px; align-items: center;
+}
+html.volt .game-row > .confirm-inline { grid-column: 1 / -1; margin: 4px 0 0; }
+html.volt .game-actions { grid-column: 1 / -1; flex-wrap: wrap; align-items: center; }
+
+/* Status facets: Decision, Registration and Payment as labeled words. The mark only reinforces the word. */
+html.volt .sf { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+html.volt .sf-chips { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+html.volt .sf-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; color: var(--ink); white-space: nowrap; }
+html.volt .sf-k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+html.volt .sf-mark { flex: none; width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; background: #fff; box-shadow: inset 0 0 0 2px var(--ink); }
+html.volt .sf-yes .sf-mark { background: var(--ink); }
+html.volt .sf-maybe .sf-mark { box-shadow: none; border: 1.5px dashed #8a93a0; background: transparent; }
+html.volt .sf-wait .sf-mark, html.volt .sf-part .sf-mark { box-shadow: inset 0 0 0 2px var(--due, #a64b00); background: repeating-linear-gradient(135deg, #fff1df 0 2px, #fff 2px 4px); }
+html.volt .sf-no .sf-mark { box-shadow: inset 0 0 0 2px var(--due, #a64b00); }
+html.volt .sf-no { color: var(--ink); }
+html.volt .sf-detail { font-size: 12.5px; color: var(--muted); }
+html.volt .st-pipe { min-width: 170px; max-width: 260px; }
+html.volt .drawer-head-pills .sf-chips { gap: 6px 14px; }

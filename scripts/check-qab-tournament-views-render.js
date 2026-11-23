@@ -88,7 +88,8 @@ const scoped = { games, players: [{ playerId: "a", name: "Ava", qab: 4, pa: 6, q
 const preport = buildQabPlayerReport({ scoped, playerId: "a", name: "Ava", identity: ident, generatedAt: "2026-11-21T12:00:00Z" });
 const phtml = renderToStaticMarkup(React.createElement(QabPlayerReport, { report: preport }));
 const pdoc = phtml.slice(phtml.indexOf("<article"));
-ok("player report keeps all existing sections and inserts the new ones after Summary", ["Quality at-bat rate", "QAB% by tournament", "Games with a QAB", "How QABs were earned", "Game by game"].map((s) => pdoc.indexOf(s)).every((n, i, a) => n > 0 && (i === 0 || n > a[i - 1])), true);
+ok("player report keeps its sections in order: summary, QAB% by tournament, how earned, game by game", ["Quality at-bat rate", "QAB% by tournament", "How QABs were earned", "Game by game"].map((s) => pdoc.indexOf(s)).every((n, i, a) => n > 0 && (i === 0 || n > a[i - 1])), true);
+ok("player report no longer repeats each game as a dot (the game-by-game list already shows it)", [/Games with a QAB|qtv-dot|qtv-legend/.test(pdoc), /Game by game/.test(pdoc)], [false, true]);
 const ptournament = buildQabPlayerReport({ scoped, playerId: "a", name: "Ava", identity: ident, tournament: { id: "tA", name: "T25 (Scenic)", start_date: "2026-11-06", end_date: "2026-11-08" } });
 ok("tournament scope: no new sections and no payload field", [ptournament.tournaments, /Games with a QAB/.test(renderToStaticMarkup(React.createElement(QabPlayerReport, { report: ptournament })))], [null, false]);
 ok("player payload tournaments carry no tournament id or teammate data", /"tournamentId"|"playerId"|tA|tB|tC/.test(JSON.stringify(preport.tournaments)), false);

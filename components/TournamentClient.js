@@ -40,13 +40,14 @@ import {
   deleteTournament,
 } from "../lib/actions/tournaments";
 
-import { DECISIONS, PAID_STATUSES, statusLine, registrationState, tournamentPayments } from "../lib/tournament-status";
+import { DECISIONS, PAID_STATUSES, statusLine, registrationState, quickAction, tournamentPayments } from "../lib/tournament-status";
 import { nextStep } from "../lib/tournament-next-step";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { SeasonStrip } from "./SeasonStrip";
 import { fmtDateRange } from "../lib/dates";
 import { WeekendCard, directionsUrl as weekendDirections, fmtTime } from "./WeekendCard";
 import { useQuickStatus, QuickButton } from "./QuickStatus";
+import { StatusFacets } from "./StatusFacets";
 // Display order differs from the value list: Committed first, since that is
 // what a coach checks before anything else.
 const GROUP_ORDER = ["Committed", "Considering", "Declined"];
@@ -142,14 +143,18 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const quick = useQuickStatus({ backClosesSheet: true, transactions, budgetLines, seasonAvailable, onEditDetails: (t) => setEditing(t) });
   const nextT = nextUp?.tournament ?? null;
   const [actionId, setActionId] = useState(null);
-  const [addingFacility, setAddingFacility] = useState(false);
+  // null, or { name }: the new-facility form, opened with what the coach had typed in the picker.
+  const [addingFacility, setAddingFacility] = useState(null);
   // Linking a place to this trip. Separate from the playing-facility picker
   // above, which writes tournaments.facility_id.
   const [linkingResource, setLinkingResource] = useState(false);
   const [confirmUnlink, setConfirmUnlink] = useState(null);
   // Applies to the next link made from the picker. Defaults to Used.
   const [linkContext, setLinkContext] = useState("used");
-  const [justCreatedFacilityId, setJustCreatedFacilityId] = useState(null);
+  // The facility just added (or chosen instead of adding) from inside the open tournament
+  // form, as { facility, seq }. One-shot: it belongs to that form only and is cleared when the
+  // form closes, so the next Add tournament (or any Edit) never opens with it already chosen.
+  const [facilityJustAdded, setFacilityJustAdded] = useState(null);
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments, { ownEntry: true });
@@ -213,6 +218,8 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const activeAction = actions.find((a) => a.id === actionId) ?? null;
 
   const overlayOpen = Boolean(detail || editing);
+
+  useEffect(() => { if (!editing) setFacilityJustAdded(null); }, [editing]);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -410,7 +417,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       </div>
 
       {tournaments.length > 0 && (
-        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} today={todayLocal} />
+        <SeasonStrip season={season} tournaments={tournaments} transactions={transactions} nextId={nextT?.id ?? null} today={todayLocal} onOpen={(t) => openDetail(t)} />
       )}
 
       {tournaments.length > 0 && (
@@ -565,7 +572,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
 
                       <span className="t-cost">{money(t.total_cost)}</span>
                       <span className="t-quick">
-                        <QuickButton t={t} quick={quick} canWrite={canWrite} variant={registrationState(t).registered ? "secondary" : "primary"} />
+                        <QuickButton t={t} quick={quick} canWrite={canWrite} variant={quickAction(t)?.kind === "paid" ? "secondary" : "primary"} />
                       </span>
                     </div>
                   ))}
@@ -596,6 +603,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           contacts={contacts}
           budgetContext={budgetLines.find((b) => b.id === detail.budget_item_id) ?? null}
           budgetLines={budgetLines}
+          transactions={transactions}
           arrivalNotes={arrivalNotes}
           providerContactIds={
             // Contacts already used for other events by the same provider.
@@ -634,8 +642,8 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           pending={pending}
           onSubmit={submit}
           error={formError}
-          onAddFacility={() => setAddingFacility(true)}
-          justCreatedFacilityId={justCreatedFacilityId}
+          onAddFacility={(name) => setAddingFacility({ name: name ?? "" })}
+          facilityJustAdded={facilityJustAdded}
           openVenuePicker={openVenue}
           onCancel={() => {
             setEditing(null);
@@ -692,13 +700,14 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
 
       {addingFacility && (
         <QuickAddFacility
-          onClose={() => setAddingFacility(false)}
+          initialName={addingFacility.name}
+          onClose={() => setAddingFacility(null)}
           onFacilityReady={(facility) => {
-            setAddingFacility(false);
+            setAddingFacility(null);
             // The facility may be newly created or an existing catalog record
             // the coach chose instead. Either way the tournament links to it
             // the same way: remember the id so the form selects it.
-            if (facility?.id) setJustCreatedFacilityId(facility.id);
+            if (facility?.id) setFacilityJustAdded({ facility, seq: Date.now() });
             router.refresh();
           }}
         />
@@ -866,9 +875,9 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   const resCount = (t.resources ?? []).length;
   const costLabel = money(t.total_cost) || null;
   const budgetLinked = Boolean(budgetContext);
-  const gamesSummary = games.length === 0 ? "No games added" : record ? `${games.length} · ${record}` : `${games.length} ${games.length === 1 ? "game" : "games"}`;
+  const gamesSummary = games.length === 0 ? "No games added" : record ? `${games.length} ${games.length === 1 ? "game" : "games"} · ${record}` : `${games.length} ${games.length === 1 ? "game" : "games"}`;
   const rosterSummary = participants.length === 0 ? "Roster not set" : `${participants.length} attending`;
-  const costsSummary = [costLabel, budgetLinked ? null : (costLabel ? "budget not linked" : "Budget not linked")].filter(Boolean).join(", ") || "Not recorded";
+  const costsSummary = [costLabel, budgetLinked ? null : "Budget not linked"].filter(Boolean).join(" · ") || "Not recorded";
   const placesSummary = [resCount ? `${resCount} linked` : "Nothing linked", docCount ? `${docCount} ${docCount === 1 ? "document" : "documents"}` : null].filter(Boolean).join(" · ");
   const detailsSummary = detailCount === 0 ? "None recorded" : ([t.provider?.name, t.age_division].filter(Boolean).join(" · ") || `${detailCount} recorded`);
   const tiles = [
@@ -901,7 +910,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             {canWrite ? (
               <div className="field-row t-status">
                 <div className="field">
-                  <label htmlFor="d-decision">Are we going?</label>
+                  <label htmlFor="d-decision">Decision</label>
                   <select id="d-decision" value={t.decision} disabled={pending}
                     onChange={(e) => onStatus(t.id, "decision", e.target.value)}>
                     {DECISIONS.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -920,8 +929,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               </div>
             ) : (
               <div className="drawer-head-pills">
-                <span className={`pill decision-pill decision-pill-${t.decision.toLowerCase()}`}>{t.decision}</span>
-                <span className={`pill ${paidClass(t.paid_status)}`}>{t.paid_status}</span>
+                <StatusFacets t={t} transactions={transactions} />
               </div>
             )}
           </div>
@@ -941,7 +949,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               <button key={x.key} type="button" className={`t-metric${isOpen(x.key) ? " is-open" : ""}`}
                 aria-expanded={isOpen(x.key)} aria-controls={`section-${x.key}-body`} onClick={() => reveal(x.key)}>
                 <span className="t-metric-label">{x.label}</span>
-                <span className="t-metric-value">{x.value}</span>
+                <span className={`t-metric-value${String(x.value).length >= 11 ? " is-xlong" : String(x.value).length >= 9 ? " is-long" : ""}`}>{x.value}</span>
                 <span className="t-metric-caption">{x.caption}</span>
               </button>
             ))}
@@ -1266,7 +1274,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   );
 }
 
-export function TournamentForm({ row, providers, facilities, pending, error = null, onSubmit, onCancel, onAddFacility, justCreatedFacilityId, openVenuePicker = false }) {
+export function TournamentForm({ row, providers, facilities, pending, error = null, onSubmit, onCancel, onAddFacility, facilityJustAdded = null, openVenuePicker = false }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
   const [gate, setGate] = useState(row?.gate_fee ?? "");
@@ -1276,13 +1284,25 @@ export function TournamentForm({ row, providers, facilities, pending, error = nu
   // then ends the whole task (one Cancel). Any picker the coach opens from the
   // form later behaves as before: Cancel closes just the picker.
   const entryPicker = useRef(Boolean(openVenuePicker));
-  const chosenFacility = facilities.find((f) => f.id === facilityId) ?? null;
+  // The facility added from inside this form, kept so it can be shown before the refreshed
+  // directory arrives with it.
+  const [addedFacility, setAddedFacility] = useState(null);
+  const chosenFacility = facilities.find((f) => f.id === facilityId) ?? (addedFacility?.id === facilityId ? addedFacility : null);
 
-  // Create-and-link: a facility created from inside this tournament is
-  // selected the moment it exists. The coach never searches for it twice.
+  // Create-and-link: a facility added from inside this form is selected the moment it exists,
+  // and the picker that asked for it closes. The coach never searches for it twice.
+  // A value already present when the form opened was left by an earlier form (a different
+  // tournament, or an Edit) and is ignored: that was how a new form opened with the previous
+  // tournament's facility, and an Edit form with the wrong one.
+  const alreadyThere = useRef(facilityJustAdded);
   useEffect(() => {
-    if (justCreatedFacilityId) setFacilityId(justCreatedFacilityId);
-  }, [justCreatedFacilityId]);
+    if (!facilityJustAdded || facilityJustAdded === alreadyThere.current) return;
+    alreadyThere.current = facilityJustAdded;
+    setFacilityId(facilityJustAdded.facility.id);
+    setAddedFacility(facilityJustAdded.facility);
+    entryPicker.current = false;
+    setPickingFacility(false);
+  }, [facilityJustAdded]);
 
   // Release 3: Back, Close, Escape and the backdrop close this form first; a
   // form whose values differ from how it opened asks before discarding.
@@ -1293,7 +1313,7 @@ export function TournamentForm({ row, providers, facilities, pending, error = nu
   // A linked facility is canonical, so its city/state are used and the manual
   // field is hidden entirely. That duplicate entry is what produced "Cobb"
   // sitting against a Marietta venue in the legacy rows.
-  const selectedFacility = facilities.find((f) => f.id === facilityId) ?? null;
+  const selectedFacility = chosenFacility;
 
   return (
     <div
@@ -1399,10 +1419,11 @@ export function TournamentForm({ row, providers, facilities, pending, error = nu
                   setFacilityId(f.id);
                   setPickingFacility(false);
                 }}
-                onCreate={() => {
-                  entryPicker.current = false;
-                  setPickingFacility(false);
-                  onAddFacility?.();
+                onCreate={(typed) => {
+                  // The picker stays open underneath, with its search, so Cancel on the
+                  // new-facility form returns the coach to exactly where they were.
+                  // It closes when the facility is added (effect above).
+                  onAddFacility?.(typed);
                 }}
                 onCancel={() => {
                   const fromEntry = entryPicker.current;
@@ -1670,17 +1691,7 @@ function TiqNextUp({ tournament: t }) {
 /* ---------------- Group 1: season plan and next tournament ---------------- */
 
 function StatusPipe({ t, transactions }) {
-  if (t.decision === "Declined") return <span className="t-status t-status-none">Declined</span>;
-  const s = statusLine(t, transactions);
-  const r = registrationState(t);
-  const step = t.decision === "Considering" ? 0 : r.step;
-  const cls = (n) => (step >= n ? "on" : step === n - 0.5 ? "part" : "");
-  return (
-    <span className={`st-pipe${t.decision === "Considering" ? " is-maybe" : ""}${r.waitlisted ? " is-wait" : ""}`} title="Committed, registered, paid">
-      <span className="st-pipe-steps" aria-hidden="true"><i className={cls(1)} /><i className={cls(2)} /><i className={cls(3)} /></span>
-      <span className="st-pipe-st">{s.main}{s.sub && <span> · {s.sub}</span>}</span>
-    </span>
-  );
+  return <span className="st-pipe"><StatusFacets t={t} transactions={transactions} /></span>;
 }
 
 function SeasonStats({ summary, record, tournaments }) {
