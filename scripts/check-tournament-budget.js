@@ -110,8 +110,8 @@ const tx = (id, line, tId, amount, status = "Paid") => ({ id, budget_item_id: li
   assertEq("budget_item_id arrives on each tournament", rows[0].budget_item_id, "A");
   assertEq("a column the query doesn't name never arrives", "secret_internal" in rows[0], false);
   const before = ["id", "name", "start_date", "end_date", "location", "entry_fee", "gate_fee", "total_cost", "travel_type", "decision", "paid_status", "placement", "notes", "event_url", "age_division", "tournament_type", "guaranteed_games", "registration_deadline", "would_play_again", "overall_rating", "history_notes", "contact_id"];
-  assertEq("the only column added to the query is budget_item_id",
-    topColumns(db.selects.tournaments.replace(/\s+/g, " ")).filter((c) => !before.includes(c)), ["budget_item_id"]);
+  assertEq("the only columns added to the query are Parent Details (2026-11, optional text for families) and budget_item_id",
+    topColumns(db.selects.tournaments.replace(/\s+/g, " ")).filter((c) => !before.includes(c)), ["parent_details", "budget_item_id"]);
   assertEq("...and none was removed", before.filter((c) => !topColumns(db.selects.tournaments.replace(/\s+/g, " ")).includes(c)), []);
 
   /* ---------------- B. drawer figures = Finance figures ---------------- */

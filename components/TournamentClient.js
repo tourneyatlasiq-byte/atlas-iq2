@@ -48,10 +48,11 @@ import { fmtDateRange } from "../lib/dates";
 import { WeekendCard, directionsUrl as weekendDirections, fmtTime } from "./WeekendCard";
 import { useQuickStatus, QuickButton } from "./QuickStatus";
 import { StatusFacets } from "./StatusFacets";
+import { PARENT_DETAILS_MAX } from "../lib/schedule-rules";
 // Display order differs from the value list: Committed first, since that is
 // what a coach checks before anything else.
 const GROUP_ORDER = ["Committed", "Considering", "Declined"];
-const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay"];
+const TRAVEL_TYPES = ["Day Trip", "Overnight", "Extended Stay", "Stay-to-Play"];
 
 
 // The year is already stated by the season, so it only appears when a range
@@ -1211,6 +1212,21 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             </p>
           </Collapsible>
 
+          {/* Written for families. Separate from Notes, which stay private;
+              it prints only when the coach includes it on the Tournament
+              Schedule. Optional, so an empty one is a quiet "None". */}
+          <Collapsible
+            id="section-parent"
+            title="Parent details"
+            summary={t.parent_details ? null : "None"}
+            open={isOpen("parent")}
+            onToggle={() => toggle("parent")}
+          >
+            <p className="section-body">
+              {t.parent_details ?? <span className="muted">Nothing for parents yet.</span>}
+            </p>
+          </Collapsible>
+
           {/* Nothing to review before the event has happened. */}
           {phase === "past" && (
             <Collapsible
@@ -1533,6 +1549,17 @@ export function TournamentForm({ row, providers, facilities, pending, error = nu
               <label htmlFor="notes">Notes</label>
               <textarea id="notes" name="notes" rows={3} placeholder="Planning notes"
                         defaultValue={row?.notes ?? ""} />
+            </div>
+
+            <div className="field">
+              <label htmlFor="parent_details">Parent details <span className="muted">(optional)</span></label>
+              <textarea id="parent_details" name="parent_details" rows={3} maxLength={PARENT_DETAILS_MAX}
+                        placeholder="Hotel, deadlines or anything families need to know"
+                        aria-describedby="parent_details_hint"
+                        defaultValue={row?.parent_details ?? ""} />
+              <p id="parent_details_hint" className="field-note">
+                Shown on the Tournament Schedule when you include it. Notes are never printed.
+              </p>
             </div>
             </details>
 

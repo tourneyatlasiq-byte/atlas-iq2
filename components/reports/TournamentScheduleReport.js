@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ReportToolbar } from "./ReportToolbar";
 import {
-  formatDateRange, formatDayLabel, formatClock, groupGamesByDate, locationParts,
+  formatDateRange, formatDayLabel, formatClock, groupGamesByDate, locationParts, STAY_TO_PLAY,
 } from "../../lib/schedule-rules";
 
 /**
@@ -20,6 +20,12 @@ import {
  * carries one status word, Committed or Considering, and nothing else about
  * the coach's decision — plus, for a Committed tournament only, whether it is
  * waitlisted, because "Committed" alone would read as a secured spot.
+ *
+ * Two optional additions (2026-11), both written for parents. A Stay-to-Play
+ * tournament carries a plain "Stay-to-Play" label beside its status. A
+ * tournament's Parent Details print beneath its heading when the coach leaves
+ * "Include Parent Details" on. Nothing entered means nothing printed: no empty
+ * section, and no option when no tournament has any.
  */
 
 function fmtGenerated(iso) {
@@ -43,6 +49,10 @@ function TournamentWhen({ t }) {
       <p className={`sch-status ${tentative ? "sch-status-considering" : waitlisted ? "sch-status-waitlisted" : "sch-status-committed"}`}>
         {tentative ? "Considering" : waitlisted ? <>Committed &bull; Waitlisted</> : "Committed"}
       </p>
+      {/* A fact about the tournament, not a detail: shown whether or not
+          Parent Details are included. A bordered word, so it reads in black
+          and white. */}
+      {t.stayToPlay && <p className="sch-tag">{STAY_TO_PLAY}</p>}
     </div>
   );
 }
@@ -52,7 +62,7 @@ function TournamentWhen({ t }) {
  * tournament has games entered — its games, grouped by day. A tournament with
  * no games looks the same in both versions: no empty section.
  */
-function TournamentBody({ t, showGames }) {
+function TournamentBody({ t, showGames, showParent = false }) {
   const days = showGames ? groupGamesByDate(t.games) : [];
   const renderDay = (d) => (
     <div key={d.date} className="sch-day">
@@ -97,6 +107,14 @@ function TournamentBody({ t, showGames }) {
           </p>
         )}
       </div>
+      {/* Beside the heading in the unbreakable block, so a page break never
+          separates a tournament from what families must do for it. */}
+      {showParent && t.parentDetails && (
+        <div className="sch-parent">
+          <p className="sch-parent-label">Parent details</p>
+          <p className="sch-parent-text">{t.parentDetails}</p>
+        </div>
+      )}
 
       {days.length > 0 && <div className="sch-games sch-games-first">{renderDay(days[0])}</div>}
       </div>
@@ -108,7 +126,7 @@ function TournamentBody({ t, showGames }) {
 /** The two report detail levels. Display only: both use the same records. */
 export const SCHEDULE_DETAIL = { tournaments: "tournaments", games: "games" };
 
-export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETAIL.tournaments, from = null }) {
+export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETAIL.tournaments, initialParents = true, from = null }) {
   const { organization, team, season, tournaments, warnings } = report;
   const generated = fmtGenerated(report.generatedAt);
   const hasTentative = tournaments.some((t) => t.status === "Considering");
@@ -125,6 +143,22 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
     initialDetail === SCHEDULE_DETAIL.games ? SCHEDULE_DETAIL.games : SCHEDULE_DETAIL.tournaments
   );
   const showGames = detail === SCHEDULE_DETAIL.games;
+
+  // The single Parent Details option. Offered only when some tournament has
+  // Parent Details; on by default, because a coach who wrote them wrote them
+  // for this document. Like the detail choice it lives in the address only.
+  const hasParentDetails = tournaments.some((t) => Boolean(t.parentDetails));
+  const [parents, setParents] = useState(Boolean(initialParents));
+  const showParent = hasParentDetails && parents;
+  function chooseParents(next) {
+    setParents(next);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (next) url.searchParams.delete("parents");
+      else url.searchParams.set("parents", "0");
+      window.history.replaceState(null, "", url);
+    }
+  }
   // In Tournaments only no game is printed, so "game times will be added" would
   // be noise; the note applies only when games are shown.
   const gamesPending = showGames && tournaments.some(
@@ -171,6 +205,18 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
                 </button>
               ))}
             </span>
+            {hasParentDetails && (
+              <span className="rpt-seg">
+                <button
+                  type="button"
+                  className={`rpt-seg-btn${parents ? " on" : ""}`}
+                  aria-pressed={parents}
+                  onClick={() => chooseParents(!parents)}
+                >
+                  Include Parent Details
+                </button>
+              </span>
+            )}
           </div>
         }
       />
@@ -206,7 +252,7 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
             {tournaments.map((t) => (
               <li key={t.id} className={itemClass(t)}>
                 <TournamentWhen t={t} />
-                <TournamentBody t={t} showGames={false} />
+                <TournamentBody t={t} showGames={false} showParent={showParent} />
               </li>
             ))}
           </ol>
@@ -227,7 +273,7 @@ export function TournamentScheduleReport({ report, initialDetail = SCHEDULE_DETA
               {tournaments.map((t) => (
                 <tr key={t.id} className={`${itemClass(t)} sch-row`}>
                   <td className="sch-cell-when"><TournamentWhen t={t} /></td>
-                  <td className="sch-cell-body"><TournamentBody t={t} showGames /></td>
+                  <td className="sch-cell-body"><TournamentBody t={t} showGames showParent={showParent} /></td>
                 </tr>
               ))}
             </tbody>

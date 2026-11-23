@@ -80,5 +80,16 @@ export default async function TournamentSchedulePage({ searchParams }) {
   // Both versions use the same report; nothing is saved.
   const initialDetail = searchParams?.detail === "games" ? "games" : "tournaments";
 
-  return <TournamentScheduleReport report={report} initialDetail={initialDetail} from={fromParam(searchParams?.from)} />;
+  // Parent Details are included unless the address says otherwise (?parents=0).
+  // Display only, like the detail choice; nothing is saved.
+  const initialParents = searchParams?.parents !== "0";
+
+  return (
+    <TournamentScheduleReport
+      report={report}
+      initialDetail={initialDetail}
+      initialParents={initialParents}
+      from={fromParam(searchParams?.from)}
+    />
+  );
 }

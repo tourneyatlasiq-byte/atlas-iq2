@@ -125,7 +125,7 @@ const season = { id: S, name: "2026-27", team: { id: "team", name: "Bramblewood 
   assertEq("existing details are kept (facility and address)", rows.find((t) => t.id === "k-next").place,
     { name: "Magnolia Fields", area: "Huntsville, AL", address: "900 Magnolia Trace, Huntsville, AL, 35806" });
   assertEq("the cost and note fields stay out of the payload",
-    rows.every((t) => Object.keys(t).sort().join() === "endDate,games,id,name,place,startDate,status,waitlisted"), true);
+    rows.every((t) => Object.keys(t).sort().join() === "endDate,games,id,name,parentDetails,place,startDate,status,stayToPlay,waitlisted"), true);
 
   console.log("B. the document, rendered");
   const React = require("react");
