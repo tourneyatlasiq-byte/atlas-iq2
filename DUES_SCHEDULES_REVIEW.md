@@ -1,10 +1,14 @@
-# Player dues schedules: package v3
+# Player dues schedules: package v4
 
-## Status (2026-11-23, 17:52)
-- DATABASE: the migration is ALREADY APPLIED to production, recorded as 20261123223848_player_dues_schedules. Do NOT run it again. Nothing in this package needs to be run in Supabase.
-- CODE: v3 is NOT deployed yet. Deploying is a push to main from GitHub Desktop (see Install order).
-- DATA: no schedule has been applied to any player. dues_installments and dues_schedule_templates are empty.
-- Verified read only after the migration: player_payments 55 records / $152,000.00, payment_log 94 payments / $73,810.00, player_payment_operations 4 / $86.00. Same counts and totals as before the migration.
+## Status (2026-11-23, 18:15)
+- DATABASE: the migration is ALREADY APPLIED to production, recorded as 20261123223848_player_dues_schedules. Do NOT run it again. Nothing in this package needs to be run in Supabase. v4 has no database changes.
+- CODE: v3 is deployed. v4 is NOT deployed yet. Deploying is a push to main from GitHub Desktop (see Install order).
+- DATA: no schedule has been applied to any player.
+
+## What v4 adds over v3
+1. Team schedule, choosing players (Chris could not find it): Finance now has an "Apply schedule to players" button whenever a team schedule exists, so nobody has to re-save the template to reach it. The step is labeled "Step 1 of 2 Choose players" and the review "Step 2 of 2". Every player is listed. Exempt, $0-dues and different-total players are dimmed with the reason (for example "Owes $3,000.00, not $3,600.00. Needs its own schedule."). Select all and Clear controls; individual select and deselect work. Plain Save now says where to go next.
+2. Player overview: Season dues, Payments received, Remaining balance. "Partly paid" replaces "Partial" on the pill (display only, stored value unchanged). Payment schedule shows "No payment dates set." and one "Add payment schedule" button (or installments with "Edit schedule"). "Payments received" lists the history. The long paragraph, the duplicate footer schedule button and the "actual payments" label are gone. Record payment is unchanged.
+3. Schedule editor: Season dues, "Payments already received" (read only, "Existing payments count automatically toward this schedule."), installment rows in the app's rounded field style, "+ Add installment", "Schedule total", and a live preview of what the received money covers. Save schedule stays disabled when a new schedule is empty or does not match season dues.
 
 ## What v3 adds over v2
 Record payment fix found with Chris (details at the end): the amount field starts empty, Full balance is one tap, the sheet shows Remaining balance and what is left after the entered amount, and the Home and Finance buttons read Record payment. The migration file in this package is renamed to the recorded version; its contents are unchanged and match what was applied.
@@ -20,7 +24,7 @@ Exempt and zero-dues players stay skipped (preview and apply refuse them). Exist
 
 ## Install order
 1. Copy this package over the repo (File Explorer, overwrite). It carries the migration under its recorded name 20261123223848_player_dues_schedules.sql. If an older copy named 20261124000000_player_dues_schedules.sql exists in supabase/migrations, delete it so the repo has one copy. Do not run any SQL.
-2. In GitHub Desktop, expect 29 changed files. Do not commit app/layout.js, app/robots.js or app/sitemap.js (unrelated website edits). Commit and push to main.
+2. In GitHub Desktop, expect 7 changed files (the package holds 30 files; the other 23 are identical to v3 and show no change): DUES_SCHEDULES_REVIEW.md, app/volt.css, components/DuesSchedule.js, components/FinanceClient.js, package.json, and two new scripts, check-dues-select-step.js and e2e/dues-select-390.js. Do not commit app/layout.js, app/robots.js or app/sitemap.js (unrelated website edits). Commit and push to main.
 3. After deployment, a partial payment is verified in Test Organization (Test Name 16U) first.
 4. Nothing is applied to any real player until the player-by-player allocation preview is reviewed and approved. Exempt and zero-dues players stay skipped.
 
@@ -44,6 +48,7 @@ Active installments must equal total dues, enforced at commit by the database fo
 v1 uses the device date. Refreshes at local midnight, on resume and on focus; neutral "loading" until the date is known. Limitation: devices in different time zones can disagree for a few hours around midnight. A stored organization time zone is needed before reports or reminders.
 
 ## Test results
+- v4 final run: 108 check scripts in the chain pass (surface-options baseline skipped), new select-step source check 17/17, database 94/94, real-helper permissions 42/42 (fresh database), screen tests 109/109, 390px team selection end to end 16/16, production build passes. Screenshots of the overview and editor were reviewed at 390px in a local demo database.
 - v3 final run: record payment source check 13/13, rules 80/80, wiring 26/26, database 94/94, real-helper permissions 42/42, screen tests 109/109, 390px end-to-end $500 test 14/14, build passes.
 - v2 notes: rules 80/80, wiring 26/26, database 94/94, real-helper permissions 42/42. Mutation checks confirmed the tests catch: missing total trigger, missing version check, missing row lock, missing revision check, open read policy, missing season check
 - check-dues-edit 44, check-dues-filter 91, org-context 17 and 70, conventions, migrations, syntax (435 files) all pass; production build passes
@@ -51,7 +56,7 @@ v1 uses the device date. Refreshes at local midnight, on resume and on focus; ne
 
 ## Not verified
 - Supabase's own token verification (their code; the helpers that consume it were tested as production defines them)
-- Deployed behavior: v3 code has been tested only against a local demo database, not yet on the live site or in Test Organization
+- Deployed behavior: v4 code has been tested only against a local demo database. It must be verified in Test Organization after deployment (the live site cannot show unpublished changes)
 - A real phone keyboard (simulated by shrinking the viewport)
 - Real parent accounts end to end in the app (database level parent access is tested)
 - Day change on a real phone left open overnight (simulated with a controlled browser clock)

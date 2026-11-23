@@ -1452,6 +1452,8 @@ html:root .ds-pick label input { grid-row: 1 / span 2; width: 20px; height: 20px
 html:root .ds-pick-name { font-weight: 650; color: var(--ink); }
 html:root .ds-pick-sub { font-size: 12.5px; color: var(--muted); grid-column: 2; }
 html:root .ds-pick-off .ds-pick-name { color: var(--muted); }
+html:root .ds-pick-bulk { display: inline-flex; gap: 18px; }
+html:root .ds-pick-off { opacity: .8; }
 html:root .ds-pick .ds-replace input, html:root .ds-exempt input { accent-color: #0c0f14; }
 html:root .ds-pick .ds-replace { display: flex; margin-left: 36px; min-height: 36px; font-size: 13px; color: var(--ink); gap: 8px; align-items: center; }
 html:root .ds-callout { padding: 12px 14px; border-radius: 14px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; color: var(--ink); line-height: 1.45; margin-bottom: 12px; }
@@ -1471,3 +1473,11 @@ html:root .ds-detail .st-eyebrow:first-child { margin-top: 0; }
   html:root .ds-review-line { grid-template-columns: 1fr; }
   html:root .ds-fig-v { font-size: 20px; }
 }
+html:root .ds-recv { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: baseline; padding: 12px 14px; border-radius: 14px; background: var(--sunk); margin: 14px 0 6px; }
+html:root .ds-recv span { font-size: 13px; font-weight: 650; color: var(--muted); }
+html:root .ds-recv b { font-size: 18px; color: var(--ink); text-align: right; }
+html:root .ds-recv small { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+html:root .ds-cover-line { margin: 0 0 8px; font-size: 14px; color: var(--ink); }
+html:root .ds-edit-row input { border: 0; border-radius: 11px; box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink); background-color: #fff; padding-left: 12px; }
+html:root .ds-edit-money input { padding-left: 26px; }
+html:root .ds-edit-row input:focus { box-shadow: inset 0 0 0 2px var(--ink); outline: none; }

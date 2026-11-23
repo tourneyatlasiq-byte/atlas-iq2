@@ -830,6 +830,7 @@ export function FinanceClient({
           schedules={duesSchedules}
           today={deviceToday}
           onTeamSchedule={() => setTeamScheduleOpen(true)}
+          onApplySchedule={() => setApplyOpen(true)}
           pending={pending}
           filtered={Boolean(activeAction)}
           filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
@@ -2302,6 +2303,7 @@ export function PaymentsTab({
   schedules = NO_SCHEDULES,
   today = null,
   onTeamSchedule,
+  onApplySchedule,
   pending,
   filtered = false,
   filterLabel = null,
@@ -2400,6 +2402,9 @@ export function PaymentsTab({
               <button className="btn btn-secondary" onClick={onTeamSchedule}>
                 {schedules.template ? "Team schedule" : "Set up team schedule"}
               </button>
+            )}
+            {schedules.available && schedules.template && withDuesCount > 0 && (
+              <button className="btn btn-secondary" onClick={onApplySchedule}>Apply schedule to players</button>
             )}
             {canBulkEdit && (
               <button className="btn btn-primary" onClick={onEditTeamDues}>
@@ -2685,7 +2690,7 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
               <span className="drawer-head-dates">{money(p.balance)} outstanding</span>
             </div>
             <div className="drawer-head-pills">
-              <span className={`pill ${payClass(p.status)}`}>{p.status}</span>
+              <span className={`pill ${payClass(p.status)}`}>{p.status === "Partial" ? "Partly paid" : p.status}</span>
             </div>
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
@@ -2696,9 +2701,9 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
               so this older block shows only for players without a schedule summary. */}
           {!(standing && standing.hasSchedule) && (
           <div className="cost-box">
-            <div className="cost-row"><span>Total due</span><span>{money(p.totalDue)}</span></div>
-            <div className="cost-row"><span>Paid</span><span>{money(p.totalPaid)}</span></div>
-            <div className="cost-row cost-total"><span>Balance</span><span>{money(p.balance)}</span></div>
+            <div className="cost-row"><span>Season dues</span><span>{money(p.totalDue)}</span></div>
+            <div className="cost-row"><span>Payments received</span><span>{money(p.totalPaid)}</span></div>
+            <div className="cost-row cost-total"><span>Remaining balance</span><span>{money(p.balance)}</span></div>
           </div>
           )}
 
@@ -2707,9 +2712,9 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
           )}
 
           <section className="detail-section" style={{ marginTop: 22 }}>
-            <h3 className="detail-section-title">Payment history <span className="ds-actual">actual payments</span></h3>
+            <h3 className="detail-section-title">Payments received</h3>
             {p.log.length === 0 ? (
-              <p className="section-body muted">No payments recorded yet.</p>
+              <p className="section-body muted">No payments received yet.</p>
             ) : (
               <>
               {/* Asked here, beside the entry list, not in a native dialog. */}
@@ -2750,11 +2755,6 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
         {canWrite && (
           <div className="drawer-foot">
             {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
-            {standing ? (
-              <button className="btn btn-secondary" onClick={onSchedule} disabled={pending}>
-                {scheduled ? "Schedule and total" : "Set schedule"}
-              </button>
-            ) : null}
             {/* A scheduled player's total changes together with their schedule, in one sheet. */}
             {!scheduled && <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit total due</button>}
             {/* The one volt button: opens the prefilled sheet. The label carries no amount: the

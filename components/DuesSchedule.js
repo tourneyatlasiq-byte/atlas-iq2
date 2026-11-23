@@ -63,7 +63,7 @@ export function InstallmentRows({ standing }) {
             <b className="ds-row-amt">{$(r.amountCents)}</b>
           </div>
           <div className="ds-row-cover">
-            Covered by recorded payments: <b>{$(r.paidCents)}</b>
+            Covered by payments received: <b>{$(r.paidCents)}</b>
             {r.remainingCents > 0 && r.paidCents > 0 ? <> · {$(r.remainingCents)} still to cover</> : null}
           </div>
         </li>
@@ -98,7 +98,7 @@ export function ScheduleFigures({ standing, entries }) {
   return (
     <div className="ds-figs">
       <Fig label="Total dues" value={$(standing.totalCents)} />
-      <Fig label="Payments credited" value={$(standing.creditedCents)} sub={`${entries} recorded`} />
+      <Fig label="Payments received" value={$(standing.creditedCents)} sub={`${entries} ${entries === 1 ? "payment" : "payments"}`} />
       <Fig label="Remaining balance" value={$(standing.remainingCents)} />
       <Fig label="Due by today" value={known ? $(standing.dueByTodayCents) : "…"} sub={known ? "Includes today" : "Checking today's date"} />
       <Fig label="Past due" value={known ? $(standing.pastDueCents) : "…"} tone={known && standing.pastDueCents > 0 ? "owed" : null}
@@ -115,20 +115,22 @@ export function ScheduleSection({ p, standing, today, canWrite, onSchedule }) {
   if (standing.status === "exempt" || standing.status === "no-dues") return null;
   return (
     <section className="detail-section ds-section">
-      <h3 className="detail-section-title">Payment schedule</h3>
+      <div className="ds-sec-head">
+        <h3 className="detail-section-title">Payment schedule</h3>
+        {standing.hasSchedule && canWrite && <button type="button" className="ds-link" onClick={onSchedule}>Edit schedule</button>}
+      </div>
       {standing.hasSchedule ? (
         <>
           <ScheduleFigures standing={standing} entries={(p.log ?? []).length} />
           {standing.status === "schedule-mismatch" && (
-            <p className="st-warn">This schedule adds up to {$(standing.totalCents + standing.mismatchCents)} but the total dues are {$(standing.totalCents)}. Open Schedule to fix it.</p>
+            <p className="st-warn">This schedule adds up to {$(standing.totalCents + standing.mismatchCents)} but the total dues are {$(standing.totalCents)}. Open Edit schedule to fix it.</p>
           )}
           <InstallmentRows standing={standing} />
-          <CoverageNote />
         </>
       ) : (
         <div className="ds-empty">
-          <p>No payment schedule yet. A schedule says when dues are due, so you can see who is past due and not only who has a balance.</p>
-          {canWrite && <button type="button" className="btn btn-secondary" onClick={onSchedule}>Set a schedule</button>}
+          <p>No payment dates set.</p>
+          {canWrite && <button type="button" className="btn btn-secondary" onClick={onSchedule}>Add payment schedule</button>}
         </div>
       )}
       {today ? null : <p className="ds-note">Checking today&rsquo;s date.</p>}
@@ -144,7 +146,7 @@ function RowsEditor({ rows, setRows, disabled }) {
   const set = (i, patch) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <div className="ds-edit">
-      <div className="ds-edit-head" aria-hidden="true"><span>Due date</span><span>Amount</span><span /></div>
+      {rows.length > 0 && <div className="ds-edit-head" aria-hidden="true"><span>Due date</span><span>Amount</span><span /></div>}
       {rows.map((r, i) => (
         <div className="ds-edit-row" key={i}>
           <input type="date" aria-label={`Payment ${i + 1} due date`} value={r.dueDate} disabled={disabled}
@@ -158,7 +160,7 @@ function RowsEditor({ rows, setRows, disabled }) {
         </div>
       ))}
       <button type="button" className="btn btn-ghost ds-add" disabled={disabled || rows.length >= MAX_INSTALLMENTS}
-        onClick={() => setRows([...rows, { dueDate: "", amount: "" }])}>+ Add a payment</button>
+        onClick={() => setRows([...rows, { dueDate: "", amount: "" }])}>+ Add installment</button>
     </div>
   );
 }
@@ -208,7 +210,7 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
     }
     refreshThen(() => {
       onClose();
-      toast(thenChoose ? "Team schedule saved." : "Team schedule saved. It has not been applied to any player yet.");
+      toast(thenChoose ? "Team schedule saved." : "Team schedule saved. Choose players from the Apply schedule button.");
       if (thenChoose) onSavedChoosePlayers?.();
     });
   }
@@ -219,7 +221,7 @@ export function TeamScheduleSheet({ template, onClose, onSavedChoosePlayers }) {
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
         <button type="button" className="btn btn-secondary" onClick={() => save(false)} disabled={!valid || saving}>Save</button>
         <button type="button" className="btn btn-primary" onClick={() => save(true)} disabled={!valid || saving}>
-          {saving ? "Saving" : "Save and choose players"}
+          {saving ? "Saving" : "Save, then choose players"}
         </button>
       </>}>
       <p className="ds-lead">
@@ -260,14 +262,17 @@ export function ApplyScheduleSheet({ template, payments, byPayment, today, onClo
   const batchKey = useRef(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`);
   const inFlight = useRef(false);
 
+  // Every player is listed. Anyone who cannot take this schedule says why, so nobody looks missing.
   const candidates = useMemo(() => payments
-    .filter((p) => !p.exempt && cents(p.totalDue) > 0)
-    .map((p) => ({
-      p,
-      fits: templateFitsPlayer(template.items, cents(p.totalDue)),
-      has: (byPayment[p.id] ?? []).length > 0,
-    })), [payments, byPayment, template]);
-  const skipped = payments.length - candidates.length;
+    .map((p) => {
+      const noDues = !!p.exempt || cents(p.totalDue) <= 0;
+      const fits = !noDues && templateFitsPlayer(template.items, cents(p.totalDue));
+      const why = p.exempt ? "Exempt. Owes no dues."
+        : noDues ? "Owes no dues."
+        : !fits ? `Owes ${money(p.totalDue)}, not ${$(tplTotal)}. Needs its own schedule.` : null;
+      return { p, fits, noDues, why, has: (byPayment[p.id] ?? []).length > 0 };
+    })
+    .sort((a, b) => Number(b.fits) - Number(a.fits)), [payments, byPayment, template, tplTotal]);
 
   const [stage, setStage] = useState("select");
   const [picked, setPicked] = useState(() => new Set(candidates.filter((c) => c.fits && !c.has).map((c) => c.p.id)));
@@ -329,9 +334,9 @@ export function ApplyScheduleSheet({ template, payments, byPayment, today, onClo
     });
   }
 
-  const title = stage === "select" ? "Apply team schedule" : "Review before applying";
+  const title = stage === "select" ? "Choose players" : "Review before applying";
   return (
-    <StSheet eyebrow="Player dues" title={title} onClose={onClose} busy={busy}
+    <StSheet eyebrow={stage === "select" ? "Apply team schedule · Step 1 of 2" : "Apply team schedule · Step 2 of 2"} title={title} onClose={onClose} busy={busy}
       back={stage === "review" ? { label: "Choose players", onClick: () => { setStage("select"); setErr(null); } } : undefined}
       foot={stage === "select" ? <>
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
@@ -356,11 +361,14 @@ export function ApplyScheduleSheet({ template, payments, byPayment, today, onClo
             changed; they are counted against the oldest installments for you to review next.
           </p>
           <div className="ds-pick-head">
-            <span>{eligible.length} {eligible.length === 1 ? "player owes" : "players owe"} {$(tplTotal)}</span>
-            <button type="button" className="ds-link" onClick={() => setPicked(new Set(eligible.filter((c) => !c.has).map((c) => c.p.id)))}>Select all without a schedule</button>
+            <span>{chosen.length} selected · {eligible.length} of {candidates.length} can take this schedule</span>
+            <span className="ds-pick-bulk">
+              <button type="button" className="ds-link" onClick={() => setPicked(new Set(eligible.filter((c) => !c.has).map((c) => c.p.id)))}>Select all</button>
+              <button type="button" className="ds-link" disabled={picked.size === 0} onClick={() => { setPicked(new Set()); setReplace(new Set()); }}>Clear</button>
+            </span>
           </div>
           <ul className="ds-pick">
-            {candidates.map(({ p, fits, has }) => {
+            {candidates.map(({ p, fits, has, why }) => {
               const on = picked.has(p.id);
               return (
                 <li key={p.id} className={fits ? "" : "ds-pick-off"}>
@@ -369,7 +377,7 @@ export function ApplyScheduleSheet({ template, payments, byPayment, today, onClo
                     <span className="ds-pick-name">{p.displayName}</span>
                     <span className="ds-pick-sub">
                       Owes {money(p.totalDue)} · {money(p.totalPaid)} recorded
-                      {!fits ? ` · ${BLOCK_REASON.total_differs}` : has ? ` · ${BLOCK_REASON.has_schedule}` : ""}
+                      {!fits ? ` · ${why}` : has ? ` · ${BLOCK_REASON.has_schedule}` : ""}
                     </span>
                   </label>
                   {fits && has && on && (
@@ -382,7 +390,7 @@ export function ApplyScheduleSheet({ template, payments, byPayment, today, onClo
               );
             })}
           </ul>
-          {skipped > 0 && <p className="ds-note">{skipped} {skipped === 1 ? "player is" : "players are"} not listed because they owe no dues.</p>}
+          {eligible.length < candidates.length && <p className="ds-note">Players who are exempt, owe no dues, or owe a different total cannot take this schedule and are shown dimmed with the reason.</p>}
         </>
       ) : (
         <>
@@ -505,16 +513,17 @@ export function ChangeScheduleSheet({ p, template, today, onClose }) {
   const rowsProblem = firstError(check.errors);
   const mismatch = !exempt && rows.length > 0 && check.errors.includes("total-mismatch");
   const belowPaid = !exempt && check.errors.includes("total-below-paid");
-  const valid = Boolean(version) && totalOk && !belowPaid && !rowsProblem && !mismatch;
+  const valid = Boolean(version) && totalOk && !belowPaid && !rowsProblem && !mismatch && (exempt || hadSchedule || rows.length > 0);
   const fitsTemplate = template && totalOk && templateFitsPlayer(template.items, totalCents);
 
   const live = useMemo(() => {
-    if (exempt || !totalOk || rows.length === 0 || !check.ok) return null;
+    const rowsClean = !check.errors.some((e) => e === "missing-date" || e === "bad-amount" || e === "duplicate-date" || e === "too-many");
+    if (exempt || !totalOk || rows.length === 0 || !rowsClean) return null;
     return duesStanding({
-      totalCents, creditedCents: paidCents, exempt: false, today,
+      totalCents: check.ok ? totalCents : check.sumCents, creditedCents: Math.min(paidCents, check.sumCents), exempt: false, today,
       installments: check.rows.map((r, i) => ({ position: i + 1, dueDate: r.dueDate, amountCents: r.amountCents })),
     });
-  }, [exempt, totalOk, totalCents, rows, check.ok, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exempt, totalOk, totalCents, rows, check.ok, check.sumCents, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save() {
     if (!valid || inFlight.current) return;
@@ -538,33 +547,27 @@ export function ChangeScheduleSheet({ p, template, today, onClose }) {
         <button type="button" className="btn btn-primary" onClick={() => { router.refresh(); onClose(); }}>Close and refresh</button>
       </> : <>
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-        <button type="button" className="btn btn-primary" onClick={save} disabled={!valid || saving}>{saving ? "Saving" : "Save dues and schedule"}</button>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={!valid || saving}>{saving ? "Saving" : "Save schedule"}</button>
       </>}>
       {!snap ? (
         <p className="ds-note" role="status">{err ? "" : "Loading the latest figures for this player."}</p>
       ) : (
         <>
-      <p className="ds-lead">
-        The total and the schedule save together or not at all. {snap ? <>Recorded payments ({money(snap.paid)} so far)</> : "Recorded payments"} are never
-        changed here.
-      </p>
-
-      <label className="ds-exempt">
-        <input type="checkbox" checked={exempt} disabled={hasPayments || saving} onChange={(e) => setExempt(e.target.checked)} />
-        <span>This player owes no dues (exempt)</span>
-      </label>
-      {hasPayments && <p className="ds-note">A player with recorded payments can&rsquo;t be marked exempt. Adjust or remove the payment entries first.</p>}
-      {exempt && hadSchedule && <p className="ds-note">Their current schedule is kept as history and no longer counts.</p>}
-
       {!exempt && (
         <>
           <div className="field">
-            <label htmlFor="cs-total">Total dues</label>
+            <label htmlFor="cs-total">Season dues</label>
             <div className="st-money">
               <input id="cs-total" inputMode="decimal" autoComplete="off" value={total} disabled={saving}
                 onChange={(e) => setTotal(e.target.value.replace(/[^0-9.]/g, ""))} />
             </div>
             {belowPaid && <p className="st-warn">Total dues can&rsquo;t be less than the {money(snap?.paid ?? 0)} already paid.</p>}
+          </div>
+
+          <div className="ds-recv">
+            <span>Payments already received</span>
+            <b>{money(snap.paid)}</b>
+            <small>{hasPayments ? "Existing payments count automatically toward this schedule." : "None yet."}</small>
           </div>
 
           <div className="ds-sec-head">
@@ -578,11 +581,11 @@ export function ChangeScheduleSheet({ p, template, today, onClose }) {
               {rows.length > 0 && <button type="button" className="ds-link" disabled={saving} onClick={() => setRows([])}>Clear schedule</button>}
             </div>
           </div>
-          {rows.length === 0 && <p className="ds-note">No schedule. This player will not be marked past due until one is set.</p>}
+          {rows.length === 0 && <p className="ds-note">No payment dates set.</p>}
           <RowsEditor rows={rows} setRows={setRows} disabled={saving} />
           {rows.length > 0 && (
             <div className={`ds-total${mismatch ? " ds-total-bad" : ""}`}>
-              <span>Payments add up to</span><b>{$(check.sumCents)}</b>
+              <span>Schedule total</span><b>{$(check.sumCents)}</b>
               <span className="ds-total-of">of {$(Number.isNaN(totalCents) ? 0 : totalCents)}</span>
             </div>
           )}
@@ -591,13 +594,22 @@ export function ChangeScheduleSheet({ p, template, today, onClose }) {
 
           {live && (
             <div className="ds-live">
-              <p className="st-eyebrow">How recorded payments cover this schedule (calculated)</p>
+              <p className="st-eyebrow">What the {money(snap.paid)} received covers</p>
+              {hasPayments && <p className="ds-cover-line">{coverageSentence(live)}</p>}
               <InstallmentRows standing={live} />
-              {live.status === "past-due" && <p className="ds-note">Past due today: <b>{$(live.pastDueCents)}</b>.</p>}
+              {live.status === "past-due" && <p className="ds-note">Past due: <b>{$(live.pastDueCents)}</b>.</p>}
             </div>
           )}
         </>
       )}
+      {!hasPayments && (
+      <label className="ds-exempt">
+        <input type="checkbox" checked={exempt} disabled={hasPayments || saving} onChange={(e) => setExempt(e.target.checked)} />
+        <span>This player owes no dues (exempt)</span>
+      </label>
+      )}
+      {exempt && hadSchedule && <p className="ds-note">Their current schedule is kept as history and no longer counts.</p>}
+
         </>
       )}
       <SheetError>{err}</SheetError>
