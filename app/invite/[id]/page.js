@@ -182,7 +182,7 @@ export default async function InvitePage({ params }) {
     <div className="welcome-wrap">
       <div className="welcome-box">
         <div className="welcome-brand">
-          <LogoLockup size={44} tone="navy" />
+          <LogoLockup size={44} tone="ink" />
         </div>
         <h1 className="welcome-title">{title}</h1>
 

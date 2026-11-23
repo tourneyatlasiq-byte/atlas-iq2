@@ -40,11 +40,11 @@ for (const f of ["TournamentClient", "RosterClient", "GamesSection", "EventRoste
 eq("event roster, pickup and tournament Save buttons are marked busy", (er.match(/aria-busy=\{pending \|\| undefined\}/g) || []).length === 3 && /aria-busy=\{pending \|\| undefined\}/.test(src("components/TournamentClient.js")));
 eq("lineup and payment show a Saving state", /"Saving…"/.test(lu) && /Saving<\/>|Saving"/.test(pay) || /st-spin/.test(pay));
 
-eq("an error notice is red, not the green confirmation style (plain and Volt)", /\.notice\.notice-error \{[^}]*194, 27, 58/.test(src("app/globals.css")) && /html\.volt \.notice\.notice-error \{ background: var\(--owed-t\)/.test(src("app/volt.css")));
+eq("an error notice is red, not the green confirmation style (plain and Volt)", /\.notice\.notice-error \{[^}]*194, 27, 58/.test(src("app/globals.css")) && /html:root \.notice\.notice-error \{ background: var\(--owed-t\)/.test(src("app/volt.css")));
 console.log("\nPressed feedback covers the controls that are not .btn");
 const volt = src("app/volt.css");
 for (const sel of [".bench-add", ".lineup-bar-action", ".lineup-panel ol button", ".er-remove", ".er-add-pickup", ".er-pick", ".er-match"]) {
-  eq(`${sel} has a pressed rule`, new RegExp(`html\\.volt ${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:active`).test(volt));
+  eq(`${sel} has a pressed rule`, new RegExp(`html:root ${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:active`).test(volt));
 }
 eq("disabled controls do not press", /\.er-remove:active:not\(:disabled\)/.test(volt));
 eq("reduced motion drops the movement", /prefers-reduced-motion: reduce\)[\s\S]*\.er-add-pickup:active:not\(:disabled\) \{ transform: none; \}/.test(volt));

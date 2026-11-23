@@ -5,8 +5,6 @@ import { HelpContextProvider } from "../../components/HelpContext";
 import { AppFooter } from "../../components/AppFooter";
 import { SeasonBanner } from "../../components/SeasonBanner";
 import { ViewportVars } from "../../components/ViewportVars";
-import { VoltScope } from "../../components/VoltScope";
-import { VOLT_BOOT } from "../../lib/volt";
 import { ToastProvider } from "../../components/Toaster";
 
 // Reads cookies, so this subtree is dynamic. Nothing here is ever prerendered.
@@ -23,9 +21,6 @@ export default async function AppLayout({ children }) {
   return (
     <ToastProvider>
     <div className="shell">
-      {/* Before first paint: Volt screens get their styling with no flash. */}
-      <script dangerouslySetInnerHTML={{ __html: VOLT_BOOT }} />
-      <VoltScope />
       <ViewportVars />
       <NavSidebar
         email={user.email}

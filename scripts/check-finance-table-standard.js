@@ -23,5 +23,5 @@ ok(/\.txn-table tbody tr:nth-child\(even\)/.test(css) && /\.pay-table tbody tr:n
 ok(/\.budget-group \.budget-line:nth-of-type\(even\)/.test(css), "zebra on Budget lines");
 ok(/\.th-num[^{]*\{\s*text-align:\s*right/.test(css), "numeric header alignment rule");
 ok(/112px;\s*\/\* line-row actions/.test(css), "budget actions track is fixed width (no per-row drift)");
-ok(!/\.budget-num, html\.volt \.t-cost/.test(volt), "Volt no longer disables tabular digits on table figures");
+ok(!/\.budget-num, html:root \.t-cost/.test(volt), "Volt no longer disables tabular digits on table figures");
 process.exit(fail ? 1 : 0);

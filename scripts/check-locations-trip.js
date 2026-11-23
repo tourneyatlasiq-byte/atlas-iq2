@@ -22,6 +22,6 @@ ok(!/sensitive-warning|Don.t upload highly sensitive/.test(upload), "upload form
 ok(/Don't upload highly sensitive information/.test(guides), "the sensitive-information guidance lives in Help (Files guide)");
 ok(!/Would use again: \{wouldUseAgainLabel\(wua\)\}/.test(client) || /\["yes", "no"\]\.includes\(f\.orgNotes\?\.would_use_again\)/.test(client), "cards show Would use again only for a real answer");
 ok(/n\.would_use_again === "yes" \|\| n\.would_use_again === "no"/.test(client), "drawer hides the Would use again row when not rated");
-ok(/lr-views .segment, html.volt .lr-types .segment \{ min-height: 44px/.test(fs.readFileSync("app/volt.css", "utf8")), "filters are 44px on phones");
+ok(/lr-views .segment, html:root .lr-types .segment \{ min-height: 44px/.test(fs.readFileSync("app/volt.css", "utf8")), "filters are 44px on phones");
 console.log(`\n${failed ? failed + " FAILED" : "all passed"}`);
 process.exit(failed ? 1 : 0);

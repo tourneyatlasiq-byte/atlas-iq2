@@ -43,7 +43,7 @@ console.log("\nDrawer layout guards\n");
 eq("status selects share one label row and one select row", /grid-template-rows: subgrid/.test(volt) && /\.t-status select \{ width: 100%; height: 44px/.test(volt));
 eq("summary tiles keep label, value and caption on shared rows", /grid-template-rows: 14px 30px auto/.test(volt));
 eq("long amounts shrink instead of clipping", /\.t-metric-value\.is-long/.test(volt) && /is-xlong/.test(tc));
-eq("game rows: details left, score right, one action row", /html\.volt \.game-row \{\s*display: grid; grid-template-columns: 26px minmax\(0, 1fr\) auto/.test(volt) && /html\.volt \.game-actions \{ grid-column: 1 \/ -1/.test(volt));
+eq("game rows: details left, score right, one action row", /html:root \.game-row \{\s*display: grid; grid-template-columns: 26px minmax\(0, 1fr\) auto/.test(volt) && /html:root \.game-actions \{ grid-column: 1 \/ -1/.test(volt));
 eq("footer buttons are the same height", /\.drawer-foot \.btn \{\s*min-height: 48px; height: 48px/.test(volt));
 
 console.log(`\n${n - bad}/${n} passed${bad ? `, ${bad} FAILED` : ""}\n`);

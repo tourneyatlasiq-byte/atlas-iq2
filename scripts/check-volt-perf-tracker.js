@@ -1,14 +1,12 @@
 /**
  * Performance and game tracker on Volt (2026-11-19). Presentation only.
  *
- *   A. which routes get the Volt class (and that the pre-paint script agrees)
- *   B. every Volt rule added for these screens is scoped under html.volt
+ *   B. every Volt rule added for these screens is scoped under html:root
  *   C. the tracker's commit controls keep their names and conditions
  *   D. the sync status: quiet when saved, prominent when not
  */
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 const ROOT = path.resolve(__dirname, "..");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 let failed = 0, passed = 0;
@@ -19,34 +17,13 @@ function ok(label, actual, expected = true) {
 }
 const section = (t) => console.log(`\n${t}`);
 
-section("A. Volt scope");
-const src = read("lib/volt.js").replace(/export /g, "");
-const mod = new vm.Script(src + "\n;({ isVoltPath, VOLT_BOOT, VOLT_PATHS })").runInNewContext({});
-const { isVoltPath, VOLT_BOOT } = mod;
-const cases = [
-  ["/performance", true], ["/performance/", true],
-  ["/tournaments/t1/games/g1/track", true], ["/tournaments/t1/games/g1/track/", true],
-  ["/dashboard", true], ["/tournaments", true], ["/finance", true], ["/team", true], ["/facilities", true], ["/facilities/x", false],
-  ["/tournaments/t1", false], ["/tournaments/t1/games/g1/lineup", true], ["/tournaments/t1/games/g1/lineup/extra", false],
-  ["/tournaments/t1/games/g1/track/extra", false], ["/tournaments/t1/games/track", false],
-  ["/settings", false], ["/reports", true], ["/reports/", true], ["/reports/season-budget", false], ["/reports/qab-performance", false], ["/performance-x", false], ["/", false],
-];
-ok("each route is Volt or not as listed", cases.map(([p]) => isVoltPath(p)), cases.map(([, v]) => v));
-const boot = (p) => {
-  let added = false;
-  vm.runInNewContext(VOLT_BOOT, { location: { pathname: p }, document: { documentElement: { classList: { add: () => { added = true; } } } } });
-  return added;
-};
-ok("the pre-paint script gives the same answer for every route", cases.map(([p]) => boot(p)), cases.map(([, v]) => v));
-ok("VoltScope uses the same function", /isVoltPath\(pathname\)/.test(read("components/VoltScope.js")), true);
-
 section("B. CSS scope");
 const css = read("app/volt.css");
 const marker = css.indexOf("Performance and the game tracker (2026-11-19)");
 const tail = css.slice(css.indexOf("*/", marker) + 2);
 const selectors = [];
 tail.replace(/\/\*[\s\S]*?\*\//g, "").replace(/([^{}]+)\{/g, (_, sel) => { if (!sel.trim().startsWith("@")) selectors.push(sel.trim()); return ""; });
-const unscoped = selectors.filter((sel) => sel.split(",").some((one) => !/^html\.volt\b/.test(one.trim())));
+const unscoped = selectors.filter((sel) => sel.split(",").some((one) => !/^html:root\b/.test(one.trim())));
 ok("no unscoped selector in the new section", unscoped, []);
 ok("the new section has rules", selectors.length > 40, true);
 const g = read("app/globals.css");
@@ -72,7 +49,7 @@ ok("offline: an idle offline phone is not shown as 'All saved'", /online \? ALL_
 ok("offline never hides a failure or a review prompt (review and failure are decided before the offline wording)", ss.indexOf("status.review > 0") < ss.indexOf("Offline.") && ss.indexOf("status.failed > 0") < ss.indexOf("(offline)"), true);
 ok("the status strip keeps its Retry button for failed saves", /sync\.retry && \(\s*<button type="button" onClick=\{\(\) => \(restore === "failed" \? runRestore\(\) : sync_\(true\)\)\}>/.test(tc), true);
 ok("quiet saved style: no background; waiting and failed keep a tinted bar",
-  /html\.volt \.trk-sync-ok \{[^}]*background: transparent/.test(css) && /html\.volt \.trk-sync-wait \{[^}]*background: var\(--due-t\)/.test(css) && /html\.volt \.trk-sync-bad \{[^}]*background: var\(--owed-t\)/.test(css), true);
+  /html:root \.trk-sync-ok \{[^}]*background: transparent/.test(css) && /html:root \.trk-sync-wait \{[^}]*background: var\(--due-t\)/.test(css) && /html:root \.trk-sync-bad \{[^}]*background: var\(--owed-t\)/.test(css), true);
 
 console.log(`\n${passed + failed} assertions, ${failed} failed`);
 process.exit(failed ? 1 : 0);

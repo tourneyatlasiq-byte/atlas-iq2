@@ -22,7 +22,7 @@ export default function TermsPage() {
       <header className="mk-header">
         <div className="mk-wrap mk-header-inner">
           <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-            <LogoLockup size={30} tone="navy" wordSize={22} />
+            <LogoLockup size={30} tone="ink" wordSize={22} />
           </Link>
           <nav className="mk-nav">
             <Link href="/privacy">Privacy</Link>

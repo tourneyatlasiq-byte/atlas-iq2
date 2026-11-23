@@ -5,7 +5,7 @@ import { PRODUCT, SUPPORT_EMAIL, PRIVACY_EMAIL } from "../../lib/legal";
 import "../home.css";
 
 export const metadata = {
-  title: "About — Season Tempo",
+  title: "About",
   description:
     "Why Season Tempo exists, who it is built for, and how it handles your information.",
 };
@@ -29,7 +29,7 @@ export default async function AboutPage() {
               <h1>Why Season Tempo exists.</h1>
               <p className="mk-lede">
                 A travel softball season is run out of a spreadsheet, a group text and a folder
-                of screenshots. Not because anyone wants it that way &mdash; because no single
+                of screenshots. Not because anyone wants it that way, because no single
                 tool covers tournaments, roster, dues, facilities and paperwork at once.
               </p>
               <p>
@@ -42,9 +42,9 @@ export default async function AboutPage() {
             </div>
 
             <PhotoSlot
-              src="/travel-softball-huddle.webp"
-              alt="A travel softball team huddled together before taking the field"
-              ratio="3 / 4"
+              src="/home-focus.png"
+              alt="Season Tempo Home: the next tournament and what needs attention"
+              ratio="1950 / 1105"
             />
           </div>
         </div>
@@ -73,7 +73,7 @@ export default async function AboutPage() {
           <h2>Who it&rsquo;s for</h2>
           <p>
             Coaches, team managers and club or organization directors running competitive travel
-            softball &mdash; the people holding the tournament schedule, the roster, the dues and
+            softball, the people holding the tournament schedule, the roster, the dues and
             the paperwork at the same time.
           </p>
 
@@ -93,7 +93,7 @@ export default async function AboutPage() {
           <p>
             {PRODUCT} is in early access and free during this period. We&rsquo;ll give you
             advance notice before that changes. Early access is deliberately small so that real
-            coach and team feedback shapes what gets built next &mdash; features change, and
+            coach and team feedback shapes what gets built next, features change, and
             some of them change because someone running a season said they should.
           </p>
 
@@ -133,7 +133,7 @@ export default async function AboutPage() {
         <section className="mk-final">
           <div className="mk-wrap">
             <h2>Ready to run your season?</h2>
-            <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
+            <p>Start with your team. Add the rest whenever you&rsquo;re ready.</p>
             <Link href="/login?new=1" className="btn btn-primary mk-btn-lg">
               Try Season Tempo
             </Link>

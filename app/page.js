@@ -8,9 +8,9 @@ import { PhotoSlot } from "../components/MarketingChrome";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Season Tempo — Run your team from one place",
+  title: "The whole season, in one place.",
   description:
-    "Tournaments, roster, money, facilities and games for travel softball teams, without the spreadsheets and group texts.",
+    "Season Tempo keeps tournaments, lineups, money and performance for your travel softball team in one place.",
 };
 
 /**
@@ -31,7 +31,7 @@ export default async function HomePage() {
       <header className="mk-header">
         <div className="mk-wrap mk-header-inner">
           <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-            <LogoLockup size={34} tone="navy" wordSize={26} />
+            <LogoLockup size={34} tone="ink" wordSize={26} />
           </Link>
 
           <nav className="mk-nav">
@@ -54,11 +54,10 @@ export default async function HomePage() {
 
       <section className="mk-hero">
         <div className="mk-wrap">
-          <h1>Run your team from one place.</h1>
+          <h1>The whole season, in one place.</h1>
           <p className="mk-lede">
-            Everything a travel softball team runs on — tournaments, roster, dues, facilities
-            and games — without the spreadsheets, group texts and screenshots you&rsquo;re
-            using now.
+            Tournaments, roster, dues, facilities and games for a travel softball team, in place
+            of the spreadsheets, group texts and screenshots you&rsquo;re using now.
           </p>
 
           <div className="mk-cta">
@@ -84,7 +83,7 @@ export default async function HomePage() {
           <div className="mk-shot-frame">
             <img
               src="/home-dashboard.png"
-              alt="Season Tempo Home — the next tournament, what needs attention, and where the season stands"
+              alt="Season Tempo Home: the next tournament, what needs attention, and where the season stands"
               className="mk-shot-image"
             />
           </div>
@@ -99,7 +98,7 @@ export default async function HomePage() {
             screenshot you&rsquo;ll never find again. Waivers in a folder somewhere. Last year&rsquo;s schedule in an email.
           </p>
           <p>
-            It works, right up until someone asks what the season actually cost — or which
+            It works, right up until someone asks what the season actually cost, or which
             three players still owe you.
           </p>
           <p className="mk-emphasis">
@@ -113,14 +112,14 @@ export default async function HomePage() {
           <h2 className="mk-centered">Where a season actually gets run</h2>
           <div className="mk-grid mk-grid-3">
             <Capability title="Tournaments">
-              Everything about a tournament in one place — dates, facility, entry and gate fees,
+              Everything about a tournament in one place: dates, facility, entry and gate fees,
               registration status, the tournament director, your tournament roster and results.
             </Capability>
             <Capability title="Team">
               Your roster, uniforms, contacts and paperwork, carried forward season to season.
             </Capability>
             <Capability title="Finance">
-              Dues, budget and what you&rsquo;ve committed to — not just what has been paid.
+              Dues, budget and what you&rsquo;ve committed to, not just what has been paid.
             </Capability>
           </div>
 
@@ -138,7 +137,7 @@ export default async function HomePage() {
               <h2>For the person holding all of it.</h2>
               <p>
                 Coaches, team managers and club directors handling the roster, the tournament
-                schedule, dues, facilities and paperwork all at once &mdash; usually while
+                schedule, dues, facilities and paperwork all at once, usually while
                 standing at a field.
               </p>
               <p>
@@ -152,12 +151,12 @@ export default async function HomePage() {
               </p>
             </div>
 
-            {/* The human side of the season, beside software that proves itself
-                elsewhere on the page. */}
+            {/* A real product screen, not a stock photo. Photography stays out until
+                usage rights are confirmed (travel softball means minors). */}
             <PhotoSlot
-              src="/travel-softball-coach.webp"
-              alt="A coach talking with two players between innings at a travel softball tournament"
-              ratio="4 / 5"
+              src="/tournament-drawer.png"
+              alt="A Season Tempo tournament: registration, games, roster, costs and contact in one panel"
+              ratio="960 / 1800"
             />
           </div>
         </div>
@@ -166,7 +165,7 @@ export default async function HomePage() {
       <section className="mk-final">
         <div className="mk-wrap">
           <h2>Ready to run your season?</h2>
-          <p>Set up your team in about two minutes. Add the rest whenever you&rsquo;re ready.</p>
+          <p>Start with your team. Add the rest whenever you&rsquo;re ready.</p>
           <Link href={signedIn ? appHref : "/login?new=1"} className="btn btn-primary mk-btn-lg">
             {signedIn ? "Go to Season Tempo" : "Try Season Tempo"}
           </Link>
@@ -186,8 +185,8 @@ export default async function HomePage() {
         <div className="mk-wrap">
           <div className="mk-footer-grid">
             <div className="mk-footer-brand">
-              <LogoLockup size={30} tone="navy" wordSize={20} />
-              <p className="mk-footer-line">Run your season smarter.</p>
+              <LogoLockup size={30} tone="ink" wordSize={20} />
+              <p className="mk-footer-line">The whole season, in one place.</p>
             </div>
 
             <nav className="mk-footer-col" aria-label="Product">

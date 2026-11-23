@@ -105,7 +105,7 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
   return (
     <aside className="sidebar" ref={asideRef}>
       <div className="sidebar-brand">
-        <LogoLockup size={30} tone="light" wordSize={17} />
+        <LogoLockup size={30} tone="ink" wordSize={17} />
       </div>
 
       {/* The organization is what a coach should feel they are operating.
@@ -274,7 +274,7 @@ export function NavSidebar({ email, organization, team, season, seasons, seasonP
           <span className="user-mark" aria-hidden="true">{initialsOf(email?.split("@")[0] ?? "?")}</span>
           <span className="user-email">{email}</span>
           <br />
-          <Link href="/settings" style={{ color: "#b9c9dc", textDecoration: "underline" }}>
+          <Link href="/settings" style={{ color: "var(--muted)", textDecoration: "underline" }}>
             Settings
           </Link>
         </div>

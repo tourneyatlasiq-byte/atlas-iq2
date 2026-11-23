@@ -52,7 +52,7 @@ export default async function WelcomePage() {
     <div className="welcome-wrap">
       <div className="welcome-box">
         <div className="welcome-brand">
-          <LogoLockup size={44} tone="navy" />
+          <LogoLockup size={44} tone="ink" />
         </div>
 
         <h1 className="welcome-title">Welcome to Season Tempo</h1>
@@ -101,7 +101,7 @@ export default async function WelcomePage() {
         )}
 
         <div className="card">
-          <p className="welcome-sub">This only takes a couple of minutes.</p>
+          <p className="welcome-sub">Add the rest whenever you&rsquo;re ready.</p>
           <WelcomeForm defaultSeason={currentSeasonLabel()} seasonOptions={seasonOptions()} />
         </div>
 

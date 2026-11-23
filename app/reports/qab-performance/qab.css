@@ -8,11 +8,11 @@
 .qab-summary-row { display: flex; align-items: baseline; gap: 26px; flex-wrap: wrap; }
 .qab-hero {
   margin: 0; font-size: 42px; font-weight: 800; line-height: 1;
-  color: #0b2341; font-variant-numeric: tabular-nums;
+  color: #0c0f14; font-variant-numeric: tabular-nums;
 }
 .qab-facts { list-style: none; margin: 0; padding: 0; }
 .qab-facts li { font-size: 13.5px; line-height: 1.55; color: #475569; }
-.qab-facts strong { color: #0b2341; font-variant-numeric: tabular-nums; }
+.qab-facts strong { color: #0c0f14; font-variant-numeric: tabular-nums; }
 
 /* --- Tables --------------------------------------------------------------- */
 
@@ -20,11 +20,11 @@
 .qab-table th {
   text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
   text-transform: uppercase; color: #64748b;
-  padding: 0 8px 6px 0; border-bottom: 1px solid #e2e8f0;
+  padding: 0 8px 6px 0; border-bottom: 1px solid var(--line);
 }
 .qab-table td {
   padding: 5px 8px 5px 0; border-bottom: 1px solid #f1f5f9;
-  font-size: 13px; color: #0b2341;
+  font-size: 13px; color: #0c0f14;
 }
 .qab-table th:last-child, .qab-table td:last-child { padding-right: 0; }
 .qab-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -59,7 +59,7 @@
   display: grid;
   grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) 2.4em 3.4em;
   align-items: center; gap: 12px;
-  padding: 3px 0; font-size: 12.5px; color: #0b2341;
+  padding: 3px 0; font-size: 12.5px; color: #0c0f14;
 }
 .qab-reason-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qab-reason-bar {
@@ -69,7 +69,7 @@
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 .qab-reason-bar > span {
-  display: block; height: 100%; background: #2f80ed; border-radius: 999px; min-width: 2px;
+  display: block; height: 100%; background: #0c0f14; border-radius: 999px; min-width: 2px;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 .qab-reason-count { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -111,7 +111,7 @@
 .qab-gbg-matrix .qab-table td:first-child { min-width: 9em; }
 .qab-gbg-matrix .qab-table td.qab-num,
 .qab-gbg-matrix .qab-table th.qab-num { width: 3.6em; }
-.qab-gbg-matrix td.qab-gbg-none { color: #94a3b8; }
+.qab-gbg-matrix td.qab-gbg-none { color: #a3acb9; }
 
 /* Phone cards: hidden except on a phone screen (below). */
 .qab-gbg-cards { display: none; list-style: none; margin: 0; padding: 0; }
@@ -131,8 +131,8 @@
   .qab-gbg-matrix { display: none; }
   .qab-gbg-cards { display: block; }
   .qab-gbg-card { padding: 8px 0 9px; border-bottom: 1px solid #f1f5f9; }
-  .qab-gbg-card:first-child { border-top: 1px solid #e2e8f0; }
-  .qab-gbg-head { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 6px; font-size: 13px; color: #0b2341; }
+  .qab-gbg-card:first-child { border-top: 1px solid var(--line); }
+  .qab-gbg-head { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 6px; font-size: 13px; color: #0c0f14; }
   .qab-gbg-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .qab-gbg-total { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .qab-gbg-tiles {
@@ -144,8 +144,8 @@
     background: #f8fafc; border-radius: 6px; font-variant-numeric: tabular-nums;
   }
   .qab-gbg-g { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #64748b; }
-  .qab-gbg-v { font-size: 13px; color: #0b2341; }
-  .qab-gbg-tiles li.qab-gbg-none .qab-gbg-v { color: #94a3b8; }
+  .qab-gbg-v { font-size: 13px; color: #0c0f14; }
+  .qab-gbg-tiles li.qab-gbg-none .qab-gbg-v { color: #a3acb9; }
 }
 
 /* Phone-width reasons (2026-11). Beside a long label the bar shrank to a
@@ -183,14 +183,14 @@
 .qab-ts-main { display: flex; align-items: baseline; gap: 22px; flex-wrap: wrap; padding: 2px 0; }
 
 /* The two tournaments side by side. Plain rows, no verdict wording. */
-.qab-ts-cmp { padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fcfdfe; }
+.qab-ts-cmp { padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fcfdfe; }
 .qab-ts-cmp-row {
   display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-  padding: 3px 0; font-size: 13px; color: #334155;
+  padding: 3px 0; font-size: 13px; color: var(--body);
 }
 .qab-ts-cmp-row + .qab-ts-cmp-row { border-top: 1px solid #eef2f7; }
 .qab-ts-cmp-name { min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
-.qab-ts-cmp-val { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: #0b2341; }
+.qab-ts-cmp-val { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: #0c0f14; }
 .qab-ts-cmp-val strong { font-weight: 800; }
 .qab-ts-cmp-val span { color: #64748b; }
 
@@ -201,7 +201,7 @@
 .qab-ts-grid .rpt-h { margin-bottom: 6px; }
 .qab-ts-fig {
   margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1;
-  color: #0b2341; font-variant-numeric: tabular-nums;
+  color: #0c0f14; font-variant-numeric: tabular-nums;
 }
 .qab-ts-sub { margin: 3px 0 0; font-size: 12px; color: #64748b; }
 .qab-ts-runs { display: flex; gap: 18px; }
@@ -210,15 +210,15 @@
 .qab-ts-days { list-style: none; margin: 0; padding: 0; }
 .qab-ts-days li {
   display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
-  padding: 2px 0; font-size: 13px; color: #0b2341; font-variant-numeric: tabular-nums;
+  padding: 2px 0; font-size: 13px; color: #0c0f14; font-variant-numeric: tabular-nums;
 }
 .qab-ts-days li + li { border-top: 1px solid #f1f5f9; }
 .qab-ts-days .d { color: #475569; }
 .qab-ts-days .n { color: #64748b; }
 .qab-ts-days .p { font-weight: 700; text-align: right; min-width: 3.4em; }
 
-.qab-ts-hl { margin: 3px 0 0; font-size: 12.5px; line-height: 1.45; color: #334155; }
-.qab-ts-hl strong { color: #0b2341; }
+.qab-ts-hl { margin: 3px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--body); }
+.qab-ts-hl strong { color: #0c0f14; }
 
 /* Printed, plain, muted: what the record and runs cover when some result games
    have no QAB tracking. Not a warning, so no colour and no icon. */
@@ -240,7 +240,7 @@
 .qab-mix-legend li {
   break-inside: avoid; display: grid;
   grid-template-columns: 11px minmax(0, 1fr) 2.4em 3.4em; gap: 8px; align-items: center;
-  padding: 2px 0; font-size: 12.5px; color: #0b2341;
+  padding: 2px 0; font-size: 12.5px; color: #0c0f14;
 }
 .qab-mix-sw {
   width: 9px; height: 9px; border-radius: 2px; display: inline-block;

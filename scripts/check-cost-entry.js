@@ -53,9 +53,9 @@ eq("opening from the cost action selects the current Entry fee so typing replace
 
 console.log("\nThe Registration & payment help stays inside the drawer\n");
 const rule = (sel) => (volt.match(new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`)) ?? [])[1] ?? "";
-eq("the status label is the bubble's anchor", /html\.volt \.drawer-head \.t-status label \{ position: relative; \}/.test(volt), true);
-eq("the ? button no longer anchors it", /position:\s*static/.test(rule("html.volt .drawer-head .t-status .helptip")), true);
-const b = rule("html.volt .drawer-head .t-status .helptip-bubble");
+eq("the status label is the bubble's anchor", /html:root \.drawer-head \.t-status label \{ position: relative; \}/.test(volt), true);
+eq("the ? button no longer anchors it", /position:\s*static/.test(rule("html:root .drawer-head .t-status .helptip")), true);
+const b = rule("html:root .drawer-head .t-status .helptip-bubble");
 eq("the bubble hangs from the column's right edge and grows leftward, never past the drawer",
   [/right:\s*0/.test(b), /left:\s*auto/.test(b), /transform:\s*none/.test(b), /width:\s*min\(260px,\s*calc\(100vw - 48px\)\)/.test(b)], [true, true, true, true]);
 eq("the explanation wraps as normal body text instead of inheriting the label's no-wrap mono style",

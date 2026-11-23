@@ -16,7 +16,7 @@ export function MarketingHeader({ signedIn = false, appHref = "/dashboard" }) {
     <header className="mk-header">
       <div className="mk-wrap mk-header-inner">
         <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-          <LogoLockup size={34} tone="navy" wordSize={26} />
+          <LogoLockup size={34} tone="ink" wordSize={26} />
         </Link>
 
         <nav className="mk-nav">
@@ -45,8 +45,8 @@ export function MarketingFooter({ signedIn = false }) {
       <div className="mk-wrap">
         <div className="mk-footer-grid">
           <div className="mk-footer-brand">
-            <LogoLockup size={30} tone="navy" wordSize={20} />
-            <p className="mk-footer-line">Run your season smarter.</p>
+            <LogoLockup size={30} tone="ink" wordSize={20} />
+            <p className="mk-footer-line">The whole season, in one place.</p>
           </div>
 
           <nav className="mk-footer-col" aria-label="Product">

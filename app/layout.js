@@ -1,4 +1,4 @@
-import { Inter, Poppins, Schibsted_Grotesk, Inter_Tight } from "next/font/google";
+import { Schibsted_Grotesk, Inter_Tight } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import "./volt.css";
@@ -10,20 +10,6 @@ import "./volt.css";
  * to Google on page load, which would make Google a subprocessor we would have
  * to disclose. next/font removes that request entirely.
  */
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  variable: "--font-poppins",
-  display: "swap",
-});
-
 /* Volt design system (approved 2026-11-18). Applied screen by screen while it
    is reviewed; see app/volt.css. Geist Mono is not in this Next.js version's
    Google list, so its one weight ships with the app (SIL Open Font License,
@@ -49,19 +35,27 @@ const geistMono = localFont({
   display: "swap",
 });
 
+const DESCRIPTION =
+  "Season Tempo keeps tournaments, lineups, money and performance for your travel softball team in one place.";
+
 export const metadata = {
-  title: "Season Tempo — Run the team. Set the pace.",
-  description: "Tournaments, roster, facilities, games and dues in one place. Built for competitive travel softball.",
+  metadataBase: new URL("https://seasontempo.com"),
+  title: { default: "Season Tempo: The whole season, in one place.", template: "%s | Season Tempo" },
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "Season Tempo",
+    title: "Season Tempo: The whole season, in one place.",
+    description: DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image", title: "Season Tempo: The whole season, in one place.", description: DESCRIPTION },
 };
 
 export default function RootLayout({ children }) {
   return (
-    // suppressHydrationWarning: a script in the app shell adds the "volt" class
-    // before first paint on screens that use the Volt system.
     <html
       lang="en"
-      className={`${inter.variable} ${poppins.variable} ${schibsted.variable} ${interTight.variable} ${geistMono.variable}`}
-      suppressHydrationWarning
+      className={`${schibsted.variable} ${interTight.variable} ${geistMono.variable}`}
     >
       <body>{children}</body>
     </html>

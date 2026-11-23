@@ -33,8 +33,8 @@ const duesAmount = (n) =>
 
 /** Enough distinct tones for a typical budget; repeats beyond that. */
 const SEGMENT_COLORS = [
-  "#0b2341", "#2f80ed", "#7d9bc1", "#f4b400",
-  "#2e7d32", "#8c6d3f", "#64748b", "#b3c6dc",
+  "#0c0f14", "#3b4350", "#067a4b", "#a3acb9",
+  "#a64b00", "#626b79", "#5b3fd6", "#c9ced6",
 ];
 
 function fmtDate(iso) {
