@@ -161,6 +161,9 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const { detail: detail, openDetail, closeDetail } = useOpenParam(tournaments, { ownEntry: true });
   // Opened directly from the help panel.
   const [editing, setEditing] = useState(autoOpen ? "new" : null); // row | "new" | null
+  // Which field the edit form should put the cursor in, when the coach arrived
+  // from a specific action (the drawer's Add/Edit registration cost).
+  const [editFocus, setEditFocus] = useState(null);
   const openSections = useRef({ id: null, open: null }); // drawer section state, per tournament
   // Arrived from another screen to do one task (venue, resource, contact). Read
   // once; the picker opens, and finishing or cancelling goes back where they came from.
@@ -221,6 +224,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
   const overlayOpen = Boolean(detail || editing);
 
   useEffect(() => { if (!editing) setFacilityJustAdded(null); }, [editing]);
+  useEffect(() => { if (!editing) setEditFocus(null); }, [editing]);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -620,6 +624,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           pending={pending}
           onClose={() => { if (entryKind.current === "contact" && finishEntry()) return; closeDetail(); }}
           onEdit={() => setEditing(detail)}
+          onEditCost={() => { setEditFocus("entry_fee"); setEditing(detail); }}
           onDelete={() => askRemove(detail)}
           onConfirmDelete={() => doRemove(detail)}
           onCancelDelete={() => confirm.cancel()}
@@ -646,6 +651,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           onAddFacility={(name) => setAddingFacility({ name: name ?? "" })}
           facilityJustAdded={facilityJustAdded}
           openVenuePicker={openVenue}
+          focusField={editFocus}
           onCancel={() => {
             setEditing(null);
             setError(null);
@@ -779,7 +785,7 @@ function AtTheField({ facility, notes, phase, startsInDays }) {
   );
 }
 
-export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onLinkResource, onUnlinkResource, confirmUnlink = null, setConfirmUnlink = () => {}, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {}, quick = null, transactions = [], savedOpen = null, onOpenChange = null }) {
+export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onEditCost, onDelete, onConfirmDelete, onCancelDelete, confirmingDelete = false, drawerError = null, onLinkResource, onUnlinkResource, confirmUnlink = null, setConfirmUnlink = () => {}, onStatus, participants = [], seasonRoster = [], pickupCandidates = [], playerDocuments = {}, contacts = [], providerContactIds = [], budgetContext = null, budgetLines = [], arrivalNotes = {}, quick = null, transactions = [], savedOpen = null, onOpenChange = null }) {
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
@@ -1121,6 +1127,27 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
                 <Row label="Total cost" value={money(t.total_cost)} />
               </>
             )}
+
+            {/* The registration cost is the Entry fee. This opens the same edit
+                form, on the same field, so there is one place the cost is
+                entered and one way it is saved. It does not depend on a
+                budget, a payment or the registration status. */}
+            {canWrite && (
+              <div className="t-cost-action">
+                {t.entry_fee == null && t.gate_fee == null ? (
+                  <>
+                    <p className="field-note">No registration cost entered yet.</p>
+                    <button type="button" className="btn btn-secondary" onClick={onEditCost} disabled={pending}>
+                      Add registration cost
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="btn btn-ghost t-budget-change" onClick={onEditCost} disabled={pending}>
+                    Edit registration cost
+                  </button>
+                )}
+              </div>
+            )}
             <p className="section-body">
               <RelatedLink href={`/finance?tab=transactions&tournament=${t.id}`}>
                 See what we&rsquo;ve paid for this tournament
@@ -1290,9 +1317,14 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   );
 }
 
-export function TournamentForm({ row, providers, facilities, pending, error = null, onSubmit, onCancel, onAddFacility, facilityJustAdded = null, openVenuePicker = false }) {
+export function TournamentForm({ row, providers, facilities, pending, error = null, onSubmit, onCancel, onAddFacility, facilityJustAdded = null, openVenuePicker = false, focusField = null }) {
   const isNew = !row;
   const [entry, setEntry] = useState(row?.entry_fee ?? "");
+  // Arriving from "Edit registration cost": the cursor is already in Entry fee
+  // (autoFocus); select the current amount too so typing replaces it.
+  useEffect(() => {
+    if (focusField === "entry_fee") document.getElementById("entry_fee")?.select();
+  }, [focusField]);
   const [gate, setGate] = useState(row?.gate_fee ?? "");
   const [facilityId, setFacilityId] = useState(row?.facility?.id ?? "");
   const [pickingFacility, setPickingFacility] = useState(Boolean(openVenuePicker));
@@ -1502,6 +1534,7 @@ export function TournamentForm({ row, providers, facilities, pending, error = nu
               <div className="field">
                 <label htmlFor="entry_fee">Entry fee</label>
                 <input id="entry_fee" name="entry_fee" type="number" min="0" step="0.01" inputMode="decimal"
+                       autoFocus={focusField === "entry_fee"}
                        value={entry} onChange={(e) => setEntry(e.target.value)} />
               </div>
               <div className="field">
