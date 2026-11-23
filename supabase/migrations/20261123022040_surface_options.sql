@@ -12,7 +12,7 @@
 -- locations keep exactly the value they have now. No table, column, policy,
 -- trigger or function changes.
 --
--- Safe with the code that is running today: widening an allowed list cannot
+-- APPLIED 2026-11-23 02:20 UTC (recorded version 20261123022040). Safe with the code that was running: widening an allowed list cannot
 -- reject anything the current code writes. Apply this BEFORE the application
 -- update that offers the new options.
 --
