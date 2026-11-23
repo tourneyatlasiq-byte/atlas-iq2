@@ -1,0 +1,202 @@
+/* Tournament Schedule.
+   Layers on report.css, which carries the shared reporting visual language —
+   shell, toolbar, page, header, logo, footer and print behaviour. Only the
+   schedule's own blocks live here. */
+
+.sch-list { list-style: none; margin: 0; padding: 0; }
+
+/* Date column, then everything else.
+   Moving the date beside the block rather than above it removes a whole line
+   per tournament — the single largest saving on a schedule that is mostly
+   empty tournaments — and reads more like a calendar, which is the hierarchy
+   this document is built on. */
+.sch-item {
+  display: grid;
+  grid-template-columns: 1.25in minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+  padding: 0 0 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eef2f7;
+  break-inside: avoid;
+}
+.sch-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+/* Dates keep the lead. Wrapping inside a narrow column is intentional —
+   "Aug 5–6," over "2026" reads as a calendar entry. */
+.sch-date {
+  margin: 0;
+  font-size: 12.5px; font-weight: 800; line-height: 1.3;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: #0c0f14;
+}
+
+.sch-when { min-width: 0; }
+
+/* Decision status, on every tournament (2026-11).
+   Never colour alone: schedules are printed on home printers in black and
+   white, often with background graphics off. The word itself always carries
+   the meaning; Committed and Waitlisted have a solid outline and Considering a
+   dashed one (borders always print); a tentative row's date is lighter.
+   The tints are a restrained extra for colour printing and screens, and
+   print-color-adjust asks the browser to keep them. Text on each tint meets
+   WCAG AA. Waitlisted takes a muted violet: distinct from both, and nothing
+   that reads as an error. */
+.sch-status {
+  display: inline-block;
+  margin: 4px 0 0; padding: 0 5px;
+  border: 1px solid #0c0f14; border-radius: 3px;
+  font-size: 9.5px; font-weight: 800; line-height: 1.5;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: #0c0f14; background: #eef0f3;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.sch-status-considering { border-style: dashed; border-color: var(--due); color: var(--due); background: var(--due-t); }
+.sch-status-waitlisted { border-color: var(--maybe); color: var(--maybe); background: #efedf7; }
+/* Stay-to-Play (2026-11). A heavier, white-backed outline than the status
+   chip, so the two never read as one thing: it needs no colour and no
+   background to be seen on a black-and-white printout. */
+.sch-tag {
+  display: table; /* always on its own line beneath the status */
+  margin: 4px 0 0; padding: 0 5px;
+  border: 1.5px solid #0c0f14; border-radius: 3px;
+  font-size: 9.5px; font-weight: 900; line-height: 1.45;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: #0c0f14; background: #fff;
+}
+.sch-item-tentative .sch-date { font-weight: 600; color: #64748b; }
+.sch-item-tentative .sch-name { font-weight: 700; color: var(--body); }
+
+/* At the end, immediately above the footer: a small label, then the items. */
+.sch-legend {
+  margin: 16px 0 0; padding-top: 10px; border-top: 1px solid #eef2f7;
+  font-size: 11.5px; line-height: 1.4; color: #475569;
+  break-inside: avoid; break-after: avoid;
+}
+.sch-legend-label {
+  margin: 0 0 6px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: #64748b;
+}
+.sch-legend-items { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px; }
+.sch-legend-item { display: inline-flex; align-items: center; gap: 8px; }
+.sch-legend .sch-status { margin: 0; white-space: nowrap; }
+/* Legend + footer: one unbreakable closing block. */
+.sch-end { break-inside: avoid; }
+/* The legend's own top rule replaces the footer's, so two lines don't stack. */
+.sch-legend + .rpt-foot { margin-top: 10px; border-top: none; padding-top: 0; }
+
+.sch-body { min-width: 0; }
+
+/* letter-spacing left at normal deliberately: negative tracking narrows the
+   glyph gaps a PDF text extractor uses to infer word boundaries, which is why
+   extracted text read "PeachState Showdown". Visually identical at this size,
+   and the PDF's text layer stays copy-pastable and screen-reader friendly. */
+.sch-name {
+  margin: 0;
+  font-size: 16.5px; font-weight: 800; line-height: 1.25; color: #0c0f14;
+}
+
+/* Parent Details (2026-11): text written for families, set apart from the
+   tournament's name and place by a thin rule and a small label. 13px, the
+   same as game rows: readable on paper. Line breaks are kept; long words and
+   web addresses wrap instead of running off the page. */
+.sch-parent { margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--line); }
+.sch-parent-label {
+  margin: 0 0 2px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: #64748b;
+}
+.sch-parent-text {
+  margin: 0;
+  font-size: 13px; line-height: 1.45; color: #0c0f14;
+  white-space: pre-line; overflow-wrap: anywhere;
+}
+
+.sch-place { margin: 3px 0 0; font-size: 12.5px; line-height: 1.35; color: var(--body); }
+.sch-place-name { font-weight: 600; }
+.sch-dot { color: var(--line-strong); }
+/* Inline with the facility name rather than on its own line — a typical
+   "Hobgood Park · 6688 Bells Ferry Rd, Woodstock, GA 30189" fits the content
+   column on one line, and that is one line saved on every tournament. It wraps
+   naturally when a long address needs the room. */
+.sch-address { font-size: 12px; color: #64748b; }
+
+/* Secondary by design — a status line, not another content row. */
+/* Footer lines, one per sentence. */
+.sch-foot-line { display: block; }
+
+.sch-games { margin: 6px 0 0; }
+.sch-day + .sch-day { margin-top: 5px; }
+
+.sch-day-label {
+  margin: 0 0 2px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: #64748b;
+}
+.sch-day-games { list-style: none; margin: 0; padding: 0; }
+.sch-day-games li {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 1px 0; font-size: 13px; line-height: 1.4; color: #0c0f14;
+}
+/* Fixed column so times line up down the page; absent times leave the row
+   flush left rather than showing an empty slot. */
+.sch-time {
+  flex: 0 0 auto; min-width: 5.2em;
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.sch-opp { min-width: 0; }
+
+.sch-gtype { color: #64748b; font-weight: 500; }
+
+/* Include game schedule: the same blocks as a table, so the column labels
+   repeat on every printed page (Chrome repeats a table's thead). Games are
+   indented under their tournament behind a thin rule — one tournament, its
+   games beneath it, never games that read as more tournaments. */
+.sch-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.sch-table thead th {
+  text-align: left; padding: 0 0 6px; border-bottom: 1px solid var(--line);
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #64748b;
+}
+.sch-table thead th:first-child { width: calc(1.25in + 16px); }
+.sch-table td { vertical-align: top; padding: 12px 0 12px; border-bottom: 1px solid #eef2f7; }
+.sch-table tbody tr:last-child td { border-bottom: none; }
+/* The row keeps .sch-item for its status styling, not its block layout: it is
+   a table row, and may continue onto the next page between game days. */
+.sch-table tr.sch-item { display: table-row; padding: 0; margin: 0; border-bottom: none; break-inside: auto; }
+.sch-cell-when { padding-right: 16px !important; }
+.sch-row .sch-games { margin: 8px 0 0; padding-left: 12px; border-left: 2px solid var(--line); }
+.sch-row .sch-games-more { margin-top: 0; padding-top: 5px; }
+
+.sch-empty { margin: 0; font-size: 14px; line-height: 1.6; color: #475569; }
+
+/* Phone: the date column would squeeze the name, so it returns above it. */
+@media (max-width: 560px) {
+  .sch-item { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .sch-table, .sch-table tbody, .sch-table tr.sch-item, .sch-table td { display: block; width: auto; }
+  .sch-table thead { display: none; }
+  .sch-table td { border-bottom: none; padding: 0; }
+  .sch-table tr.sch-item { padding: 12px 0; border-bottom: 1px solid #eef2f7; }
+  .sch-cell-when { padding-right: 0 !important; margin-bottom: 4px; }
+}
+
+@media print {
+  /* Space reclaimed, never type shrunk — body copy stays at a size a parent
+     can read on paper. Blocks still avoid breaking mid-tournament, so a
+     genuinely long season paginates naturally instead of being compressed. */
+  .sch-item { padding-bottom: 6px; margin-bottom: 6px; }
+  /* The schedule's own header is a single title line, so it needs less room
+     above it than the budget report's stacked figures. */
+  .rpt-head { margin-bottom: 14px; }
+  .rpt-doc-title { margin-top: 10px; }
+  .sch-games { margin-top: 5px; }
+  .sch-table thead { display: table-header-group; }
+  .sch-table td { padding: 7px 0; }
+  /* A tournament's heading never ends a page without its first game day:
+     the two form one unbreakable block. Later days never split. */
+  .sch-row .sch-keep { break-inside: avoid; }
+  .sch-row .sch-day { break-inside: avoid; }
+  .sch-day-games li { padding: 0; }
+  .sch-legend { margin-top: 12px; }
+  .sch-legend + .rpt-foot { margin-top: 8px; }
+}

@@ -1,0 +1,317 @@
+/* QAB Performance.
+   Layers on report.css, which carries the shared reporting visual language —
+   shell, toolbar, page, header, logo, footer and print behaviour. Only
+   QAB-specific content lives here. */
+
+/* --- Team summary --------------------------------------------------------- */
+
+.qab-summary-row { display: flex; align-items: baseline; gap: 26px; flex-wrap: wrap; }
+.qab-hero {
+  margin: 0; font-size: 42px; font-weight: 800; line-height: 1;
+  color: #0c0f14; font-variant-numeric: tabular-nums;
+}
+.qab-facts { list-style: none; margin: 0; padding: 0; }
+.qab-facts li { font-size: 13.5px; line-height: 1.55; color: #475569; }
+.qab-facts strong { color: #0c0f14; font-variant-numeric: tabular-nums; }
+
+/* --- Tables --------------------------------------------------------------- */
+
+.qab-table { width: 100%; border-collapse: collapse; }
+.qab-table th {
+  text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: #64748b;
+  padding: 0 8px 6px 0; border-bottom: 1px solid var(--line);
+}
+.qab-table td {
+  padding: 5px 8px 5px 0; border-bottom: 1px solid #f1f5f9;
+  font-size: 13px; color: #0c0f14;
+}
+.qab-table th:last-child, .qab-table td:last-child { padding-right: 0; }
+.qab-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A number column's heading sits over its numbers (the rule above loses to
+   .qab-table th's left alignment without this). */
+.qab-table th.qab-num { text-align: right; }
+.qab-strong { font-weight: 700; }
+.qab-c-date { white-space: nowrap; color: #475569; }
+.qab-c-res { white-space: nowrap; }
+
+/* Games played. Deliberately the narrowest column on the page: it is sample
+   size sitting beside PA, not a figure competing with QAB%. A fixed width
+   keeps it from taking room the player name needs, and adds no row height. */
+.qab-c-g { width: 2.6em; }
+
+/* Result is context beside a game, never an aggregate. Word, not just colour,
+   so it survives a greyscale print. */
+.qab-res {
+  font-size: 11px; font-weight: 700;
+  border-radius: 4px; padding: 1px 6px;
+}
+.qab-res-w { background: #e8f5ec; color: #1b5e34; }
+.qab-res-l { background: #fdeaea; color: #8c1d1d; }
+.qab-res-t { background: #f1f5f9; color: #475569; }
+
+/* --- Reasons -------------------------------------------------------------- */
+
+.qab-note { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: #64748b; }
+
+.qab-reasons { list-style: none; margin: 0; padding: 0; }
+.qab-reasons li {
+  display: grid;
+  grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) 2.4em 3.4em;
+  align-items: center; gap: 12px;
+  padding: 3px 0; font-size: 12.5px; color: #0c0f14;
+}
+.qab-reason-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qab-reason-bar {
+  display: block; height: 9px; background: #f1f5f9; border-radius: 999px; overflow: hidden;
+  /* The bar is a second reading of a printed number, never the only one —
+     but it still has to survive a print that drops backgrounds. */
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.qab-reason-bar > span {
+  display: block; height: 100%; background: #0c0f14; border-radius: 999px; min-width: 2px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.qab-reason-count { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qab-reason-pct { text-align: right; color: #64748b; font-variant-numeric: tabular-nums; }
+
+.qab-none { margin: 0; font-size: 14px; line-height: 1.6; color: #475569; }
+
+/* ---------- Tournament scope (RPT-04) ----------
+   Classes below are used only by the Tournament report and its toolbar
+   control; the Season document uses none of them. */
+
+/* Screen-only scope control in the toolbar. */
+.qab-scope { flex-direction: column; align-items: flex-start; gap: 10px; }
+.qab-scope-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.qab-scope-select {
+  min-height: 44px; max-width: 100%; padding: 8px 12px;
+  border: 1px solid #d3d8df; border-radius: 12px; background: #fff;
+  color: #0c0f14; font: inherit; font-size: 16px; font-weight: 600; /* 16px keeps phones from zooming the field */
+}
+.qab-scope-select:focus-visible { outline: 2.5px solid #0c0f14; outline-offset: 2px; }
+.qab-scope[aria-busy="true"] { opacity: 0.6; }
+/* Phone: the tournament picker spans the toolbar instead of running past it. */
+@media (max-width: 560px) {
+  .qab-scope, .qab-scope-row { width: 100%; }
+  .qab-scope-select { flex: 1 1 100%; width: 100%; min-width: 0; box-sizing: border-box; }
+}
+
+/* QAB% by game: G-number column, time beside the day. */
+.qab-table th.qab-c-gn, .qab-table td.qab-c-gn { width: 2.6em; color: #64748b; }
+.qab-gn-inline { display: none; }
+.qab-time { color: #64748b; }
+
+/* Player tournament totals. The heading reads "Games with a QAB" on desktop and
+   in print, so the column is wider than it was for "QAB games". */
+.qab-table th.qab-c-qg, .qab-table td.qab-c-qg { width: 9.6em; }
+
+/* Game by game: the matrix on desktop and in print. */
+.qab-gbg-matrix .qab-table th:first-child,
+.qab-gbg-matrix .qab-table td:first-child { min-width: 9em; }
+.qab-gbg-matrix .qab-table td.qab-num,
+.qab-gbg-matrix .qab-table th.qab-num { width: 3.6em; }
+.qab-gbg-matrix td.qab-gbg-none { color: #a3acb9; }
+
+/* Phone cards: hidden except on a phone screen (below). */
+.qab-gbg-cards { display: none; list-style: none; margin: 0; padding: 0; }
+
+@media screen and (max-width: 560px) {
+  .qab-table th.qab-c-gn, .qab-table td.qab-c-gn { display: none; }
+  .qab-gn-inline {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: #64748b;
+  }
+  .qab-t-games .qab-c-date { white-space: nowrap; }
+  .qab-time { display: block; }
+  .qab-time-sep { display: none; }
+  .qab-table th.qab-c-qg, .qab-table td.qab-c-qg { width: auto; }
+
+  /* Matrix out, cards in. Tiles wrap to the next line on narrow phones
+     instead of clipping; nothing scrolls sideways. */
+  .qab-gbg-matrix { display: none; }
+  .qab-gbg-cards { display: block; }
+  .qab-gbg-card { padding: 8px 0 9px; border-bottom: 1px solid #f1f5f9; }
+  .qab-gbg-card:first-child { border-top: 1px solid var(--line); }
+  .qab-gbg-head { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 6px; font-size: 13px; color: #0c0f14; }
+  .qab-gbg-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .qab-gbg-total { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .qab-gbg-tiles {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 4px;
+  }
+  .qab-gbg-tiles li {
+    display: flex; flex-direction: column; align-items: center; padding: 4px 0;
+    background: #f8fafc; border-radius: 6px; font-variant-numeric: tabular-nums;
+  }
+  .qab-gbg-g { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #64748b; }
+  .qab-gbg-v { font-size: 13px; color: #0c0f14; }
+  .qab-gbg-tiles li.qab-gbg-none .qab-gbg-v { color: #a3acb9; }
+}
+
+/* Phone-width reasons (2026-11). Beside a long label the bar shrank to a
+   sliver; here each reason takes two lines — label, count and share on the
+   first, a full-width bar beneath — so magnitude stays readable. Screen only:
+   desktop and print keep the single-row layout above unchanged. */
+@media screen and (max-width: 560px) {
+  .qab-reasons li {
+    grid-template-columns: minmax(0, 1fr) auto 3.6em;
+    row-gap: 5px; padding: 6px 0;
+  }
+  .qab-reason-label { grid-column: 1; grid-row: 1; }
+  .qab-reason-count { grid-column: 2; grid-row: 1; }
+  .qab-reason-pct   { grid-column: 3; grid-row: 1; }
+  .qab-reason-bar   { grid-column: 1 / -1; grid-row: 2; height: 8px; }
+}
+
+/* --- Tournament summary (2026-11) ------------------------------------------
+   Replaces the Team QAB and reason sections of the Tournament report. Reuses
+   the report's own language: .rpt-h headings, .rpt-card tiles, the hero and the
+   facts list. Everything new is prefixed .qab-ts- or .qab-mix-. The Season
+   report uses none of it. */
+
+/* The summary may split between its blocks in print (each block may not), so a
+   tall summary never pushes the whole section to the next page. */
+.rpt-section.qab-tsum { break-inside: auto; }
+
+.qab-ts-top {
+  /* The hero takes the width it needs; the comparison box gets the rest, so a
+     long tournament name wraps to as few lines as the page allows. */
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  gap: 24px; align-items: start; margin-bottom: 14px;
+}
+.qab-ts-top.solo { grid-template-columns: minmax(0, 1fr); }
+.qab-ts-main { display: flex; align-items: baseline; gap: 22px; flex-wrap: wrap; padding: 2px 0; }
+
+/* The two tournaments side by side. Plain rows, no verdict wording. */
+.qab-ts-cmp { padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fcfdfe; }
+.qab-ts-cmp-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 3px 0; font-size: 13px; color: var(--body);
+}
+.qab-ts-cmp-row + .qab-ts-cmp-row { border-top: 1px solid #eef2f7; }
+.qab-ts-cmp-name { min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
+.qab-ts-cmp-val { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: #0c0f14; }
+.qab-ts-cmp-val strong { font-weight: 800; }
+.qab-ts-cmp-val span { color: #64748b; }
+
+.qab-ts-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.qab-ts-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.qab-ts-grid.one { grid-template-columns: minmax(0, 1fr); }
+.qab-ts-grid > .rpt-card { margin: 0; padding: 12px 14px; }
+.qab-ts-grid .rpt-h { margin-bottom: 6px; }
+.qab-ts-fig {
+  margin: 0; font-size: 24px; font-weight: 800; line-height: 1.1;
+  color: #0c0f14; font-variant-numeric: tabular-nums;
+}
+.qab-ts-sub { margin: 3px 0 0; font-size: 12px; color: #64748b; }
+.qab-ts-runs { display: flex; gap: 18px; }
+.qab-ts-runs > div { min-width: 0; }
+
+.qab-ts-days { list-style: none; margin: 0; padding: 0; }
+.qab-ts-days li {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
+  padding: 2px 0; font-size: 13px; color: #0c0f14; font-variant-numeric: tabular-nums;
+}
+.qab-ts-days li + li { border-top: 1px solid #f1f5f9; }
+.qab-ts-days .d { color: #475569; }
+.qab-ts-days .n { color: #64748b; }
+.qab-ts-days .p { font-weight: 700; text-align: right; min-width: 3.4em; }
+
+.qab-ts-hl { margin: 3px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--body); }
+.qab-ts-hl strong { color: #0c0f14; }
+
+/* Printed, plain, muted: what the record and runs cover when some result games
+   have no QAB tracking. Not a warning, so no colour and no icon. */
+.qab-ts-scope { margin: -4px 0 14px; font-size: 12px; line-height: 1.5; color: #64748b; }
+
+/* Reason mix: one stacked bar. The legend carries label, count and share on
+   every row, so no reading depends on colour or survives only in colour. */
+.qab-ts-mix { margin-top: 2px; }
+.qab-mix-bar {
+  display: flex; height: 13px; border-radius: 999px; overflow: hidden; background: #f1f5f9; margin: 6px 0 10px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.qab-mix-seg {
+  display: block; height: 100%; border-right: 2px solid #fff;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.qab-mix-seg:last-child { border-right: 0; }
+.qab-mix-legend { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 28px; }
+.qab-mix-legend li {
+  break-inside: avoid; display: grid;
+  grid-template-columns: 11px minmax(0, 1fr) 2.4em 3.4em; gap: 8px; align-items: center;
+  padding: 2px 0; font-size: 12.5px; color: #0c0f14;
+}
+.qab-mix-sw {
+  width: 9px; height: 9px; border-radius: 2px; display: inline-block;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.qab-mix-n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qab-mix-p { text-align: right; color: #64748b; font-variant-numeric: tabular-nums; }
+
+/* The final score sits beside the Win / Loss / Tie word. */
+.qab-score { margin-left: 6px; font-size: 12.5px; color: #475569; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* "Games with a QAB" on desktop and in print; "QAB games" on a phone, where
+   the column has far less room. */
+.qab-th-short { display: none; }
+
+@media screen and (max-width: 560px) {
+  /* The shared page keeps 52px of side padding on a phone, which left about
+     254px for content and clipped the games table once scores were added.
+     Scoped to this report; the shared stylesheet is unchanged. */
+  .rpt-page.qab-tournament { padding: 28px 18px 28px; }
+
+  .qab-ts-top { grid-template-columns: 1fr; gap: 12px; }
+  .qab-ts-cmp-row.long { flex-direction: column; align-items: flex-start; gap: 1px; }
+  .qab-ts-grid, .qab-ts-grid.two { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .qab-ts-grid > .rpt-card.wide { grid-column: 1 / -1; }
+  .qab-ts-fig { font-size: 21px; }
+  .qab-ts-runs { gap: 14px; }
+  .qab-mix-legend { columns: 1; }
+  .qab-th-long { display: none; }
+  .qab-th-short { display: inline; }
+
+  /* The score drops under its Win / Loss word; the games table is tight. */
+  .qab-score { display: block; margin: 2px 0 0; }
+  .qab-t-games th, .qab-t-games td { padding-right: 5px; }
+  .qab-t-games th:last-child, .qab-t-games td:last-child { padding-right: 0; }
+}
+
+/* --- Print ---------------------------------------------------------------- */
+
+@media print {
+  /* Two clean pages beat one unreadable page: nothing is scaled and no type
+     is shrunk. Sections avoid breaking, rows never split, and a heading is
+     never left stranded at the foot of a page. */
+  .qab-summary { break-after: avoid; }
+  /* A section holding a long table may split between its rows (rows never split and the
+     column headings repeat). A season of 30+ games is taller than a page, and an unsplittable
+     section moved whole to page two, leaving page one as the title alone. */
+  .rpt-section.qab-long { break-inside: auto; }
+  .qab-table thead { display: table-header-group; }
+  .qab-table tr { break-inside: avoid; }
+  .qab-reasons li { break-inside: avoid; }
+  .rpt-h { break-after: avoid; }
+  .qab-hero { font-size: 38px; }
+
+  /* PRINT DENSITY (2026-11).
+     A five-game, ten-player tournament filled page one to within the height
+     of the closing footer, so page two printed that single sentence alone.
+     Space is reclaimed from row padding only, as the Season Budget did: no
+     type size changes and nothing is scaled. Each table row and reason row
+     gives up 2px, which returns about 44px: enough for that report, footer
+     and team logo to share page one. A longer season still paginates
+     normally, rows never split and headings still travel with their tables. */
+  .qab-table th { padding-bottom: 5px; }
+  .qab-table td { padding-top: 4px; padding-bottom: 4px; }
+  .qab-reasons li { padding: 2px 0; }
+  .qab-note { margin-bottom: 8px; }
+
+  /* TOURNAMENT SUMMARY (2026-11). The summary sits on page one with the header
+     and QAB% by game; the player tables follow on page two. Each block stays
+     whole; the section between them may break. */
+  .qab-ts-top, .qab-ts-grid, .qab-ts-scope, .qab-ts-mix { break-inside: avoid; }
+  .qab-ts-top { margin-bottom: 10px; }
+  .qab-ts-grid { margin-bottom: 10px; gap: 12px; }
+}
