@@ -40,6 +40,9 @@ import {
   FIELD_LABELS,
   FIELD_TYPES,
   SURFACE_OPTIONS,
+  surfaceOptionsFor,
+  surfaceFilterOptions,
+  SURFACE_CHOICES,
   displayValue,
   formatFacilityAddress,
   facilityMapsUrl,
@@ -56,28 +59,12 @@ const DUPLICATE_REASONS = {
   token_subset: "nearly the same name",
 };
 
-const SURFACES = ["Grass", "Turf", "Mixed", "Unknown"];
+/* Surface vocabulary lives in lib/facility-fields.js: the three choices a
+   person may newly pick, the older stored values that stay valid and keep
+   displaying, and the form/filter option builders. */
 
-/**
- * Surfaces a user may newly choose.
- *
- * "Mixed" is excluded: it sits on 106 of 179 facilities, and at a multi-field
- * complex it isn't a surface so much as an admission that surface is the wrong
- * grain for the record. The drawer already treats it as no information.
- *
- * It remains valid in the database and in the CHECK constraint. An existing
- * Mixed facility still renders the option (see surfaceOptionsFor) so opening
- * and saving that record cannot silently rewrite its surface.
- */
-const SELECTABLE_SURFACES = ["Grass", "Turf", "Unknown"];
-
-/** Adds Mixed back only when that is what the record already holds. */
 /** Lowercase type name for use mid-sentence: "Delete hotel", "Create facility". */
 const typeLabelFor = (t) => typeLabel(t).toLowerCase();
-
-function surfaceOptionsFor(current) {
-  return current === "Mixed" ? [...SELECTABLE_SURFACES, "Mixed"] : SELECTABLE_SURFACES;
-}
 
 /**
  * Amenities shown in the drawer and offered as a list filter. Unchanged.
@@ -134,7 +121,10 @@ function cityState(f) {
 }
 
 const surfaceClass = (s) =>
-  s === "Turf" ? "pill-paid" : s === "Mixed" ? "pill-registered" : s === "Grass" ? "pill-deposit" : "pill-unregistered";
+  s === "Turf" || s === "All Turf" ? "pill-paid"
+    : s === "Mixed" || s === "Turf / Grass" ? "pill-registered"
+    : s === "Grass" || s === "Dirt / Grass" ? "pill-deposit"
+    : "pill-unregistered";
 
 export function FacilitiesClient({ facilities, canWrite, isAdmin = false, externalEnabled = false, forceAllView = false, autoOpen = false, facilityDocs = new Map(), documentTargets, seasonName, tournaments = [], tournamentDocs = {}, serverToday, initialFilters = {} }) {
   const [query, setQuery] = useState(initialFilters.q ?? "");
@@ -629,7 +619,7 @@ export function FacilitiesClient({ facilities, canWrite, isAdmin = false, extern
           <option value="all">All surfaces</option>
           {/* "Unknown" stays the stored VALUE; only the label changes, to
               match the dash the table now shows for an unrecorded surface. */}
-          {SURFACES.map((s) => (
+          {surfaceFilterOptions(facilities).map((s) => (
             <option key={s} value={s}>{s === "Unknown" ? "Not recorded" : s}</option>
           ))}
         </select>
@@ -2159,10 +2149,10 @@ export function FacilityForm({ row, facilities, externalEnabled, pending, onSubm
                 <option value="">Not specified</option>
                 {surfaceOptionsFor(row?.surface_type).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              {row?.surface_type === "Mixed" && (
+              {row?.surface_type && row.surface_type !== "Unknown" && !SURFACE_CHOICES.includes(row.surface_type) && (
                 <p className="field-note">
-                  This facility is recorded as Mixed. Choosing Grass or Turf is more useful,
-                  but leaving it as-is changes nothing.
+                  This location is recorded as {row.surface_type}. Pick one of the options above
+                  to be more specific, or leave it as-is and nothing changes.
                 </p>
               )}
             </div>

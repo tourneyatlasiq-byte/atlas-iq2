@@ -3158,7 +3158,10 @@ td.committed { color: var(--status-wait); font-weight: 600; }
     108px                 /* paid */
     108px                 /* to pay */
     108px                 /* available */
-    minmax(84px, auto);   /* line-row actions (status text moved under name) */
+    112px;                /* line-row actions. FIXED: it was minmax(84px, auto), so the
+                             Edit and Delete buttons widened this track on line rows
+                             only and pushed every figure on them about 20px left of
+                             the same figure on the category row above. */
 }
 
 .budget-board { padding: 0; }
@@ -5734,15 +5737,15 @@ td.committed { color: var(--status-wait); font-weight: 600; }
    browser re-derives them from content and the percentages creep back. */
 .roster-table { table-layout: fixed; }
 
-/* FULL-WIDTH TABLE, CONTROLLED COLUMNS.
-   The table is always 100% of its card — the header background, the row
-   separators and the clickable row run the entire width. A max-width here
-   made all three stop short of the card edge on a wide monitor, which read as
-   an unfinished table dropped into a container. That is not a trade worth
-   making to tidy one cell.
-   The five informational columns are fixed at content width so they stay
-   together; Player takes everything else. On a 2500px display Player is very
-   wide, and that is the accepted cost of the table completing its card. */
+/* FULL-WIDTH TABLE, CONTROLLED COLUMNS (2026-11).
+   The table is always 100% of its card, so the header background, row
+   separators and clickable row run the whole width. Every informational
+   column has a bounded pixel width and Player takes the slack, so values never
+   drift apart on a wide monitor (percentages did exactly that). The one change
+   in 2026-11: Uniform grew from 132px to 188px because "Jersey YM, Pants YM"
+   was clipped. Status (shown only under All) keeps its own fixed width. */
+.roster-table th.col-num,
+.roster-table td.col-num { width: 44px; }
 .roster-table th.col-player,
 .roster-table td.col-player { width: auto; padding-left: 8px; }
 
@@ -5753,7 +5756,7 @@ td.committed { color: var(--status-wait); font-weight: 600; }
 .roster-table th.col-positions,
 .roster-table td.col-positions { width: 150px; }
 .roster-table th.col-uniform,
-.roster-table td.col-uniform { width: 132px; }
+.roster-table td.col-uniform { width: 188px; }
 
 /* A long name or position list wraps rather than pushing the row wider —
    fixed layout has no other escape, and horizontal scroll is not acceptable. */
@@ -5765,20 +5768,13 @@ td.committed { color: var(--status-wait); font-weight: 600; }
      smaller share and the informational columns give back a few pixels.
      Uniform still absorbs the remainder — it must never be squeezed below the
      width of "AM / YL". Typography is untouched at this size. */
-  .roster-table th.col-dob, .roster-table td.col-dob { width: 96px; }
-  .roster-table th.col-grad, .roster-table td.col-grad { width: 84px; }
-  .roster-table th.col-positions, .roster-table td.col-positions { width: 128px; }
-  .roster-table th.col-uniform, .roster-table td.col-uniform { width: 112px; }
   .roster-table th.col-status, .roster-table td.col-status { width: 92px; }
 }
 
 @media (max-width: 900px) {
   /* Tightest case, and the only place the DOB text is reduced. */
   .roster-table th, .roster-table td { padding-left: 10px; padding-right: 10px; }
-  .roster-table th.col-dob, .roster-table td.col-dob { width: 92px; font-size: 13px; }
-  .roster-table th.col-grad, .roster-table td.col-grad { width: 76px; }
-  .roster-table th.col-positions, .roster-table td.col-positions { width: 120px; }
-  .roster-table th.col-uniform, .roster-table td.col-uniform { width: 104px; }
+  .roster-table th.col-dob, .roster-table td.col-dob { font-size: 13px; }
   .roster-table th.col-status, .roster-table td.col-status { width: 84px; }
 }
 
@@ -7353,3 +7349,96 @@ div.gm-row { cursor: pointer; }
 .trk-restore { padding: 18px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--slate); font-size: 15px; line-height: 1.5; }
 .trk-restore p { margin: 0; }
 .trk-restore-h { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: var(--navy); }
+
+/* ---- Team: Needs action names and player quick links (2026-11) ---- */
+.roster-action-group { display: grid; gap: 2px; }
+.roster-action-names {
+  display: flex; flex-wrap: wrap; gap: 2px 14px;
+  padding: 0 8px 6px 24px;
+}
+.roster-name-link {
+  background: none; border: none; padding: 2px 0; font: inherit; font-size: 13px;
+  color: var(--navy); cursor: pointer; text-decoration: underline;
+  text-decoration-color: var(--border); text-underline-offset: 3px;
+}
+.roster-name-link:hover { text-decoration-color: currentColor; }
+.roster-name-more { color: var(--slate); text-decoration: none; }
+.roster-name-more:hover { color: var(--navy); text-decoration: underline; }
+@media (max-width: 720px) {
+  .roster-name-link { min-height: 36px; display: inline-flex; align-items: center; }
+}
+
+.player-quick {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px;
+  padding: 10px 0 12px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.player-quick-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--slate);
+}
+
+
+/* ===== Table standard (2026-11) =====
+   One set of rules for Finance's figure tables (Budget, Transactions, Player
+   Dues) so each page stops having slightly different ones.
+
+   Tokens
+     --table-band        the alternate-row tint. Very faint on purpose: it
+                         should guide the eye along a line, not decorate.
+     --table-band-hover  hover tint, a step darker than the band so a hovered
+                         row is never lighter than its neighbours.
+     --table-row-min     the standard data-row height.
+   Figures
+     right-aligned, tabular digits, never wrapping, always two decimals (the
+     two decimals come from money() in the component).
+   Descriptions stay left-aligned. */
+:root {
+  --table-band: #f8f9fb;
+  --table-band-hover: #f1f3f6;
+  --table-row-min: 44px;
+}
+
+.budget-num, .t-cost, .txn-amount, .pay-balance, .pay-owed, .pay-amounts, .cost-row {
+  font-variant-numeric: tabular-nums;
+}
+.th-num, .table th.th-num { text-align: right; }
+
+/* Budget: one row height for every line, and a band on every other line. The
+   category rows keep their own shaded subtotal look. align-content centres a
+   single-line row inside the minimum height without disturbing the baseline
+   alignment of a two-line name. */
+.budget-line { min-height: var(--table-row-min); align-content: center; }
+.budget-group .budget-line:nth-of-type(even) { background: var(--table-band); }
+.budget-line:hover { background: var(--table-band-hover); }
+
+/* Transactions and Player Dues: same band, same minimum height. */
+.txn-table tbody tr, .pay-table tbody tr { height: 52px; }
+.txn-table tbody tr:nth-child(even),
+.pay-table tbody tr:nth-child(even) { background: var(--table-band); }
+.txn-table tbody tr:hover,
+.pay-table tbody tr:hover { background: var(--table-band-hover); }
+
+@media (max-width: 720px) {
+  /* Phones fold each row into a card; the band still alternates, the fixed
+     desktop height does not apply. */
+  .txn-table tbody tr, .pay-table tbody tr { height: auto; }
+}
+
+
+/* ===== Past tournament rows (2026-11) =====
+   Once the end date has passed (device-local date, see useLocalToday) the
+   row's reading text steps back to a mid gray. The row is still a normal,
+   clickable row, and the status steps, Needs action markers and the quick
+   action button keep full strength: finished events can still owe money or
+   paperwork, and that must stay visible. #5a6270 on white is about 6:1, above
+   the 4.5:1 AA text minimum. */
+.t-row-past .t-date,
+.t-row-past .t-name,
+.t-row-past .t-meta,
+.t-row-past .t-cost { color: #5a6270; }
+.t-row-past .t-name { font-weight: 550; }
+html.volt .t-row-past .t-name { color: #5a6270; font-weight: 600; }
+html.volt .t-row-past { background: #fafbfc; }
+html.volt .t-row-past:hover { background: var(--bg); }

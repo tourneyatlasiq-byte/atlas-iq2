@@ -15,7 +15,7 @@ import { PlayerRecruiting } from "./PlayerRecruiting";
 import { PlayerContacts } from "./PlayerContacts";
 import { importRoster } from "../lib/actions/roster";
 import { FilterChip } from "./NeedsAction";
-import { teamActions, TEAM_FILTER_LABELS } from "../lib/readiness/team";
+import { teamActions, TEAM_FILTER_LABELS, teamActionText, affectedNames, playerQuickLinks, rowName } from "../lib/readiness/team";
 import { resolvePlayerContact } from "../lib/player-contact-rules";
 import { toCandidate } from "../lib/intake/match";
 import { PlayerExport } from "./PlayerExport";
@@ -92,24 +92,7 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
-/**
- * Display wording for Team.
- *
- * The rules are untouched — this only phrases them for this screen, the same
- * way Home has its own map. Falls back to the rule's own detail so a new rule
- * still reads correctly.
- */
-const ROSTER_ACTION_TEXT = {
-  registration: (n) => `${n} ${n === 1 ? "player is" : "players are"} missing a date of birth`,
-  contact: (n) => `${n} ${n === 1 ? "player has" : "players have"} no contact details`,
-};
-
-function rosterActionText(a) {
-  const fn = ROSTER_ACTION_TEXT[a.id];
-  return fn ? fn(a.affected?.length ?? 0) : a.detail;
-}
-
-export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, matchCandidates = [], seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
+export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, matchCandidates = [], seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, qabReportPlayerIds = [], pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
   // Pickups are not roster rows, so the lookup covers both. Each pickup is
@@ -419,7 +402,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
               aria-hidden="true"
             />
             <span className="roster-needs-label">Needs action</span>
-            <span className="roster-needs-lead">{rosterActionText(actions[0])}</span>
+            <span className="roster-needs-lead">{teamActionText(actions[0])}</span>
             {actions.length > 1 && (
               <span className="roster-needs-more">+{actions.length - 1} more</span>
             )}
@@ -430,21 +413,44 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
 
           {actionsOpen && (
             <div className="roster-needs-list">
-              {actions.slice(0, 3).map((a) => (
-                <button
-                  key={a.id}
-                  className={`roster-action${actionId === a.id ? " on" : ""}`}
-                  onClick={() => setActionId(actionId === a.id ? null : a.id)}
-                >
-                  <span
-                    className={`briefing-dot ${
-                      a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <span className="roster-action-text">{rosterActionText(a)}</span>
-                </button>
-              ))}
+              {actions.slice(0, 3).map((a) => {
+                const { shown, more } = affectedNames(a, 3);
+                const single = a.affected.length === 1;
+                return (
+                  <div key={a.id} className="roster-action-group">
+                    {/* One affected player: the line itself opens that player.
+                        Several: it filters the roster (as it always has) and
+                        the names below open each player directly. */}
+                    <button
+                      className={`roster-action${actionId === a.id ? " on" : ""}`}
+                      onClick={() => (single ? openDetail(a.affected[0]) : setActionId(actionId === a.id ? null : a.id))}
+                      title={single ? "Open this player" : "Show these players"}
+                    >
+                      <span
+                        className={`briefing-dot ${
+                          a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="roster-action-text">{teamActionText(a)}</span>
+                    </button>
+                    {!single && (
+                      <div className="roster-action-names">
+                        {shown.map((r) => (
+                          <button key={r.id} type="button" className="roster-name-link" onClick={() => openDetail(r)}>
+                            {rowName(r)}
+                          </button>
+                        ))}
+                        {more > 0 && (
+                          <button type="button" className="roster-name-link roster-name-more" onClick={() => setActionId(a.id)}>
+                            +{more} more
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -708,6 +714,12 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           confirmingRemove={confirmRemove === detail?.id}
           drawerError={drawerError}
           paymentId={paymentIdByPlayer[detailPlayerId] ?? null}
+          quickLinks={playerQuickLinks({
+            playerId: detailPlayerId,
+            canWrite,
+            qabReportPlayerIds,
+            paymentId: paymentIdByPlayer[detailPlayerId] ?? null,
+          })}
           contacts={contacts}
           recruiting={recruiting[detailPlayerId] ?? { links: [], interests: [] }}
           pickupHistory={
@@ -887,7 +899,7 @@ function recruitingSummary(recruiting) {
   return [l && `${l} ${l === 1 ? "link" : "links"}`, c && `${c} ${c === 1 ? "college" : "colleges"}`].filter(Boolean).join(", ");
 }
 
-export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, onConfirmRemove, onCancelRemove, confirmingRemove = false, drawerError = null, paymentId, pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] }, savedOpen = null, onOpenChange = null }) {
+export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonName, pending, onClose, onEdit, onRemove, onToggleActive, onConfirmRemove, onCancelRemove, confirmingRemove = false, drawerError = null, paymentId, quickLinks = [], pickupHistory = [], onRoster = true, playerId, onAddToRoster, contacts = [], recruiting = { links: [], interests: [] }, savedOpen = null, onOpenChange = null }) {
   const p = row.player ?? {};
 
   // One record type, two very different people. A coach has no jersey number,
@@ -982,6 +994,19 @@ export function PlayerDetail({ row, canWrite, isAdmin, documentTargets, seasonNa
             <p className="pickup-promote-text">
               Played with you as a pickup but isn&rsquo;t on the {seasonName} roster.
             </p>
+          )}
+
+          {/* Shortcuts to screens that already exist, for the coach-side roles
+              that can open them. Rendered only when there is something to
+              open, so a player with no at-bats and no dues record shows no
+              empty "Quick links" row. */}
+          {quickLinks.length > 0 && (
+            <div className="player-quick" aria-label="Quick links">
+              <span className="player-quick-label">Quick links</span>
+              {quickLinks.map((l) => (
+                <RelatedLink key={l.key} href={l.href}>{l.label}</RelatedLink>
+              ))}
+            </div>
           )}
 
           {!isPlayer && (

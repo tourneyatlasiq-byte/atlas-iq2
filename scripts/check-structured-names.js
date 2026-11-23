@@ -828,7 +828,7 @@ section("Team page hierarchy");
   // across the viewport on a wide monitor.
   ok("the roster table uses fixed layout", /\.roster-table \{ table-layout: fixed; \}/.test(css));
   ok("Player absorbs the remaining width", /td\.col-player \{ width: auto/.test(css));
-  for (const [col, px] of [["dob", 104], ["grad", 100], ["positions", 150], ["uniform", 132]]) {
+  for (const [col, px] of [["dob", 104], ["grad", 100], ["positions", 150], ["uniform", 188]]) {
     ok(`${col} has an explicit width`, new RegExp(`td\\.col-${col} \\{ width: ${px}px`).test(css));
   }
   ok("the jersey number column is unchanged at 44px",

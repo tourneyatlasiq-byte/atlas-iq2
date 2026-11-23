@@ -11,13 +11,14 @@ import { pickupsForSeason } from "../../../lib/queries/participants";
 import { listContacts, recruitingByPlayer } from "../../../lib/queries/contacts";
 import { RosterClient } from "../../../components/RosterClient";
 import { listMatchCandidates } from "../../../lib/queries/match-candidates";
+import { qabPlayerChoices } from "../../../lib/queries/reports/qab-player-choices";
 
 import { SetupNext, setupState } from "../../../components/SetupNext";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage({ searchParams }) {
-  const { profile, organization, team, season, seasonPhase } = await getContext();
+  const { profile, organization, team, season, seasonPhase, features } = await getContext();
 
   if (!season) {
     return (
@@ -58,6 +59,23 @@ export default async function TeamPage({ searchParams }) {
     (payRows ?? []).filter((r) => r.player_id).map((r) => [r.player_id, r.id])
   );
 
+  // Players the individual QAB report can show something for (at least one
+  // tracked at-bat). Read only when the report itself would open for this
+  // person: QAB on and a coach-side role. A failure here only hides the link;
+  // it must never take the roster down.
+  let qabReportPlayerIds = [];
+  const mayWrite = canWrite(profile);
+  if (features?.qab && mayWrite) {
+    try {
+      const choices = await qabPlayerChoices(season.id);
+      qabReportPlayerIds = [...choices.active, ...choices.inactive, ...choices.pickup]
+        .filter((c) => c.pa > 0)
+        .map((c) => c.id);
+    } catch {
+      qabReportPlayerIds = [];
+    }
+  }
+
   const setup = await setupState(createClient(), { organization, team, season, profile });
 
   return (
@@ -68,7 +86,7 @@ export default async function TeamPage({ searchParams }) {
       assignable={assignable}
       orgPlayerCount={await organizationPlayerCount(organization.id)}
       summary={deriveSummary(rows)}
-      canWrite={canWrite(profile)}
+      canWrite={mayWrite}
       isAdmin={profile?.role === "owner" || profile?.role === "admin"}
       documentTargets={targets}
       matchCandidates={matchCandidates}
@@ -76,6 +94,7 @@ export default async function TeamPage({ searchParams }) {
       teamName={team?.name}
       seasonPhase={seasonPhase}
       paymentIdByPlayer={paymentIdByPlayer}
+      qabReportPlayerIds={qabReportPlayerIds}
       pickups={await pickupsForSeason(season.id)}
       contacts={await listContacts(organization.id)}
       recruiting={await recruitingByPlayer(organization.id)}

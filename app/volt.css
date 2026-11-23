@@ -74,8 +74,6 @@ html.volt .detail-section-title { font-size: 11.5px; border-bottom-color: var(--
 html.volt .muted { color: var(--muted); }
 /* Tabular figures for columns of money in the UI face only; the display face
    spaces its comma oddly with them, so big figures keep proportional digits. */
-/* Inter Tight's tabular figures space the decimal point widely, so money keeps
-   proportional figures and lines up on its right edge instead. */
 html.volt .snap-value, html.volt .t-metric-value, html.volt .fin-budget-hero, html.volt .fin-dues-hero,
 html.volt .nextup-days, html.volt .page-head h1 { font-variant-numeric: normal; }
 
@@ -272,15 +270,20 @@ html.volt .fin-m-back { color: var(--ink); }
 html.volt .pay-owed { color: var(--owed); }
 html.volt .pay-settled { color: var(--paid); }
 html.volt .budget-row:hover { background: var(--bg); }
+html.volt .budget-line:hover { background: var(--table-band-hover); }
 
 @media (prefers-reduced-motion: reduce) {
   html.volt .btn { transition: none; }
   html.volt .btn:active:not(:disabled) { transform: none; }
 }
 
-/* Proportional figures for money everywhere Volt is on (see the Type note). */
-html.volt .fin-split-item dd, html.volt .t-cost, html.volt .budget-num, html.volt .pay-balance,
-html.volt .fin-budget-hero, html.volt .fin-dues-hero, html.volt .cost-row, html.volt .txn-amount { font-variant-numeric: normal; }
+/* Headline money (tiles, hero figures) keeps proportional digits. Figures in
+   TABLES use tabular digits so columns line up; that rule is in globals.css
+   under "Table standard". It was decided after trying both with the real
+   Inter Tight: tabular digits keep every column straight and the wider
+   decimal point is not noticeable at table sizes. */
+html.volt .fin-split-item dd,
+html.volt .fin-budget-hero, html.volt .fin-dues-hero { font-variant-numeric: normal; }
 html.volt .fin-split-item dd { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
 @media (max-width: 720px) {
   html.volt .navbar-mobile { background: #ffffff; }

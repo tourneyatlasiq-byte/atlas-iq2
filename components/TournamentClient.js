@@ -11,6 +11,7 @@ import { PageHelp } from "./PageHelp";
 import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { useLocalToday } from "./useLocalToday";
 import { featuredTournament } from "../lib/featured-tournament";
+import { isPast } from "../lib/performance-tournament";
 import { useOpenParam } from "./useOpenParam";
 import { useGuardedOverlay } from "./useGuardedOverlay";
 import { keepOverlayEntry } from "../lib/overlay-history";
@@ -543,7 +544,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
               {!isCollapsed && (
                 <div className="card card-flush">
                   {rows.map((t) => (
-                    <div key={t.id} id={`t-row-${t.id}`} className="t-row">
+                    <div key={t.id} id={`t-row-${t.id}`} className={`t-row${isPast(t, todayLocal) ? " t-row-past" : ""}`}>
                       <button className="t-main" onClick={() => openDetail(t)}>
                         {/* Dates lead: this is the column a coach scans. */}
                         <span className="t-date">{dateRange(t.start_date, t.end_date)}</span>
@@ -561,6 +562,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
                               />
                             )}
                             {t.name}
+                            {isPast(t, todayLocal) && <span className="visually-hidden"> (past tournament)</span>}
                             {nextT?.id === t.id && <span className="st-chip-volt st-row-next">Next up</span>}
                           </span>
                           <span className="t-meta">

@@ -19,7 +19,7 @@ const BATCH = 50;
 /** Fills the template's second row so the expected format is obvious. */
 const EXAMPLE_ROW = [
   "Hobgood Park", "6688 Bells Ferry Rd", "Woodstock", "GA", "30189", "Cherokee",
-  "", "", "", "", "6", "Turf", "No", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "", "",
+  "", "", "", "", "6", "All Turf", "No", "Yes", "Yes", "Yes", "Yes", "Yes", "Yes", "", "",
 ];
 
 export function FacilityImport({ onClose, onDone }) {

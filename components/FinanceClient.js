@@ -1207,6 +1207,10 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
 /**
  * Whole dollars at summary level, cents when they matter.
  *
+ * SUMMARY ONLY (headline tiles, the strip above a tab). Figures inside a table
+ * use money(): always two decimals, so a column reads $44,000.00 / $2,190.00
+ * and the decimal points line up (table standard, 2026-11).
+ *
  * A column of $22,000.00 / $5,050.00 / $16,950.00 is four characters of
  * trailing zeros the reader has to skip. Detail rows keep exact cents, and
  * nothing about stored precision changes.
@@ -1332,10 +1336,10 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 {/* data-label drives the mobile layout, where the column
                     header is hidden and four bare figures would otherwise be
                     unexplained. Desktop ignores it entirely. */}
-                <span className="budget-num" data-label={income ? "Goal" : "Budget"}>{summaryMoney(g.budgeted)}</span>
-                <span className="budget-num" data-label={income ? "Received" : "Paid"}>{summaryMoney(g.paidTotal)}</span>
+                <span className="budget-num" data-label={income ? "Goal" : "Budget"}>{money(g.budgeted)}</span>
+                <span className="budget-num" data-label={income ? "Received" : "Paid"}>{money(g.paidTotal)}</span>
                 <span className="budget-num" data-label={income ? "Remaining" : "To pay"}>
-                  {income ? summaryMoney(gp.remaining) : summaryMoney(g.toPay)}
+                  {income ? money(gp.remaining) : money(g.toPay)}
                 </span>
                 {income ? (
                   <span
@@ -1350,8 +1354,8 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                     className={`budget-num budget-num-avail strong${g.available < 0 ? " over" : ""}`}
                   >
                     {g.available < 0
-                      ? `Over ${summaryMoney(Math.abs(g.available))}`
-                      : summaryMoney(g.available)}
+                      ? `Over ${money(Math.abs(g.available))}`
+                      : money(g.available)}
                   </span>
                 )}
 
@@ -1457,8 +1461,8 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                 </span>
               </span>
               <span className="budget-num" data-label="Budget">&mdash;</span>
-              <span className="budget-num" data-label="Paid">{summaryMoney(0)}</span>
-              <span className="budget-num" data-label="To pay">{summaryMoney(seasonPool.amount)}</span>
+              <span className="budget-num" data-label="Paid">{money(0)}</span>
+              <span className="budget-num" data-label="To pay">{money(seasonPool.amount)}</span>
               <span className="budget-num budget-num-avail" data-label="Available">&mdash;</span>
               <span />
             </div>
@@ -1808,7 +1812,7 @@ export function TransactionsTab({ transactions, canWrite, onAdd, onOpen }) {
                 <th>Date</th>
                 <th>Description</th>
                 <th>Category</th>
-                <th>Amount</th>
+                <th className="th-num">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -2514,7 +2518,7 @@ export function PaymentsTab({
                       ) : p.balance < 0 ? (
                         <span className="muted">{money(Math.abs(p.balance))} credit</span>
                       ) : (
-                        <span className="muted">$0</span>
+                        <span className="muted">{money(0)}</span>
                       )}
                     </td>
                   </tr>
@@ -2585,7 +2589,7 @@ function FormerDuesTable({ rows, onOpen }) {
                   {p.balance > 0 ? (
                     <span className="pay-owed">{money(p.balance)}</span>
                   ) : (
-                    <span className="muted">$0</span>
+                    <span className="muted">{money(0)}</span>
                   )}
                 </td>
               </tr>
