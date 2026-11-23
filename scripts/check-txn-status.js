@@ -116,7 +116,7 @@ function figures(transactions, { items = [LINE], tournaments = [], payments = []
     toPay: s.toPay,
     available: s.availableBudget,
     committed: s.committedExpenses,
-    projectedAvailable: rules.sumMoney([s.availableBudget, -unassignedTotal]),
+    projectedAvailable: s.availableBudget, // the unassigned pool is now inside Available itself
     moneyIn: q.fundsIn(withLines, payments, items).total,
     actualIncome: s.actualIncome,
     categories: budget.expenses.map((g) => ({ category: g.category, paid: g.paidTotal, toPay: g.toPay, available: g.available, committed: g.committedTotal })),
@@ -212,8 +212,8 @@ console.log("C. tournament commitments (unchanged rules)");
 
   const unassigned = { id: "T2", name: "Fall Classic", decision: "Committed", total_cost: 800, budget_item_id: null };
   const f = figures([onT("To Pay", 100)], { items, tournaments: [T, unassigned] });
-  assertEq("an unassigned committed tournament is outside Available but inside Projected Available",
-    { available: f.available, projectedAvailable: f.projectedAvailable }, { available: 4445, projectedAvailable: 3645 });
+  assertEq("an unassigned committed tournament now reduces Available directly (approved 2026-11 optional budgeting); Projected Available is the same figure",
+    { available: f.available, projectedAvailable: f.projectedAvailable }, { available: 3645, projectedAvailable: 3645 });
 }
 
 /* ---------------- D. income ---------------- */

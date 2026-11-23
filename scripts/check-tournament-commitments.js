@@ -77,9 +77,11 @@ function figures(t, txs, label) {
   if (!lineOk || !summaryOk) { failed++; console.log(`  FAIL  ${label}: Paid ≤ Committed, To Pay ≥ 0 and Budget = Paid + To Pay + Available must hold`); }
   else passed++;
   return {
-    counted: sumMoney([s.committedExpenses, unTotal]),
+    // 2026-11 optional budgeting: committed now already includes the tournaments
+    // that have no budget line, so Available and Projected Available are one figure.
+    counted: s.committedExpenses,
     committed: s.committedExpenses, paid: s.actualExpenses, toPay: s.toPay,
-    unassigned: unTotal, listed: un.length, projected: sumMoney([s.availableBudget, -unTotal]),
+    unassigned: unTotal, listed: un.length, projected: s.availableBudget,
     A: line("A").committedTotal, B: line("B").committedTotal, C: line("C").committedTotal,
   };
 }
@@ -106,7 +108,9 @@ console.log("A. tournament with no budget category");
 
   txs = [tx("B", 300, "Paid"), tx("B", 300, "To Pay")];
   f = figures(T(null), txs, "unassigned, Paid + To Pay");
-  assertEq("$300 Paid + $300 To Pay on B: both count as recorded; panel $400", [f.B, f.paid, f.toPay, f.unassigned, f.counted], [600, 300, 300, 400, 1000]);
+  // To Pay is committed minus paid, so it now includes the $400 of the tournament not yet on any line
+  // (Budget = Paid + To Pay + Available must keep holding once the pool reduces Available).
+  assertEq("$300 Paid + $300 To Pay on B: both count as recorded; panel $400, which is also still to pay", [f.B, f.paid, f.toPay, f.unassigned, f.counted], [600, 300, 700, 400, 1000]);
 
   txs = [tx("B", 300), tx("C", 200, "To Pay"), tx("C", 100)];
   f = figures(T(null), txs, "unassigned, several lines");
@@ -167,9 +171,13 @@ console.log("E. what never counts");
   f = figures(T("A", 1000, "Declined"), [tx("A", 400)], "declined");
   assertEq("a Declined tournament commits nothing; the $400 on A stays", [f.A, f.counted], [400, 400]);
   f = figures(T(null), [tx("I", 800, "Paid")], "income");
-  assertEq("an income transaction linked to the tournament reduces nothing", [f.unassigned, f.committed], [1000, 0]);
+  assertEq("an income transaction linked to the tournament adds nothing: the tournament is still counted once, at $1,000", [f.unassigned, f.committed], [1000, 1000]);
   f = figures(T(null, null), [tx("B", 400)], "no cost");
-  assertEq("an unpriced committed tournament is not listed; its transaction counts on B", [f.listed, f.B], [0, 400]);
+  // Review 2026-11-22: money recorded against it keeps it listed, at $0, since
+  // the $400 already sits on B and must not be counted a second time.
+  assertEq("an unpriced committed tournament with a transaction on B: listed at $0, the $400 counts once on B", [f.unassigned, f.B], [0, 400]);
+  f = figures(T(null, null), [], "no cost nothing");
+  assertEq("an unpriced committed tournament with nothing recorded is not listed", f.listed, 0);
 }
 
 console.log("F. building blocks");

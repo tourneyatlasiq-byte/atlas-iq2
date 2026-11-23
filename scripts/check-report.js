@@ -462,8 +462,11 @@ console.log("\nFinance hardening");
   assertEq("...and nothing writes it", /actual:/.test(fsx.readFileSync("lib/actions/finance.js", "utf8")), false);
 
   // 2. One cents-safe calculation for committed tournament cost.
-  assertEq("the tournaments tile uses sumMoney",
-    /sumMoney\(committed\.map\(\(t\) => t\.total_cost \?\? 0\)\)/.test(tq), true);
+  // 2026-11 optional budgeting: the tile reads the one shared tournament cost rule,
+  // which itself sums in cents.
+  assertEq("the tournaments tile uses the shared cents-safe cost rule",
+    [/tournamentCostSummary\(tournaments, transactions\)/.test(tq),
+     /committedCost: sumMoney\(committed\.map/.test(fsx.readFileSync("lib/finance-rules.js", "utf8"))], [true, true]);
   assertEq("...and no longer reduces floats",
     /reduce\(\(sum, t\) => sum \+ Number\(t\.total_cost/.test(tq), false);
   // A tournament set that a float reduce genuinely gets wrong. Not every
@@ -893,10 +896,10 @@ console.log("\nTeam dues allocation");
      distinct from "$0" — both stay null in that case. */
 
   assertEq("both fees blank stays fully unset (cost genuinely not priced yet)",
-    /if \(entry_fee == null && gate_fee == null\) return \{ entry_fee: null, gate_fee: null \};/.test(tact),
+    /if \(entry_fee == null && gate_fee == null\) return \{ entry_fee: null, gate_fee: null \};/.test(fsx.readFileSync("lib/tournament-cost.js", "utf8")),
     true);
   assertEq("one fee present coalesces the other to 0",
-    /return \{ entry_fee: entry_fee \?\? 0, gate_fee: gate_fee \?\? 0 \};/.test(tact),
+    /return \{ entry_fee: entry_fee \?\? 0, gate_fee: gate_fee \?\? 0 \};/.test(fsx.readFileSync("lib/tournament-cost.js", "utf8")),
     true);
   assertEq("fieldsFrom writes through the null-safe helper, not two raw money() calls",
     /\.\.\.feesFrom\(formData\)/.test(tact), true);

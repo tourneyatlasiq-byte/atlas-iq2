@@ -114,90 +114,6 @@ function BudgetSplit({ summary }) {
 }
 
 /**
- * Committed tournaments that no budget category accounts for.
- *
- * Deliberately not auto-assigned and not folded into the totals: the coach
- * chooses the category, using the same tournament/budget relationship the
- * Tournaments module already writes. Until then the wording must not imply
- * these amounts are inside any category's Available.
- */
-function UnassignedCommitments({ tournaments, budgetItems, canWrite, pending, onAssign }) {
-  const [choice, setChoice] = useState({});
-  const expenseLines = (budgetItems ?? []).filter((b) => !b.is_income);
-  const total = sumMoney(tournaments.map((t) => t.amount));
-
-  return (
-    <div className="fin-unassigned">
-      {total > 0 ? (
-        <p className="fin-unassigned-lead">
-          <strong>{summaryMoney(total)}</strong> of committed tournament cost is not assigned to a
-          budget category, so it is <em>not</em> included in any category&rsquo;s available budget.
-        </p>
-      ) : (
-        <p className="fin-unassigned-lead">
-          {tournaments.length === 1 ? "This committed tournament has" : "These committed tournaments have"} no
-          budget category. Their cost is already recorded on budget lines, so Available is
-          unaffected &mdash; choose a category to keep the budget organized.
-        </p>
-      )}
-
-      <ul className="fin-unassigned-list">
-        {tournaments.map((t) => (
-          <li key={t.id} className="fin-unassigned-row">
-            <span className="fin-unassigned-name">
-              {t.name}
-              <span className="budget-sub">{unassignedDetail(t)}</span>
-            </span>
-
-            {canWrite && (
-              <span className="fin-unassigned-assign">
-                <select
-                  className="fin-select"
-                  aria-label={`Budget category for ${t.name}`}
-                  value={choice[t.id] ?? ""}
-                  onChange={(e) => setChoice({ ...choice, [t.id]: e.target.value })}
-                >
-                  <option value="">Choose a budget line…</option>
-                  {expenseLines.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.category} · {b.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn btn-secondary"
-                  disabled={pending || !choice[t.id]}
-                  onClick={() => {
-                    const fd = new FormData();
-                    fd.set("tournament_id", t.id);
-                    fd.set("budget_item_id", choice[t.id]);
-                    onAssign(fd);
-                  }}
-                >
-                  Assign
-                </button>
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/**
- * One line under an unassigned tournament (ST-011). Money already recorded on
- * a budget line is said to be there, so the coach can see why the amount
- * outstanding here is smaller than the tournament's cost — or zero.
- */
-function unassignedDetail(t) {
-  const recorded = Number(t.recordedElsewhere ?? 0);
-  if (recorded <= 0) return `${money(t.amount)} committed · no budget category`;
-  if (t.amount <= 0) return `Fully recorded on budget lines (${money(recorded)}) · no budget category`;
-  return `${money(t.amount)} still to budget · ${money(recorded)} already on budget lines · no budget category`;
-}
-
-/**
  * Plain wording for the Finance action rows. Display only — the rules in
  * lib/readiness/finance.js are untouched.
  */
@@ -249,7 +165,6 @@ const statusClass = (s) =>
 
 export function FinanceClient({
   budget, transactions, payments, summary, funds, dues, committedTournaments,
-  unassignedTournaments = [],
   tournaments, players, facilities, budgetItems, canWrite,
   // Review surface only: lets /review render each tab. Defaults to the normal
   // starting tab, so nothing changes in the application itself.
@@ -471,23 +386,7 @@ export function FinanceClient({
    * coach chooses to resolve it.
    */
   const [needsOpen, setNeedsOpen] = useState(false);
-  const unassignedTotal = useMemo(
-    () => sumMoney(unassignedTournaments.map((t) => t.amount)),
-    [unassignedTournaments]
-  );
-  /**
-   * Available Budget minus commitments that no category accounts for.
-   *
-   * Derived for display only. availableBudget itself is untouched: it means
-   * "budget not yet committed to a category", which is correct and is what
-   * every other surface reads.
-   */
-  const projectedAvailable = useMemo(
-    () => sumMoney([summary.availableBudget, -unassignedTotal]),
-    [summary.availableBudget, unassignedTotal]
-  );
-
-  const needsCount = otherActions.length + unassignedTournaments.length;
+  const needsCount = otherActions.length;
 
   /**
    * Switch tab and bring the result into view.
@@ -646,8 +545,9 @@ export function FinanceClient({
 
         "Available budget", not "Available": it is planned spending capacity,
         Planned minus Committed, never cash on hand. The total, the one
-        segmented bar (Budget = Paid + To Pay + Available), the unassigned
-        commitments line and the dues scope note are all kept.
+        segmented bar (Budget = Paid + To Pay + Available), a one line note of
+        tournament cost not tied to a budget line (already inside Available)
+        and the dues scope note are all kept.
       */}
       <div className="st-fband fin-band">
         <section className="card st-fcard fin-budget-panel" aria-labelledby="st-fa-h">
@@ -660,13 +560,12 @@ export function FinanceClient({
               {summary.availableBudget < 0 ? "over" : "left to plan with"}, of a <strong>{summaryMoney(summary.budgetedExpenses)}</strong> season budget · {summary.percentCommitted ?? 0}% committed
             </p>
             <BudgetSplit summary={summary} />
-            {unassignedTotal > 0 && (
+            {(budget.unassignedTotal ?? 0) > 0 && (
               <p className="fin-unassigned-line">
                 <span className="fin-unassigned-mark" aria-hidden="true" />
                 <span>
-                  <strong>{summaryMoney(unassignedTotal)}</strong> in tournament commitments isn&rsquo;t
-                  assigned to a budget category, so it isn&rsquo;t reflected in Available budget.{" "}
-                  <strong>{summaryMoney(projectedAvailable)}</strong> projected.
+                  Includes <strong>{summaryMoney(budget.unassignedTotal)}</strong> of committed tournament
+                  cost not tied to a budget line.
                 </span>
               </p>
             )}
@@ -709,12 +608,10 @@ export function FinanceClient({
         </section>
 
         <NextAction
-          unassigned={unassignedTournaments}
           payments={payments}
           canWrite={canWrite}
           seasonPhase={seasonPhase}
           hasBudget={summary.budgetedExpenses > 0}
-          onAssign={() => { setNeedsOpen(true); requestAnimationFrame(() => document.getElementById("fin-attention-body")?.scrollIntoView({ block: "center" })); }}
           onRecord={(p) => setPaying(p)}
           onAddTxn={() => { showTab("transactions"); setEditTxn("new"); }}
           onBudget={() => goToTab("budget")}
@@ -748,38 +645,11 @@ export function FinanceClient({
           </div>
 
           <p className="fin-attention-summary">
-            {unassignedTournaments.length > 0 && (unassignedTotal > 0 ? (
-              <>
-                <strong>{summaryMoney(unassignedTotal)}</strong> in tournament commitments needs a
-                budget category.
-              </>
-            ) : (
-              <>
-                {unassignedTournaments.length} committed{" "}
-                {unassignedTournaments.length === 1 ? "tournament needs" : "tournaments need"} a budget
-                category.
-              </>
-            ))}
-            {unassignedTournaments.length > 0 && otherActions.length > 0 && " "}
             {otherActions.map((a) => financeActionText(a, dues)).join(" · ")}
           </p>
 
           {needsOpen && (
             <div className="fin-attention-body" id="fin-attention-body">
-              {unassignedTournaments.length > 0 && (
-                <UnassignedCommitments
-                  tournaments={unassignedTournaments}
-                  budgetItems={budgetItems}
-                  canWrite={canWrite}
-                  pending={pending}
-                  onAssign={(fd) =>
-                    run(setTournamentBudgetLine, fd, {
-                      success: "Tournament assigned to a budget category",
-                    })
-                  }
-                />
-              )}
-
               {otherActions.length > 0 && (
                 <ul className="briefing-list">
                   {otherActions.map((a) => (
@@ -1309,6 +1179,7 @@ export function BudgetTab({ budget, summary, committedTournaments, tournamentPai
         <>
           <BudgetSection
             title="Expenses" groups={budget.expenses} openCats={openCats}
+            seasonPool={{ amount: budget.seasonUnassigned ?? 0, count: budget.seasonUnassignedCount ?? 0 }}
             setOpenCats={setOpenCats} canWrite={canWrite} onEdit={onEdit}
             onDelete={onDelete} pending={pending}
             confirmingDelete={confirmingDelete}
@@ -1351,7 +1222,7 @@ function summaryMoney(n) {
 function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit, onDelete, pending, income, action,
                         confirmingDelete = null, onCancelDelete, onConfirmDelete, deleteError = null,
                         transactions = [], onReviewTransaction, tournaments = [],
-                        lineLabel = "budget line" }) {
+                        lineLabel = "budget line", seasonPool = null }) {
   if (groups.length === 0) return null;
 
   /**
@@ -1547,9 +1418,52 @@ function BudgetSection({ title, groups, openCats, setOpenCats, canWrite, onEdit,
                   </div>
                   </Fragment>
                 ))}
+
+              {/* Committed tournaments with no budget line, held in this
+                  tournament category. Already inside the category's committed
+                  and Available figures, so the lines above and this row add up
+                  to the category. Linking a line stays optional. */}
+              {open && !income && g.unassignedAmount > 0 && (
+                <div className="budget-row budget-line budget-pool">
+                  <span />
+                  <span className="budget-name budget-name-indent">
+                    <span className="budget-line-name">Not assigned to a line</span>
+                    <span className="budget-sub">
+                      {g.unassignedCount} committed {g.unassignedCount === 1 ? "tournament" : "tournaments"} · counted here automatically
+                    </span>
+                  </span>
+                  <span className="budget-num" data-label="Budget">&mdash;</span>
+                  <span className="budget-num" data-label="Paid">{money(0)}</span>
+                  <span className="budget-num" data-label="To pay">{money(g.unassignedAmount)}</span>
+                  <span className="budget-num budget-num-avail" data-label="Available">&mdash;</span>
+                  <span className="budget-line-actions" />
+                </div>
+              )}
             </div>
           );
         })}
+
+        {/* No tournament category in this budget: the same committed cost shown
+            at the season level, so the reduction in Available is explained
+            rather than silent. */}
+        {!income && seasonPool && seasonPool.amount > 0 && (
+          <div className="budget-group is-open">
+            <div className="budget-row budget-cat budget-pool-season">
+              <span />
+              <span className="budget-name">
+                <span className="budget-cat-name">Tournament costs (no budget line)</span>
+                <span className="budget-sub budget-cat-sub">
+                  {seasonPool.count} committed {seasonPool.count === 1 ? "tournament" : "tournaments"} · already counted in Available
+                </span>
+              </span>
+              <span className="budget-num" data-label="Budget">&mdash;</span>
+              <span className="budget-num" data-label="Paid">{summaryMoney(0)}</span>
+              <span className="budget-num" data-label="To pay">{summaryMoney(seasonPool.amount)}</span>
+              <span className="budget-num budget-num-avail" data-label="Available">&mdash;</span>
+              <span />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* OUTSIDE THE GROUPS ON PURPOSE.
@@ -2230,9 +2144,9 @@ function TransactionForm({ row, budgetItems, tournaments, players, facilities, p
               {unassignedPick && (
                 <div className="txn-assign">
                   <p className="txn-assign-lead">
-                    <strong>{unassignedPick.name}</strong> isn&rsquo;t assigned to a budget category
-                    yet, so its {money(unassignedPick.total_cost)} commitment isn&rsquo;t counted in
-                    Available.
+                    <strong>{unassignedPick.name}</strong> isn&rsquo;t tied to a budget line. Its{" "}
+                    {money(unassignedPick.total_cost)} commitment already counts toward Available;
+                    tying it to a line is optional.
                   </p>
                   {budgetItemId ? (
                     <label className="txn-assign-check">
@@ -3127,21 +3041,17 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
 /**
  * The single most useful next step, from data already on the page.
  *
- *   1 a committed tournament with no budget line (Available budget is
- *     understated until it is assigned)
- *   2 the largest outstanding dues balance, recorded in place
- *   3 otherwise, the next thing to set up or record
+ *   1 the largest outstanding dues balance, recorded in place
+ *   2 otherwise, the next thing to set up or record
+ *
+ * A committed tournament without a budget line is no longer a task: it counts
+ * toward Available on its own and linking a line is optional.
  */
-function NextAction({ unassigned, payments, canWrite, seasonPhase, hasBudget, onAssign, onRecord, onAddTxn, onBudget }) {
+function NextAction({ payments, canWrite, seasonPhase, hasBudget, onRecord, onAddTxn, onBudget }) {
   let lab = "Next", txt, sub, btn = null;
   const owing = (payments ?? []).filter((p) => !p.exempt && p.balance > 0).sort((a, b) => b.balance - a.balance);
   if (seasonPhase === "past") {
     lab = "Past season"; txt = "Nothing to act on"; sub = "Figures are kept as they were recorded.";
-  } else if (unassigned.length > 0) {
-    const u = unassigned[0];
-    txt = `Put ${u.amount > 0 ? summaryMoney(u.amount) + " for " : ""}${u.name} on a budget line`;
-    sub = "Until then it isn't counted in Available budget.";
-    if (canWrite) btn = <button type="button" className="btn btn-primary" onClick={onAssign}>Assign a budget line</button>;
   } else if (owing.length > 0) {
     const p = owing[0];
     txt = `Collect ${money(p.balance)} from ${p.displayName}`;

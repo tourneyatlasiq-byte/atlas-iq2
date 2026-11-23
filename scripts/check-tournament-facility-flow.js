@@ -37,7 +37,7 @@ eq("Cancel only closes the new-facility form", /onClose=\{\(\) => setAddingFacil
 
 console.log("\nBudget wording is consistent\n");
 eq("Considering rows say Not in Budget", /sub: `Not in Budget\$\{reg\}`/.test(status) && !/not in budget/.test(status));
-eq("the Costs summary says Budget not linked", /"Budget not linked"/.test(tc) && !/"budget not linked"/.test(tc));
+eq("the Costs summary no longer says Budget not linked (budgeting is optional, 2026-11)", !/Budget not linked/.test(tc));
 
 console.log("\nDrawer layout guards\n");
 eq("status selects share one label row and one select row", /grid-template-rows: subgrid/.test(volt) && /\.t-status select \{ width: 100%; height: 44px/.test(volt));

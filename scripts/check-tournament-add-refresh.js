@@ -74,8 +74,10 @@ const src = (p) => fs.readFileSync(p, "utf8");
     return q;
   };
   const actionBody = actionSrc.replace(/^"use server";/m, "").replace(/^import .*$/gm, "").replace(/export async function/g, "async function") + "\nreturn { addTournament };";
-  const { addTournament } = new Function("createClient", "requireSeasonContext", "canWrite", "revalidatePath", "isValidDecision", "isValidPaidStatus", "PARENT_DETAILS_MAX", actionBody)(
-    () => ({ from: () => builder() }), async () => ({ profile: {}, organization: { id: "org1" }, season: { id: "sea1" } }), () => true, () => {}, () => true, () => true, 2000);
+  // The fee parsing now lives in lib/tournament-cost.js (moved unchanged); load the real source.
+  const { feesFrom } = new Function(src("lib/tournament-cost.js").replace(/export function/g, "function") + "\nreturn { feesFrom };")();
+  const { addTournament } = new Function("createClient", "requireSeasonContext", "canWrite", "revalidatePath", "isValidDecision", "isValidPaidStatus", "PARENT_DETAILS_MAX", "feesFrom", actionBody)(
+    () => ({ from: () => builder() }), async () => ({ profile: {}, organization: { id: "org1" }, season: { id: "sea1" } }), () => true, () => {}, () => true, () => true, 2000, feesFrom);
   const fd = new FormData(); fd.set("name", "TC Zoom Into June"); fd.set("start_date", "2027-06-11");
   const first = await addTournament(fd);
   eq("a new tournament is inserted once", [first.ok, first.id, first.duplicate ?? false, calls.inserted], [true, "new-id", false, 1]);

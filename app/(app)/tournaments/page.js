@@ -77,7 +77,7 @@ export default async function TournamentsPage({ searchParams }) {
       qabEnabled={Boolean(features?.qab)}
       tournaments={withDocs}
       actions={seasonPhase === "current" ? tournamentActions(withDocs, new Date(), budgetTxns) : []}
-      summary={deriveSummary(withDocs)}
+      summary={deriveSummary(withDocs, new Date(), budgetTxns)}
       record={seasonRecord(withDocs)}
       providers={reference.providers}
       facilities={reference.facilities}

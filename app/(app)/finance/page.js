@@ -8,7 +8,6 @@ import {
   financeSummary,
   fundsIn,
   duesSummary,
-  unassignedTournamentCommitments,
 } from "../../../lib/queries/finance";
 import { createClient } from "../../../lib/supabase/server";
 import { FinanceClient } from "../../../components/FinanceClient";
@@ -123,7 +122,6 @@ export default async function FinancePage({ searchParams }) {
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
       committedTournaments={committed}
-      unassignedTournaments={unassignedTournamentCommitments(seasonTournaments ?? [], transactions)}
       budgetItems={budgetItems}
       tournaments={picks.tournaments}
       players={picks.players}

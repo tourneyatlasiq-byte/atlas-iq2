@@ -881,16 +881,15 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   const docCount = (t.documents ?? []).length;
   const resCount = (t.resources ?? []).length;
   const costLabel = money(t.total_cost) || null;
-  const budgetLinked = Boolean(budgetContext);
   const gamesSummary = games.length === 0 ? "No games added" : record ? `${games.length} ${games.length === 1 ? "game" : "games"} · ${record}` : `${games.length} ${games.length === 1 ? "game" : "games"}`;
   const rosterSummary = participants.length === 0 ? "Roster not set" : `${participants.length} attending`;
-  const costsSummary = [costLabel, budgetLinked ? null : "Budget not linked"].filter(Boolean).join(" · ") || "Not recorded";
+  const costsSummary = costLabel ?? "Not recorded";
   const placesSummary = [resCount ? `${resCount} linked` : "Nothing linked", docCount ? `${docCount} ${docCount === 1 ? "document" : "documents"}` : null].filter(Boolean).join(" · ");
   const detailsSummary = detailCount === 0 ? "None recorded" : ([t.provider?.name, t.age_division].filter(Boolean).join(" · ") || `${detailCount} recorded`);
   const tiles = [
     { key: "games", label: "Games", value: games.length, caption: games.length === 0 ? "No games added" : record ? `Record ${record}` : `${played} of ${games.length} played` },
     { key: "roster", label: "Roster", value: participants.length, caption: participants.length === 0 ? "Roster not set" : "attending" },
-    { key: "costs", label: "Costs", value: costLabel ?? "—", caption: !budgetLinked ? "Budget not linked" : t.paid_status === "Paid in Full" ? "Paid in full" : "Not paid in full" },
+    { key: "costs", label: "Costs", value: costLabel ?? "—", caption: t.paid_status === "Paid in Full" ? "Paid in full" : "Not paid in full" },
   ];
   return (
     <DrawerShell onClose={onClose} labelledBy="t-detail-title">
@@ -1068,10 +1067,15 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
             open={isOpen("costs")} onToggle={() => toggle("costs")}>
             {linkError && <div className="alert alert-error">{linkError}</div>}
 
-            {!budgetContext && t.decision === "Committed" && canWrite && (
-              <div className="t-budget t-budget-prompt">
-                <p className="field-note">Budget not linked. Link a budget line and this cost counts toward it now.</p>
-                <button className="btn btn-secondary" onClick={() => setPickingLine(true)}>
+            {/* Budgeting is optional. A committed tournament counts toward the
+                season budget automatically, so this is information, never a
+                warning, and it only appears when the team has a budget at all.
+                Linking a specific line stays available for teams with several
+                tournament lines. */}
+            {!budgetContext && t.decision === "Committed" && canWrite && budgetLines.length > 0 && (
+              <div className="t-budget">
+                <p className="field-note">Counts toward your season budget automatically. Linking a specific budget line is optional.</p>
+                <button className="btn btn-ghost" onClick={() => setPickingLine(true)}>
                   Choose a budget line
                 </button>
               </div>
@@ -1762,8 +1766,10 @@ function SeasonStats({ summary, record, tournaments }) {
   return (
     <section className="st-stats card" aria-label="Season at a glance">
       <div><span className="st-eyebrow">Committed</span><b>{summary.committedCount}</b><span>{considering} considering</span></div>
-      <div><span className="st-eyebrow">Registered</span><b>{registered}<em> of {committed.length}</em></b><span>{waitlisted ? `${waitlisted} waitlisted` : committed.length - registered ? `${committed.length - registered} to register` : "All registered"}</span></div>
-      <div><span className="st-eyebrow">Committed cost</span><b>{money(summary.committedCost)}</b><span>for committed tournaments</span></div>
+      <div><span className="st-eyebrow">Registered</span><b>{registered}<em> of {committed.length}</em></b><span>{waitlisted ? `${waitlisted} waitlisted` : committed.length - registered ? `${committed.length - registered} to register` : "All committed registered"}</span></div>
+      <div><span className="st-eyebrow">Committed cost</span><b>{money(summary.committedCost)}</b><span>{(summary.missingCostCount ?? 0) > 0 ? `${summary.missingCostCount} with no cost entered` : (summary.freeCount ?? 0) > 0 ? `includes ${summary.freeCount} free` : "for committed tournaments"}</span></div>
+      <div><span className="st-eyebrow">Potential cost</span><b>{money(summary.potentialCost ?? 0)}</b><span>{considering > 0 ? `if you commit the ${considering} considering` : "nothing under consideration"}</span></div>
+      <div><span className="st-eyebrow">Payments recorded</span><b>{money(summary.paymentsRecorded ?? 0)}</b><span>paid to tournaments so far</span></div>
       <div><span className="st-eyebrow">Record</span><b>{record.played > 0 ? `${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ""}` : "0-0"}</b><span>{record.played > 0 ? `${record.played} games played` : "No games played yet"}</span></div>
     </section>
   );
