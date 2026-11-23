@@ -94,7 +94,8 @@ const EXPECTED = {
     "app/(app)/tournaments/page.js": 1,
     // RPT-001 (Release 3): the Schedule report names and links outside-date games only for roles that can edit games (+1); a read-only viewer gets the generic count.
     "app/reports/qab-player/page.js": 2, "app/reports/tournament-schedule/page.js": 1, "app/review/page.js": 1, "lib/actions/contacts.js": 1,
-    "lib/actions/documents.js": 1, "lib/actions/facilities.js": 2, "lib/actions/finance.js": 1,
+    // Player dues schedules (2026-11): the schedule actions refuse roles that cannot change Finance, before calling the database (+1).
+    "lib/actions/documents.js": 1, "lib/actions/dues-schedule.js": 1, "lib/actions/facilities.js": 2, "lib/actions/finance.js": 1,
     "lib/actions/games.js": 1, "lib/actions/intake.js": 1, "lib/actions/lineup.js": 1,
     "lib/actions/participants.js": 1, "lib/actions/places.js": 1, "lib/actions/plate-appearances.js": 1,
     "lib/actions/player-address.js": 1, "lib/actions/player-contacts.js": 1, "lib/actions/roster.js": 1,

@@ -203,6 +203,9 @@ function fakeDb({ paid }) {
     const b = {
       select() { return b; },
       eq(col, val) { q.filters[col] = val; return b; },
+      // Reads that ask which players have a payment schedule (none, in this database).
+      in() { return b; },
+      limit() { return b; },
       maybeSingle() { return Promise.resolve(result()); },
       single() { return Promise.resolve(result()); },
       update(payload) { q.op = "update"; q.payload = payload; writes.push(q); return b; },

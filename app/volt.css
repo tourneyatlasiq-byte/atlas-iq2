@@ -574,6 +574,8 @@ html:root .st-balance .st-bar { margin-top: 10px; height: 8px; background: #fff;
 html:root .st-money { position: relative; }
 html:root .st-money::before { content: "$"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--muted); pointer-events: none; }
 html:root .st-money input { padding-left: 32px; font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; min-height: 58px; width: 100%; }
+html:root .st-after { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+html:root .st-after b { color: var(--ink); font-weight: 700; }
 html:root .st-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 html:root .st-quick button { min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--sunk); font: inherit; font-weight: 650; font-size: 13px; color: var(--ink); cursor: pointer; }
 html:root .st-quick button[aria-pressed="true"] { background: var(--ink); color: #fff; }
@@ -1372,4 +1374,100 @@ html:root .mk-logo .brand-word { white-space: nowrap; }
    show below short reports when "Background graphics" is on in Save as PDF. ---------- */
 @media print {
   html:root, html:root body { background: #fff; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Player dues schedules (2026-11). Volt tokens only: ink, sunk, line,  */
+/* paid / due / owed. No blue. Upcoming is neutral; the next scheduled  */
+/* payment is the ink-outlined tile with a volt marker.                 */
+/* ------------------------------------------------------------------ */
+html:root .ds-chip { display: inline-flex; align-items: center; margin-top: 4px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 650; line-height: 1.5; white-space: nowrap; }
+html:root .ds-owed { background: var(--owed-t); color: var(--owed); }
+html:root .ds-due { background: var(--due-t); color: var(--due); }
+html:root .ds-neutral { background: var(--sunk); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+html:root .ds-none { background: transparent; color: var(--muted); padding-left: 0; font-weight: 550; }
+html:root .ds-head-owed { color: var(--owed); font-weight: 650; }
+html:root .ds-actual { margin-left: 8px; font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+html:root .ds-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+html:root .ds-fig { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--sunk); min-width: 0; }
+html:root .ds-fig-l { font-size: 12px; font-weight: 600; color: var(--muted); }
+html:root .ds-fig-v { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -.02em; color: var(--ink); }
+html:root .ds-fig-s { font-size: 12px; color: var(--muted); }
+html:root .ds-fig-owed { background: var(--owed-t); }
+html:root .ds-fig-owed .ds-fig-v, html:root .ds-fig-owed .ds-fig-l { color: var(--owed); }
+html:root .ds-next { grid-column: 1 / -1; background: #fff; box-shadow: inset 0 0 0 1.5px var(--ink); position: relative; padding-left: 20px; }
+html:root .ds-next::before { content: ""; position: absolute; left: 8px; top: 12px; bottom: 12px; width: 4px; border-radius: 2px; background: var(--volt); box-shadow: 0 0 0 1px rgba(12,15,20,.18); }
+html:root .ds-next .ds-fig-l { color: var(--ink); }
+
+html:root .ds-rows { list-style: none; margin: 0; padding: 0; }
+html:root .ds-row { padding: 10px 0; border-top: 1px solid var(--line); }
+html:root .ds-row-main { display: flex; align-items: center; gap: 8px; }
+html:root .ds-row-date { font-weight: 650; color: var(--ink); }
+html:root .ds-row-amt { margin-left: auto; font-family: var(--font-display); font-weight: 800; color: var(--ink); }
+html:root .ds-row-cover { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+html:root .ds-row-cover b { color: var(--ink); }
+html:root .ds-state { padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; }
+html:root .ds-st-paid { background: var(--paid-t); color: var(--paid); }
+html:root .ds-st-past-due { background: var(--owed-t); color: var(--owed); }
+html:root .ds-st-due-today { background: var(--due-t); color: var(--due); }
+html:root .ds-st-upcoming { background: var(--sunk); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+html:root .ds-note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+html:root .ds-lead { margin: 0 0 12px; font-size: 14px; color: var(--body); line-height: 1.5; }
+html:root .ds-empty { padding: 14px; border-radius: 14px; background: var(--sunk); }
+html:root .ds-empty p { margin: 0 0 10px; font-size: 14px; color: var(--body); }
+html:root .ds-section { margin-top: 22px; }
+
+html:root .ds-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+html:root .ds-edit-head, html:root .ds-edit-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 40px; gap: 8px; align-items: center; }
+html:root .ds-edit-head { font-size: 12px; font-weight: 600; color: var(--muted); }
+html:root .ds-edit-row input { width: 100%; min-height: 46px; font: inherit; }
+html:root .ds-edit-money { position: relative; }
+html:root .ds-edit-money::before { content: "$"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; pointer-events: none; }
+html:root .ds-edit-money input { padding-left: 26px; font-weight: 700; }
+html:root .ds-x { width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--sunk); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
+html:root .ds-x:disabled { opacity: .45; cursor: default; }
+html:root .ds-add { align-self: flex-start; }
+html:root .ds-total { display: flex; align-items: baseline; gap: 8px; margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--sunk); }
+html:root .ds-total b { margin-left: auto; font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--ink); }
+html:root .ds-total-of { color: var(--muted); font-size: 13px; }
+html:root .ds-total-bad { background: var(--owed-t); }
+html:root .ds-total-bad b { color: var(--owed); }
+html:root .ds-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+html:root .ds-sec-head .st-eyebrow { margin: 0; }
+html:root .ds-sec-actions { display: flex; gap: 14px; }
+html:root .ds-link { border: 0; background: none; padding: 6px 0; font: inherit; font-weight: 650; font-size: 13px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 32px; }
+html:root .ds-link:disabled { color: var(--muted); text-decoration: none; cursor: default; }
+html:root .ds-exempt { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; color: var(--ink); }
+html:root .ds-live { margin-top: 16px; }
+
+html:root .ds-sched-sum { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 14px; background: var(--sunk); margin-bottom: 12px; }
+html:root .ds-sched-sum b { font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; color: var(--ink); }
+html:root .ds-sched-sum span:last-child { font-size: 13px; color: var(--muted); }
+html:root .ds-pick-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--ink); flex-wrap: wrap; }
+html:root .ds-pick { list-style: none; margin: 6px 0 0; padding: 0; }
+html:root .ds-pick li { border-top: 1px solid var(--line); padding: 10px 0; }
+html:root .ds-pick label { display: grid; grid-template-columns: 28px 1fr; column-gap: 8px; align-items: center; min-height: 44px; cursor: pointer; }
+html:root .ds-pick label input { grid-row: 1 / span 2; width: 20px; height: 20px; accent-color: #0c0f14; }
+html:root .ds-pick-name { font-weight: 650; color: var(--ink); }
+html:root .ds-pick-sub { font-size: 12.5px; color: var(--muted); grid-column: 2; }
+html:root .ds-pick-off .ds-pick-name { color: var(--muted); }
+html:root .ds-pick .ds-replace input, html:root .ds-exempt input { accent-color: #0c0f14; }
+html:root .ds-pick .ds-replace { display: flex; margin-left: 36px; min-height: 36px; font-size: 13px; color: var(--ink); gap: 8px; align-items: center; }
+html:root .ds-callout { padding: 12px 14px; border-radius: 14px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; color: var(--ink); line-height: 1.45; margin-bottom: 12px; }
+html:root .ds-review-sum { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--body); margin-bottom: 8px; }
+html:root .ds-review-sum b { color: var(--ink); }
+html:root .ds-review { list-style: none; margin: 0; padding: 0; }
+html:root .ds-review-item { padding: 12px 0; border-top: 1px solid var(--line); }
+html:root .ds-review-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+html:root .ds-review-top .ds-chip { margin-top: 0; }
+html:root .ds-review-line { display: grid; grid-template-columns: 150px 1fr; gap: 2px 10px; font-size: 13px; margin-top: 4px; color: var(--ink); }
+html:root .ds-review-line .ds-lbl { color: var(--muted); font-weight: 600; }
+html:root .ds-detail { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--sunk); }
+html:root .ds-detail .st-eyebrow { margin: 8px 0 0; }
+html:root .ds-detail .st-eyebrow:first-child { margin-top: 0; }
+
+@media (max-width: 720px) {
+  html:root .ds-review-line { grid-template-columns: 1fr; }
+  html:root .ds-fig-v { font-size: 20px; }
 }

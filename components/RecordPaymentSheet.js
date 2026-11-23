@@ -10,8 +10,11 @@ import { StSheet, SheetError, callAction, todayIso, fmtDay, useRefreshThen } fro
 /**
  * Record a dues payment. Used from Home and Finance.
  *
- * The amount starts at the player's balance and stays editable, so a partial
- * payment is one edit. recordPayment's rules are unchanged: an obligation must
+ * The amount field starts EMPTY. It used to start with the whole balance typed in,
+ * which made a partial payment look impossible (every label read the full balance) and
+ * broke on phones: a tap puts the cursor at the end, so typing 500 gave "2100.00500".
+ * "Full balance" is one tap instead. The sheet always shows the remaining balance and,
+ * separately, what will be left after the amount being recorded. recordPayment's rules are unchanged: an obligation must
  * exist and any positive amount is accepted (the server allows more than the
  * balance, so this warns rather than blocks).
  *
@@ -23,7 +26,7 @@ export function RecordPaymentSheet({ p, onClose, onSaved }) {
   const router = useRouter();
   const toast = useToast();
   const balance = Math.max(0, Number(p.balance ?? 0));
-  const [amount, setAmount] = useState(balance > 0 ? balance.toFixed(2) : "");
+  const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayIso());
   const [label, setLabel] = useState("");
   const [err, setErr] = useState(null);
@@ -37,6 +40,8 @@ export function RecordPaymentSheet({ p, onClose, onSaved }) {
   const valid = Number.isFinite(a) && a > 0;
   const dup = valid && (p.log ?? []).find((l) => Math.round(Number(l.amount) * 100) === Math.round(a * 100) && l.paid_date === date);
   const over = valid && balance > 0 && a > balance;
+  // What the player still owes if this amount is recorded. Shown live so the amount and the balance are never confused.
+  const leftAfter = valid ? Math.max(0, Math.round((balance - a) * 100) / 100) : null;
 
   // A second tap in the same instant as the first, before the button is disabled, must not write twice.
   const inFlight = useRef(false);
@@ -81,16 +86,17 @@ export function RecordPaymentSheet({ p, onClose, onSaved }) {
         </button>
       </>}>
       <div className="st-balance">
-        <span className="st-eyebrow">{balance > 0 ? "Balance" : "Settled"}</span>
+        <span className="st-eyebrow">{balance > 0 ? "Remaining balance" : "Settled"}</span>
         <span className="st-balance-fig">{money(balance)}</span>
         <span className="st-balance-sub">{money(p.totalPaid)} paid of {money(p.totalDue)} dues</span>
         <span className="st-bar" aria-hidden="true"><i className="st-bar-dues" style={{ width: `${paidPct}%` }} /></span>
       </div>
 
       <div className="field">
-        <label htmlFor="rp-amount">Amount received</label>
+        <label htmlFor="rp-amount">Amount to record</label>
         <div className="st-money">
-          <input id="rp-amount" inputMode="decimal" autoComplete="off" value={amount} data-autofocus
+          <input id="rp-amount" inputMode="decimal" autoComplete="off" placeholder="0.00" value={amount} data-autofocus
+            onFocus={(e) => e.target.select()}
             onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); setConfirmDup(false); }} />
         </div>
         {balance > 0 && (
@@ -98,6 +104,11 @@ export function RecordPaymentSheet({ p, onClose, onSaved }) {
             <button type="button" aria-pressed={a === balance} onClick={() => { setAmount(balance.toFixed(2)); setConfirmDup(false); }}>Full balance {money(balance)}</button>
             <button type="button" aria-pressed={a === Math.round(balance * 50) / 100} onClick={() => { setAmount((Math.round(balance * 50) / 100).toFixed(2)); setConfirmDup(false); }}>Half {money(Math.round(balance * 50) / 100)}</button>
           </div>
+        )}
+        {valid && !over && (
+          <p className="st-after" aria-live="polite">
+            {leftAfter > 0 ? <><b>{money(leftAfter)}</b> left after this payment</> : <b>Paid in full with this payment</b>}
+          </p>
         )}
         {over && <p className="st-warn">That&rsquo;s more than the {money(balance)} balance. The extra will show as overpaid.</p>}
       </div>

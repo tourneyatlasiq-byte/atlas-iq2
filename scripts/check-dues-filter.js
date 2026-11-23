@@ -309,6 +309,9 @@ async function main() {
       const b = {
         select() { return b; },
         eq(c, v) { q.filters[c] = v; return b; },
+        // Reads that ask which players have a payment schedule (none, in this database).
+        in() { return b; },
+        limit() { return b; },
         order() { return b; },
         maybeSingle() { return Promise.resolve(result()); },
         single() { return Promise.resolve(result()); },

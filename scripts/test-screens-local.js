@@ -341,7 +341,7 @@ const add = (n, amount, status, extra = {}) => sql(`insert into budget_transacti
   const P1 = P(2); // 1000 due, nothing paid
   const pRow = (paid) => ({ id: P1, displayName: "P2 concurrent", balance: 1000 - paid, totalDue: 1000, totalPaid: paid, log: [] });
   await mountNode(React.createElement(RecordPaymentSheet, { p: pRow(0), onClose() {} }));
-  ok("amount starts at the balance (1000)", dlg().querySelector("input").value === "1000.00", dlg().querySelector("input").value);
+  ok("amount starts empty (never pre-typed with the balance) and save is disabled", dlg().querySelector("input").value === "" && dlgPrimary().disabled, dlg().querySelector("input").value);
   const amountEl = () => dlg().querySelector("input");
   await type(amountEl(), "400");
   await click(dlgPrimary()); await click(dlgPrimary()); // a double tap
@@ -353,6 +353,7 @@ const add = (n, amount, status, extra = {}) => sql(`insert into budget_transacti
   // stale: another coach recorded 100 while this sheet (balance 1000) was open
   await mountNode(React.createElement(RecordPaymentSheet, { p: pRow(0), onClose() {} }));
   sql(`insert into payment_log (payment_id, amount, paid_date) values ('${P1}', 100, '2026-11-19')`);
+  await type(dlg().querySelector("input"), "1000");
   await click(dlgPrimary());
   ok("a sheet showing an old balance is refused with a plain message", await until(() => /changed|refresh/i.test(dlg()?.textContent ?? ""), "stale"), dlg()?.textContent);
   ok("nothing was added", money2(`select count(*) from payment_log where payment_id='${P1}'`) === "1");

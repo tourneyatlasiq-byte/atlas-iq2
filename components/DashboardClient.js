@@ -144,7 +144,7 @@ export function DashboardClient({
                             <span className="st-av" aria-hidden="true">{initials(p.displayName)}</span>
                             <span className="st-payrow-nm"><b>{p.displayName}</b><span>{p.totalPaid > 0 ? `Paid ${money(p.totalPaid)} of ${money(p.totalDue)}` : "Nothing paid yet"}</span></span>
                             {canWrite ? (
-                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPaying(p)}>Record {money(p.balance)}</button>
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPaying(p)}>Record payment</button>
                             ) : <span className="st-payrow-amt">{money(p.balance)}</span>}
                           </li>
                         ))}

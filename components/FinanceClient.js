@@ -27,6 +27,11 @@ import {
 import { MODULE_DESCRIPTIONS } from "../lib/onboarding";
 import { GuidedTransaction } from "./GuidedTransaction";
 import { RecordPaymentSheet } from "./RecordPaymentSheet";
+import { useDeviceToday } from "./useDeviceToday";
+import { summarizeDues } from "../lib/dues-schedule";
+import {
+  DuesStatusChip, ScheduleSection, TeamScheduleSheet, ApplyScheduleSheet, ChangeScheduleSheet, standingForRecord,
+} from "./DuesSchedule";
 import { CountUp } from "./CountUp";
 import {
   saveBudgetItem,
@@ -163,6 +168,9 @@ const statusClass = (s) =>
   : "pill-unregistered";
 
 
+// What Finance receives before the payment-schedule tables exist: no schedule screens at all.
+const NO_SCHEDULES = { available: false, template: null, byPayment: {} };
+
 export function FinanceClient({
   budget, transactions, payments, summary, funds, dues, committedTournaments,
   tournaments, players, facilities, budgetItems, canWrite,
@@ -177,8 +185,16 @@ export function FinanceClient({
   // True when the link named a section (or a record inside one). Phones then
   // open that section; otherwise they open the Finance overview.
   sectionRequested = false,
+  // Payment schedules (see supabase/migrations/20261123223848_player_dues_schedules.sql).
+  // `available` is false until that migration is applied; Finance then looks exactly as it did.
+  duesSchedules = NO_SCHEDULES,
 }) {
   const [tab, setTab] = useState(initialTab);
+  // This device's date, or null until the browser reports it. Past due is never claimed before then.
+  const deviceToday = useDeviceToday();
+  const [teamScheduleOpen, setTeamScheduleOpen] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [scheduleFor, setScheduleFor] = useState(null);
 
   /*
    * Phones (≤720px) show Finance as an overview plus one section at a time
@@ -811,6 +827,9 @@ export function FinanceClient({
           onOpen={(p) => openDetail(p)}
           onBulk={(fd) => run(setDuesForAll, fd, { success: "Dues set for the players who needed them" })}
           onEditTeamDues={() => setEditingTeamDues(true)}
+          schedules={duesSchedules}
+          today={deviceToday}
+          onTeamSchedule={() => setTeamScheduleOpen(true)}
           pending={pending}
           filtered={Boolean(activeAction)}
           filterLabel={activeAction ? FINANCE_FILTER_LABELS[activeAction.id] ?? null : null}
@@ -941,6 +960,35 @@ export function FinanceClient({
           }}
           drawerError={error}
           onEdit={() => setEditPay(detailPay)}
+          schedules={duesSchedules}
+          today={deviceToday}
+          onSchedule={() => setScheduleFor(detailPay)}
+        />
+      )}
+
+      {teamScheduleOpen && duesSchedules.available && (
+        <TeamScheduleSheet
+          template={duesSchedules.template}
+          onClose={() => setTeamScheduleOpen(false)}
+          onSavedChoosePlayers={() => setApplyOpen(true)}
+        />
+      )}
+      {applyOpen && duesSchedules.available && duesSchedules.template && (
+        <ApplyScheduleSheet
+          template={duesSchedules.template}
+          payments={payments}
+          byPayment={duesSchedules.byPayment}
+          today={deviceToday}
+          onClose={() => setApplyOpen(false)}
+        />
+      )}
+      {scheduleFor && duesSchedules.available && (
+        <ChangeScheduleSheet
+          key={scheduleFor.id}
+          p={scheduleFor}
+          template={duesSchedules.template}
+          today={deviceToday}
+          onClose={() => setScheduleFor(null)}
         />
       )}
 
@@ -2251,6 +2299,9 @@ export function PaymentsTab({
   onOpen,
   onBulk,
   onEditTeamDues,
+  schedules = NO_SCHEDULES,
+  today = null,
+  onTeamSchedule,
   pending,
   filtered = false,
   filterLabel = null,
@@ -2267,12 +2318,18 @@ export function PaymentsTab({
   const full = reconcileDues(activePlayers, payments);
   const { roster, former, counts } = scopeReconciledDues(full, filterPlayerIds);
 
+  // Past due, from the shared rules. Nothing date-based is claimed until the device date is known.
+  const standingOf = (rec) => (schedules.available && rec ? standingForRecord(rec, schedules.byPayment[rec.id], today) : null);
+  const dueSummary = summarizeDues(roster.map((r) => standingOf(r.record)).filter(Boolean));
+  const isPastDue = (r) => standingOf(r.record)?.status === "past-due";
+
   const countFor = (key) =>
     key === "all" ? counts.all
     : key === "owes" ? counts.owes
     : key === "none" ? counts.notStarted
     : key === "notset" ? counts.notSet
     : key === "paid" ? counts.paid
+    : key === "pastdue" ? (today ? roster.filter(isPastDue).length : "…")
     : counts.former + counts.unlinked;
 
   const visible =
@@ -2280,6 +2337,7 @@ export function PaymentsTab({
       ? former
       : roster.filter((r) => {
           if (view === "owes") return r.record && r.record.balance > 0;
+          if (view === "pastdue") return today ? isPastDue(r) : false;
           if (view === "none") return r.state === "not-started";
           if (view === "notset") return r.state === "not-set";
           if (view === "paid") return r.state === "paid";
@@ -2322,6 +2380,9 @@ export function PaymentsTab({
               {playersWithoutDues > 0 && (
                 <> · {playersWithoutDues} without dues set</>
               )}
+              {schedules.available && dueSummary.ready && dueSummary.pastDueCount > 0 && (
+                <> · <span className="ds-head-owed">{dueSummary.pastDueCount} past due ({money(dueSummary.pastDueCents / 100)})</span></>
+              )}
             </>
           )}
         </div>
@@ -2333,6 +2394,11 @@ export function PaymentsTab({
             {playersWithoutDues > 0 && (
               <button className="btn btn-secondary" onClick={onAdd}>
                 Set dues for {playersWithoutDues} {playersWithoutDues === 1 ? "player" : "players"}
+              </button>
+            )}
+            {schedules.available && withDuesCount > 0 && (
+              <button className="btn btn-secondary" onClick={onTeamSchedule}>
+                {schedules.template ? "Team schedule" : "Set up team schedule"}
               </button>
             )}
             {canBulkEdit && (
@@ -2358,7 +2424,10 @@ export function PaymentsTab({
 
       {(roster.length > 0 || former.length > 0) && (
         <div className="segmented pay-views" role="group" aria-label="Filter players">
-          {PAYMENT_VIEWS.filter((v) => v.key !== "former" || former.length > 0).map((v) => (
+          {(schedules.available
+            ? [...PAYMENT_VIEWS.slice(0, 2), { key: "pastdue", label: "Past due" }, ...PAYMENT_VIEWS.slice(2)]
+            : PAYMENT_VIEWS
+          ).filter((v) => v.key !== "former" || former.length > 0).map((v) => (
             <button
               key={v.key}
               className={`segment${view === v.key ? " on" : ""}`}
@@ -2492,6 +2561,7 @@ export function PaymentsTab({
                               ? `Nothing paid of ${money(p.totalDue)}`
                               : `${money(p.totalPaid)} of ${money(p.totalDue)}`}
                         </span>
+                        {schedules.available && <DuesStatusChip standing={standingOf(p)} />}
                       </div>
                     </td>
 
@@ -2602,7 +2672,10 @@ function FormerDuesTable({ rows, onOpen }) {
 }
 
 function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, onDeleteEntry, onEdit,
-                        confirmingEntry = null, onCancelEntry, onConfirmEntry, drawerError = null }) {
+                        confirmingEntry = null, onCancelEntry, onConfirmEntry, drawerError = null,
+                        schedules = NO_SCHEDULES, today = null, onSchedule }) {
+  const standing = schedules.available ? standingForRecord(p, schedules.byPayment[p.id], today) : null;
+  const scheduled = standing?.hasSchedule;
   return (
     <DrawerShell onClose={onClose} ariaLabel="Transaction details">
         <div className="drawer-head">
@@ -2619,14 +2692,22 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
         </div>
 
         <div className="drawer-body">
+          {/* The schedule summary below carries Total dues, Payments credited and Remaining balance,
+              so this older block shows only for players without a schedule summary. */}
+          {!(standing && standing.hasSchedule) && (
           <div className="cost-box">
             <div className="cost-row"><span>Total due</span><span>{money(p.totalDue)}</span></div>
             <div className="cost-row"><span>Paid</span><span>{money(p.totalPaid)}</span></div>
             <div className="cost-row cost-total"><span>Balance</span><span>{money(p.balance)}</span></div>
           </div>
+          )}
+
+          {standing && (
+            <ScheduleSection p={p} standing={standing} today={today} canWrite={canWrite} onSchedule={onSchedule} />
+          )}
 
           <section className="detail-section" style={{ marginTop: 22 }}>
-            <h3 className="detail-section-title">Payment history</h3>
+            <h3 className="detail-section-title">Payment history <span className="ds-actual">actual payments</span></h3>
             {p.log.length === 0 ? (
               <p className="section-body muted">No payments recorded yet.</p>
             ) : (
@@ -2669,13 +2750,18 @@ function PaymentDetail({ p, canWrite, pending, onClose, onRecord, onRecordOpen, 
         {canWrite && (
           <div className="drawer-foot">
             {drawerError && <p className="drawer-foot-error" role="alert">{drawerError}</p>}
-            <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit total due</button>
-            {/* The one volt button: opens the prefilled sheet. The balance is
-                the starting amount and stays editable, so a partial payment
-                is one edit. */}
+            {standing ? (
+              <button className="btn btn-secondary" onClick={onSchedule} disabled={pending}>
+                {scheduled ? "Schedule and total" : "Set schedule"}
+              </button>
+            ) : null}
+            {/* A scheduled player's total changes together with their schedule, in one sheet. */}
+            {!scheduled && <button className="btn btn-secondary" onClick={onEdit} disabled={pending}>Edit total due</button>}
+            {/* The one volt button: opens the prefilled sheet. The label carries no amount: the
+                remaining season balance must not read as the payment that is due now. */}
             {p.balance > 0 && (
               <button type="button" className="btn btn-primary" onClick={onRecordOpen} disabled={pending}>
-                Record {money(p.balance)}
+                Record payment
               </button>
             )}
           </div>
@@ -3060,7 +3146,7 @@ function NextAction({ payments, canWrite, seasonPhase, hasBudget, onRecord, onAd
     const p = owing[0];
     txt = `Collect ${money(p.balance)} from ${p.displayName}`;
     sub = p.totalPaid > 0 ? `Paid ${money(p.totalPaid)} of ${money(p.totalDue)} so far` : "Nothing paid yet";
-    if (canWrite) btn = <button type="button" className="btn btn-primary" onClick={() => onRecord(p)}>Record {money(p.balance)}</button>;
+    if (canWrite) btn = <button type="button" className="btn btn-primary" onClick={() => onRecord(p)}>Record payment</button>;
   } else if (!hasBudget) {
     lab = "Start here"; txt = "Set up your season budget"; sub = "Everything else in Finance builds on it.";
     btn = <button type="button" className="btn btn-primary" onClick={onBudget}>Open Budget</button>;

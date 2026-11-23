@@ -9,6 +9,7 @@ import {
   fundsIn,
   duesSummary,
 } from "../../../lib/queries/finance";
+import { listDuesSchedules } from "../../../lib/queries/dues-schedule";
 import { createClient } from "../../../lib/supabase/server";
 import { FinanceClient } from "../../../components/FinanceClient";
 
@@ -79,12 +80,14 @@ export default async function FinancePage({ searchParams }) {
     );
   }
 
-  const [budgetItems, transactions, payments, committed, picks] = await Promise.all([
+  const [budgetItems, transactions, payments, committed, picks, duesSchedules] = await Promise.all([
     listBudgetItems(season.id),
     listTransactions(season.id),
     listPlayerPayments(season.id),
     committedTournamentCost(season.id),
     pickers(season.id, organization.id),
+    // Never throws: Finance loads as before if the schedule tables are not in the database yet.
+    listDuesSchedules(season.id),
   ]);
 
   // Tournaments feed commitment: a committed event consumes its budget line
@@ -121,6 +124,7 @@ export default async function FinancePage({ searchParams }) {
       summary={financeSummary(budget, transactions, payments)}
       funds={fundsIn(transactions, payments, budgetItems)}
       dues={duesSummary(payments)}
+      duesSchedules={duesSchedules}
       committedTournaments={committed}
       budgetItems={budgetItems}
       tournaments={picks.tournaments}
