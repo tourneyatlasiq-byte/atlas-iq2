@@ -1,5 +1,5 @@
 // Public pages may be indexed. The signed-in application never should be.
-const SITE = "https://seasontempo.com";
+const SITE = "https://www.seasontempo.com";
 
 export default function robots() {
   return {

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { LogoLockup } from "../../components/SeasonTempoLogo";
+import { hasSessionCookie } from "../../lib/public-session";
+import { MarketingHeader, MarketingFooter } from "../../components/MarketingChrome";
 import {
   LEGAL_ENTITY, PRODUCT, PRIVACY_VERSION, PRIVACY_EFFECTIVE_DATE,
   PRIVACY_EMAIL, SUPPORT_EMAIL, SUBPROCESSORS,
@@ -18,20 +19,15 @@ export const metadata = {
  * retention periods, encryption specifics, and security certifications. If it
  * could not be confirmed from the system, it is not in this document.
  */
+// Read per request only so the shared header can show Open Season Tempo to a signed-in visitor.
+export const dynamic = "force-dynamic";
+
 export default function PrivacyPage() {
+  const signedIn = hasSessionCookie();
+
   return (
-    <div className="legal-page">
-      <header className="mk-header">
-        <div className="mk-wrap mk-header-inner">
-          <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-            <LogoLockup size={30} tone="ink" wordSize={22} />
-          </Link>
-          <nav className="mk-nav">
-            <Link href="/terms">Terms</Link>
-            <Link href="/">Home</Link>
-          </nav>
-        </div>
-      </header>
+    <div className="sx sx-legal legal-page">
+      <MarketingHeader signedIn={signedIn} />
 
       <main className="legal-wrap">
         <h1>Privacy Policy</h1>
@@ -186,17 +182,7 @@ export default function PrivacyPage() {
           General support: <strong>{SUPPORT_EMAIL}</strong>
         </p>
       </main>
-
-      <footer className="mk-footer">
-        <div className="mk-wrap mk-footer-inner">
-          <span className="muted">{LEGAL_ENTITY}</span>
-          <nav className="mk-footer-nav">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/">Home</Link>
-          </nav>
-        </div>
-      </footer>
+      <MarketingFooter signedIn={signedIn} />
     </div>
   );
 }

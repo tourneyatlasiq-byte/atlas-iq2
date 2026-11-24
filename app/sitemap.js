@@ -1,5 +1,5 @@
 // Only the public marketing and legal pages. Kept in step with PUBLIC_EXACT in lib/supabase/middleware.js.
-const SITE = "https://seasontempo.com";
+const SITE = "https://www.seasontempo.com";
 
 export default function sitemap() {
   const paths = ["/", "/product", "/about", "/privacy", "/terms"];

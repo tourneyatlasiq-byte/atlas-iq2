@@ -39,7 +39,7 @@ const DESCRIPTION =
   "Season Tempo keeps tournaments, lineups, money and performance for your travel softball team in one place.";
 
 export const metadata = {
-  metadataBase: new URL("https://seasontempo.com"),
+  metadataBase: new URL("https://www.seasontempo.com"),
   title: { default: "Season Tempo: The whole season, in one place.", template: "%s | Season Tempo" },
   description: DESCRIPTION,
   openGraph: {
