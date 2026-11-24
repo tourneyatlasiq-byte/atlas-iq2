@@ -56,6 +56,9 @@
 
 .sx-stage { position: relative; height: 660px; }
 .sx-disc { position: absolute; right: -70px; top: 70px; width: 580px; height: 580px; border-radius: 50%; background: var(--volt); }
+.sx-seams { --seam-ink: 12,15,20; --seam-line: .13; --seam-tick: .20; --seam-turn: 52deg; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; transform: rotate(var(--seam-turn)); }
+.sx-seams .sx-seam { fill: none; stroke: rgba(var(--seam-ink), var(--seam-line)); stroke-width: 1; stroke-linecap: round; }
+.sx-seams .sx-stitch { fill: none; stroke: rgba(var(--seam-ink), var(--seam-tick)); stroke-width: 2.6; stroke-dasharray: .7 2.1; }
 .sx-ring { position: absolute; right: 80px; top: 220px; width: 280px; height: 280px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(12,15,20,.10); }
 .sx-stage-next, .sx-stage-todo { position: absolute; filter: drop-shadow(0 24px 40px rgba(12,15,20,.22)); }
 .sx-stage-next { left: 0; top: 24px; width: 470px; z-index: 2; }

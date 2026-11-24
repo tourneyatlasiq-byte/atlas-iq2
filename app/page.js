@@ -4,6 +4,7 @@ import { getViewer } from "../lib/context";
 import { SUPPORT_EMAIL } from "../lib/legal";
 import { MarketingHeader, MarketingFooter, Shot } from "../components/MarketingChrome";
 import TwoViews from "../components/TwoViews";
+import DiscSeams from "../components/DiscSeams";
 import { QAB_REASONS } from "../lib/qab-rules";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ export default async function HomePage() {
             </div>
 
             <div className="sx-stage">
-              <div className="sx-disc" aria-hidden="true" />
+              <div className="sx-disc" aria-hidden="true"><DiscSeams /></div>
               <div className="sx-ring" aria-hidden="true" />
               <picture>
                 <source media="(max-width: 760px)" srcSet="/marketing/hero-next-m.webp" width="780" height="1523" />
@@ -108,7 +109,7 @@ export default async function HomePage() {
             </div>
 
             <div className="sx-qab-stage">
-              <div className="sx-qab-disc" aria-hidden="true" />
+              <div className="sx-qab-disc" aria-hidden="true"><DiscSeams /></div>
               <div className="sx-phone">
                 <img src="/marketing/qab-tracker-phone.webp" width="1170" height="2330"
                   alt="The Season Tempo phone tracker: now batting, with the nine quality at-bat reasons to choose from" />

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "../../lib/supabase/server";
 import { MarketingHeader, MarketingFooter, Shot } from "../../components/MarketingChrome";
+import DiscSeams from "../../components/DiscSeams";
 import { SUPPORT_EMAIL } from "../../lib/legal";
 import { QAB_REASONS } from "../../lib/qab-rules";
 import "../site.css";
@@ -105,7 +106,7 @@ export default async function ProductPage() {
               </div>
             </div>
             <div className="sx-qab-stage">
-              <div className="sx-qab-disc" aria-hidden="true" />
+              <div className="sx-qab-disc" aria-hidden="true"><DiscSeams /></div>
               <div className="sx-phone">
                 <img src="/marketing/qab-tracker-phone.webp" width="1170" height="2330" loading="lazy"
                   alt="The Season Tempo phone tracker: now batting, with the nine quality at-bat reasons" />
