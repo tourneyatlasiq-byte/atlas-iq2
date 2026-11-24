@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { LogoLockup } from "../../components/SeasonTempoLogo";
+import { hasSessionCookie } from "../../lib/public-session";
+import { MarketingHeader, MarketingFooter } from "../../components/MarketingChrome";
 import {
-  LEGAL_ENTITY, PRODUCT, PRIVACY_VERSION, EFFECTIVE_DATE,
+  LEGAL_ENTITY, PRODUCT, PRIVACY_VERSION, PRIVACY_EFFECTIVE_DATE,
   PRIVACY_EMAIL, SUPPORT_EMAIL, SUBPROCESSORS,
 } from "../../lib/legal";
 import "../home.css";
@@ -18,25 +19,20 @@ export const metadata = {
  * retention periods, encryption specifics, and security certifications. If it
  * could not be confirmed from the system, it is not in this document.
  */
+// Read per request only so the shared header can show Open Season Tempo to a signed-in visitor.
+export const dynamic = "force-dynamic";
+
 export default function PrivacyPage() {
+  const signedIn = hasSessionCookie();
+
   return (
-    <div className="legal-page">
-      <header className="mk-header">
-        <div className="mk-wrap mk-header-inner">
-          <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-            <LogoLockup size={30} tone="navy" wordSize={22} />
-          </Link>
-          <nav className="mk-nav">
-            <Link href="/terms">Terms</Link>
-            <Link href="/">Home</Link>
-          </nav>
-        </div>
-      </header>
+    <div className="sx sx-legal legal-page">
+      <MarketingHeader signedIn={signedIn} />
 
       <main className="legal-wrap">
         <h1>Privacy Policy</h1>
         <p className="legal-meta">
-          Version {PRIVACY_VERSION} · Effective {EFFECTIVE_DATE}
+          Version {PRIVACY_VERSION} · Effective {PRIVACY_EFFECTIVE_DATE}
         </p>
 
         <p className="legal-lede">
@@ -63,7 +59,15 @@ export default function PrivacyPage() {
         <h3>Your account</h3>
         <p>
           Your email address, the name you enter, your role, and the organization you belong
-          to. Sign-in is by emailed link, so no password is stored.
+          to. Sign-in is by emailed link or code, so no password is stored.
+        </p>
+
+        <h3>If you are invited</h3>
+        <p>
+          When an owner invites you, we store your email address, the role and team they chose,
+          and information about when the invitation was sent so the invitation can work and be
+          resent. The invitation stops working after 14 days unless it is renewed, and the owner
+          can withdraw it at any time.
         </p>
 
         <h3>Information you enter about your organization</h3>
@@ -76,7 +80,7 @@ export default function PrivacyPage() {
         <h3>Information about players</h3>
         <p>
           A player record can include a name, date of birth, graduation year, jersey number,
-          positions, uniform sizes, contact details, and a parent or guardian&rsquo;s name,
+          positions, uniform sizes, mailing address, contact details, and a parent or guardian&rsquo;s name,
           email and phone number. Which of these you provide is entirely your choice — only a
           name is required.
         </p>
@@ -178,17 +182,7 @@ export default function PrivacyPage() {
           General support: <strong>{SUPPORT_EMAIL}</strong>
         </p>
       </main>
-
-      <footer className="mk-footer">
-        <div className="mk-wrap mk-footer-inner">
-          <span className="muted">{LEGAL_ENTITY}</span>
-          <nav className="mk-footer-nav">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/">Home</Link>
-          </nav>
-        </div>
-      </footer>
+      <MarketingFooter signedIn={signedIn} />
     </div>
   );
 }

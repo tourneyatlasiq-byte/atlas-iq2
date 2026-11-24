@@ -1,206 +1,215 @@
 import Link from "next/link";
-import "../home.css";
-import "./product.css";
-import { getViewer } from "../../lib/context";
-import { MarketingHeader, MarketingFooter, ProductShot } from "../../components/MarketingChrome";
-import { ProductConsole } from "../../components/ProductConsole";
+import { createClient } from "../../lib/supabase/server";
+import { MarketingHeader, MarketingFooter, Shot } from "../../components/MarketingChrome";
+import { SUPPORT_EMAIL } from "../../lib/legal";
+import { QAB_REASONS } from "../../lib/qab-rules";
+import "../site.css";
+
+export const metadata = {
+  title: "Product",
+  description:
+    "See how Season Tempo keeps tournaments, money, roster and quality at-bats for a travel softball season in one place.",
+};
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Product — Season Tempo",
-  description:
-    "Explore Season Tempo: tournaments, finance, game day, performance and reports for travel softball teams and organizations.",
-};
+const QAB_REQUEST = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Quality at-bat tracking request")}`;
 
-/**
- * Product.
- *
- * The job of this page is exploration and belief in depth. Home creates
- * interest; this page answers "what is actually in it?"
- *
- * The Console carries the breadth. Eight of the nine areas are a single
- * surface in the application, so a panel expresses them as completely as a
- * stacked section would — and stacking nine areas vertically would add scroll
- * without adding information. Only two things earn their own space below:
- *
- *   How it connects — a directory shows one area at a time, so it structurally
- *     cannot show the relationship between them.
- *   Game day — three routes, two devices, and the differentiator.
- *
- * Every figure here was read from production, and the relationship between
- * them was traced through the code before it was described.
- *
- * $650 is a GENERATED column on the tournament. $6,365 is a READ-TIME AGGREGATE
- * of committed tournaments. $29,480 is an aggregate of separately entered
- * budget lines. They are linked by a foreign key, NOT the same record, so this
- * page does not claim they are.
- *
- * The Tournament Fees line ($22,000) was deliberately dropped from the
- * sequence: it is a planned figure a coach typed, not a roll-up of
- * tournaments, and two committed tournaments carry no budget category at all,
- * so $6,365 is not contained within it. Showing it as a containing step would
- * have asserted a nesting the data contradicts.
- */
 export default async function ProductPage() {
-  const { user, hasOrganization } = await getViewer();
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const signedIn = Boolean(user);
-  const appHref = hasOrganization ? "/dashboard" : "/welcome";
+  const appHref = "/dashboard";
 
   return (
-    <div className="mk">
+    <div className="sx">
       <MarketingHeader signedIn={signedIn} appHref={appHref} />
 
-      {/* 1 — Orient. Not a second pitch; Home already made the argument. */}
-      <section className="pr-hero">
-        <div className="mk-wrap">
-          <p className="pr-eyebrow">Product</p>
-          <h1>What a season looks like inside Season Tempo.</h1>
-          <p className="pr-lede">
-            Nine areas, built for travel softball, that know about each other. Open any of them
-            below.
-          </p>
-        </div>
-      </section>
-
-      {/* 2 — The Console. All breadth lives here. */}
-      <section className="pr-console-section">
-        <div className="mk-wrap">
-          <ProductConsole />
-        </div>
-      </section>
-
-      {/* 3 — The one argument a directory cannot make. */}
-      <section className="pr-connect">
-        <div className="mk-wrap">
-          <div className="pr-connect-head">
-            <h2>Commit to one weekend, and the money follows.</h2>
-            <p>
-              An entry fee is not a number in a spreadsheet. It is part of what your season has
-              already promised to spend, measured against the budget families are being asked
-              to fund.
+      <main>
+        <section className="sx-page-hero" aria-labelledby="h1">
+          <div className="sx-wrap">
+            <h1 className="sx-h1" id="h1">
+              Run the season<span className="sx-dot" aria-hidden="true" /><span className="sr-only">.</span> Track every <span className="sx-nb">at-bat</span><span className="sx-dot" aria-hidden="true" /><span className="sr-only">.</span>
+            </h1>
+            <p className="sx-lede">
+              Season Tempo follows a travel softball season the way you run it: the tournaments you
+              are weighing, what they cost, who has paid, and how the team is hitting.
             </p>
+            <nav className="sx-anchors" aria-label="On this page">
+              <a href="#home">Home</a>
+              <a href="#tournaments">Tournaments</a>
+              <a href="#qab">Quality at-bats</a>
+              <a href="#money">Money</a>
+              <a href="#season">The season</a>
+              <a href="#faq">Questions</a>
+            </nav>
           </div>
+        </section>
 
-          {/* A roll-up, described as one. Each figure contains the one above
-              it; no value is claimed to travel or repeat. */}
-          <ol className="pr-rollup">
-            <li>
-              <span className="pr-rollup-value">$650</span>
-              <span className="pr-rollup-label">Peach State Showdown entry fee</span>
-            </li>
-            <li>
-              <span className="pr-rollup-value">$6,365</span>
-              <span className="pr-rollup-label">
-                committed across eight tournaments, this one included
-              </span>
-            </li>
-            <li>
-              <span className="pr-rollup-value">$29,480</span>
-              <span className="pr-rollup-label">the season budget it is measured against</span>
-            </li>
-          </ol>
-
-          <p className="pr-connect-foot">
-            Enter the fee once, on the tournament. It counts toward what you&rsquo;ve committed
-            from that moment &mdash; before an invoice, and before anyone has paid.
-          </p>
-        </div>
-      </section>
-
-      {/* 4 — Game day. Three routes, two devices, the differentiator. */}
-      <section className="pr-gameday">
-        <div className="mk-wrap">
-          <div className="pr-gameday-head">
-            <h2>
-              Game day
-              <span className="mk-premium">Premium</span>
-            </h2>
-            <p>
-              Quality at-bat tracking and Performance are advanced capabilities, currently enabled
-              for selected early-access organizations.
-            </p>
-          </div>
-
-          <div className="pr-gameday-grid">
-            <div className="pr-gd-step">
-              <p className="pr-gd-n">Before the first pitch</p>
-              <h3>Set the batting order.</h3>
-              <p>
-                Build the lineup from your tournament roster, including pickups. Copy it from a
-                game you already played, then change what needs changing.
-              </p>
-            </div>
-
-            <div className="pr-gd-shot phone">
-              <ProductShot
-                src="/mk-qab-phone.webp"
-                alt="Recording what made a plate appearance a quality at-bat, on a phone"
-                ratio="3 / 4"
-              />
-            </div>
-
-            <div className="pr-gd-step">
-              <p className="pr-gd-n">Between innings</p>
-              <h3>Record what actually happened.</h3>
-              <p>
-                Not just hits. The eight-pitch battle, the sacrifice that moved the runner, the
-                walk that started the inning — tapped in by the coach who saw it. Leave and come
-                back and it resumes where each batter left off.
-              </p>
-            </div>
-
-            <div className="pr-gd-step">
-              <p className="pr-gd-n">Afterwards</p>
-              <h3>See what earned them.</h3>
-              <p>
-                Quality at-bats by game and by player, and the reasons coaches recorded across the
-                season. Win, loss and tie sit beside each game as context.
-              </p>
-            </div>
-
-            <div className="pr-gd-shot wide">
-              <ProductShot
-                src="/mk-qab-reasons.webp"
-                alt="Reasons cited across the season: walks, hits, situation success, sacrifices and long at-bats"
-                ratio="16 / 5"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5 — Closing principle, then convert. */}
-      <section className="pr-forward">
-        <div className="mk-wrap">
-          <div className="pr-forward-grid">
+        <section className="sx-section sx-anchor" id="home" aria-labelledby="home-h">
+          <div className="sx-wrap sx-split">
             <div>
-              <h2>It carries forward.</h2>
-              <p>
-                A season ends; the knowledge does not. Your roster, your facility notes, your
-                tournament history and last year&rsquo;s numbers are all still there when the next
-                season starts.
+              <h2 className="sx-h2" id="home-h">Open it Monday morning and see where the season stands.</h2>
+              <p className="sx-p">
+                Your next tournament, how many days away it is and where it is. Underneath, the
+                things that need you: players who still owe dues, a tournament you committed to but
+                have not registered for. Each one links to the screen where you fix it.
               </p>
             </div>
-
-            <div className="pr-forward-cta">
-              <Link
-                href={signedIn ? appHref : "/login?new=1"}
-                className="btn btn-primary mk-btn-lg"
-              >
-                {signedIn ? "Go to Season Tempo" : "Try Season Tempo"}
-              </Link>
-              {/* "View pricing" is the approved secondary CTA, hidden until
-                  /pricing exists so no live link reaches a 404. Restore this
-                  block, and the two in MarketingChrome, when Pricing ships. */}
-              {/* <Link href="/pricing" className="pr-secondary">
-                View pricing &rarr;
-              </Link> */}
-              <p className="mk-note">Free during early access.</p>
+            <div className="sx-frame">
+              <img src="/marketing/hero-next.webp" width="1300" height="1079" loading="lazy"
+                alt="Season Tempo Home: the next tournament and its games" />
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section className="sx-section sx-alt sx-anchor" id="tournaments" aria-labelledby="t-h">
+          <div className="sx-wrap sx-split sx-split-flip">
+            <div>
+              <h2 className="sx-h2" id="t-h">Every tournament, in order.</h2>
+              <p className="sx-p">
+                Dates, facility, registration, payment and results in one row per tournament. Update
+                registration as you go, and keep the tournament director&rsquo;s number one tap away.
+              </p>
+              <ul className="sx-ticks">
+                <li><b>Considering or committed.</b> Costs count the moment you commit.</li>
+                <li><b>Registration and payment.</b> Plain labels, so no one has to decode a color.</li>
+              </ul>
+            </div>
+            <div className="sx-frame">
+              <Shot name="tournaments-overview" w={1600} h={712} mw={780} mh={1054} alt="Season Tempo Tournaments: the season timeline, committed tournaments, costs and record" />
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-dark sx-qab sx-anchor" id="qab" aria-labelledby="qab-h">
+          <div className="sx-wrap sx-qab-grid">
+            <div>
+              <h2 className="sx-h2" id="qab-h">Quality at-bats, from the dugout to the report.</h2>
+              <p className="sx-p">
+                Choose one primary reason for each quality at-bat. Each plate appearance counts once.
+              </p>
+              <ul className="sx-reasons" aria-label="The nine reasons you can choose">
+                {QAB_REASONS.map((r) => (
+                  <li key={r.key}>{r.label}</li>
+                ))}
+              </ul>
+              <ul className="sx-ticks">
+                <li><b>Track.</b> Set the batting order, then record each at-bat from your phone.</li>
+                <li><b>Review.</b> Fix an at-bat afterwards if you tapped the wrong reason.</li>
+                <li><b>Report.</b> Player, tournament and team reports, ready to print or save as a PDF.</li>
+              </ul>
+              <p className="sx-avail"><i aria-hidden="true" />Available on request during early access.</p>
+              <div className="sx-acts">
+                <a href={QAB_REQUEST} className="sx-btn sx-btn-volt">Ask for quality at-bat tracking</a>
+              </div>
+            </div>
+            <div className="sx-qab-stage">
+              <div className="sx-qab-disc" aria-hidden="true" />
+              <div className="sx-phone">
+                <img src="/marketing/qab-tracker-phone.webp" width="1170" height="2330" loading="lazy"
+                  alt="The Season Tempo phone tracker: now batting, with the nine quality at-bat reasons" />
+              </div>
+            </div>
+          </div>
+          <div className="sx-wrap">
+            <div className="sx-reports-grid">
+              <figure>
+                <div className="sx-frame"><Shot name="qab-player-report" w={1500} h={1435} mw={780} mh={1972} alt="An individual player QAB report" /></div>
+                <figcaption><b style={{ color: "#fff" }}>Player report</b><span style={{ color: "rgba(255,255,255,.74)" }}>Rate by tournament and how each quality at-bat was earned.</span></figcaption>
+              </figure>
+              <figure>
+                <div className="sx-frame"><Shot name="qab-tournament-compare" w={1500} h={730} mw={780} mh={1105} alt="Team QAB percentage by tournament compared with the season rate" /></div>
+                <figcaption><b style={{ color: "#fff" }}>Tournament comparison</b><span style={{ color: "rgba(255,255,255,.74)" }}>Each tournament next to the season rate.</span></figcaption>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-section sx-anchor" id="money" aria-labelledby="m-h">
+          <div className="sx-wrap sx-split">
+            <div>
+              <h2 className="sx-h2" id="m-h">What your budget has gone on, not just what you have paid.</h2>
+              <p className="sx-p">
+                Each budget line shows what you set aside, what is paid, what is still to pay and
+                what is genuinely left. Commit to a tournament and it counts straight away, paid or not.
+              </p>
+              <ul className="sx-ticks">
+                <li><b>Player dues.</b> Who has paid, who has not, and how much is outstanding.</li>
+                <li><b>Parent budget report.</b> A printable summary of the season budget.</li>
+              </ul>
+            </div>
+            <div className="sx-frame">
+              <Shot name="finance-summary" w={1500} h={536} mw={780} mh={693} alt="Season Tempo Finance: available budget, paid, to pay, and outstanding player dues" />
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-section sx-alt sx-anchor" id="season" aria-labelledby="s-h">
+          <div className="sx-wrap">
+            <h2 className="sx-h2" id="s-h">A season, start to finish.</h2>
+            <ol className="sx-strip">
+              <li><b>Plan</b><span>Add events you are considering. Compare cost, dates and travel.</span></li>
+              <li><b>Commit</b><span>Decide what you are playing. Costs start counting straight away.</span></li>
+              <li><b>Play</b><span>Record pool play and bracket results as the tournament happens.</span></li>
+              <li><b>Track</b><span>Watch the budget, dues and quality at-bats as the season builds.</span></li>
+              <li><b>Learn</b><span>Note what the facility was like and whether you would go back.</span></li>
+              <li><b>Next season</b><span>Carry your roster forward. Prior seasons stay for reference.</span></li>
+            </ol>
+            <div className="sx-also">
+              <div className="sx-card"><h3 className="sx-h3">Facilities</h3><p>A shared directory of facilities, plus your own notes on parking, gates and concessions for next time.</p></div>
+              <div className="sx-card"><h3 className="sx-h3">Games</h3><p>Schedule and results inside each tournament. Enter the score and Season Tempo works out the record.</p></div>
+              <div className="sx-card"><h3 className="sx-h3">Files</h3><p>Player documents, waivers, insurance and schedules, attached to the player or tournament they belong to.</p></div>
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-section sx-anchor" id="faq" aria-labelledby="faq-h">
+          <div className="sx-wrap">
+            <h2 className="sx-h2" id="faq-h">Questions coaches ask.</h2>
+            <div className="sx-faq">
+              <details>
+                <summary>What does it cost?</summary>
+                <p>Season Tempo is free during early access. We will give you advance notice before that changes.</p>
+              </details>
+              <details>
+                <summary>How do I get quality at-bat tracking?</summary>
+                <p>It is available on request during early access. <a href={QAB_REQUEST}>Email us</a> and we will set it up for your organization.</p>
+              </details>
+              <details>
+                <summary>Does it work on a phone?</summary>
+                <p>Yes. Season Tempo runs in your phone&rsquo;s browser, and the quality at-bat tracker is built for use at the field.</p>
+              </details>
+              <details>
+                <summary>Can I print reports?</summary>
+                <p>Yes. The season budget, tournament schedule and quality at-bat reports can be printed or saved as a PDF.</p>
+              </details>
+              <details>
+                <summary>Who can see our information?</summary>
+                <p>People in your organization, according to their role. One deliberate exception: ballpark and facility records are shared so no one re-enters the same venue, while your own notes about a facility stay private. We do not sell your information. The <Link href="/privacy">Privacy Policy</Link> has the details.</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        {signedIn ? (
+          <section className="sx-section">
+            <div className="sx-wrap">
+              <Link href={appHref} className="sx-btn sx-btn-volt">Back to Season Tempo</Link>
+            </div>
+          </section>
+        ) : (
+          <section className="sx-dark sx-final" aria-labelledby="final-h">
+            <div className="sx-wrap">
+              <h2 className="sx-h2" id="final-h">From the first entry fee to the last <span className="sx-nb">at-bat</span>.</h2>
+              <div className="sx-acts">
+                <Link href="/login?new=1" className="sx-btn sx-btn-volt">Get started</Link>
+              </div>
+              <p className="sx-note">Free during early access. We&rsquo;ll give you advance notice before that changes.</p>
+            </div>
+          </section>
+        )}
+      </main>
 
       <MarketingFooter signedIn={signedIn} />
     </div>

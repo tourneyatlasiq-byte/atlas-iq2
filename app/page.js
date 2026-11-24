@@ -1,160 +1,198 @@
 import Link from "next/link";
-import { Barlow_Condensed } from "next/font/google";
-import "./marketing-home.css";
+import "./site.css";
 import { getViewer } from "../lib/context";
 import { SUPPORT_EMAIL } from "../lib/legal";
-import { SiteHeader } from "../components/marketing/SiteHeader";
-import { Wordmark } from "../components/marketing/SeasonMark";
-import { Shot } from "../components/marketing/Shot";
-import { WeekendPlan } from "../components/marketing/WeekendPlan";
-import { EXAMPLE_WEEKEND, SHOTS } from "../components/marketing/home-data";
-
-// Self-hosted at build time, like Inter and Poppins in the root layout, so no
-// visitor request goes to Google.
-const display = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-display-condensed",
-  display: "swap",
-});
+import { MarketingHeader, MarketingFooter, Shot } from "../components/MarketingChrome";
+import TwoViews from "../components/TwoViews";
+import { QAB_REASONS } from "../lib/qab-rules";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Season Tempo | The whole season, in one place",
+  title: "The whole season, in one place.",
   description:
-    "Keep your travel softball team’s tournaments, roster, dues, facilities and games together, with fewer spreadsheets and less searching through messages.",
+    "Season Tempo keeps tournaments, roster, dues, facilities, games and quality at-bats for your travel softball team in one place.",
 };
 
-const EARLY_ACCESS = "Free during early access. We’ll give you advance notice before that changes.";
+const QAB_REQUEST = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Quality at-bat tracking request")}`;
+
+function Arrow() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /**
- * Public homepage (marketing-v5, alternative to v4: light, left-aligned,
- * Red Clay Classic shown "For the team manager" and "For families").
- *
- * The opening shows the finished work: one tournament weekend as families
- * receive it. The first section shows how the coach manages that same
- * tournament. The full season and the feature walkthrough live on /product.
- *
- * Renders for everyone. getViewer() deliberately does not redirect: a
- * signed-in visitor keeps the marketing page and gets "Open Season Tempo".
- * All styles are scoped under .st in marketing-home.css.
+ * Public homepage, built on the approved Volt website concept.
+ * Renders for everyone; getViewer() deliberately does not redirect.
  */
 export default async function HomePage() {
   const { user, hasOrganization } = await getViewer();
   const signedIn = Boolean(user);
   const appHref = hasOrganization ? "/dashboard" : "/welcome";
-  const startHref = signedIn ? appHref : "/login?new=1";
-  const startLabel = signedIn ? "Open Season Tempo" : "Get started";
 
   return (
-    <div className={`st ${display.variable}`}>
-      <a className="st-skip" href="#main">
-        Skip to content
-      </a>
+    <div className="sx">
+      <MarketingHeader signedIn={signedIn} appHref={appHref} />
 
-      <SiteHeader signedIn={signedIn} appHref={appHref} />
-
-      <main id="main" tabIndex={-1}>
-        <section className="st-v5-open" aria-labelledby="st-h1">
-          <div className="st-wrap">
-            <div className="st-v5-head">
-              <h1 className="st-v5-mega" id="st-h1">
-                <span>The whole season,</span> <span>in one place.</span>
+      <main>
+        {/* Hero: headline, then the real Home screen layered on the logo's volt dot. */}
+        <section className="sx-hero" aria-labelledby="h1">
+          <div className="sx-wrap sx-hero-grid">
+            <div className="sx-hero-copy">
+              <span className="sx-kick"><i aria-hidden="true" />For travel softball teams</span>
+              <h1 className="sx-h1" id="h1">
+                The whole season, in one place<span className="sx-dot" aria-hidden="true" /><span className="sr-only">.</span>
               </h1>
-              <div className="st-v5-intro">
-                <p className="st-v5-lede">
-                  Keep your travel softball team&rsquo;s tournaments, roster, dues, facilities and games
-                  together, with fewer spreadsheets and less searching through messages.
-                </p>
-                <div className="st-v5-intro-act">
-                  <div className="st-v5-actions">
-                    <Link className="st-btn st-btn-night st-btn-lg" href={startHref}>
-                      {startLabel}
-                    </Link>
-                    <Link className="st-textlink st-v5-secondary" href="/product">
-                      See the product
-                    </Link>
-                  </div>
-                  {!signedIn && <p className="st-v5-note">{EARLY_ACCESS}</p>}
-                </div>
+              <p className="sx-lede">
+                Tournaments, roster, dues, facilities and games for your travel softball team, with
+                quality at-bat tracking you can run from your phone.
+              </p>
+              <div className="sx-acts">
+                {signedIn ? (
+                  <Link href={appHref} className="sx-btn sx-btn-volt">Go to Season Tempo <Arrow /></Link>
+                ) : (
+                  <>
+                    <Link href="/login?new=1" className="sx-btn sx-btn-volt">Get started <Arrow /></Link>
+                    <Link href="/product" className="sx-btn sx-btn-line">See the product</Link>
+                  </>
+                )}
               </div>
+              <p className="sx-note">Free during early access. We&rsquo;ll give you advance notice before that changes.</p>
             </div>
 
-            <figure className="st-pair">
-              <h2 className="st-pair-h">One tournament. Two views.</h2>
-              <p className="st-pair-label st-pair-label-m">For the team manager</p>
-              <div className="st-pair-frame">
-                <Shot shot={SHOTS.manageSummary} eager />
-              </div>
-              <p className="st-pair-label st-pair-label-f">For families</p>
-              <div className="st-pair-plan">
-                <WeekendPlan weekend={EXAMPLE_WEEKEND} />
-              </div>
-              <figcaption className="st-pair-cap">
-                Red Clay Classic as the team manager sees it in Season Tempo, and as families get it in the
-                printable Tournament Schedule. Team, places and opponents are fictional.
-              </figcaption>
-            </figure>
+            <div className="sx-stage">
+              <div className="sx-disc" aria-hidden="true" />
+              <div className="sx-ring" aria-hidden="true" />
+              <picture>
+                <source media="(max-width: 760px)" srcSet="/marketing/hero-next-m.webp" width="780" height="1523" />
+                <img className="sx-stage-next" src="/marketing/hero-next.webp" width="1300" height="1079"
+                  alt="Season Tempo Home: the next tournament, Red Clay Classic, three days away, with its games, registration and payment status" />
+              </picture>
+              <picture>
+                <source media="(max-width: 760px)" srcSet="/marketing/hero-todo-m.webp" width="780" height="1120" />
+                <img className="sx-stage-todo" src="/marketing/hero-todo.webp" width="940" height="963"
+                  alt="The to-do list on Home: players who still owe dues and tournaments that need registering" />
+              </picture>
+            </div>
           </div>
         </section>
 
-        <section className="st-v5-money" id="how" aria-labelledby="st-money-h">
-          <div className="st-wrap">
-            <div className="st-v5-row">
-              <h2 className="st-v5-display" id="st-money-h">
-                <span>Know what&rsquo;s paid.</span> <span>Know what&rsquo;s still owed.</span>
-              </h2>
-              <div className="st-v5-row-text">
-                <p>
-                  See what&rsquo;s paid, still to pay and available against the season budget, and how much of
-                  player dues has come in.
+        <TwoViews />
+
+        {/* Quality at-bats: the product's most distinctive feature, given its own band. */}
+        <section className="sx-dark sx-qab" id="qab" aria-labelledby="qab-h">
+          <div className="sx-wrap sx-qab-grid">
+            <div>
+              <h2 className="sx-h2" id="qab-h">Quality at-bats, tracked from your phone.</h2>
+              <p className="sx-p">
+                Choose one primary reason for each quality at-bat. Each plate appearance counts once.
+              </p>
+              <ul className="sx-reasons" aria-label="The nine reasons you can choose">
+                {QAB_REASONS.map((r) => (
+                  <li key={r.key}>{r.label}</li>
+                ))}
+              </ul>
+              <ul className="sx-ticks">
+                <li><b>Quick in the dugout.</b> Tap the reason, then tap to record it.</li>
+                <li><b>See the pattern.</b> A quiet box score can still hide a strong run of quality at-bats.</li>
+                <li><b>Share what you find.</b> Print or save any report as a PDF.</li>
+              </ul>
+              <p className="sx-avail"><i aria-hidden="true" />Available on request during early access.</p>
+              <div className="sx-acts">
+                <a href={QAB_REQUEST} className="sx-btn sx-btn-volt">Ask for quality at-bat tracking</a>
+                <Link href="/product#qab" className="sx-btn sx-btn-line">How it works</Link>
+              </div>
+            </div>
+
+            <div className="sx-qab-stage">
+              <div className="sx-qab-disc" aria-hidden="true" />
+              <div className="sx-phone">
+                <img src="/marketing/qab-tracker-phone.webp" width="1170" height="2330"
+                  alt="The Season Tempo phone tracker: now batting, with the nine quality at-bat reasons to choose from" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-reports" aria-labelledby="rep-h">
+          <div className="sx-wrap">
+            <h2 className="sx-h2" id="rep-h">Then see it by player and by tournament.</h2>
+            <p className="sx-p">Every report reads the same way: the rate, how it was earned, and how it changed from one tournament to the next.</p>
+            <div className="sx-reports-grid">
+              <figure>
+                <div className="sx-frame">
+                  <Shot name="qab-player-report" w={1500} h={1435} mw={780} mh={1972} alt="An individual player QAB report: season rate, QAB percentage by tournament, and how quality at-bats were earned" />
+                </div>
+                <figcaption><b>Player reports</b>One player&rsquo;s rate, tournament by tournament, and the reasons behind it.</figcaption>
+              </figure>
+              <figure>
+                <div className="sx-frame">
+                  <Shot name="qab-tournament-compare" w={1500} h={730} mw={780} mh={1105} alt="Team QAB percentage with a bar for each tournament, compared with the season rate" />
+                </div>
+                <figcaption><b>Tournament comparison</b>Put each tournament next to the season rate and see where the team&rsquo;s at-bats are trending.</figcaption>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-section sx-alt" aria-labelledby="run-h">
+          <div className="sx-wrap sx-stack">
+            <div className="sx-split">
+              <div>
+                <h2 className="sx-h2" id="run-h">Every tournament, in order.</h2>
+                <p className="sx-p">
+                  Dates, registration, payment and results for the whole season, with what still needs you right at the top.
                 </p>
-                <Link className="st-textlink" href="/product">
-                  See how Finance works
-                </Link>
+                <ul className="sx-ticks">
+                  <li><b>Plan.</b> Weigh the tournaments you are considering against the ones you have committed to.</li>
+                  <li><b>Know what is left.</b> See which are not registered yet before it matters.</li>
+                </ul>
+              </div>
+              <div className="sx-frame">
+                <Shot name="tournaments-overview" w={1600} h={712} mw={780} mh={1054} alt="Season Tempo Tournaments: the season timeline, committed tournaments, costs and record" />
               </div>
             </div>
-            <div className="st-v5-stage">
-              <div className="st-dt">
-                <Shot shot={SHOTS.moneySummary} />
+
+            <div className="sx-split sx-split-flip">
+              <div>
+                <h2 className="sx-h2">The money, without the spreadsheet.</h2>
+                <p className="sx-p">
+                  Your budget, what is paid, what is still to pay and who owes dues, all counted as you commit.
+                </p>
+                <ul className="sx-ticks">
+                  <li><b>Available budget.</b> What you can still plan with, not only what has been paid.</li>
+                  <li><b>Player dues.</b> Who has paid, who has not, and how much is outstanding.</li>
+                </ul>
               </div>
-              <div className="st-ph">
-                <Shot shot={SHOTS.mMoneySummary} />
+              <div className="sx-frame">
+                <Shot name="finance-summary" w={1500} h={536} mw={780} mh={693} alt="Season Tempo Finance: available budget with paid, to pay and available figures, and outstanding player dues" />
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="sx-dark sx-final" aria-labelledby="final-h">
+          <div className="sx-wrap">
+            <h2 className="sx-h2" id="final-h">From the first entry fee to the last <span className="sx-nb">at-bat</span>.</h2>
+            <div className="sx-acts">
+              {signedIn ? (
+                <Link href={appHref} className="sx-btn sx-btn-volt">Go to Season Tempo <Arrow /></Link>
+              ) : (
+                <>
+                  <Link href="/login?new=1" className="sx-btn sx-btn-volt">Get started <Arrow /></Link>
+                  <Link href="/product" className="sx-btn sx-btn-line">See the product</Link>
+                </>
+              )}
+            </div>
+            <p className="sx-note">Free during early access. We&rsquo;ll give you advance notice before that changes.</p>
           </div>
         </section>
       </main>
 
-      <footer className="st-footer">
-        <div className="st-wrap">
-          <div className="st-foot-grid">
-            <div className="st-foot-brand">
-              <Link className="st-logo st-logo-ink" href="/" aria-label="Season Tempo home">
-                <Wordmark tone="ink" />
-              </Link>
-              <p className="st-foot-line">The whole season, in one place.</p>
-            </div>
-            <nav className="st-foot-col" aria-labelledby="st-f1">
-              <h2 id="st-f1">Product</h2>
-              <Link href="/#how">How it works</Link>
-              <Link href="/product">Product</Link>
-              {!signedIn && <Link href="/login">Sign in</Link>}
-            </nav>
-            <nav className="st-foot-col" aria-labelledby="st-f2">
-              <h2 id="st-f2">Company</h2>
-              <Link href="/about">About</Link>
-              <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
-              <Link href="/privacy">Privacy Policy</Link>
-              <Link href="/terms">Terms of Service</Link>
-            </nav>
-          </div>
-          <div className="st-foot-base">
-            &copy; {new Date().getFullYear()} Season Tempo. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter signedIn={signedIn} />
     </div>
   );
 }

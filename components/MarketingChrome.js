@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { LogoLockup } from "./SeasonTempoLogo";
 import { SUPPORT_EMAIL } from "../lib/legal";
+import MarketingMenu from "./MarketingMenu";
+import "../app/site.css";
 
 /**
  * Header and footer for the public site.
@@ -11,38 +13,34 @@ import { SUPPORT_EMAIL } from "../lib/legal";
  *
  * Product now routes to a real page rather than a homepage anchor.
  */
-/* No appHref: the header no longer renders a destination for a signed-in
-   visitor, so it has nothing to link to. Callers may still pass it harmlessly. */
-export function MarketingHeader({ signedIn = false }) {
+const NAV = [
+  { href: "/product", label: "Product" },
+  { href: "/product#qab", label: "Quality at-bats" },
+  { href: "/about", label: "About" },
+];
+
+export function MarketingHeader({ signedIn = false, appHref = "/dashboard" }) {
   return (
-    <header className="mk-header">
-      <div className="mk-wrap mk-header-inner">
-        <Link href="/" className="mk-logo" aria-label="Season Tempo home">
-          <LogoLockup size={34} tone="navy" wordSize={26} />
+    <header className="sx-header">
+      <div className="sx-wrap sx-header-in">
+        <Link href="/" className="sx-logo" aria-label="Season Tempo home">
+          <LogoLockup size={32} tone="ink" wordSize={22} />
         </Link>
 
-        <nav className="mk-nav" aria-label="Main">
-          <Link href="/product">Product</Link>
-          {/* Pricing is hidden until the route exists — the shell is ready for
-              it, but the navigation must not send anyone to a 404. Restore by
-              uncommenting the line below. */}
-          {/* <Link href="/pricing">Pricing</Link> */}
-          <Link href="/about">About</Link>
+        <nav className="sx-nav" aria-label="Main">
+          {NAV.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
         </nav>
 
-        {/* Sign in is UTILITY navigation for someone who already has an
-            account, not an acquisition button. It sat beside "Get started" as
-            an equal-weight button, which forced every visitor to resolve an
-            identity question before reading anything, and made the two compete
-            while serving opposite people. Acquisition CTAs now live in page
-            content, where the visitor has context for them. */}
-        {/* Nothing for a signed-in visitor. The saturated blue button that
-            used to sit here was the only loud element on an otherwise
-            restrained page, and someone already signed in does not need the
-            marketing header to tell them where the application is — the
-            footer carries that. Logged out keeps Sign in. */}
-        <div className="mk-header-actions">
-          {!signedIn && <Link href="/login" className="mk-signin">Sign in</Link>}
+        <div className="sx-cta">
+          {signedIn ? (
+            <Link href={appHref} className="sx-btn sx-btn-volt sx-btn-sm">Open Season Tempo</Link>
+          ) : (
+            <>
+              <Link href="/login" className="sx-signin">Sign in</Link>
+              <Link href="/login?new=1" className="sx-btn sx-btn-volt sx-btn-sm">Get started</Link>
+            </>
+          )}
+          <MarketingMenu links={NAV} signedIn={signedIn} appHref={appHref} />
         </div>
       </div>
     </header>
@@ -51,39 +49,32 @@ export function MarketingHeader({ signedIn = false }) {
 
 export function MarketingFooter({ signedIn = false }) {
   return (
-    <footer className="mk-footer">
-      <div className="mk-wrap">
-        <div className="mk-footer-grid">
-          <div className="mk-footer-brand">
-            <LogoLockup size={30} tone="navy" wordSize={20} />
-            <p className="mk-footer-line">Run your season smarter.</p>
+    <footer className="sx-footer">
+      <div className="sx-wrap">
+        <div className="sx-footer-grid">
+          <div>
+            <LogoLockup size={30} tone="ink" wordSize={22} />
+            <p className="sx-footer-line">Tournaments, roster, dues, facilities, games and quality at-bats for travel softball.</p>
           </div>
 
-          <nav className="mk-footer-col" aria-label="Product">
-            <p className="mk-footer-heading">Product</p>
+          <nav className="sx-footer-col" aria-label="Product">
+            <p>Product</p>
             <Link href="/product">Product</Link>
-            {/* Restore alongside the header link when /pricing exists. */}
-            {/* <Link href="/pricing">Pricing</Link> */}
-          </nav>
-
-          <nav className="mk-footer-col" aria-label="Company">
-            <p className="mk-footer-heading">Company</p>
+            <Link href="/product#qab">Quality at-bats</Link>
             <Link href="/about">About</Link>
-            <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
             {!signedIn && <Link href="/login">Sign in</Link>}
           </nav>
 
-          <nav className="mk-footer-col" aria-label="Legal">
-            <p className="mk-footer-heading">Legal</p>
+          <nav className="sx-footer-col" aria-label="Company">
+            <p>Company</p>
+            <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
           </nav>
         </div>
 
-        <div className="mk-footer-base">
-          <span className="mk-copyright">
-            © {new Date().getFullYear()} Season Tempo. All rights reserved.
-          </span>
+        <div className="sx-footer-base">
+          © {new Date().getFullYear()} Season Tempo. All rights reserved.
         </div>
       </div>
     </footer>
@@ -139,5 +130,18 @@ export function PhotoSlot({ src, alt, ratio = "4 / 5" }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A real product capture. Phones get a phone-sized capture of the same screen
+ * so the figures stay readable; wider screens get the desktop capture.
+ */
+export function Shot({ name, w, h, mw, mh, alt, eager = false }) {
+  return (
+    <picture>
+      <source media="(max-width: 760px)" srcSet={`/marketing/${name}-m.webp`} width={mw} height={mh} />
+      <img src={`/marketing/${name}.webp`} width={w} height={h} alt={alt} loading={eager ? undefined : "lazy"} />
+    </picture>
   );
 }
