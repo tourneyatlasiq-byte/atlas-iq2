@@ -86,3 +86,13 @@ v1 uses the device date. Refreshes at local midnight, on resume and on focus; ne
 Cause: the Record payment sheet opened with the whole balance already typed in the field. On a phone, tapping it puts the cursor at the end, so typing 500 produced 2100.00500 and a button reading Record $2,100.01. Every label also showed the full balance, so it looked as if only the full balance could be recorded.
 Fix (components/RecordPaymentSheet.js): the amount starts empty ("Amount to record"); Full balance and Half are one tap; focusing the field selects its contents so typing replaces; the sheet shows Remaining balance and, separately, "$1,600.00 left after this payment"; the date field stays. The Home and Finance buttons now read Record payment instead of Record $balance. Payment rules, idempotency and the database function are unchanged.
 Verified at 390px with a real tap, real keystrokes and a shrunken viewport for the keyboard: $500 recorded against $2,100 gives exactly one $500.00 payment and $1,600.00 left; Save stays visible above the keyboard.
+
+
+## V6 (layout and Past due summary)
+- Tournament list: aligned columns on desktop (Dates, Tournament / location, Registration, Payment, Cost, Action), cards on phones with Registration, Payment, Cost in the same order. "Potential cost" is now "Considering cost" (same calculation: costs entered on Considering tournaments only; a Considering tournament with no cost adds nothing and is noted).
+- Alternating white and light gray rows on the roster, Tournament list and budget categories (expanded lines share their category's shade).
+- Finance third tile is a schedule-based Past due summary (shared dues rules, device date, never from a balance alone). When some players have no schedule the label reads "Past due among scheduled players" and the count of players with no schedule is shown. Setup state when nobody has a schedule.
+- The Past due button opens Player Dues with the Past due filter selected (desktop and phone).
+- Phones get the same summary as a compact card above the Finance sections.
+- Not changed: Team action-button styles and extra mobile roster fields (deferred). No database changes.
+- Verified in the test rig only: desktop and 390px, click and tap, missing-cost Considering row, expanded budget categories, Pickup and Inactive roster views. Checks 109/109, screens 109/109, build passes. Rig data restored.

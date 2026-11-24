@@ -41,7 +41,7 @@ import {
   deleteTournament,
 } from "../lib/actions/tournaments";
 
-import { DECISIONS, PAID_STATUSES, statusLine, registrationState, quickAction, tournamentPayments } from "../lib/tournament-status";
+import { DECISIONS, PAID_STATUSES, statusLine, statusFacets, registrationState, quickAction, tournamentPayments } from "../lib/tournament-status";
 import { nextStep } from "../lib/tournament-next-step";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { SeasonStrip } from "./SeasonStrip";
@@ -542,16 +542,28 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
               </div>
 
               {!isCollapsed && (
-                <div className="card card-flush">
-                  {rows.map((t) => (
-                    <div key={t.id} id={`t-row-${t.id}`} className={`t-row${isPast(t, todayLocal) ? " t-row-past" : ""}`}>
-                      <button className="t-main" onClick={() => openDetail(t)}>
+                <div className="card card-flush tl">
+                  {/* Column headings. On a phone these are hidden and each card
+                      labels its own Registration, Payment and Cost instead. */}
+                  <div className="tl-head" aria-hidden="true">
+                    <span>Dates</span>
+                    <span>Tournament / location</span>
+                    <span>Registration</span>
+                    <span>Payment</span>
+                    <span className="tl-r">Cost</span>
+                    <span className="tl-r">Action</span>
+                  </div>
+                  {rows.map((t) => {
+                    const f = statusFacets(t, transactions);
+                    return (
+                    <div key={t.id} id={`t-row-${t.id}`} className={`t-row tl-row${isPast(t, todayLocal) ? " t-row-past" : ""}`}>
+                      <button className="t-main tl-main" onClick={() => openDetail(t)}>
                         {/* Dates lead: this is the column a coach scans. */}
                         <span className="t-date">{dateRange(t.start_date, t.end_date)}</span>
 
                         <span className="t-body">
                           <span className="t-name">
-                            {/* No decision dot inside a decision group — the
+                            {/* No decision dot inside a decision group: the
                                 heading already says it. Shown only when a
                                 filter mixes groups together. */}
                             {activeAction && (
@@ -573,16 +585,31 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
                         </span>
                       </button>
 
-                      {/* Committed, registered, paid: three steps and one line
-                          of words. Payment figures come from Finance. */}
-                      <StatusPipe t={t} transactions={transactions} />
-
-                      <span className="t-cost">{money(t.total_cost)}</span>
-                      <span className="t-quick">
+                      {/* Registration, Payment and Cost always appear in this
+                          order. The decision is the group heading, so it is not
+                          repeated here. Words come from the same status rules
+                          as the detail view; nothing is recalculated. */}
+                      <span className="tl-cell tl-reg">
+                        <span className="tl-lab">Registration</span>
+                        <span className="tl-val">{f.registration ? <FacetChip facet={f.registration} /> : <span className="tl-none">{"\u2014"}</span>}</span>
+                      </span>
+                      <span className="tl-cell tl-pay">
+                        <span className="tl-lab">Payment</span>
+                        <span className="tl-val">
+                          {f.payment ? <FacetChip facet={f.payment} /> : <span className="tl-none">{"\u2014"}</span>}
+                          {f.payment && f.detail && <span className="tl-sub">{f.detail}</span>}
+                        </span>
+                      </span>
+                      <span className="tl-cell tl-cost">
+                        <span className="tl-lab">Cost</span>
+                        <span className="tl-val t-cost">{money(t.total_cost)}</span>
+                      </span>
+                      <span className="t-quick tl-act">
                         <QuickButton t={t} quick={quick} canWrite={canWrite} variant={quickAction(t)?.kind === "paid" ? "secondary" : "primary"} />
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1756,8 +1783,14 @@ function TiqNextUp({ tournament: t }) {
 
 /* ---------------- Group 1: season plan and next tournament ---------------- */
 
-function StatusPipe({ t, transactions }) {
-  return <span className="st-pipe"><StatusFacets t={t} transactions={transactions} /></span>;
+/** One status word with its small mark (same marks as StatusFacets). */
+function FacetChip({ facet }) {
+  return (
+    <span className={`sf-chip sf-${facet.tone}`}>
+      <i className="sf-mark" aria-hidden="true" />
+      {facet.label}
+    </span>
+  );
 }
 
 function SeasonStats({ summary, record, tournaments }) {
@@ -1765,12 +1798,13 @@ function SeasonStats({ summary, record, tournaments }) {
   const registered = committed.filter((t) => registrationState(t).registered).length;
   const waitlisted = committed.filter((t) => t.paid_status === "Waitlisted").length;
   const considering = tournaments.filter((t) => t.decision === "Considering").length;
+  const consideringNoCost = tournaments.filter((t) => t.decision === "Considering" && t.total_cost == null).length;
   return (
     <section className="st-stats card" aria-label="Season at a glance">
       <div><span className="st-eyebrow">Committed</span><b>{summary.committedCount}</b><span>{considering} considering</span></div>
       <div><span className="st-eyebrow">Registered</span><b>{registered}<em> of {committed.length}</em></b><span>{waitlisted ? `${waitlisted} waitlisted` : committed.length - registered ? `${committed.length - registered} to register` : "All committed registered"}</span></div>
       <div><span className="st-eyebrow">Committed cost</span><b>{money(summary.committedCost)}</b><span>{(summary.missingCostCount ?? 0) > 0 ? `${summary.missingCostCount} with no cost entered` : (summary.freeCount ?? 0) > 0 ? `includes ${summary.freeCount} free` : "for committed tournaments"}</span></div>
-      <div><span className="st-eyebrow">Potential cost</span><b>{money(summary.potentialCost ?? 0)}</b><span>{considering > 0 ? `if you commit the ${considering} considering` : "nothing under consideration"}</span></div>
+      <div title="Costs entered on Considering tournaments only. Committed tournaments are in Committed cost. Declined tournaments are not included. A Considering tournament with no cost entered adds nothing yet."><span className="st-eyebrow">Considering cost</span><b>{money(summary.potentialCost ?? 0)}</b><span>{considering > 0 ? `${considering} considering, not in committed cost.${consideringNoCost > 0 ? ` ${consideringNoCost} with no cost entered.` : ""}` : "nothing under consideration"}</span></div>
       <div><span className="st-eyebrow">Payments recorded</span><b>{money(summary.paymentsRecorded ?? 0)}</b><span>paid to tournaments so far</span></div>
       <div><span className="st-eyebrow">Record</span><b>{record.played > 0 ? `${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ""}` : "0-0"}</b><span>{record.played > 0 ? `${record.played} games played` : "No games played yet"}</span></div>
     </section>
