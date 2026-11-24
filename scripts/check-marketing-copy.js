@@ -7,7 +7,7 @@
 const fs = require("fs");
 
 const FILES = [
-  "app/page.js", "app/product/page.js", "app/about/page.js",
+  "app/page.js", "app/product/page.js", "app/quality-at-bats/page.js", "app/about/page.js",
   "components/MarketingChrome.js", "components/MarketingMenu.js", "components/TwoViews.js",
 ];
 
@@ -30,9 +30,15 @@ const REQUIRED = [
   ["app/page.js", "<TwoViews />", "two views section on Home"],
   ["app/page.js", "Available on request during early access.", "QAB availability line"],
   ["app/page.js", "From the first entry fee to the last", "Home closing line"],
-  ["app/product/page.js", "Available on request during early access.", "QAB availability line"],
-  ["app/product/page.js", "Choose one primary reason for each quality at-bat. Each plate appearance counts once.", "QAB explanation"],
-  ["app/page.js", "Choose one primary reason for each quality at-bat. Each plate appearance counts once.", "QAB explanation"],
+  ["app/quality-at-bats/page.js", "Record every plate appearance. For each quality at-bat, choose one primary reason. Each plate appearance counts once.", "QAB explanation"],
+  ["app/quality-at-bats/page.js", "Available on request during early access.", "QAB availability line"],
+  ["app/quality-at-bats/page.js", "Request QAB access", "QAB request button"],
+  ["app/product/page.js", "Explore quality at-bats", "Product QAB link"],
+  ["app/page.js", "Explore QAB reports", "Home reports link"],
+  ["app/page.js", "Request QAB access", "QAB request button"],
+  ["app/product/page.js", "See your planned budget, paid expenses, unpaid commitments and available budget. Committed tournament costs are included before payment.", "Product money paragraph"],
+  ["components/MarketingChrome.js", "/quality-at-bats", "Quality at-bats nav link"],
+  ["app/page.js", "Record each plate appearance and choose one primary reason when it qualifies as a quality at-bat.", "QAB explanation"],
 ];
 
 function visible(src) {
@@ -62,7 +68,7 @@ for (const [f, needle, label] of REQUIRED) {
 const rules = fs.readFileSync("lib/qab-rules.js", "utf8");
 const keys = [...rules.matchAll(/key:\s*"([a-z0-9_]+)"/g)].map((m) => m[1]);
 if (!/rbi/i.test(keys[keys.length - 1] || "")) fail("RBI is no longer the last QAB reason in lib/qab-rules.js");
-for (const f of ["app/page.js", "app/product/page.js"]) {
+for (const f of ["app/page.js", "app/product/page.js", "app/quality-at-bats/page.js"]) {
   if (/className=\{[^}]*QAB_REASONS\.length/.test(text[f] || "")) fail(`${f}: RBI is styled differently from the other reasons`);
 }
 

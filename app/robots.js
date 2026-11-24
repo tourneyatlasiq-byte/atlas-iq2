@@ -6,7 +6,7 @@ export default function robots() {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/product", "/about", "/privacy", "/terms"],
+        allow: ["/", "/product", "/quality-at-bats", "/about", "/privacy", "/terms"],
         disallow: [
           "/dashboard", "/tournaments", "/team", "/locations", "/finance", "/performance",
           "/reports", "/files", "/contacts", "/settings", "/help", "/welcome", "/invite", "/login", "/auth",

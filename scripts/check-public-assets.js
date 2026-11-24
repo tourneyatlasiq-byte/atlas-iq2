@@ -12,7 +12,7 @@ for (const f of ["app/icon.svg", "app/favicon.ico", "app/apple-icon.png", "app/o
 const mw = fs.readFileSync(path.join(root, "lib/supabase/middleware.js"), "utf8");
 const m = mw.match(/PUBLIC_EXACT = \[([\s\S]*?)\];/);
 const exact = m ? [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : [];
-const allowed = ["/", "/product", "/about", "/privacy", "/terms", "/robots.txt", "/sitemap.xml"];
+const allowed = ["/", "/product", "/quality-at-bats", "/about", "/privacy", "/terms", "/robots.txt", "/sitemap.xml"];
 for (const p of exact) if (!allowed.includes(p)) fail("unexpected public path " + p);
 for (const p of allowed) if (!exact.includes(p)) fail("public path missing " + p);
 const prefixes = (mw.match(/PUBLIC_PREFIXES = \[([^\]]*)\]/) || [, ""])[1];

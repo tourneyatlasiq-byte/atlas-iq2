@@ -2,6 +2,6 @@
 const SITE = "https://www.seasontempo.com";
 
 export default function sitemap() {
-  const paths = ["/", "/product", "/about", "/privacy", "/terms"];
+  const paths = ["/", "/product", "/quality-at-bats", "/about", "/privacy", "/terms"];
   return paths.map((p) => ({ url: `${SITE}${p === "/" ? "" : p}`, changeFrequency: "monthly", priority: p === "/" ? 1 : 0.6 }));
 }

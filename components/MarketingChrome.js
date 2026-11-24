@@ -15,7 +15,7 @@ import "../app/site.css";
  */
 const NAV = [
   { href: "/product", label: "Product" },
-  { href: "/product#qab", label: "Quality at-bats" },
+  { href: "/quality-at-bats", label: "Quality at-bats" },
   { href: "/about", label: "About" },
 ];
 
@@ -60,7 +60,7 @@ export function MarketingFooter({ signedIn = false }) {
           <nav className="sx-footer-col" aria-label="Product">
             <p>Product</p>
             <Link href="/product">Product</Link>
-            <Link href="/product#qab">Quality at-bats</Link>
+            <Link href="/quality-at-bats">Quality at-bats</Link>
             <Link href="/about">About</Link>
             {!signedIn && <Link href="/login">Sign in</Link>}
           </nav>

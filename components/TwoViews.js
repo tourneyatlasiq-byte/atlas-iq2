@@ -26,8 +26,7 @@ export default function TwoViews() {
       <div className="sx-wrap">
         <h2 className="sx-h2" id="views-h">One tournament. Two views.</h2>
         <p className="sx-p">
-          You keep the registration, payment and roster. Families get the weekend plan:
-          where to be and when.
+          Manage registration, costs and your roster in one place. Share a printable weekend schedule with families.
         </p>
         <div className="sx-views-grid">
           <figure className="sx-view">
@@ -36,7 +35,7 @@ export default function TwoViews() {
               <Shot name="coach-drawer" w={900} h={768} mw={780} mh={673}
                 alt="The tournament in Season Tempo: Red Clay Classic, committed and paid in full, with games, roster and costs" />
             </div>
-            <figcaption>Registration, payment, games, roster and cost, all on the tournament.</figcaption>
+            <figcaption>Tournament details, registration, costs, games and roster.</figcaption>
           </figure>
 
           <figure className="sx-view">
@@ -57,7 +56,7 @@ export default function TwoViews() {
                 ))}
               </ol>
             </div>
-            <figcaption>The printable Tournament Schedule. It leaves out costs and notes.</figcaption>
+            <figcaption>Game times and locations, ready to print or share.</figcaption>
           </figure>
         </div>
       </div>

@@ -5,7 +5,6 @@ import { SUPPORT_EMAIL } from "../lib/legal";
 import { MarketingHeader, MarketingFooter, Shot } from "../components/MarketingChrome";
 import TwoViews from "../components/TwoViews";
 import DiscSeams from "../components/DiscSeams";
-import { QAB_REASONS } from "../lib/qab-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +47,7 @@ export default async function HomePage() {
                 The whole season, in one place<span className="sx-dot" aria-hidden="true" /><span className="sr-only">.</span>
               </h1>
               <p className="sx-lede">
-                Tournaments, roster, dues, facilities and games for your travel softball team, with
-                quality at-bat tracking you can run from your phone.
+                Plan tournaments, manage your roster and dues, and track quality at-bats from your phone.
               </p>
               <div className="sx-acts">
                 {signedIn ? (
@@ -89,22 +87,17 @@ export default async function HomePage() {
             <div>
               <h2 className="sx-h2" id="qab-h">Quality at-bats, tracked from your phone.</h2>
               <p className="sx-p">
-                Choose one primary reason for each quality at-bat. Each plate appearance counts once.
+                Record each plate appearance and choose one primary reason when it qualifies as a quality at-bat.
               </p>
-              <ul className="sx-reasons" aria-label="The nine reasons you can choose">
-                {QAB_REASONS.map((r) => (
-                  <li key={r.key}>{r.label}</li>
-                ))}
-              </ul>
               <ul className="sx-ticks">
-                <li><b>Quick in the dugout.</b> Tap the reason, then tap to record it.</li>
-                <li><b>See the pattern.</b> A quiet box score can still hide a strong run of quality at-bats.</li>
-                <li><b>Share what you find.</b> Print or save any report as a PDF.</li>
+                <li><b>Track during the game.</b> Choose a reason and record the at-bat.</li>
+                <li><b>Review the results.</b> See QAB rates and reasons by player, game and tournament.</li>
+                <li><b>Share the reports.</b> Print or save player, tournament and season reports as PDFs.</li>
               </ul>
               <p className="sx-avail"><i aria-hidden="true" />Available on request during early access.</p>
               <div className="sx-acts">
-                <a href={QAB_REQUEST} className="sx-btn sx-btn-volt">Ask for quality at-bat tracking</a>
-                <Link href="/product#qab" className="sx-btn sx-btn-line">How it works</Link>
+                <a href={QAB_REQUEST} className="sx-btn sx-btn-volt">Request QAB access</a>
+                <Link href="/quality-at-bats" className="sx-btn sx-btn-line">How it works</Link>
               </div>
             </div>
 
@@ -120,21 +113,24 @@ export default async function HomePage() {
 
         <section className="sx-reports" aria-labelledby="rep-h">
           <div className="sx-wrap">
-            <h2 className="sx-h2" id="rep-h">Then see it by player and by tournament.</h2>
-            <p className="sx-p">Every report reads the same way: the rate, how it was earned, and how it changed from one tournament to the next.</p>
+            <h2 className="sx-h2" id="rep-h">See each player&rsquo;s performance across the season.</h2>
+            <p className="sx-p">Compare QAB rates across tournaments and see how each player earned their quality at-bats.</p>
             <div className="sx-reports-grid">
               <figure>
                 <div className="sx-frame">
                   <Shot name="qab-player-report" w={1500} h={1435} mw={780} mh={1972} alt="An individual player QAB report: season rate, QAB percentage by tournament, and how quality at-bats were earned" />
                 </div>
-                <figcaption><b>Player reports</b>One player&rsquo;s rate, tournament by tournament, and the reasons behind it.</figcaption>
+                <figcaption><b>Player reports</b>Each player&rsquo;s QAB rate, QAB rates by tournament and recorded reasons.</figcaption>
               </figure>
               <figure>
                 <div className="sx-frame">
                   <Shot name="qab-tournament-compare" w={1500} h={730} mw={780} mh={1105} alt="Team QAB percentage with a bar for each tournament, compared with the season rate" />
                 </div>
-                <figcaption><b>Tournament comparison</b>Put each tournament next to the season rate and see where the team&rsquo;s at-bats are trending.</figcaption>
+                <figcaption><b>Tournament comparison</b>Compare each tournament&rsquo;s QAB rate with the team&rsquo;s season rate.</figcaption>
               </figure>
+            </div>
+            <div className="sx-acts" style={{ marginTop: 40 }}>
+              <Link href="/quality-at-bats" className="sx-btn sx-btn-line">Explore QAB reports</Link>
             </div>
           </div>
         </section>
@@ -143,13 +139,13 @@ export default async function HomePage() {
           <div className="sx-wrap sx-stack">
             <div className="sx-split">
               <div>
-                <h2 className="sx-h2" id="run-h">Every tournament, in order.</h2>
+                <h2 className="sx-h2" id="run-h">Your tournament season at a glance.</h2>
                 <p className="sx-p">
-                  Dates, registration, payment and results for the whole season, with what still needs you right at the top.
+                  Keep dates, registration, payments and results together, with outstanding tasks easy to find.
                 </p>
                 <ul className="sx-ticks">
-                  <li><b>Plan.</b> Weigh the tournaments you are considering against the ones you have committed to.</li>
-                  <li><b>Know what is left.</b> See which are not registered yet before it matters.</li>
+                  <li><b>Compare your options.</b> Review tournaments you&rsquo;re considering alongside those you&rsquo;ve committed to.</li>
+                  <li><b>Stay on top of registration.</b> See which committed tournaments still need registration.</li>
                 </ul>
               </div>
               <div className="sx-frame">
@@ -159,13 +155,13 @@ export default async function HomePage() {
 
             <div className="sx-split sx-split-flip">
               <div>
-                <h2 className="sx-h2">The money, without the spreadsheet.</h2>
+                <h2 className="sx-h2">Know what&rsquo;s paid. Know what&rsquo;s still owed.</h2>
                 <p className="sx-p">
-                  Your budget, what is paid, what is still to pay and who owes dues, all counted as you commit.
+                  Track planned expenses, tournament commitments and player payments throughout the season.
                 </p>
                 <ul className="sx-ticks">
-                  <li><b>Available budget.</b> What you can still plan with, not only what has been paid.</li>
-                  <li><b>Player dues.</b> Who has paid, who has not, and how much is outstanding.</li>
+                  <li><b>Available budget.</b> See what&rsquo;s left after paid expenses and unpaid commitments.</li>
+                  <li><b>Player dues.</b> See payments received, remaining balances and past-due amounts for players with payment schedules.</li>
                 </ul>
               </div>
               <div className="sx-frame">

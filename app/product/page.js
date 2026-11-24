@@ -3,7 +3,6 @@ import { createClient } from "../../lib/supabase/server";
 import { MarketingHeader, MarketingFooter, Shot } from "../../components/MarketingChrome";
 import DiscSeams from "../../components/DiscSeams";
 import { SUPPORT_EMAIL } from "../../lib/legal";
-import { QAB_REASONS } from "../../lib/qab-rules";
 import "../site.css";
 
 export const metadata = {
@@ -37,7 +36,7 @@ export default async function ProductPage() {
               are weighing, what they cost, who has paid, and how the team is hitting.
             </p>
             <nav className="sx-anchors" aria-label="On this page">
-              <a href="#home">Home</a>
+              <a href="#home">App home</a>
               <a href="#tournaments">Tournaments</a>
               <a href="#qab">Quality at-bats</a>
               <a href="#money">Money</a>
@@ -50,7 +49,7 @@ export default async function ProductPage() {
         <section className="sx-section sx-anchor" id="home" aria-labelledby="home-h">
           <div className="sx-wrap sx-split">
             <div>
-              <h2 className="sx-h2" id="home-h">Open it Monday morning and see where the season stands.</h2>
+              <h2 className="sx-h2" id="home-h">See what&rsquo;s next. Know what needs attention.</h2>
               <p className="sx-p">
                 Your next tournament, how many days away it is and where it is. Underneath, the
                 things that need you: players who still owe dues, a tournament you committed to but
@@ -67,7 +66,7 @@ export default async function ProductPage() {
         <section className="sx-section sx-alt sx-anchor" id="tournaments" aria-labelledby="t-h">
           <div className="sx-wrap sx-split sx-split-flip">
             <div>
-              <h2 className="sx-h2" id="t-h">Every tournament, in order.</h2>
+              <h2 className="sx-h2" id="t-h">Plan and manage your tournament season.</h2>
               <p className="sx-p">
                 Dates, facility, registration, payment and results in one row per tournament. Update
                 registration as you go, and keep the tournament director&rsquo;s number one tap away.
@@ -86,23 +85,12 @@ export default async function ProductPage() {
         <section className="sx-dark sx-qab sx-anchor" id="qab" aria-labelledby="qab-h">
           <div className="sx-wrap sx-qab-grid">
             <div>
-              <h2 className="sx-h2" id="qab-h">Quality at-bats, from the dugout to the report.</h2>
+              <h2 className="sx-h2" id="qab-h">Track quality at-bats. Review the season.</h2>
               <p className="sx-p">
-                Choose one primary reason for each quality at-bat. Each plate appearance counts once.
+                Record plate appearances from your phone, then review QAB rates and reasons by player, game and tournament.
               </p>
-              <ul className="sx-reasons" aria-label="The nine reasons you can choose">
-                {QAB_REASONS.map((r) => (
-                  <li key={r.key}>{r.label}</li>
-                ))}
-              </ul>
-              <ul className="sx-ticks">
-                <li><b>Track.</b> Set the batting order, then record each at-bat from your phone.</li>
-                <li><b>Review.</b> Fix an at-bat afterwards if you tapped the wrong reason.</li>
-                <li><b>Report.</b> Player, tournament and team reports, ready to print or save as a PDF.</li>
-              </ul>
-              <p className="sx-avail"><i aria-hidden="true" />Available on request during early access.</p>
               <div className="sx-acts">
-                <a href={QAB_REQUEST} className="sx-btn sx-btn-volt">Ask for quality at-bat tracking</a>
+                <Link href="/quality-at-bats" className="sx-btn sx-btn-volt">Explore quality at-bats</Link>
               </div>
             </div>
             <div className="sx-qab-stage">
@@ -113,27 +101,15 @@ export default async function ProductPage() {
               </div>
             </div>
           </div>
-          <div className="sx-wrap">
-            <div className="sx-reports-grid">
-              <figure>
-                <div className="sx-frame"><Shot name="qab-player-report" w={1500} h={1435} mw={780} mh={1972} alt="An individual player QAB report" /></div>
-                <figcaption><b style={{ color: "#fff" }}>Player report</b><span style={{ color: "rgba(255,255,255,.74)" }}>Rate by tournament and how each quality at-bat was earned.</span></figcaption>
-              </figure>
-              <figure>
-                <div className="sx-frame"><Shot name="qab-tournament-compare" w={1500} h={730} mw={780} mh={1105} alt="Team QAB percentage by tournament compared with the season rate" /></div>
-                <figcaption><b style={{ color: "#fff" }}>Tournament comparison</b><span style={{ color: "rgba(255,255,255,.74)" }}>Each tournament next to the season rate.</span></figcaption>
-              </figure>
-            </div>
-          </div>
         </section>
 
         <section className="sx-section sx-anchor" id="money" aria-labelledby="m-h">
           <div className="sx-wrap sx-split">
             <div>
-              <h2 className="sx-h2" id="m-h">What your budget has gone on, not just what you have paid.</h2>
+              <h2 className="sx-h2" id="m-h">Track your budget, commitments and player dues.</h2>
               <p className="sx-p">
-                Each budget line shows what you set aside, what is paid, what is still to pay and
-                what is genuinely left. Commit to a tournament and it counts straight away, paid or not.
+                See your planned budget, paid expenses, unpaid commitments and available budget.
+                Committed tournament costs are included before payment.
               </p>
               <ul className="sx-ticks">
                 <li><b>Player dues.</b> Who has paid, who has not, and how much is outstanding.</li>
@@ -151,7 +127,7 @@ export default async function ProductPage() {
             <h2 className="sx-h2" id="s-h">A season, start to finish.</h2>
             <ol className="sx-strip">
               <li><b>Plan</b><span>Add events you are considering. Compare cost, dates and travel.</span></li>
-              <li><b>Commit</b><span>Decide what you are playing. Costs start counting straight away.</span></li>
+              <li><b>Commit</b><span>Decide what you are playing. Committed tournament costs are included in your budget, even before payment.</span></li>
               <li><b>Play</b><span>Record pool play and bracket results as the tournament happens.</span></li>
               <li><b>Track</b><span>Watch the budget, dues and quality at-bats as the season builds.</span></li>
               <li><b>Learn</b><span>Note what the facility was like and whether you would go back.</span></li>
