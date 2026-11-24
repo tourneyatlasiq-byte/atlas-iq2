@@ -59,13 +59,13 @@ const row = (id, name, extra = {}) => ({ id: `r${id}`, player_id: `p${id}`, is_a
 console.log("Needs action wording");
 const one = team.teamActions([row(1, "Jordan Park"), row(2, "Avery Lee", { date_of_birth: "2011-01-01", parent_name: "X", parent_phone: "404-555-0101" })]);
 const reg1 = one.find((a) => a.id === "registration");
-assertEq("one affected player is named", team.teamActionText(reg1), "Jordan Park is missing a date of birth");
+assertEq("one affected player is named", team.teamActionText(reg1), "Jordan Park could use a date of birth");
 const many = team.teamActions([row(1, "A One"), row(2, "B Two"), row(3, "C Three"), row(4, "D Four"), row(5, "E Five")]);
 const regMany = many.find((a) => a.id === "registration");
-assertEq("several keep the count", team.teamActionText(regMany), "5 players are missing a date of birth");
+assertEq("several keep the count", team.teamActionText(regMany), "5 players could use a date of birth");
 assertEq("contact wording for one", team.teamActionText({ id: "contact", affected: [row(1, "Sam Ortiz")] }), "Sam Ortiz has no contact details");
 assertEq("unknown rule falls back to its own detail", team.teamActionText({ id: "future", detail: "something", affected: [row(1, "X")] }), "something");
-assertEq("a nameless player still reads sensibly", team.teamActionText({ id: "registration", affected: [{ id: "r9", player: {} }] }), "Unnamed player is missing a date of birth");
+assertEq("a nameless player still reads sensibly", team.teamActionText({ id: "registration", affected: [{ id: "r9", player: {} }] }), "Unnamed player could use a date of birth");
 const names = team.affectedNames(regMany, 3);
 assertEq("names: first three shown, rest counted", [names.shown.map((r) => r.player.full_name), names.more], [["A One", "B Two", "C Three"], 2]);
 assertEq("names: exactly the limit leaves none over", team.affectedNames({ affected: [row(1, "A"), row(2, "B")] }, 3).more, 0);

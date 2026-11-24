@@ -1,4 +1,5 @@
 import "../../qab-tournaments.css";
+import { QAB_PITCH, QAB_REQUEST_LABEL, QAB_REQUEST_HREF } from "../../../lib/onboarding";
 import Link from "next/link";
 import { getContext } from "../../../lib/context";
 import { seasonGameLinkLabel } from "../../../lib/performance-links";
@@ -292,9 +293,10 @@ function PerformancePremium() {
           </li>
         </ul>
 
-        <p className="perf-locked-note">
-          Performance is not enabled for your organization.
-        </p>
+        <div className="perf-locked-note perf-qab-request">
+          <p>{QAB_PITCH}</p>
+          <a className="btn btn-primary" href={QAB_REQUEST_HREF}>{QAB_REQUEST_LABEL}</a>
+        </div>
       </section>
     </div>
   );

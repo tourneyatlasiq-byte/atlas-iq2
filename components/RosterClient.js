@@ -301,7 +301,11 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
     setFormError(null);
     run(action, formData, () => {
       setEditing(null);
-      closeDetail();
+      // Only an open drawer needs closing. With none open (adding a person from
+      // the page), closeDetail() still navigated to the page's own address while
+      // the data refresh was in flight; the two raced and the new row could be
+      // missing until the next save (13 of 50 repeated saves in testing).
+      if (detail) closeDetail();
       toast(isNew ? `Added ${savedName || "the person"} to the roster.` : `Saved changes to ${savedName || "the player"}.`);
     });
   }
@@ -417,12 +421,15 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
           >
             <span
               className={`briefing-dot ${
-                actions[0].priority <= 15 ? "dot-urgent"
+                actions[0].id === "registration" ? "dot-planning"
+                  : actions[0].priority <= 15 ? "dot-urgent"
                   : actions[0].priority <= 30 ? "dot-attention" : "dot-planning"
               }`}
               aria-hidden="true"
             />
-            <span className="roster-needs-label">Needs action</span>
+            {/* A date of birth is optional and a new player usually has only a
+                name, so this is a prompt to finish the record, not an alert. */}
+            <span className="roster-needs-label">{actions[0].id === "registration" ? "Complete player details" : "Needs action"}</span>
             <span className="roster-needs-lead">{teamActionText(actions[0])}</span>
             {actions.length > 1 && (
               <span className="roster-needs-more">+{actions.length - 1} more</span>
@@ -449,7 +456,7 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
                     >
                       <span
                         className={`briefing-dot ${
-                          a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
+                          a.id === "registration" ? "dot-planning" : a.priority <= 15 ? "dot-urgent" : a.priority <= 30 ? "dot-attention" : "dot-planning"
                         }`}
                         aria-hidden="true"
                       />
@@ -1480,7 +1487,7 @@ export function PlayerForm({ row, pending, error = null, onSubmit, onCancel }) {
                 </div>
                 <div className="field">
                   <label htmlFor="player_phone_staff">Phone</label>
-                  <input id="player_phone_staff" name="player_phone" defaultValue={p.player_phone ?? ""} />
+                  <input id="player_phone_staff" name="player_phone" type="tel" inputMode="tel" autoComplete="tel" defaultValue={p.player_phone ?? ""} />
                 </div>
               </div>
             )}
@@ -1625,7 +1632,7 @@ export function PlayerForm({ row, pending, error = null, onSubmit, onCancel }) {
                   </div>
                   <div className="field">
                     <label htmlFor="player_phone">Player phone</label>
-                    <input id="player_phone" name="player_phone" defaultValue={p.player_phone ?? ""} />
+                    <input id="player_phone" name="player_phone" type="tel" inputMode="tel" autoComplete="tel" defaultValue={p.player_phone ?? ""} />
                   </div>
                 </div>
               </>
@@ -1664,7 +1671,7 @@ export function PlayerForm({ row, pending, error = null, onSubmit, onCancel }) {
                   </div>
                   <div className="field">
                     <label htmlFor="contact_phone">Phone</label>
-                    <input id="contact_phone" name="contact_phone" />
+                    <input id="contact_phone" name="contact_phone" type="tel" inputMode="tel" autoComplete="tel" />
                   </div>
                 </div>
               </>

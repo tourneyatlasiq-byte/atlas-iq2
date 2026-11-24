@@ -358,7 +358,7 @@ function Editor({ form, setForm, onSave, onCancel, pending,
         </div>
         <div className="field">
           <label htmlFor="c_phone">Phone</label>
-          <input id="c_phone" value={form.phone} onChange={set("phone")} />
+          <input id="c_phone" type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} />
         </div>
       </div>
       {/* Beside the fields that failed, not at the top of a panel the coach

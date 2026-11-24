@@ -34,6 +34,7 @@ const read = (rel) => fs.readFileSync(R(rel), "utf8");
 const mocks = new Map();
 const React = require("react");
 mocks.set("next/navigation", { useRouter: () => ({ push() {}, replace() {}, refresh() {} }), usePathname: () => "/help", useSearchParams: () => new URLSearchParams() });
+mocks.set("../lib/actions/onboarding", { showGettingStarted: async () => ({ ok: true }) });
 mocks.set("next/link", { __esModule: true, default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) });
 const origLoad = Module._load;
 Module._load = function (request, parent, ...rest) {
@@ -188,7 +189,11 @@ const progressOf = (doneIds, qab = true) => {
   const ids = ["name-team", "roster", "tournament", "dues", "game", ...(qab ? ["lineup"] : [])];
   const hrefs = { "name-team": null, roster: "/team", tournament: "/tournaments", dues: "/finance?tab=player-payments", game: "/tournaments", lineup: "/performance" };
   const steps = ids.map((id) => ({ id, done: doneIds.includes(id), href: hrefs[id], creates: !["dues", "game", "lineup"].includes(id), label: id }));
-  return { steps, done: steps.filter((x) => x.done).length, total: steps.length };
+  // Same shape as app/(app)/help/progress.js: the count is the four setup steps; dues are optional.
+  const counted = steps.filter((x) => ["name-team", "roster", "tournament", "dues"].includes(x.id));
+  // `complete` is Home's rule (setupComplete): every REQUIRED step done; optional dues do not count.
+  const complete = ["name-team", "roster", "tournament"].every((id) => doneIds.includes(id));
+  return { steps, done: counted.filter((x) => x.done).length, total: counted.length, optionalIds: ["dues"], complete, hidden: false };
 };
 const html = (el) => renderToStaticMarkup(el);
 const progress = progressOf(["name-team", "roster", "tournament"]);
@@ -196,8 +201,15 @@ const home = html(React.createElement(center.HelpHome, { progress, access: COACH
 ok("home asks 'How can we help?' with one Search Help box", /<h1>How can we help\?<\/h1>/.test(home) && (home.match(/id="ha-input"/g) ?? []).length === 1);
 ok("home shows Popular, not a directory of guides", /Popular/.test(home) && (home.match(/class="hc-guide-card"/g) ?? []).length === 0);
 ok("Popular is four questions", (home.match(/class="ha-popular-item"/g) ?? []).length, 4);
-ok("home shows setup progress with Continue setup", /Get your team ready/.test(home) && /3 of 6 complete/.test(home) && />Continue setup →</.test(home));
-ok("3+ done: compact — next step and View all steps, checklist folded away", /class="hc-progress compact"/.test(home) && /Next:<\/span> <!-- -->?set dues|Next:<\/span> ?dues/.test(home) && /<details class="hc-progress-all"><summary>View all steps<\/summary>/.test(home));
+ok("required steps done, dues not: Help shows You're set up, not unfinished setup", /You(&#x27;|’)re set up/.test(home) && !/Get your team ready/.test(home) && !/Continue setup/.test(home) && !/3 of 4 completed/.test(home) && !/Next:<\/span>/.test(home) && !/hc-progress-bar/.test(home));
+ok("required steps done: optional dues stay reachable but are not required", />dues<\/a><span class="hc-optional"> \(optional\)/.test(home) && /href="\/finance\?tab=player-payments"/.test(home));
+const inProgress = progressOf(["name-team", "roster"]);
+const inProgressHtml = html(React.createElement(center.HelpHome, { progress: inProgress, access: COACH, from: null }));
+ok("required step left: Help shows setup progress with Continue setup", /Get your team ready/.test(inProgressHtml) && /2 of 4 completed/.test(inProgressHtml) && />Continue setup →</.test(inProgressHtml) && !/You(&#x27;|’)re set up/.test(inProgressHtml));
+const duesFirst = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster", "dues"]), access: COACH, from: null }));
+ok("dues done but a required step left: compact, and Next is the required step, not dues", /class="hc-progress compact"/.test(duesFirst) && /3 of 4 completed/.test(duesFirst) && /Next:<\/span> tournament/.test(duesFirst) && /<details class="hc-progress-all"><summary>View all steps<\/summary>/.test(duesFirst));
+const duesSkipped = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster", "tournament", "game"]), access: COACH, from: null }));
+ok("dues never listed as unfinished required setup once required steps are done", !/\(optional\)<\/span>.*hc-progress-bar/.test(duesSkipped) && !/Continue setup/.test(duesSkipped) && /You(&#x27;|’)re set up/.test(duesSkipped));
 const early = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster"]), access: COACH, from: null }));
 ok("fewer than 3 done: the full checklist, not compact", !/hc-progress compact/.test(early) && !/View all steps/.test(early) && (early.match(/class="hc-progress-mark"/g) ?? []).length === 6);
 ok("home offers Browse all guides and Contact support", /Browse all guides/.test(home) && /Contact support/.test(home));
@@ -206,10 +218,21 @@ ok("home Back returns to the drawer", /<a href="\/tournaments\?open=t1" class="h
 const browse = html(React.createElement(center.HelpHome, { progress, access: COACH, from: "/tournaments?open=t1", showGuides: true }));
 ok("Browse all guides lists all nine", (browse.match(/class="hc-guide-card"/g) ?? []).length, 9);
 ok("guide cards carry the return path", /href="\/help\/qab\?from=%2Ftournaments%3Fopen%3Dt1"/.test(browse));
-const past = html(React.createElement(center.HelpHome, { progress, access: { ...COACH, phase: "past" }, from: null }));
+const past = html(React.createElement(center.HelpHome, { progress: inProgress, access: { ...COACH, phase: "past" }, from: null }));
 ok("past season: progress explains instead of offering Continue setup", /viewing a past season/.test(past) && !/Continue setup/.test(past));
 const doneAll = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster", "tournament", "dues", "game", "lineup"]), access: COACH, from: null }));
-ok("finished setup: the progress card steps aside", /Get your team ready/.test(doneAll), false);
+ok("finished setup: the progress card steps aside", /Get your team ready/.test(doneAll) || /You(&#x27;|’)re set up/.test(doneAll), false);
+const hiddenP = { ...progressOf(["name-team", "roster"]), hidden: true };
+const hiddenHtml = html(React.createElement(center.HelpHome, { progress: hiddenP, access: COACH, from: null }));
+ok("hidden checklist: Help offers Show checklist on Home", /Show checklist on Home/.test(hiddenHtml));
+ok("checklist not hidden: no restore button", /Show checklist on Home/.test(early), false);
+const hiddenDone = html(React.createElement(center.HelpHome, { progress: { ...progressOf(["name-team", "roster", "tournament", "dues", "game", "lineup"]), hidden: true }, access: COACH, from: null }));
+ok("hidden and everything done: restore is still reachable", /Show checklist on Home/.test(hiddenDone) && !/Get your team ready/.test(hiddenDone));
+ok("dues are labelled optional in Help", /Set dues<\/span>|\(optional\)/.test(early));
+const noQabHtml = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team", "roster"], false), access: { ...COACH, qab: false }, from: null }));
+ok("no QAB: request sits outside the count, with the approved sentence", /Request QAB access/.test(noQabHtml) && /Available on request during early access/.test(noQabHtml) && /mailto:support@seasontempo\.com\?subject=Quality%20at-bat%20tracking%20request/.test(noQabHtml));
+const withQab = html(React.createElement(center.HelpHome, { progress: progressOf(["name-team"]), access: { ...COACH, qab: true }, from: null }));
+ok("with QAB: no request block", /Request QAB access/.test(withQab), false);
 const noQab = progressOf(["name-team"], false);
 ok("no QAB: no batting-order step", noQab.steps.some((x) => x.id === "lineup"), false);
 const noQabHome = html(React.createElement(center.HelpHome, { progress: noQab, access: { ...COACH, qab: false }, from: null }));

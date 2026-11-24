@@ -4,6 +4,8 @@ import { HELP_GUIDES, actionState, helpHref, helpReturn, isHelpLink } from "../l
 import { HelpGuidePicker, HelpSearch } from "./HelpTools";
 import { HelpAsk } from "./HelpAsk";
 import { popularAnswers } from "../lib/help-answers";
+import { completedLabel, QAB_PITCH, QAB_REQUEST_LABEL, QAB_REQUEST_HREF } from "../lib/onboarding";
+import { ChecklistRestore } from "./ShowChecklistButton";
 
 /**
  * Help & Getting Started (V1, 2026-11).
@@ -67,6 +69,8 @@ export function HelpHome({ progress, access, from, query = "", answer = null, sh
         initialAnswer={answer}
       >
         <SetupProgress progress={progress} access={access} from={fromHref} />
+        {/* Always mounted in this spot so its confirmation survives the refresh it triggers. */}
+        <ChecklistRestore hidden={Boolean(progress?.hidden)} />
 
         <p className="hc-more">
           <Link href={`${helpHref("/help?view=guides", fromHref)}#all-guides`}>Browse all guides</Link>
@@ -105,8 +109,12 @@ export function HelpHome({ progress, access, from, query = "", answer = null, sh
  * anything is left, including for a coach who hid the checklist on Home.
  */
 function SetupProgress({ progress, access, from }) {
-  if (!progress || progress.done === progress.total) return null;
-  const next = progress.steps.find((s) => !s.done && s.href) ?? progress.steps.find((s) => !s.done);
+  if (!progress) return null;
+  if (progress.steps.every((s) => s.done)) return null;
+  if (progress.complete) return <SetupDone progress={progress} access={access} />;
+  // Optional steps (dues) are never "next" while a required step is open.
+  const optional = progress.optionalIds ?? [];
+  const next = progress.steps.find((s) => !s.done && s.href && !optional.includes(s.id)) ?? progress.steps.find((s) => !s.done && !optional.includes(s.id));
   // A past season takes no new setup; say so rather than send anyone into it.
   const state = next?.href
     ? access.phase === "past"
@@ -120,10 +128,11 @@ function SetupProgress({ progress, access, from }) {
 
   const list = (
     <ul className="hc-progress-list">
-      {progress.steps.map((s) => (
-        <li key={s.id} className={s.done ? "done" : undefined}>
+      {progress.steps.map((s, i) => (
+        <li key={s.id} className={`${s.done ? "done" : ""}${i === progress.total ? " hc-after" : ""}`.trim() || undefined}>
+          {i === progress.total && <span className="hc-after-label">After setup</span>}
           <span className="hc-progress-mark" aria-hidden="true">{s.done ? "✓" : ""}</span>
-          <span>{s.label}{s.done && <span className="visually-hidden"> (done)</span>}</span>
+          <span>{s.label}{progress.optionalIds?.includes(s.id) && !s.done && <span className="hc-optional"> (optional)</span>}{s.done && <span className="visually-hidden"> (done)</span>}</span>
         </li>
       ))}
     </ul>
@@ -133,7 +142,7 @@ function SetupProgress({ progress, access, from }) {
     <section className={`hc-progress${compact ? " compact" : ""}`} id="checklist" aria-labelledby="hc-progress-title">
       <div className="hc-progress-head">
         <h2 id="hc-progress-title">Get your team ready</h2>
-        <span className="hc-progress-count">{progress.done} of {progress.total} complete</span>
+        <span className="hc-progress-count">{completedLabel(progress.done, progress.total)}</span>
       </div>
       <div className="hc-progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done} aria-label="Setup progress">
         <span style={{ width: `${pct}%` }} />
@@ -159,6 +168,50 @@ function SetupProgress({ progress, access, from }) {
           {list}
           <Link href={helpHref("/help/setup", from)} className="ha-guide-link">Setup guide →</Link>
         </details>
+      )}
+
+      {!access.qab && (
+        <div className="hc-qab">
+          <p className="hc-qab-title">Quality at-bat tracking</p>
+          <p>{QAB_PITCH}</p>
+          <a className="btn btn-secondary" href={QAB_REQUEST_HREF}>{QAB_REQUEST_LABEL}</a>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Required setup is finished (the same rule Home uses). Nothing here reads as
+ * unfinished: no progress bar, no count, no "Continue setup". What is left is
+ * offered as things to do whenever the coach is ready.
+ */
+function SetupDone({ progress, access }) {
+  const later = progress.steps.filter((s) => !s.done && s.href);
+  const optional = progress.optionalIds ?? [];
+  const past = access.phase === "past";
+  return (
+    <section className="hc-progress hc-progress-done" id="checklist" aria-labelledby="hc-progress-title">
+      <div className="hc-progress-head">
+        <h2 id="hc-progress-title">You&rsquo;re set up</h2>
+      </div>
+      <p className="hc-progress-next">Your team, roster and first tournament are in. Whenever you are ready:</p>
+      {!past && (
+        <ul className="hc-progress-list">
+          {later.map((s) => (
+            <li key={s.id}>
+              <Link href={s.href}>{s.label}</Link>
+              {optional.includes(s.id) && <span className="hc-optional"> (optional)</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!access.qab && (
+        <div className="hc-qab">
+          <p className="hc-qab-title">Quality at-bat tracking</p>
+          <p>{QAB_PITCH}</p>
+          <a className="btn btn-secondary" href={QAB_REQUEST_HREF}>{QAB_REQUEST_LABEL}</a>
+        </div>
       )}
     </section>
   );

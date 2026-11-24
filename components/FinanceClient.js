@@ -639,6 +639,7 @@ export function FinanceClient({
           seasonPhase={seasonPhase}
           onOpenDues={openPastDueList}
           onSetUp={() => setTeamScheduleOpen(true)}
+          onSetDues={() => { goToTab("payments"); setEditPay("new"); }}
         />
       </div>
 
@@ -706,6 +707,7 @@ export function FinanceClient({
         seasonPhase={seasonPhase}
         onOpenDues={openPastDueList}
         onSetUp={() => setTeamScheduleOpen(true)}
+        onSetDues={() => { goToTab("payments"); setEditPay("new"); }}
       />
 
       {/* Phones: the four sections, then the parent report. */}
@@ -3163,7 +3165,7 @@ function PaymentForm({ row, players, presetPlayerId = null, existing, pending, o
  * known it says it is checking. When some players have no schedule the total is labeled as being
  * among scheduled players only, so it cannot look complete. Recording a payment stays in Player Dues.
  */
-function pastDueState({ payments, schedules, today, canWrite, seasonPhase }) {
+function pastDueState({ payments, schedules, today, canWrite, seasonPhase, onSetDues }) {
   const people = (payments ?? []).filter((p) => !p.exempt);
   const out = { lab: "Past due", txt: "", sub: "", action: null };
   if (seasonPhase === "past") {
@@ -3180,7 +3182,13 @@ function pastDueState({ payments, schedules, today, canWrite, seasonPhase }) {
     const noneNote = `${none} ${none === 1 ? "player has" : "players have"} no schedule`;
     const setUp = canWrite ? { kind: "setup", label: "Set up team schedule" } : null;
     if (none > 0 && scheduled > 0) out.lab = "Past due among scheduled players";
-    if (scheduled === 0 && none > 0) {
+    if ((payments ?? []).length === 0) {
+      // Nobody has dues yet: past due cannot exist, and "nothing past due" would
+      // read as good news. Say what is missing and what to do.
+      out.lab = "Set up"; out.txt = "No dues set yet";
+      out.sub = canWrite ? "Set what each player owes first. Past due is worked out from payment schedules." : "Past due appears once the team sets player dues.";
+      out.action = canWrite ? { kind: "dues-new", label: "Set player dues" } : null;
+    } else if (scheduled === 0 && none > 0) {
       out.lab = "Set up"; out.txt = "No payment schedules yet";
       out.sub = `${noneNote}, so past due cannot be worked out.`;
       out.action = setUp;
@@ -3199,35 +3207,36 @@ function pastDueState({ payments, schedules, today, canWrite, seasonPhase }) {
   return out;
 }
 
-function PastDueAction({ action, onOpenDues, onSetUp }) {
+function PastDueAction({ action, onOpenDues, onSetUp, onSetDues }) {
   if (!action) return null;
+  const click = action.kind === "dues" ? onOpenDues : action.kind === "dues-new" ? onSetDues : onSetUp;
   return (
-    <button type="button" className="btn btn-primary" onClick={action.kind === "dues" ? onOpenDues : onSetUp}>{action.label}</button>
+    <button type="button" className="btn btn-primary" onClick={click}>{action.label}</button>
   );
 }
 
 /** The third tile on the desktop Finance overview. */
-function PastDueTile({ onOpenDues, onSetUp, ...input }) {
+function PastDueTile({ onOpenDues, onSetUp, onSetDues, ...input }) {
   const st = pastDueState(input);
   return (
     <section className="st-nextact" aria-label="Past due">
       <span className="st-eyebrow">{st.lab}</span>
       <p>{st.txt}</p>
       <span className="st-nextact-sub">{st.sub}</span>
-      {st.action && <div className="st-nextact-acts"><PastDueAction action={st.action} onOpenDues={onOpenDues} onSetUp={onSetUp} /></div>}
+      {st.action && <div className="st-nextact-acts"><PastDueAction action={st.action} onOpenDues={onOpenDues} onSetUp={onSetUp} onSetDues={onSetDues} /></div>}
     </section>
   );
 }
 
 /** The same summary as a compact card on the phone overview. */
-function PastDueCompact({ onOpenDues, onSetUp, ...input }) {
+function PastDueCompact({ onOpenDues, onSetUp, onSetDues, ...input }) {
   const st = pastDueState(input);
   return (
     <section className="fin-m-pastdue" aria-label="Past due">
       <span className="st-eyebrow">{st.lab}</span>
       <p className="fin-m-pd-txt">{st.txt}</p>
       <span className="fin-m-pd-sub">{st.sub}</span>
-      {st.action && <div className="fin-m-pd-act"><PastDueAction action={st.action} onOpenDues={onOpenDues} onSetUp={onSetUp} /></div>}
+      {st.action && <div className="fin-m-pd-act"><PastDueAction action={st.action} onOpenDues={onOpenDues} onSetUp={onSetUp} onSetDues={onSetDues} /></div>}
     </section>
   );
 }

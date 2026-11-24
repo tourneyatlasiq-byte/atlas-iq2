@@ -211,8 +211,10 @@ const season = { id: S, name: "2026-27", team: { id: "t", name: "Bramblewood 14U
     };
     // Fee parsing lives in lib/tournament-cost.js (moved unchanged); load the real source.
     const { feesFrom } = new Function(src("lib", "tournament-cost.js").replace(/export function/g, "function") + "\nreturn { feesFrom };")();
-    const { addTournament, updateTournament } = new Function("revalidatePath", "createClient", "requireSeasonContext", "canWrite", "isValidDecision", "isValidPaidStatus", "PARENT_DETAILS_MAX", "feesFrom", body)(
-      () => {}, () => ({ from: () => builder() }), async () => ({ profile: {}, organization: { id: "org1" }, season: { id: "sea1" } }), () => true, () => true, () => true, 2000, feesFrom);
+    // The date rule lives in lib/dates.js; load the real source, not a copy.
+    const { dateRangeError } = new Function(src("lib", "dates.js").replace(/export (const|function)/g, "$1") + "\nreturn { dateRangeError };")();
+    const { addTournament, updateTournament } = new Function("revalidatePath", "createClient", "requireSeasonContext", "canWrite", "isValidDecision", "isValidPaidStatus", "PARENT_DETAILS_MAX", "feesFrom", "dateRangeError", body)(
+      () => {}, () => ({ from: () => builder() }), async () => ({ profile: {}, organization: { id: "org1" }, season: { id: "sea1" } }), () => true, () => true, () => true, 2000, feesFrom, dateRangeError);
     const form = (o) => { const f = new FormData(); for (const [k, v] of Object.entries({ id: "t1", name: "Peach State", start_date: "2027-06-11", ...o })) f.set(k, v); return f; };
 
     let r = await updateTournament(form({ parent_details: "  Hotel block closes Oct 1\nCode PEACH  ", notes: "private", travel_type: "Stay-to-Play" }));

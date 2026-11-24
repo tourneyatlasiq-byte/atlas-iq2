@@ -46,7 +46,7 @@ import { DECISIONS, PAID_STATUSES, statusLine, statusFacets, registrationState, 
 import { nextStep } from "../lib/tournament-next-step";
 import { MoreActionsMenu } from "./MoreActionsMenu";
 import { SeasonStrip } from "./SeasonStrip";
-import { fmtDateRange } from "../lib/dates";
+import { fmtDateRange, dateRangeError } from "../lib/dates";
 import { WeekendCard, directionsUrl as weekendDirections, fmtTime } from "./WeekendCard";
 import { useQuickStatus, QuickButton } from "./QuickStatus";
 import { StatusFacets } from "./StatusFacets";
@@ -277,6 +277,11 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
     const action = isNew ? addTournament : updateTournament;
     const savedName = String(formData.get("name") ?? "").trim();
 
+    // Same rule the server enforces (lib/dates.js), checked first so the coach
+    // sees it at once with everything they typed still in the form.
+    const datesError = dateRangeError(formData.get("start_date"), formData.get("end_date"));
+    if (datesError) { setFormError(datesError); return; }
+
     runMutation(action, formData, {
       // ONE navigation for a new tournament. Setting ?open (a push) and then
       // refreshing the route sent two overlapping navigations, and the screen
@@ -442,7 +447,9 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
       )}
 
       {view === "plan" && (<>
-      {/* 1. Season summary */}
+      {/* 1. Season summary. With no tournaments there is nothing to summarise,
+          and a row of zeros plus "Schedule is in order" reads as an achievement. */}
+      {tournaments.length > 0 && (
       <div className="tiq-band">
         <div className="tiq-band-grid">
           <SeasonStats summary={summary} record={record} tournaments={tournaments} />
@@ -487,6 +494,7 @@ export function TournamentClient({ qabEnabled = false, tournaments, actions, sum
           </section>
         </div>
       </div>
+      )}
 
       {activeAction && (
         <FilterChip

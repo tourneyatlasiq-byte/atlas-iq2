@@ -3,19 +3,20 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { hideGettingStarted } from "../lib/actions/onboarding";
-import { setupComplete } from "../lib/onboarding";
+import { setupComplete, completedLabel, QAB_PITCH, QAB_REQUEST_LABEL, QAB_REQUEST_HREF } from "../lib/onboarding";
 
 /**
  * Getting started card.
  *
- * Five steps, each launching a workflow that already exists. Completion is
+ * Four steps (dues are optional), each launching a workflow that already exists. Completion is
  * derived from real data, so there is nothing to tick off and nothing that can
  * fall out of step with reality.
  *
- * The card disappears on its own once all five are done. Hide it is there for
- * a coach who genuinely doesn't need one of them.
+ * Once the required steps are done the card becomes a short "You're set up"
+ * note. Hide is there for a coach who doesn't want it, and Help > Setup can
+ * bring it back.
  */
-export function GettingStarted({ steps }) {
+export function GettingStarted({ steps, qab = false }) {
   const complete = setupComplete(steps);
   const [hidden, setHidden] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -31,8 +32,8 @@ export function GettingStarted({ steps }) {
         <div>
           <p className="gs-complete-title">You&rsquo;re set up</p>
           <p className="gs-complete-body">
-            Your team, roster, first tournament and dues are in. Season Tempo has what it needs to
-            run the season from here.
+            Your team, roster and first tournament are in. Season Tempo has what it needs to
+            run the season from here.{steps.some((s) => s.optional && !s.done) ? " Player dues are optional; set them whenever you are ready." : ""}
           </p>
         </div>
         <button
@@ -59,7 +60,7 @@ export function GettingStarted({ steps }) {
           <p className="gs-sub">Set up the basics and Season Tempo will take it from here.</p>
         </div>
         <div className="gs-progress">
-          <span className="gs-count">{done} of {steps.length} done</span>
+          <span className="gs-count">{completedLabel(done, steps.length)}</span>
           <button
             className="btn btn-ghost"
             disabled={pending}
@@ -80,7 +81,7 @@ export function GettingStarted({ steps }) {
           <li key={s.id} className={s.done ? "gs-done" : undefined}>
             <span className="gs-mark" aria-hidden="true">{s.done ? "✓" : ""}</span>
             <span className="gs-text">
-              <span className="gs-title">{s.title}</span>
+              <span className="gs-title">{s.title}{s.optional && !s.done && <span className="gs-optional"> (optional)</span>}</span>
               <span className="gs-detail">{s.detail}</span>
             </span>
             {!s.done && s.href && (
@@ -94,6 +95,14 @@ export function GettingStarted({ steps }) {
           </li>
         ))}
       </ol>
+
+      {!qab && (
+        <div className="gs-qab">
+          <p className="gs-qab-title">Quality at-bat tracking</p>
+          <p className="gs-qab-text">{QAB_PITCH}</p>
+          <a className="btn btn-secondary" href={QAB_REQUEST_HREF}>{QAB_REQUEST_LABEL}</a>
+        </div>
+      )}
     </div>
   );
 }

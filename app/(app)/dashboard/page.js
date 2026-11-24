@@ -88,7 +88,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {!profile?.onboarding_hidden && <GettingStarted steps={steps} />}
+      {!profile?.onboarding_hidden && <GettingStarted steps={steps} qab={Boolean(features?.qab)} />}
       <DashboardClient
       setupComplete={setupComplete(steps)}
       context={{

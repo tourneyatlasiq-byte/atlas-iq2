@@ -20,6 +20,28 @@ html:root :focus-visible { outline: 2.5px solid var(--ink); outline-offset: 2px;
 
 /* ---------- Type ---------- */
 html:root h1, html:root h2, html:root h3 { color: var(--ink); }
+/* Dark banners need their own heading colour: the rule above outranks a plain class. */
+html:root .perf-name { color: #fff; }
+/* First-time-user polish (2026-11): optional marker, QAB request block, restore control. */
+.gs-optional, .hc-optional { font-weight: 400; color: var(--slate); }
+.hc-progress-done .hc-progress-next { margin: 6px 0 12px; font-weight: 400; color: var(--slate); }
+.hc-progress-done .hc-progress-list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.hc-progress-done .hc-progress-list a { color: var(--navy); font-weight: 600; text-decoration: none; }
+.hc-progress-done .hc-progress-list a:hover { text-decoration: underline; }
+.gs-qab, .hc-qab { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border, #e3e7ee); display: grid; gap: 6px; justify-items: start; }
+.gs-qab-title, .hc-qab-title { margin: 0; font-size: 13px; font-weight: 700; }
+.gs-qab-text, .hc-qab p:not(.hc-qab-title) { margin: 0; font-size: 13px; line-height: 1.5; color: var(--slate); max-width: 60ch; }
+.hc-qab p { margin: 0; }
+.hc-restore { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding: 14px 16px; border: 1px solid var(--border, #e3e7ee); border-radius: 12px; background: #fff; }
+.hc-restore p { margin: 0; font-size: 13.5px; }
+.hc-restore-done { margin: 0; font-size: 13.5px; }
+.hc-after { list-style: none; margin-top: 8px; }
+.hc-after-label { display: block; flex-basis: 100%; font-size: 12px; font-weight: 600; color: var(--slate); margin-bottom: 4px; }
+.gs-qab .btn, .hc-qab .btn, .hc-restore .btn { min-height: 40px; }
+@media (max-width: 640px) { .gs-qab .btn, .hc-qab .btn, .hc-restore .btn { min-height: 44px; } }
+.perf-qab-request { margin: 14px 0 0; display: grid; gap: 10px; justify-items: start; }
+.perf-qab-request .btn { min-height: 44px; }
+
 html:root .page-head h1 { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1.02; letter-spacing: -0.035em; }
 html:root .page-sub { color: var(--muted); font-size: 14.5px; }
 html:root .detail-section-title,

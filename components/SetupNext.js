@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { gettingStartedSteps, nextStep, setupComplete } from "../lib/onboarding";
+import { gettingStartedSteps, nextStep, setupComplete, completedLabel } from "../lib/onboarding";
 
 /**
  * Keeps a first-time coach oriented after finishing a setup step.
@@ -28,7 +28,7 @@ export function SetupNext({ steps, hidden, currentStepId }) {
   return (
     <div className="setup-next">
       <span className="setup-next-progress">
-        Step {doneCount} of {steps.length}
+        {completedLabel(doneCount, steps.length)}
       </span>
 
       {current?.done && next ? (

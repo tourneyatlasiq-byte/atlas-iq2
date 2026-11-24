@@ -1,4 +1,5 @@
 import { setupState } from "../../../components/SetupNext";
+import { setupComplete } from "../../../lib/onboarding";
 
 /**
  * Setup progress for Help & Getting Started (2026-11). Read-only.
@@ -35,5 +36,18 @@ export async function helpProgress(supabase, ctx, { qab = false } = {}) {
     ...(qab ? [{ id: "lineup", done: (lineups.count ?? 0) > 0, href: "/performance", creates: false }] : []),
   ].map((s) => ({ ...s, label: LABELS[s.id][s.done ? 0 : 1] }));
 
-  return { steps, done: steps.filter((s) => s.done).length, total: steps.length };
+  // The count is the four setup steps, the same four Home shows ("2 of 4
+  // completed"). First game and first batting order are things to do next, not
+  // part of that count.
+  const counted = steps.filter((s) => base.steps.some((b) => b.id === s.id));
+  return {
+    steps,
+    done: counted.filter((s) => s.done).length,
+    total: counted.length,
+    countedIds: counted.map((s) => s.id),
+    optionalIds: base.steps.filter((b) => b.optional).map((b) => b.id),
+    // Home's own rule: every REQUIRED step done. Optional dues never hold setup open.
+    complete: setupComplete(base.steps),
+    hidden: base.hidden,
+  };
 }

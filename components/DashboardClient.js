@@ -30,7 +30,7 @@ import { longDayLabel } from "../lib/local-date";
  * emphasis and wording only. Writes go through the same server actions as the
  * modules, gated by canWrite.
  */
-const dotClass = (p) => (p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "dot-planning");
+const dotClass = (p, id) => (id === "team:registration" ? "dot-planning" : p <= 15 ? "dot-urgent" : p <= 30 ? "dot-attention" : "dot-planning");
 const ACTION_LIMIT = 6;
 
 export function DashboardClient({
@@ -131,7 +131,7 @@ export function DashboardClient({
             <ul className="st-tasks">
               {shown.map((a) => (
                 <li key={a.id} className="st-task">
-                  <span className={`briefing-dot ${dotClass(a.priority)}`} aria-hidden="true" />
+                  <span className={`briefing-dot ${dotClass(a.priority, a.id)}`} aria-hidden="true" />
                   <div style={{ minWidth: 0 }}>
                     <Link href={a.href} className="st-task-title">{plainLanguage(a)}</Link>
                     {a.moduleKey === "tournaments" && a.affected?.length > 0 && (
