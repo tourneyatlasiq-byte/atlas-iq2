@@ -92,6 +92,23 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`;
 }
 
+// Stable name order for roster ties: last name, then first name (preferred, else legal), then id.
+// Uses only the stored name fields. It never splits full_name to guess a surname; a legacy record
+// with no last name sorts by its whole full_name in that position.
+function rosterNameKey(row) {
+  const p = row.player ?? {};
+  const last = String(p.last_name ?? p.full_name ?? "").trim();
+  const first = String(p.preferred_first_name ?? p.legal_first_name ?? "").trim();
+  return [last, first];
+}
+function compareRosterNames(a, b) {
+  const [al, af] = rosterNameKey(a);
+  const [bl, bf] = rosterNameKey(b);
+  return al.localeCompare(bl, undefined, { sensitivity: "base" })
+    || af.localeCompare(bf, undefined, { sensitivity: "base" })
+    || String(a.id ?? "").localeCompare(String(b.id ?? ""));
+}
+
 export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = false, documentTargets, seasonName, teamName, matchCandidates = [], seasonPhase = "current", autoOpen = false, paymentIdByPlayer = {}, qabReportPlayerIds = [], pickups = [], orgPlayerCount = 0, contacts = [], recruiting = {} }) {
 
   // Drawer state lives in the URL, so refresh and Back behave properly.
@@ -233,9 +250,13 @@ export function RosterClient({ rows, assignable, summary, canWrite, isAdmin = fa
       .filter((r) => !q || (r.player?.full_name ?? "").toLowerCase().includes(q))
       .sort((a, b) => {
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-        if (a.jersey_number == null) return 1;
-        if (b.jersey_number == null) return -1;
-        return a.jersey_number - b.jersey_number;
+        // Numbered players first, by number; players without a number after them.
+        if (a.jersey_number == null && b.jersey_number != null) return 1;
+        if (b.jersey_number == null && a.jersey_number != null) return -1;
+        if (a.jersey_number != null && a.jersey_number !== b.jersey_number) return a.jersey_number - b.jersey_number;
+        // Same number, or both without one: last name, first name, then id, so the order
+        // is the same for the same data and does not reshuffle after an unrelated save.
+        return compareRosterNames(a, b);
       });
   }, [rows, query, filter, activeAction]);
 

@@ -1581,3 +1581,8 @@ html:root .fin-m-pastdue { display: none; }
   html:root .fin-m-pd-act { padding-top: 8px; }
   html:root .fin-m-pd-act .btn { width: 100%; min-height: 44px; justify-content: center; }
 }
+
+/* Past tournaments read quietly: regular weight on every part of the row, desktop and phone.
+   Upcoming rows keep their weights. The alternating shading is unchanged. */
+html:root .t-row.t-row-past,
+html:root .t-row.t-row-past * { font-weight: 400; }

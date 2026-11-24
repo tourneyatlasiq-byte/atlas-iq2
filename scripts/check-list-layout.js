@@ -47,5 +47,6 @@ ok("it never derives past due from a balance", !/\.balance/.test(tile));
 ok("without schedules it shows a setup state with the count of players with no schedule", /No payment schedules yet/.test(tile) && /noScheduleCount/.test(tile) && /players have/.test(tile) && /no schedule/.test(tile));
 ok("setup opens the team schedule sheet for people who can write", /kind: "setup"/.test(tile) && /canWrite/.test(tile) && /setTeamScheduleOpen\(true\)/.test(fin));
 ok("Record payment remains in Player Dues", /onClick=\{\(\) => onRecord\(p\)\}|Record payment/.test(fin) && /setPaying\(/.test(fin));
+ok("past tournament rows use regular weight on every part, upcoming rows are not targeted", /\.t-row\.t-row-past \*\s*\{\s*font-weight:\s*400/.test(css) && !/\.t-row:not\(\.t-row-past\)[^{]*font-weight:\s*400/.test(css));
 console.log(`${ran - failed}/${ran} checks passed`);
 process.exit(failed ? 1 : 0);

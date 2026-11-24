@@ -10,6 +10,7 @@ import { linkTournamentResource, unlinkTournamentResource } from "../lib/actions
 import { PageHelp } from "./PageHelp";
 import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { useLocalToday } from "./useLocalToday";
+import { daysBetween, utcDateIso } from "../lib/local-date";
 import { featuredTournament } from "../lib/featured-tournament";
 import { isPast } from "../lib/performance-tournament";
 import { useOpenParam } from "./useOpenParam";
@@ -96,12 +97,12 @@ function refreshAfterFormCloses(router) {
   setTimeout(go, 600);
 }
 
-function daysUntil(date) {
-  if (!date) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  return Math.round(
-    (new Date(date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
-  );
+// Whole calendar days from today (the device's date) to a tournament date. Display only.
+// It used the UTC date, which is already tomorrow after about 7pm Eastern, so the count
+// could be off by one in the evening. Callers pass the device date from useLocalToday.
+function daysUntil(date, today) {
+  if (!date || !today) return null;
+  return daysBetween(today, date);
 }
 
 /**
@@ -818,6 +819,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
   // Bumped by the quick action to open the Add game form further down the
   // drawer, without lifting that form's state out of GamesSection.
   const [addGameSignal, setAddGameSignal] = useState(0);
+  const deviceToday = useLocalToday(utcDateIso());
   const [pickingLine, setPickingLine] = useState(false);
   const [linkError, setLinkError] = useState(null);
   const [linking, startLinking] = useTransition();
@@ -1012,7 +1014,7 @@ export function TournamentDetail({ qabEnabled = false, t, canWrite, isAdmin, doc
               facility={t.facility}
               notes={arrivalNotes?.[t.facility?.id]}
               phase={phase}
-              startsInDays={daysUntil(t.start_date)}
+              startsInDays={daysUntil(t.start_date, deviceToday)}
             />
 
             {(t.resources ?? []).length === 0 ? (
@@ -1698,6 +1700,7 @@ export function TournamentForm({ row, providers, facilities, pending, error = nu
  * payment and the game count, which Home deliberately does not.
  */
 function TiqNextUp({ tournament: t }) {
+  const deviceToday = useLocalToday(utcDateIso());
   if (!t) {
     return (
       <section className="nextup nextup-empty tiq-nextup">
@@ -1715,7 +1718,7 @@ function TiqNextUp({ tournament: t }) {
     );
   }
 
-  const days = daysUntil(t.start_date);
+  const days = daysUntil(t.start_date, deviceToday);
   const status = statusParts(t.paid_status);
   const gameCount = (t.games ?? []).length;
 

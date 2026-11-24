@@ -96,3 +96,11 @@ Verified at 390px with a real tap, real keystrokes and a shrunken viewport for t
 - Phones get the same summary as a compact card above the Finance sections.
 - Not changed: Team action-button styles and extra mobile roster fields (deferred). No database changes.
 - Verified in the test rig only: desktop and 390px, click and tap, missing-cost Considering row, expanded budget categories, Pickup and Inactive roster views. Checks 109/109, screens 109/109, build passes. Rig data restored.
+
+
+## V7 (supersedes V6; includes everything in V6)
+- Checked the three reported tournament issues against current code: facility carry-over, facility name carried into Add facility, and new tournament appearing after save without navigating were already fixed. Reproduced at 390px in the test rig with no failures. No change made for them.
+- Days until now uses the device date (was the UTC date, one day off after about 7pm Eastern). Display only. The UTC future-score rule is untouched.
+- Roster order: active first, then jersey number (unchanged), then last name, first name, id. Uses stored name fields only, never splits a full name.
+- Past tournament rows: regular font weight on every part, desktop and phone. Upcoming rows unchanged.
+- Not included: email template application and delivery tests (separate, need approval). No database changes.
