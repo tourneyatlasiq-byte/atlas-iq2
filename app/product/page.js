@@ -40,6 +40,7 @@ export default async function ProductPage() {
               <a href="#tournaments">Tournaments</a>
               <a href="#qab">Quality at-bats</a>
               <a href="#money">Money</a>
+              <a href="#team">Team</a>
               <a href="#season">The season</a>
               <a href="#faq">Questions</a>
             </nav>
@@ -113,6 +114,7 @@ export default async function ProductPage() {
               </p>
               <ul className="sx-ticks">
                 <li><b>Player dues.</b> Who has paid, who has not, and how much is outstanding.</li>
+                <li><b>Payment schedules and past due.</b> Set installment dates and amounts, review and apply schedules to selected players, and see who is behind schedule.</li>
                 <li><b>Parent budget report.</b> A printable summary of the season budget.</li>
               </ul>
             </div>
@@ -122,7 +124,21 @@ export default async function ProductPage() {
           </div>
         </section>
 
-        <section className="sx-section sx-alt sx-anchor" id="season" aria-labelledby="s-h">
+        <section className="sx-section sx-alt sx-anchor" id="team" aria-labelledby="team-h">
+          <div className="sx-wrap">
+            <h2 className="sx-h2" id="team-h">Bring your roster. Invite coaches.</h2>
+            <p className="sx-p sx-lede-tight">
+              Start from the spreadsheet you already have, and let the people who help run the team sign in.
+            </p>
+            <div className="sx-also">
+              <div className="sx-card"><h3 className="sx-h3">Roster import and export</h3><p>Import players from Excel or CSV and review them before saving. Only a name is required. Export your roster whenever you need a spreadsheet.</p></div>
+              <div className="sx-card"><h3 className="sx-h3">Coach access</h3><p>Invite coaches and managers to help run your team. The owner chooses each person&rsquo;s role and team. Sign in by email link or code.</p></div>
+              <div className="sx-card"><h3 className="sx-h3">Built-in Help</h3><p>Find answers to common questions, with links to the relevant screens. Guides cover setup, tournaments, money and quality <span className="sx-nb">at-bats</span>.</p></div>
+            </div>
+          </div>
+        </section>
+
+        <section className="sx-section sx-anchor" id="season" aria-labelledby="s-h">
           <div className="sx-wrap">
             <h2 className="sx-h2" id="s-h">A season, start to finish.</h2>
             <ol className="sx-strip">

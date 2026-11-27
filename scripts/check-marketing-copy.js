@@ -37,6 +37,10 @@ const REQUIRED = [
   ["app/page.js", "Explore QAB reports", "Home reports link"],
   ["app/page.js", "Request QAB access", "QAB request button"],
   ["app/product/page.js", "See your planned budget, paid expenses, unpaid commitments and available budget. Committed tournament costs are included before payment.", "Product money paragraph"],
+  ["app/product/page.js", "Payment schedules and past due.", "Product dues schedules bullet"],
+  ["app/product/page.js", "Roster import and export", "Product roster import and export card"],
+  ["app/product/page.js", "Coach access", "Product coach access card"],
+  ["app/product/page.js", "Built-in Help", "Product built-in Help card"],
   ["components/MarketingChrome.js", "/quality-at-bats", "Quality at-bats nav link"],
   ["app/page.js", "Record each plate appearance and choose one primary reason when it qualifies as a quality at-bat.", "QAB explanation"],
 ];
